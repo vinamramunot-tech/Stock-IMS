@@ -1,0 +1,21 @@
+{
+  "name": "mava-gems-stock",
+  "version": "1.0.0",
+  "description": "Premium, secure desktop stock management for jewelry inventory.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "keywords": [
+    "jewelry",
+    "inventory",
+    "stock",
+    "security",
+    "electron"
+  ],
+  "author": "Antigravity",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^33.0.2"
+  }
+}

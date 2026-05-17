@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mava Gems | Jewelry Stock Management</title>
+  
+  <!-- Premium Google Fonts: Playfair Display for Luxury Headings, Inter for legible tabular data -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ==================== MAIN WORKSPACE CONTAINER ==================== -->
+  <div id="app-workspace" class="workspace-container">
+    
+    <!-- HEADER BAR -->
+    <header class="app-header">
+      <div class="header-left">
+        <span class="logo-serif">Mava Gems</span>
+        <span class="divider">|</span>
+        <span class="app-mode">STOCK MANAGEMENT</span>
+      </div>
+
+      <!-- Universal 24KT Gold Rate Card -->
+      <div class="header-middle">
+        <div class="gold-rate-display" id="gold-rate-banner">
+          <span class="rate-label">UNIVERSAL 24KT RATE:</span>
+          <span class="rate-value" id="header-gold-rate">₹0.00 / g</span>
+          <span class="rate-date" id="header-gold-date">No date set</span>
+          <button type="button" id="btn-edit-gold-rate" class="btn-icon" title="Update universal 24KT gold rate">
+            <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <div class="vault-info">
+          <span class="vault-status-indicator"></span>
+          <span id="active-vault-name" title="Database Path">Documents/mava_gems_stock.db</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- METRICS SUMMARY ROW -->
+    <section class="metrics-bar">
+      <div class="metric-card gold-border">
+        <span class="metric-label">TOTAL STOCK VALUATION</span>
+        <span class="metric-value text-gold" id="metric-total-valuation">₹0.00</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-label">TOTAL PIECES</span>
+        <span class="metric-value" id="metric-total-pieces">0</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-label">TOTAL GOLD WEIGHT</span>
+        <span class="metric-value" id="metric-gold-weight">0.00 g</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-label">TOTAL GEMSTONES</span>
+        <span class="metric-value" id="metric-gem-weight">0.00 cts</span>
+      </div>
+    </section>
+
+    <!-- WORKSPACE SPLIT LAYOUT -->
+    <div class="workspace-body">
+      <!-- SIDEBAR -->
+      <aside class="workspace-sidebar">
+        <nav class="sidebar-nav">
+          <button type="button" class="nav-item active" data-target="tab-catalog">
+            <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg>
+            Stock Catalog
+          </button>
+          <button type="button" class="nav-item" id="btn-nav-add-item">
+            <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            Add Jewelry Piece
+          </button>
+          <button type="button" class="nav-item" data-target="tab-logs">
+            <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+            Activity Logs
+          </button>
+          <button type="button" class="nav-item" data-target="tab-settings">
+            <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h-3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+            Vault Settings
+          </button>
+        </nav>
+        
+        <div class="sidebar-footer">
+          <p class="copyright">Mava Gems 1.0</p>
+          <p class="offline-tag">Direct Database Mode</p>
+        </div>
+      </aside>
+
+      <!-- MAIN WORKSPACE WORKAREA -->
+      <main class="workspace-main">
+        
+        <!-- ==================== TAB: CATALOG ==================== -->
+        <div id="tab-catalog" class="tab-content active">
+          
+          <!-- SEARCH & FILTERS -->
+          <div class="filter-bar">
+            <div class="search-box">
+              <input type="text" id="search-input" placeholder="Search by name, SKU, metal...">
+              <svg viewBox="0 0 24 24" width="18" height="18" class="search-icon"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+            </div>
+
+            <div class="filters-group">
+              <select id="filter-category" class="filter-select">
+                <option value="">All Categories</option>
+                <option value="Ring">Rings</option>
+                <option value="Necklace">Necklaces</option>
+                <option value="Earrings">Earrings</option>
+                <option value="Bracelet">Bracelets</option>
+                <option value="Pendant">Pendants</option>
+                <option value="Other">Others</option>
+              </select>
+
+              <select id="filter-karat" class="filter-select">
+                <option value="">All Karats</option>
+                <option value="24">24KT Gold</option>
+                <option value="22">22KT Gold</option>
+                <option value="18">18KT Gold</option>
+                <option value="14">14KT Gold</option>
+                <option value="10">10KT Gold</option>
+              </select>
+
+              <select id="sort-items" class="filter-select">
+                <option value="newest">Newest Added</option>
+                <option value="val-high">Valuation (High to Low)</option>
+                <option value="val-low">Valuation (Low to High)</option>
+                <option value="name-az">Name (A-Z)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- CATALOG GRID -->
+          <div id="catalog-grid" class="catalog-grid-container">
+            <!-- Dynamic cards will render here -->
+          </div>
+
+          <!-- EMPTY STATE -->
+          <div id="catalog-empty-state" class="empty-state-card hidden">
+            <h2 class="empty-title">No Stock Items Found</h2>
+            <p class="empty-description">Create your first jewelry entry by clicking the sidebar button.</p>
+            <button type="button" id="btn-empty-add" class="btn btn-primary">Add Jewelry Piece</button>
+          </div>
+        </div>
+
+        <!-- ==================== TAB: LOGS ==================== -->
+        <div id="tab-logs" class="tab-content hidden">
+          <div class="tab-header-row">
+            <h2 class="section-title">Audit Trail & Activity Logs</h2>
+            <button type="button" id="btn-clear-logs" class="btn btn-secondary btn-small">Clear Activity History</button>
+          </div>
+          
+          <div class="logs-container">
+            <table class="logs-table">
+              <thead>
+                <tr>
+                  <th style="width: 15%;">TIMESTAMP</th>
+                  <th style="width: 10%;">ACTION</th>
+                  <th style="width: 25%;">AFFECTED RECORD</th>
+                  <th style="width: 50%;">DETAILS</th>
+                </tr>
+              </thead>
+              <tbody id="logs-tbody">
+                <!-- Dynamic logs render here -->
+              </tbody>
+            </table>
+            
+            <div id="logs-empty-state" class="empty-state-card hidden">
+              <p class="empty-description">No activity logs recorded yet.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==================== TAB: SETTINGS ==================== -->
+        <div id="tab-settings" class="tab-content hidden">
+          <h2 class="section-title">Database Settings</h2>
+          
+          <div class="settings-grid">
+            
+            <!-- Card: Database Management -->
+            <div class="settings-card">
+              <h3>Vault File Configuration</h3>
+              <p class="settings-card-desc">Move your database file, import an external backup, or export a copy of the database.</p>
+              
+              <div class="settings-info-box">
+                <span class="label">ACTIVE PATH:</span>
+                <span class="value code" id="settings-vault-path">/Users/username/Documents/MavaGemsJewelleryStock/mava_gems_stock.db</span>
+              </div>
+
+              <div class="settings-actions-row">
+                <button type="button" id="btn-relocate-vault" class="btn btn-secondary">Relocate Vault Directory...</button>
+                <button type="button" id="btn-export-backup" class="btn btn-secondary">Export Vault Backup (.db)</button>
+                <button type="button" id="btn-import-backup" class="btn btn-secondary">Import Database Backup...</button>
+              </div>
+            </div>
+
+            <!-- Card: Reset System -->
+            <div class="settings-card dangerous">
+              <h3>Erase System Vault</h3>
+              <p class="settings-card-desc">Permanently erase the current database. This is a destructive operation and CANNOT be undone.</p>
+              <button type="button" id="btn-erase-vault" class="btn btn-danger">Erase Local Database File...</button>
+            </div>
+            
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: GOLD RATE UPDATE ==================== -->
+  <div id="modal-gold-rate" class="modal-overlay hidden">
+    <div class="modal-card mini">
+      <div class="modal-header">
+        <h3>Update 24KT Gold Rate</h3>
+        <button type="button" class="btn-close modal-close-trigger">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-instructions">Input the current market price for 24KT pure gold. All stock valuations will immediately recompute based on this rate.</p>
+        
+        <div class="input-group">
+          <label for="gold-rate-input">Price (₹ per Gram)</label>
+          <input type="number" id="gold-rate-input" step="0.01" min="0" placeholder="e.g. 7500">
+        </div>
+
+        <div class="input-group">
+          <label for="gold-rate-date">Effective Date</label>
+          <input type="date" id="gold-rate-date">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary modal-close-trigger">Cancel</button>
+        <button type="button" id="btn-save-gold-rate" class="btn btn-primary">Update Valuation Rate</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: JEWELRY ITEM FORM ==================== -->
+  <div id="modal-jewelry-item" class="modal-overlay hidden">
+    <div class="modal-card large">
+      <div class="modal-header">
+        <h3 id="jewelry-modal-title">Add New Jewelry Piece</h3>
+        <button type="button" class="btn-close modal-close-trigger">&times;</button>
+      </div>
+      
+      <!-- Tab Header Navigation inside Modal -->
+      <div class="modal-tabs">
+        <button type="button" class="modal-tab-btn active" data-tab="form-tab-general">1. GENERAL</button>
+        <button type="button" class="modal-tab-btn" data-tab="form-tab-metals">2. METALS</button>
+        <button type="button" class="modal-tab-btn" data-tab="form-tab-stones">3. STONES</button>
+        <button type="button" class="modal-tab-btn" data-tab="form-tab-diamonds">4. DIAMONDS / POLKI</button>
+        <button type="button" class="modal-tab-btn" data-tab="form-tab-summary">5. SUMMARY & SAVING</button>
+      </div>
+
+      <div class="modal-body form-modal-body">
+        <form id="jewelry-form" onsubmit="return false;">
+          
+          <!-- TAB 1: GENERAL INFO -->
+          <div id="form-tab-general" class="modal-tab-content active">
+            <div class="form-grid-row">
+              <div class="form-col-6">
+                <div class="input-group">
+                  <label for="item-name">Jewelry Piece Name <span class="required">*</span></label>
+                  <input type="text" id="item-name" placeholder="e.g. Classic Emerald Solitaire Ring" required>
+                </div>
+                <div class="input-group">
+                  <label for="item-sku">SKU / Code <span class="required">*</span></label>
+                  <input type="text" id="item-sku" placeholder="e.g. RING-EM-002" required>
+                </div>
+                <div class="input-group">
+                  <label for="item-category">Category <span class="required">*</span></label>
+                  <select id="item-category" required>
+                    <option value="Ring">Ring</option>
+                    <option value="Necklace">Necklace</option>
+                    <option value="Earrings">Earrings</option>
+                    <option value="Bracelet">Bracelet</option>
+                    <option value="Pendant">Pendant</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div class="input-group">
+                  <label for="item-labour">Labour Cost (₹)</label>
+                  <input type="number" id="item-labour" step="0.01" min="0" placeholder="0.00" class="recalc-trigger">
+                </div>
+              </div>
+              
+              <div class="form-col-6">
+                <!-- Resizable client-side image compression area -->
+                <div class="input-group">
+                  <label>Jewelry Image</label>
+                  <div class="image-uploader-box" id="image-dropzone">
+                    <input type="file" id="item-image-file" accept="image/*" class="hidden">
+                    <div id="uploader-prompt">
+                      <svg viewBox="0 0 24 24" width="32" height="32" class="upload-icon"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
+                      <p>Drag jewelry photo here or <span>browse</span></p>
+                      <span class="help-text">Image will be resized & compressed locally.</span>
+                    </div>
+                    <div id="uploader-preview" class="hidden">
+                      <img src="" id="uploaded-img-el" alt="Jewelry Preview">
+                      <button type="button" id="btn-remove-image" class="btn-remove">&times;</button>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="input-group">
+                  <label for="item-description">Description / Notes</label>
+                  <textarea id="item-description" rows="3" placeholder="Describe craftsmanship, settings, hallmark information..."></textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 2: METAL DETAILS -->
+          <div id="form-tab-metals" class="modal-tab-content hidden">
+            <div class="tab-section-intro">
+              <h4>Metal Components Breakdown</h4>
+              <p>Add the individual metal components of the piece. Different parts of a single piece may use different gold karats (e.g. Chain vs Body). Metal values will calculate automatically based on their karat and the global gold rate.</p>
+            </div>
+            
+            <div id="metals-list-container">
+              <!-- Dynamic metal parts go here -->
+            </div>
+
+            <button type="button" id="btn-add-metal-part" class="btn btn-secondary mt-10">
+              <svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align:-3px; margin-right:4px;"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+              Add Metal Component Part
+            </button>
+          </div>
+
+          <!-- TAB 3: STONE DETAILS -->
+          <div id="form-tab-stones" class="modal-tab-content hidden">
+            <div class="tab-section-intro">
+              <h4>Colored Gemstones</h4>
+              <p>Select the gemstones embedded in this piece. You can add multiple different stones. Supports absolute bidirectional calculations (editing weight & rate per carat auto-updates total value, and editing total value directly auto-recalculates rate per carat).</p>
+            </div>
+            
+            <!-- Checklist selector -->
+            <div class="stone-preset-selector">
+              <span class="selector-title">ADD GEMSTONE COMPONENT:</span>
+              <div class="preset-buttons">
+                <button type="button" class="btn btn-secondary btn-small btn-add-stone" data-stone="Emerald">+ Emerald</button>
+                <button type="button" class="btn btn-secondary btn-small btn-add-stone" data-stone="Ruby">+ Ruby</button>
+                <button type="button" class="btn btn-secondary btn-small btn-add-stone" data-stone="Sapphire">+ Sapphire</button>
+                <button type="button" class="btn btn-secondary btn-small btn-add-stone" data-stone="Other Semi-Precious">+ Semi-Precious</button>
+              </div>
+            </div>
+
+            <div id="stones-list-container" class="mt-20">
+              <!-- Dynamic stone list cards -->
+            </div>
+          </div>
+
+          <!-- TAB 4: DIAMONDS & POLKI -->
+          <div id="form-tab-diamonds" class="modal-tab-content hidden">
+            <div class="tab-section-intro">
+              <h4>Diamonds & Polki Elements</h4>
+              <p>Add diamonds and Polki settings. Supports multiple shapes, sizes, weights, and bidirectional rate calculations.</p>
+            </div>
+
+            <div class="stone-preset-selector">
+              <span class="selector-title">ADD DIAMOND / POLKI COMPONENT:</span>
+              <div class="preset-buttons">
+                <button type="button" class="btn btn-secondary btn-small btn-add-dp" data-type="Diamond">+ Diamond</button>
+                <button type="button" class="btn btn-secondary btn-small btn-add-dp" data-type="Polki">+ Polki</button>
+              </div>
+            </div>
+
+            <div id="dp-list-container" class="mt-20">
+              <!-- Dynamic diamonds/polki cards -->
+            </div>
+          </div>
+
+          <!-- TAB 5: SUMMARY & VALUATION -->
+          <div id="form-tab-summary" class="modal-tab-content hidden">
+            <div class="tab-section-intro">
+              <h4>Valuation Summary & Commission Breakdown</h4>
+              <p>Review the calculated totals, adjust the labour cost if necessary, and check the automatic commission slab. You can also manually override the commission value directly.</p>
+            </div>
+
+            <div class="summary-grid">
+              <!-- Left side: subtotals list -->
+              <div class="summary-subtotals-col">
+                <div class="subtotal-item">
+                  <span class="subtotal-lbl">Metal Parts Value:</span>
+                  <span class="subtotal-val" id="summary-metal-subtotal">₹0.00</span>
+                </div>
+                <div class="subtotal-item">
+                  <span class="subtotal-lbl">Colored Gemstones Value:</span>
+                  <span class="subtotal-val" id="summary-stone-subtotal">₹0.00</span>
+                </div>
+                <div class="subtotal-item">
+                  <span class="subtotal-lbl">Diamonds or Polki Value:</span>
+                  <span class="subtotal-val" id="summary-dp-subtotal">₹0.00</span>
+                </div>
+                <div class="subtotal-item">
+                  <span class="subtotal-lbl">Labour Cost:</span>
+                  <span class="subtotal-val" id="summary-labour-subtotal">₹0.00</span>
+                </div>
+                
+                <div class="subtotal-item grand-subtotal-row">
+                  <span class="subtotal-lbl font-bold">SUBTOTAL (M+S+D+L):</span>
+                  <span class="subtotal-val font-bold" id="summary-subtotal">₹0.00</span>
+                </div>
+
+                <!-- Slab display indicator -->
+                <div class="slab-badge-indicator" id="slab-indicator">
+                  Commission Bracket: Below ₹25,000 → 10%
+                </div>
+              </div>
+
+              <!-- Right side: final valuation & commission inputs -->
+              <div class="summary-commission-col">
+                <div class="commission-calculator-box">
+                  <div class="comm-header">
+                    <label for="item-commission">Commission (₹)</label>
+                    <button type="button" id="btn-toggle-manual-commission" class="btn-text btn-small hidden">Reset to Auto</button>
+                  </div>
+                  <div class="commission-input-row">
+                    <input type="number" id="item-commission" step="0.01" min="0" placeholder="0.00">
+                    <span id="comm-percentage-badge" class="percentage-badge">10%</span>
+                  </div>
+                  <span class="help-text block-help">This field is auto-calculated based on slabs, but you can edit it directly to override.</span>
+                </div>
+
+                <div class="grand-total-card">
+                  <span class="grand-total-lbl">FINAL VALUATION</span>
+                  <span class="grand-total-val" id="summary-grand-total">₹0.00</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </form>
+      </div>
+      
+      <div class="modal-footer">
+        <div class="modal-footer-left">
+          <span class="required">*</span> Required Fields
+        </div>
+        <div class="modal-footer-right">
+          <button type="button" class="btn btn-secondary modal-close-trigger">Close Form</button>
+          <button type="button" id="btn-save-jewelry-piece" class="btn btn-primary">Save Jewelry Item</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== CONFIRM DIALOG: ERASE VAULT ==================== -->
+  <div id="modal-erase-confirm" class="modal-overlay hidden">
+    <div class="modal-card mini dangerous-card">
+      <div class="modal-header">
+        <h3>Erase Secure Vault?</h3>
+        <button type="button" class="btn-close modal-close-trigger">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-instructions font-bold">WARNING: This operation will permanently delete your stock data file from your drive.</p>
+        <p class="modal-instructions">Please type <span class="code">ERASE</span> below to confirm this destructive operation.</p>
+        <div class="input-group mt-15">
+          <input type="text" id="erase-confirm-input" placeholder="Type ERASE">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary modal-close-trigger">Cancel</button>
+        <button type="button" id="btn-erase-vault-confirm" class="btn btn-danger" disabled>Erase Vault Database</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SYSTEM TOAST ALERT ==================== -->
+  <div id="toast-alert" class="toast hidden">
+    <span id="toast-message">Success!</span>
+  </div>
+
+  <!-- Load Scripts (Note: crypto-helper.js removed from load sequences since encryption is not needed) -->
+  <script src="js/db-manager.js"></script>
+  <script src="js/calc.js"></script>
+  <script src="js/logs.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

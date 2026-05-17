@@ -1,0 +1,690 @@
+/**
+ * Master Application Coordinator for Mava Gems (Direct-Access Edition)
+ * Manages view states, direct boot loaders, search catalog grids, logs, and settings.
+ */
+
+const App = {
+  activeTab: 'tab-catalog',
+
+  async init() {
+    // 1. Bootstrap and load the local database file instantly
+    await this.bootstrapDatabase();
+
+    // 2. Tab switching navigation listeners
+    const navItems = document.querySelectorAll('.nav-item[data-target]');
+    navItems.forEach(item => {
+      item.addEventListener('click', () => {
+        const target = item.getAttribute('data-target');
+        this.switchTab(target);
+      });
+    });
+
+    // Sidebar special Add Item button click listener
+    document.getElementById('btn-nav-add-item').addEventListener('click', () => {
+      UI.resetForm();
+      document.getElementById('jewelry-modal-title').textContent = "Add New Jewelry Piece";
+      UI.openModal('modal-jewelry-item');
+    });
+
+    // 3. Modal close elements wire up
+    const closeTriggers = document.querySelectorAll('.modal-close-trigger');
+    closeTriggers.forEach(btn => {
+      btn.addEventListener('click', () => {
+        UI.closeModal('modal-jewelry-item');
+        UI.closeModal('modal-gold-rate');
+        UI.closeModal('modal-erase-confirm');
+      });
+    });
+
+    // Gold Rate Modal Update click trigger
+    document.getElementById('btn-edit-gold-rate').addEventListener('click', () => {
+      const currentRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
+      document.getElementById('gold-rate-input').value = currentRate > 0 ? currentRate : '';
+      document.getElementById('gold-rate-date').value = new Date().toISOString().split('T')[0];
+      UI.openModal('modal-gold-rate');
+    });
+    document.getElementById('btn-save-gold-rate').addEventListener('click', () => this.handleUpdateGoldRate());
+
+    // Item modal tab controllers initialization
+    UI.initModalTabs();
+    UI.initImageUploader();
+    UI.initStoneSelectors();
+    UI.initDPSelectors();
+
+    // Dynamic metal row button click
+    document.getElementById('btn-add-metal-part').addEventListener('click', () => {
+      UI.createMetalPartRow();
+      UI.updateFormCalculations();
+    });
+
+    // Manual commission override typing listener
+    const commInput = document.getElementById('item-commission');
+    commInput.addEventListener('input', () => {
+      if (UI.activeItemState) {
+        UI.activeItemState.commission = {
+          value: Number(commInput.value || 0),
+          isManual: true
+        };
+        UI.updateFormCalculations();
+      }
+    });
+
+    // Auto reset commission button click
+    document.getElementById('btn-toggle-manual-commission').addEventListener('click', () => {
+      if (UI.activeItemState) {
+        UI.activeItemState.commission = {
+          value: 0,
+          isManual: false
+        };
+        UI.updateFormCalculations();
+      }
+    });
+
+    // Save jewelry piece click
+    document.getElementById('btn-save-jewelry-piece').addEventListener('click', () => this.handleSaveJewelryPiece());
+
+    // Catalog filtering, searching, and sorting watch inputs
+    document.getElementById('search-input').addEventListener('input', () => this.renderCatalogGrid());
+    document.getElementById('filter-category').addEventListener('change', () => this.renderCatalogGrid());
+    document.getElementById('filter-karat').addEventListener('change', () => this.renderCatalogGrid());
+    document.getElementById('sort-items').addEventListener('change', () => this.renderCatalogGrid());
+    document.getElementById('btn-empty-add').addEventListener('click', () => {
+      UI.resetForm();
+      UI.openModal('modal-jewelry-item');
+    });
+
+    // Settings actions listeners
+    document.getElementById('btn-relocate-vault').addEventListener('click', () => this.handleRelocateVault());
+    document.getElementById('btn-export-backup').addEventListener('click', () => this.handleExportBackup());
+    document.getElementById('btn-import-backup').addEventListener('click', () => this.handleImportBackup());
+    document.getElementById('btn-erase-vault').addEventListener('click', () => {
+      document.getElementById('erase-confirm-input').value = '';
+      document.getElementById('btn-erase-vault-confirm').disabled = true;
+      UI.openModal('modal-erase-confirm');
+    });
+    
+    document.getElementById('erase-confirm-input').addEventListener('input', (e) => {
+      const confirmBtn = document.getElementById('btn-erase-vault-confirm');
+      confirmBtn.disabled = e.target.value !== 'ERASE';
+    });
+    document.getElementById('btn-erase-vault-confirm').addEventListener('click', () => this.handleEraseVault());
+    document.getElementById('btn-clear-logs').addEventListener('click', () => this.handleClearLogs());
+  },
+
+  /**
+   * Bootstrap Database loading routine.
+   * Loads from disk directly, or auto-creates if missing.
+   */
+  async bootstrapDatabase(customPath) {
+    try {
+      const defaultPath = customPath || await window.electronAPI.getDefaultPath();
+      
+      const loadResult = await DBManager.loadVault(defaultPath);
+      
+      if (loadResult.success) {
+        // Populate path indicators in UI
+        document.getElementById('active-vault-name').textContent = defaultPath;
+        document.getElementById('active-vault-name').title = defaultPath;
+        document.getElementById('settings-vault-path').textContent = defaultPath;
+        
+        UI.showToast("Database successfully loaded!");
+        this.refreshAllDisplays();
+      }
+    } catch (err) {
+      console.error(err);
+      UI.showToast("Database file read failure: " + err.message, true);
+    }
+  },
+
+  /**
+   * Refresh views
+   */
+  refreshAllDisplays() {
+    this.renderDashboard();
+    this.renderCatalogGrid();
+    this.renderActivityLogs();
+    
+    // Update settings tab path display
+    document.getElementById('settings-vault-path').textContent = DBManager.activePath || '';
+  },
+
+  switchTab(tabId) {
+    this.activeTab = tabId;
+
+    // Nav active toggle
+    const navItems = document.querySelectorAll('.nav-item[data-target]');
+    navItems.forEach(item => {
+      const target = item.getAttribute('data-target');
+      if (target === tabId) {
+        item.classList.add('active');
+      } else {
+        item.classList.remove('active');
+      }
+    });
+
+    // Content active toggle
+    const contents = document.querySelectorAll('.tab-content');
+    contents.forEach(c => {
+      if (c.id === tabId) {
+        c.classList.remove('hidden');
+        c.classList.add('active');
+      } else {
+        c.classList.remove('active');
+        c.classList.add('hidden');
+      }
+    });
+
+    this.refreshAllDisplays();
+  },
+
+  /**
+   * Dashboard Rendering
+   */
+  renderDashboard() {
+    const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
+    const items = DBManager.getItems();
+
+    // Rates header rendering
+    const dateStr = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.effectiveDate : '';
+    document.getElementById('header-gold-rate').textContent = goldRate > 0 ? `₹${goldRate.toLocaleString()}/g` : '₹0.00/g';
+    document.getElementById('header-gold-date').textContent = dateStr ? `Effective: ${new Date(dateStr).toLocaleDateString('en-IN', {day: '2-digit', month: 'short', year: 'numeric'})}` : 'No date set';
+
+    let totalPortfolioValuation = 0;
+    let totalGoldWeight = 0;
+    let totalGemWeight = 0;
+
+    items.forEach(item => {
+      const evaluation = Calc.evaluateItem(item, goldRate);
+      totalPortfolioValuation += evaluation.grandTotal;
+
+      // Sum metals weight
+      const metals = item.metals || [];
+      metals.forEach(m => totalGoldWeight += Number(m.weight || 0));
+
+      // Sum stones weight (cts)
+      const stones = item.stones || [];
+      stones.forEach(s => totalGemWeight += Number(s.weight || 0));
+
+      // Sum diamonds weight (cts)
+      const dp = item.diamondsPolki || [];
+      dp.forEach(d => totalGemWeight += Number(d.weight || 0));
+    });
+
+    // Render Metrics Box
+    document.getElementById('metric-total-valuation').textContent = `₹${totalPortfolioValuation.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    document.getElementById('metric-total-pieces').textContent = items.length;
+    document.getElementById('metric-gold-weight').textContent = `${totalGoldWeight.toFixed(2)} g`;
+    document.getElementById('metric-gem-weight').textContent = `${totalGemWeight.toFixed(2)} cts`;
+  },
+
+  /**
+   * Catalog Grid Rendering
+   */
+  renderCatalogGrid() {
+    const gridContainer = document.getElementById('catalog-grid');
+    const emptyState = document.getElementById('catalog-empty-state');
+    
+    const query = document.getElementById('search-input').value.toLowerCase().trim();
+    const filterCat = document.getElementById('filter-category').value;
+    const filterKarat = document.getElementById('filter-karat').value;
+    const sortVal = document.getElementById('sort-items').value;
+
+    const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
+    const allItems = DBManager.getItems();
+
+    // Clear grid
+    gridContainer.innerHTML = '';
+
+    // Filter Items
+    let filtered = allItems.filter(item => {
+      // 1. Text Search
+      const matchesSearch = !query || 
+        (item.name || '').toLowerCase().includes(query) || 
+        (item.sku || '').toLowerCase().includes(query) || 
+        (item.description || '').toLowerCase().includes(query) ||
+        (item.metals || []).some(m => (m.name || '').toLowerCase().includes(query));
+
+      // 2. Category Filter
+      const matchesCat = !filterCat || item.category === filterCat;
+
+      // 3. Karat Filter
+      const matchesKarat = !filterKarat || (item.metals || []).some(m => m.karat == filterKarat);
+
+      return matchesSearch && matchesCat && matchesKarat;
+    });
+
+    // Evaluate valuation before sorting so we can sort dynamically by calculated values!
+    filtered = filtered.map(item => {
+      const evaluation = Calc.evaluateItem(item, goldRate);
+      return {
+        ...item,
+        calculatedTotal: evaluation.grandTotal,
+        evaluation: evaluation
+      };
+    });
+
+    // Sort Items
+    if (sortVal === 'newest') {
+      filtered.sort((a, b) => Number(b.id.split('_')[1] || 0) - Number(a.id.split('_')[1] || 0));
+    } else if (sortVal === 'val-high') {
+      filtered.sort((a, b) => b.calculatedTotal - a.calculatedTotal);
+    } else if (sortVal === 'val-low') {
+      filtered.sort((a, b) => a.calculatedTotal - b.calculatedTotal);
+    } else if (sortVal === 'name-az') {
+      filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    }
+
+    if (filtered.length === 0) {
+      gridContainer.classList.add('hidden');
+      emptyState.classList.remove('hidden');
+      return;
+    }
+
+    emptyState.classList.add('hidden');
+    gridContainer.classList.remove('hidden');
+
+    filtered.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'product-card';
+
+      // Build specs preview string
+      const metalsStr = (item.metals || []).map(m => `${m.karat}KT (${m.weight}g)`).join(', ');
+      
+      let stonesSum = 0;
+      (item.stones || []).forEach(s => stonesSum += Number(s.weight || 0));
+      (item.diamondsPolki || []).forEach(d => stonesSum += Number(d.weight || 0));
+
+      const imageHtml = item.image 
+        ? `<img src="${item.image}" alt="${item.name}" class="product-img">`
+        : `<svg viewBox="0 0 24 24" width="60" height="60" class="product-fallback-svg"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H7c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.04-.42 1.99-1.07 2.75z"/></svg>`;
+
+      card.innerHTML = `
+        <div class="product-img-box">
+          ${imageHtml}
+          <div class="product-cat-badge">${item.category || 'Jewelry'}</div>
+        </div>
+        <div class="product-body">
+          <div class="product-meta">
+            <div class="product-sku">${item.sku || 'SKU-NONE'}</div>
+            <h3 class="product-title">${item.name || 'Unnamed Piece'}</h3>
+          </div>
+          
+          <div class="product-specs">
+            <div class="specs-line" title="${metalsStr}"><strong>Metal:</strong> ${metalsStr || 'None added'}</div>
+            <div class="specs-line"><strong>Gemstones:</strong> ${stonesSum > 0 ? stonesSum.toFixed(2) + ' cts total' : 'None added'}</div>
+            <div class="specs-line" style="margin-bottom:0;" title="${item.description || ''}"><strong>Notes:</strong> ${item.description || 'No description'}</div>
+          </div>
+          
+          <div class="product-price-row">
+            <div>
+              <div class="price-lbl">VALUATION AT CURRENT RATE</div>
+              <div class="price-val">₹${item.calculatedTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+            </div>
+            <div class="product-actions">
+              <button type="button" class="btn btn-secondary btn-small btn-edit" title="Edit details">Edit</button>
+              <button type="button" class="btn btn-danger btn-small btn-delete" title="Delete piece">Delete</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Event Wire up
+      card.querySelector('.btn-edit').addEventListener('click', () => {
+        document.getElementById('jewelry-modal-title').textContent = "Edit Jewelry Piece";
+        UI.loadItemIntoForm(item);
+        UI.openModal('modal-jewelry-item');
+      });
+
+      card.querySelector('.btn-delete').addEventListener('click', () => {
+        this.handleDeleteItem(item);
+      });
+
+      gridContainer.appendChild(card);
+    });
+  },
+
+  /**
+   * Save Jewelry Item additions / edits
+   */
+  async handleSaveJewelryPiece() {
+    const name = document.getElementById('item-name').value.trim();
+    const sku = document.getElementById('item-sku').value.trim();
+    const category = document.getElementById('item-category').value;
+    const description = document.getElementById('item-description').value.trim();
+    const labourCost = Number(document.getElementById('item-labour').value || 0);
+
+    if (!name || !sku || !category) {
+      UI.showToast("Please fill all required fields (*) in the General tab.", true);
+      return;
+    }
+
+    // Check duplicate SKUs (only if new, or modified on existing)
+    const isEdit = UI.activeItemState && UI.activeItemState.id;
+    const allItems = DBManager.getItems();
+    const isSkuDuplicate = allItems.some(i => i.sku === sku && (!isEdit || i.id !== UI.activeItemState.id));
+    if (isSkuDuplicate) {
+      UI.showToast(`The SKU code "${sku}" is already in use by another piece.`, true);
+      return;
+    }
+
+    // Reconstruct updated / new item
+    const savedItem = {
+      id: isEdit ? UI.activeItemState.id : 'item_' + Date.now(),
+      name,
+      sku,
+      category,
+      description,
+      image: UI.activeItemState.image || null,
+      metals: [],
+      stones: [],
+      diamondsPolki: [],
+      labourCost,
+      commission: {
+        value: Number(document.getElementById('item-commission').value || 0),
+        isManual: UI.activeItemState.commission ? UI.activeItemState.commission.isManual : false
+      },
+      createdAt: isEdit ? UI.activeItemState.createdAt : new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    // Gather components
+    // Metals
+    const metalRows = document.querySelectorAll('.metal-part-entry-card');
+    metalRows.forEach(row => {
+      const partName = row.querySelector('.metal-part-name').value.trim() || 'Body Component';
+      const karat = Number(row.querySelector('.metal-part-karat').value);
+      const weight = Number(row.querySelector('.metal-part-weight').value || 0);
+      savedItem.metals.push({ name: partName, karat, weight });
+    });
+
+    // Stones
+    const stoneRows = document.querySelectorAll('.stone-entry-card');
+    stoneRows.forEach(row => {
+      const type = row.getAttribute('data-stone-type');
+      const shape = row.querySelector('.stone-shape').value.trim() || 'Mixed';
+      const weight = Number(row.querySelector('.stone-weight').value || 0);
+      const ratePerCarat = Number(row.querySelector('.stone-rate').value || 0);
+      const totalValue = Number(row.querySelector('.stone-total-val').value || 0);
+      savedItem.stones.push({ type, shape, weight, ratePerCarat, totalValue });
+    });
+
+    // Diamonds/Polki
+    const dpRows = document.querySelectorAll('.dp-entry-card');
+    dpRows.forEach(row => {
+      const type = row.getAttribute('data-dp-type');
+      const shape = row.querySelector('.dp-shape').value.trim() || 'Round';
+      const weight = Number(row.querySelector('.dp-weight').value || 0);
+      const ratePerCarat = Number(row.querySelector('.dp-rate').value || 0);
+      const totalValue = Number(row.querySelector('.dp-total-val').value || 0);
+      savedItem.diamondsPolki.push({ type, shape, weight, ratePerCarat, totalValue });
+    });
+
+    // Recalculate dynamic subtotals for logging
+    const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
+    const evaluation = Calc.evaluateItem(savedItem, goldRate);
+    savedItem.commission.value = evaluation.commissionValue; // Cache calculated commission in JSON
+
+    try {
+      if (isEdit) {
+        // Deep Diff
+        const changes = Logs.diffItem(UI.activeItemState, savedItem);
+        const summary = Logs.buildSummary(changes, `Updated ${savedItem.name}`);
+        
+        DBManager.addLog("EDIT", savedItem.id, savedItem.name, summary, changes);
+
+        // Replace item in array
+        const index = DBManager.database.items.findIndex(i => i.id === savedItem.id);
+        if (index !== -1) {
+          DBManager.database.items[index] = savedItem;
+        }
+        UI.showToast("Jewelry details updated successfully!");
+      } else {
+        // Add
+        DBManager.addLog("ADD", savedItem.id, savedItem.name, `Added new jewelry item: ${savedItem.name}`, []);
+        DBManager.database.items.push(savedItem);
+        UI.showToast("New jewelry piece added successfully!");
+      }
+
+      await DBManager.saveVault();
+      UI.closeModal('modal-jewelry-item');
+      this.refreshAllDisplays();
+    } catch (err) {
+      UI.showToast(err.message, true);
+    }
+  },
+
+  /**
+   * Delete Jewelry item
+   */
+  async handleDeleteItem(item) {
+    const check = confirm(`Are you absolutely sure you want to delete "${item.name}" (SKU: ${item.sku}) from stock? This cannot be undone.`);
+    if (!check) return;
+
+    try {
+      DBManager.addLog("DELETE", item.id, item.name, `Deleted jewelry item: ${item.name}`, []);
+      
+      const index = DBManager.database.items.findIndex(i => i.id === item.id);
+      if (index !== -1) {
+        DBManager.database.items.splice(index, 1);
+      }
+
+      await DBManager.saveVault();
+      UI.showToast("Item deleted from stock.");
+      this.refreshAllDisplays();
+    } catch (err) {
+      UI.showToast(err.message, true);
+    }
+  },
+
+  /**
+   * Update Universal 24KT Gold Rate
+   */
+  async handleUpdateGoldRate() {
+    const newRate = Number(document.getElementById('gold-rate-input').value || 0);
+    const dateVal = document.getElementById('gold-rate-date').value;
+
+    if (newRate <= 0) {
+      UI.showToast("Please enter a valid rate price.", true);
+      return;
+    }
+    if (!dateVal) {
+      UI.showToast("Effective date is required.", true);
+      return;
+    }
+
+    const oldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
+    
+    // Update DB
+    DBManager.database.settings.goldRate24kt = {
+      ratePerGram: newRate,
+      effectiveDate: dateVal,
+      updatedAt: new Date().toISOString()
+    };
+
+    // Logging rate rotation
+    const changes = [
+      { field: '24KT Gold Rate per Gram', old: `₹${oldRate.toLocaleString()}`, new: `₹${newRate.toLocaleString()}` },
+      { field: 'Rate Effective Date', old: DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.effectiveDate || 'None' : 'None', new: dateVal }
+    ];
+    DBManager.addLog("GOLD_RATE_UPDATE", "gold_rate_24kt", "Universal Gold Rate", `Updated global gold price from ₹${oldRate.toLocaleString()} to ₹${newRate.toLocaleString()}`, changes);
+
+    try {
+      await DBManager.saveVault();
+      UI.closeModal('modal-gold-rate');
+      UI.showToast("Valuation rates successfully rotated!");
+      this.refreshAllDisplays();
+    } catch (err) {
+      UI.showToast(err.message, true);
+    }
+  },
+
+  /**
+   * Activity logs table rendering
+   */
+  renderActivityLogs() {
+    const tbody = document.getElementById('logs-tbody');
+    const emptyState = document.getElementById('logs-empty-state');
+    const logs = DBManager.getLogs();
+
+    tbody.innerHTML = '';
+
+    if (logs.length === 0) {
+      tbody.parentElement.classList.add('hidden');
+      emptyState.classList.remove('hidden');
+      return;
+    }
+
+    emptyState.classList.add('hidden');
+    tbody.parentElement.classList.remove('hidden');
+
+    logs.forEach(log => {
+      const row = document.createElement('tr');
+      
+      const badgeClass = log.action.toLowerCase() === 'gold_rate_update' ? 'gold' : log.action.toLowerCase();
+      const actionLabel = log.action.replace('_', ' ');
+
+      const timeFormatted = new Date(log.timestamp).toLocaleString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+      });
+
+      // Diff visual rendering if edits exist
+      let diffHtml = '';
+      if (log.changes && log.changes.length > 0) {
+        diffHtml = `<div class="log-diff-box">`;
+        log.changes.forEach(c => {
+          diffHtml += `
+            <div class="log-diff-item">
+              <span class="diff-field">${c.field}:</span>
+              <span class="diff-old">${c.old}</span>
+              <span class="diff-arrow">&rarr;</span>
+              <span class="diff-new">${c.new}</span>
+            </div>
+          `;
+        });
+        diffHtml += `</div>`;
+      }
+
+      row.innerHTML = `
+        <td class="log-time">${timeFormatted}</td>
+        <td><span class="badge-action ${badgeClass}">${actionLabel}</span></td>
+        <td class="log-target">${log.targetName || 'Vault'}</td>
+        <td>
+          <div class="log-summary">${log.details || ''}</div>
+          ${diffHtml}
+        </td>
+      `;
+
+      tbody.appendChild(row);
+    });
+  },
+
+  /**
+   * Relocate vault file path
+   */
+  async handleRelocateVault() {
+    try {
+      const selectedDir = await window.electronAPI.selectDirectory();
+      if (!selectedDir) return;
+
+      const newPath = selectedDir + '/mava_gems_stock.db';
+      const check = confirm(`Relocate secure database file to:\n${newPath}?\n\nIf a database file already exists in that folder, it will be loaded. Otherwise, we will copy your active vault file there.`);
+      if (!check) return;
+
+      // Check if file exists at destination
+      const destRead = await window.electronAPI.readVault(newPath);
+      if (!destRead.exists) {
+        // Copy active file to destination
+        await window.electronAPI.copyFile(DBManager.activePath, newPath);
+      }
+
+      // Update Path and bootstrap the new DB file instantly!
+      await this.bootstrapDatabase(newPath);
+      UI.showToast("Vault successfully relocated!");
+    } catch (err) {
+      UI.showToast(err.message, true);
+    }
+  },
+
+  /**
+   * Export database backup
+   */
+  async handleExportBackup() {
+    try {
+      const defaultName = `mava_gems_backup_${new Date().toISOString().split('T')[0]}.db`;
+      const exportPath = await window.electronAPI.exportBackupDialog(defaultName);
+      if (!exportPath) return;
+
+      await window.electronAPI.copyFile(DBManager.activePath, exportPath);
+      UI.showToast("Database backup successfully exported!");
+    } catch (err) {
+      UI.showToast(err.message, true);
+    }
+  },
+
+  /**
+   * Import Database backup
+   */
+  async handleImportBackup() {
+    try {
+      const backupPath = await window.electronAPI.importBackupDialog();
+      if (!backupPath) return;
+
+      const check = confirm("WARNING: Importing a backup will overwrite your current active database completely. Are you sure you want to proceed?");
+      if (!check) return;
+
+      // Copy backup to active database location
+      await window.electronAPI.copyFile(backupPath, DBManager.activePath);
+      
+      // Bootstrap the newly imported database directly!
+      await this.bootstrapDatabase(DBManager.activePath);
+      UI.showToast("Database backup successfully imported!");
+    } catch (err) {
+      UI.showToast(err.message, true);
+    }
+  },
+
+  /**
+   * Destructive clear database file
+   */
+  async handleEraseVault() {
+    try {
+      // Erase vault by calling initVault directly on the active path
+      await DBManager.initVault(DBManager.activePath);
+
+      UI.closeModal('modal-erase-confirm');
+      UI.showToast("Vault successfully wiped!");
+      
+      // Refresh displays directly with the fresh empty database
+      this.refreshAllDisplays();
+    } catch (err) {
+      UI.showToast("Failed to erase: " + err.message, true);
+    }
+  },
+
+  /**
+   * Clear logs
+   */
+  async handleClearLogs() {
+    const check = confirm("Are you sure you want to clear the activity log history? The vault will keep a single initialization log.");
+    if (!check) return;
+
+    try {
+      DBManager.database.logs = [];
+      DBManager.addLog("ADD", "vault", "Vault", "Activity logs cleared by administrator.", []);
+      await DBManager.saveVault();
+      
+      UI.showToast("Audit logs successfully cleared.");
+      this.refreshAllDisplays();
+    } catch (err) {
+      UI.showToast(err.message, true);
+    }
+  }
+};
+
+window.App = App;
+
+// Bootstrap Application on fully loaded page
+window.addEventListener('DOMContentLoaded', () => {
+  App.init();
+});

@@ -1,0 +1,17 @@
+# Mava Gems Stock Management Git Ignore
+
+# Private Business Database (DO NOT COMMIT SENSITIVE STOCK DATA)
+DATA/
+*.db
+*.tmp
+*.bak
+
+# Node dependencies
+node_modules/
+
+# System / OS files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+npm-debug.log*
