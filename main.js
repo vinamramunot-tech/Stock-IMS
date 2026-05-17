@@ -1,9 +1,48 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 let mainWindow;
 let dbWatcher = null;
+
+// AES-256 secure encryption configuration
+const APP_SECRET = "mava-gems-luxury-jewelry-vault-security-key-2026";
+const ENCRYPTION_KEY = crypto.createHash('sha256').update(APP_SECRET).digest(); // Exactly 32 bytes
+const IV_LENGTH = 16; // 128-bit Initialization Vector
+
+// Encrypt plaintext string into binary buffer
+const encryptData = (plainText) => {
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
+  let encrypted = cipher.update(plainText, 'utf8');
+  encrypted = Buffer.concat([encrypted, cipher.final()]);
+  // Prepend IV to the encrypted data so we can extract it during decryption
+  return Buffer.concat([iv, encrypted]);
+};
+
+// Decrypt binary buffer into plaintext string
+const decryptData = (buffer) => {
+  if (!buffer || buffer.length === 0) return "";
+  
+  // Backward compatibility: If the file is plain JSON, return it as string directly
+  const firstChar = buffer.toString('utf8', 0, 1).trim();
+  if (firstChar === '{') {
+    return buffer.toString('utf8');
+  }
+
+  try {
+    const iv = buffer.subarray(0, IV_LENGTH);
+    const encryptedText = buffer.subarray(IV_LENGTH);
+    const decipher = crypto.createDecipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
+    let decrypted = decipher.update(encryptedText);
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
+    return decrypted.toString('utf8');
+  } catch (err) {
+    console.error('Decryption failed. The file may be corrupted or encrypted with a different key.', err);
+    throw new Error('Failed to decrypt database file. File may be corrupted or edited incorrectly.');
+  }
+};
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -140,14 +179,15 @@ ipcMain.handle('read-vault', async (event, filePath) => {
     if (!fs.existsSync(filePath)) {
       return { exists: false, data: null };
     }
-    const rawData = fs.readFileSync(filePath, 'utf8');
+    const rawBuffer = fs.readFileSync(filePath);
+    const decryptedData = decryptData(rawBuffer);
     
     // Ensure we are actively watching this file
     if (!dbWatcher) {
       startWatchingDbFile(filePath);
     }
     
-    return { exists: true, data: rawData, path: filePath };
+    return { exists: true, data: decryptedData, path: filePath };
   } catch (error) {
     console.error('Error reading vault:', error);
     throw new Error('Failed to read database file: ' + error.message);
@@ -165,9 +205,12 @@ ipcMain.handle('write-vault', async (event, payload, filePath) => {
     const dirPath = path.dirname(filePath);
     ensureDirectoryExists(dirPath);
     
+    // Encrypt plain text JSON payload into secure binary buffer
+    const encryptedBuffer = encryptData(payload);
+    
     // Atomic write to prevent file corruption
     const tempPath = filePath + '.tmp';
-    fs.writeFileSync(tempPath, payload, 'utf8');
+    fs.writeFileSync(tempPath, encryptedBuffer);
     
     if (fs.existsSync(filePath)) {
       const backupPath = filePath + '.bak';

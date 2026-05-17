@@ -33,6 +33,11 @@ const App = {
 
     // Sidebar special Add Item button click listener
     document.getElementById('btn-nav-add-item').addEventListener('click', () => {
+      const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
+      if (!goldRate || goldRate <= 0) {
+        UI.showToast("Please set the Universal 24KT Gold Rate at the top of the screen before adding jewelry pieces to ensure correct metal valuations.", true);
+        return;
+      }
       UI.resetForm();
       document.getElementById('jewelry-modal-title').textContent = "Add New Jewelry Piece";
       UI.openModal('modal-jewelry-item');
@@ -101,6 +106,11 @@ const App = {
     document.getElementById('filter-karat').addEventListener('change', () => this.renderCatalogGrid());
     document.getElementById('sort-items').addEventListener('change', () => this.renderCatalogGrid());
     document.getElementById('btn-empty-add').addEventListener('click', () => {
+      const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
+      if (!goldRate || goldRate <= 0) {
+        UI.showToast("Please set the Universal 24KT Gold Rate at the top of the screen before adding jewelry pieces to ensure correct metal valuations.", true);
+        return;
+      }
       UI.resetForm();
       UI.openModal('modal-jewelry-item');
     });
@@ -450,6 +460,12 @@ const App = {
     const description = document.getElementById('item-description').value.trim();
     const labourCost = Number(document.getElementById('item-labour').value || 0);
 
+    const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
+    if (!goldRate || goldRate <= 0) {
+      UI.showToast("Please set the Universal 24KT Gold Rate at the top of the screen before saving jewelry pieces.", true);
+      return;
+    }
+
     if (!name || !sku || !category) {
       UI.showToast("Please fill all required fields (*) in the General tab.", true);
       return;
@@ -517,7 +533,6 @@ const App = {
     });
 
     // Recalculate dynamic subtotals for logging
-    const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
     const evaluation = Calc.evaluateItem(savedItem, goldRate);
     savedItem.commission.value = evaluation.commissionValue; // Cache calculated commission in JSON
 

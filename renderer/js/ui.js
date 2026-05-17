@@ -248,13 +248,27 @@ const UI = {
       this.updateFormCalculations();
     });
 
-    // Attachment of event listeners to calculate metal part value dynamically
-    row.querySelectorAll('.recalc-trigger').forEach(input => {
-      input.addEventListener('input', () => {
-        this.updatePartValuation(row);
-        this.updateFormCalculations();
-      });
-    });
+    // Explicit, bomb-proof event bindings to trigger dynamic metal valuations
+    const nameInput = row.querySelector('.metal-part-name');
+    const karatSelect = row.querySelector('.metal-part-karat');
+    const weightInput = row.querySelector('.metal-part-weight');
+
+    const triggerRecalc = () => {
+      this.updatePartValuation(row);
+      this.updateFormCalculations();
+    };
+
+    // Karat updates on change & input
+    karatSelect.addEventListener('change', triggerRecalc);
+    karatSelect.addEventListener('input', triggerRecalc);
+
+    // Weight updates on typing (input), change, and key release (keyup)
+    weightInput.addEventListener('input', triggerRecalc);
+    weightInput.addEventListener('change', triggerRecalc);
+    weightInput.addEventListener('keyup', triggerRecalc);
+
+    // Name changes
+    nameInput.addEventListener('input', triggerRecalc);
 
     container.appendChild(row);
     this.updatePartValuation(row); // Initial calculation
