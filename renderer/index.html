@@ -14,8 +14,34 @@
 </head>
 <body>
 
+  <!-- ==================== STARTUP / ONBOARDING SCREEN ==================== -->
+  <div id="startup-screen" class="startup-overlay-container hidden">
+    <div class="startup-card">
+      <div class="startup-brand-row">
+        <span class="logo-serif startup-logo">Mava Gems</span>
+        <span class="divider">|</span>
+        <span class="startup-tagline">DATABASE SETUP</span>
+      </div>
+      <p class="startup-desc">To begin managing your jewelry stock inventory and gold valuations, select an option below to set up your database file.</p>
+      
+      <div class="startup-options-grid">
+        <div class="startup-option-box" id="btn-startup-create">
+          <h3>Create New Database</h3>
+          <p>Choose a safe folder on your hard drive to create a brand new, empty database file (.db) to start fresh.</p>
+          <div class="option-action-indicator">INITIALIZE NEW FILE &rarr;</div>
+        </div>
+        
+        <div class="startup-option-box" id="btn-startup-open">
+          <h3>Open Existing Database</h3>
+          <p>Browse your filesystem to connect an existing Mava Gems inventory file and resume managing your stock.</p>
+          <div class="option-action-indicator">CONNECT DATABASE FILE &rarr;</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ==================== MAIN WORKSPACE CONTAINER ==================== -->
-  <div id="app-workspace" class="workspace-container">
+  <div id="app-workspace" class="workspace-container hidden">
     
     <!-- HEADER BAR -->
     <header class="app-header">
@@ -194,7 +220,7 @@
               </div>
 
               <div class="settings-actions-row">
-                <button type="button" id="btn-relocate-vault" class="btn btn-secondary">Relocate Vault Directory...</button>
+                <button type="button" id="btn-disconnect-vault" class="btn btn-secondary" style="border-color: var(--danger-red); color: var(--danger-red); font-weight: 500;">Disconnect / Switch Database...</button>
                 <button type="button" id="btn-export-backup" class="btn btn-secondary">Export Vault Backup (.db)</button>
                 <button type="button" id="btn-import-backup" class="btn btn-secondary">Import Database Backup...</button>
               </div>

@@ -21,9 +21,6 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
-
-  // Open DevTools during development if needed, can be enabled via standard shortcut.
-  // mainWindow.webContents.openDevTools();
 }
 
 app.whenReady().then(() => {
@@ -38,17 +35,7 @@ app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit();
 });
 
-// Default database directory: under the application install directory
-const getDefaultVaultDir = () => {
-  return path.join(app.getAppPath(), 'DATA');
-};
-
-const getVaultFilePath = (customDir) => {
-  const dir = customDir || getDefaultVaultDir();
-  return path.join(dir, 'mava_gems_stock.db');
-};
-
-// Ensure database directory exists
+// Ensure directory helper
 const ensureDirectoryExists = (dirPath) => {
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
@@ -56,13 +43,63 @@ const ensureDirectoryExists = (dirPath) => {
 };
 
 // IPC Handlers
-ipcMain.handle('get-default-path', () => {
-  return getVaultFilePath();
+ipcMain.handle('get-last-db-path', () => {
+  try {
+    const configPath = path.join(app.getAppPath(), 'app_config.json');
+    if (fs.existsSync(configPath)) {
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      if (config.lastActiveDbPath && fs.existsSync(config.lastActiveDbPath)) {
+        return config.lastActiveDbPath;
+      }
+    }
+  } catch (err) {
+    console.error('Error reading app_config:', err);
+  }
+  return null;
 });
 
-ipcMain.handle('read-vault', async (event, customPath) => {
+ipcMain.handle('set-last-db-path', (event, dbPath) => {
   try {
-    const filePath = customPath || getVaultFilePath();
+    const configPath = path.join(app.getAppPath(), 'app_config.json');
+    const config = { lastActiveDbPath: dbPath };
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+    return true;
+  } catch (err) {
+    console.error('Error writing app_config:', err);
+    return false;
+  }
+});
+
+ipcMain.handle('create-db-dialog', async () => {
+  if (!mainWindow) return null;
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: 'Create New Mava Gems Database',
+    defaultPath: path.join(app.getPath('documents'), 'mava_gems_stock.db'),
+    filters: [
+      { name: 'Mava Gems Database', extensions: ['db', 'json'] },
+      { name: 'All Files', extensions: ['*'] }
+    ]
+  });
+  if (result.canceled) return null;
+  return result.filePath;
+});
+
+ipcMain.handle('open-db-dialog', async () => {
+  if (!mainWindow) return null;
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Open Existing Mava Gems Database',
+    properties: ['openFile'],
+    filters: [
+      { name: 'Mava Gems Database', extensions: ['db', 'json'] },
+      { name: 'All Files', extensions: ['*'] }
+    ]
+  });
+  if (result.canceled) return null;
+  return result.filePaths[0];
+});
+
+ipcMain.handle('read-vault', async (event, filePath) => {
+  try {
     if (!fs.existsSync(filePath)) {
       return { exists: false, data: null };
     }
@@ -74,20 +111,17 @@ ipcMain.handle('read-vault', async (event, customPath) => {
   }
 });
 
-ipcMain.handle('write-vault', async (event, payload, customPath) => {
+ipcMain.handle('write-vault', async (event, payload, filePath) => {
   try {
-    const filePath = customPath || getVaultFilePath();
     const dirPath = path.dirname(filePath);
-    
-    // Ensure the folder exists
     ensureDirectoryExists(dirPath);
     
-    // Atomic write: write to .tmp and rename to prevent corruption
+    // Atomic write to prevent file corruption
     const tempPath = filePath + '.tmp';
     fs.writeFileSync(tempPath, payload, 'utf8');
     
     if (fs.existsSync(filePath)) {
-      // Create a backup of the current database before renaming, just in case
+      // Create backup (.bak) of the current database before renaming
       const backupPath = filePath + '.bak';
       fs.copyFileSync(filePath, backupPath);
     }

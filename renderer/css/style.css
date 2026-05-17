@@ -1353,3 +1353,111 @@ label {
   transform: translateY(20px);
   pointer-events: none;
 }
+
+/* ==================== STARTUP / ONBOARDING SCREEN ==================== */
+.startup-overlay-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--bg-base);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.startup-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-dark);
+  padding: 50px;
+  width: 100%;
+  max-width: 750px;
+  text-align: center;
+  box-shadow: var(--shadow-modal);
+}
+
+.startup-brand-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.startup-logo {
+  font-size: 32px;
+  font-weight: 600;
+  color: var(--text-main);
+  margin-bottom: 0;
+}
+
+.startup-tagline {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--text-gold);
+}
+
+.startup-desc {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  max-width: 580px;
+  margin: 0 auto 40px auto;
+}
+
+.startup-options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+}
+
+.startup-option-box {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-light);
+  padding: 30px 25px;
+  cursor: pointer;
+  text-align: left;
+  transition: var(--transition-fast);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 220px;
+}
+
+.startup-option-box:hover {
+  border-color: var(--border-dark);
+  box-shadow: 0 8px 30px rgba(26, 26, 29, 0.05);
+}
+
+.startup-option-box h3 {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-main);
+  margin-bottom: 10px;
+}
+
+.startup-option-box p {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  flex-grow: 1;
+}
+
+.option-action-indicator {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-gold-dark);
+  margin-top: 15px;
+  transition: var(--transition-fast);
+}
+
+.startup-option-box:hover .option-action-indicator {
+  color: var(--text-main);
+  transform: translateX(4px);
+}
+

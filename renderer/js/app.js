@@ -7,8 +7,17 @@ const App = {
   activeTab: 'tab-catalog',
 
   async init() {
-    // 1. Bootstrap and load the local database file instantly
-    await this.bootstrapDatabase();
+    // 1. Check if there is a remembered database path in the application local configuration
+    const rememberedPath = await window.electronAPI.getLastDbPath();
+    if (rememberedPath) {
+      await this.bootstrapDatabase(rememberedPath);
+    } else {
+      this.showStartupScreen();
+    }
+
+    // Onboarding setup button click listeners
+    document.getElementById('btn-startup-create').addEventListener('click', () => this.handleStartupCreate());
+    document.getElementById('btn-startup-open').addEventListener('click', () => this.handleStartupOpen());
 
     // 2. Tab switching navigation listeners
     const navItems = document.querySelectorAll('.nav-item[data-target]');
@@ -94,7 +103,7 @@ const App = {
     });
 
     // Settings actions listeners
-    document.getElementById('btn-relocate-vault').addEventListener('click', () => this.handleRelocateVault());
+    document.getElementById('btn-disconnect-vault').addEventListener('click', () => this.handleDisconnectVault());
     document.getElementById('btn-export-backup').addEventListener('click', () => this.handleExportBackup());
     document.getElementById('btn-import-backup').addEventListener('click', () => this.handleImportBackup());
     document.getElementById('btn-erase-vault').addEventListener('click', () => {
@@ -112,20 +121,89 @@ const App = {
   },
 
   /**
+   * Startup onboarding screen triggers
+   */
+  showStartupScreen() {
+    document.getElementById('app-workspace').classList.add('hidden');
+    document.getElementById('startup-screen').classList.remove('hidden');
+  },
+
+  hideStartupScreen() {
+    document.getElementById('startup-screen').classList.add('hidden');
+    document.getElementById('app-workspace').classList.remove('hidden');
+  },
+
+  async handleStartupCreate() {
+    try {
+      const chosenPath = await window.electronAPI.createDbDialog();
+      if (!chosenPath) return; // User canceled
+
+      const initResult = await DBManager.initVault(chosenPath);
+      if (initResult.success) {
+        this.hideStartupScreen();
+        // Populate path indicators in UI
+        document.getElementById('active-vault-name').textContent = chosenPath;
+        document.getElementById('active-vault-name').title = chosenPath;
+        document.getElementById('settings-vault-path').textContent = chosenPath;
+        
+        UI.showToast("Database successfully initialized!");
+        this.refreshAllDisplays();
+      }
+    } catch (err) {
+      console.error(err);
+      UI.showToast("Database initialization failure: " + err.message, true);
+    }
+  },
+
+  async handleStartupOpen() {
+    try {
+      const chosenPath = await window.electronAPI.openDbDialog();
+      if (!chosenPath) return; // User canceled
+
+      await this.bootstrapDatabase(chosenPath);
+    } catch (err) {
+      console.error(err);
+      UI.showToast("Database connection failure: " + err.message, true);
+    }
+  },
+
+  async handleDisconnectVault() {
+    const check = confirm("Are you sure you want to disconnect this database?\n\nThis will safely close the active catalog and return you to the setup dashboard, where you can choose a different database or create a new one. Your data remains perfectly intact at its current location.");
+    if (!check) return;
+
+    try {
+      // Clear memory active database state
+      DBManager.database = null;
+      DBManager.activePath = null;
+      DBManager.isLoaded = false;
+
+      // Reset last active database path in config file
+      await window.electronAPI.setLastDbPath(null);
+
+      UI.showToast("Database disconnected successfully.");
+      this.showStartupScreen();
+    } catch (err) {
+      UI.showToast("Failed to disconnect: " + err.message, true);
+    }
+  },
+
+  /**
    * Bootstrap Database loading routine.
-   * Loads from disk directly, or auto-creates if missing.
    */
   async bootstrapDatabase(customPath) {
+    if (!customPath) {
+      this.showStartupScreen();
+      return;
+    }
     try {
-      const defaultPath = customPath || await window.electronAPI.getDefaultPath();
-      
-      const loadResult = await DBManager.loadVault(defaultPath);
+      const loadResult = await DBManager.loadVault(customPath);
       
       if (loadResult.success) {
+        this.hideStartupScreen();
         // Populate path indicators in UI
-        document.getElementById('active-vault-name').textContent = defaultPath;
-        document.getElementById('active-vault-name').title = defaultPath;
-        document.getElementById('settings-vault-path').textContent = defaultPath;
+        document.getElementById('active-vault-name').textContent = customPath;
+        document.getElementById('active-vault-name').title = customPath;
+        document.getElementById('settings-vault-path').textContent = customPath;
         
         UI.showToast("Database successfully loaded!");
         this.refreshAllDisplays();
@@ -133,6 +211,7 @@ const App = {
     } catch (err) {
       console.error(err);
       UI.showToast("Database file read failure: " + err.message, true);
+      this.showStartupScreen(); // Redirect back to setup screen if file is corrupted/missing
     }
   },
 
@@ -579,32 +658,7 @@ const App = {
     });
   },
 
-  /**
-   * Relocate vault file path
-   */
-  async handleRelocateVault() {
-    try {
-      const selectedDir = await window.electronAPI.selectDirectory();
-      if (!selectedDir) return;
 
-      const newPath = selectedDir + '/mava_gems_stock.db';
-      const check = confirm(`Relocate secure database file to:\n${newPath}?\n\nIf a database file already exists in that folder, it will be loaded. Otherwise, we will copy your active vault file there.`);
-      if (!check) return;
-
-      // Check if file exists at destination
-      const destRead = await window.electronAPI.readVault(newPath);
-      if (!destRead.exists) {
-        // Copy active file to destination
-        await window.electronAPI.copyFile(DBManager.activePath, newPath);
-      }
-
-      // Update Path and bootstrap the new DB file instantly!
-      await this.bootstrapDatabase(newPath);
-      UI.showToast("Vault successfully relocated!");
-    } catch (err) {
-      UI.showToast(err.message, true);
-    }
-  },
 
   /**
    * Export database backup

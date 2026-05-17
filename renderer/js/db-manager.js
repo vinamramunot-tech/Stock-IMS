@@ -25,16 +25,16 @@ const DBManager = {
   },
 
   /**
-   * Initialize a brand new default database file
+   * Initialize a brand new default database file at a user-selected path
    */
   async initVault(customPath) {
+    if (!customPath) throw new Error("No database file path specified.");
     try {
       const baseDb = this.getDefaultStructure();
-      const targetPath = customPath || await window.electronAPI.getDefaultPath();
       
       // Keep state in memory
       this.database = baseDb;
-      this.activePath = targetPath;
+      this.activePath = customPath;
       this.isLoaded = true;
 
       // Add initialization log
@@ -43,7 +43,10 @@ const DBManager = {
       // Save directly to disk
       await this.saveVault();
       
-      return { success: true, path: targetPath };
+      // Save path to local persistent configuration
+      await window.electronAPI.setLastDbPath(customPath);
+      
+      return { success: true, path: customPath };
     } catch (error) {
       console.error("Failed to initialize database:", error);
       throw new Error("Failed to initialize database: " + error.message);
@@ -51,17 +54,15 @@ const DBManager = {
   },
 
   /**
-   * Load the database file from the filesystem.
-   * If it doesn't exist, automatically initialize a default database.
+   * Load the user-specified database file from the filesystem.
    */
   async loadVault(customPath) {
+    if (!customPath) throw new Error("No database file path specified.");
     try {
-      const targetPath = customPath || await window.electronAPI.getDefaultPath();
-      const fileInfo = await window.electronAPI.readVault(targetPath);
+      const fileInfo = await window.electronAPI.readVault(customPath);
       
       if (!fileInfo.exists) {
-        // Silent auto-initialization on first boot!
-        return await this.initVault(targetPath);
+        throw new Error("The specified database file does not exist.");
       }
 
       // Read raw JSON from disk
@@ -69,13 +70,16 @@ const DBManager = {
 
       // Successful load
       this.database = db;
-      this.activePath = targetPath;
+      this.activePath = customPath;
       this.isLoaded = true;
 
-      return { success: true, path: targetPath };
+      // Save path to local persistent configuration
+      await window.electronAPI.setLastDbPath(customPath);
+
+      return { success: true, path: customPath };
     } catch (error) {
       console.error("Database load failed:", error);
-      throw new Error("Failed to load database. File may be corrupted or in an invalid JSON format: " + error.message);
+      throw new Error("Failed to load database: " + error.message);
     }
   },
 
