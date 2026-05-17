@@ -10,5 +10,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectDirectory: () => ipcRenderer.invoke('select-directory'),
   exportBackupDialog: (defaultName) => ipcRenderer.invoke('export-backup-dialog', defaultName),
   importBackupDialog: () => ipcRenderer.invoke('import-backup-dialog'),
-  copyFile: (sourcePath, destPath) => ipcRenderer.invoke('copy-file', sourcePath, destPath)
+  copyFile: (sourcePath, destPath) => ipcRenderer.invoke('copy-file', sourcePath, destPath),
+  
+  // Real-time FS Watcher event hook
+  onDatabaseChanged: (callback) => ipcRenderer.on('database-file-changed', (event, filePath) => callback(filePath))
 });

@@ -19,6 +19,9 @@ const App = {
     document.getElementById('btn-startup-create').addEventListener('click', () => this.handleStartupCreate());
     document.getElementById('btn-startup-open').addEventListener('click', () => this.handleStartupOpen());
 
+    // Listen for external database changes to support instant hot-reloading
+    window.electronAPI.onDatabaseChanged((filePath) => this.handleExternalDbChange(filePath));
+
     // 2. Tab switching navigation listeners
     const navItems = document.querySelectorAll('.nav-item[data-target]');
     navItems.forEach(item => {
@@ -184,6 +187,21 @@ const App = {
       this.showStartupScreen();
     } catch (err) {
       UI.showToast("Failed to disconnect: " + err.message, true);
+    }
+  },
+
+  async handleExternalDbChange(filePath) {
+    if (!DBManager.isLoaded || DBManager.activePath !== filePath) return;
+    
+    try {
+      // Reload vault state from disk silently
+      const loadResult = await DBManager.loadVault(filePath);
+      if (loadResult.success) {
+        UI.showToast("Database updated externally; refreshing catalog.");
+        this.refreshAllDisplays();
+      }
+    } catch (err) {
+      console.error("Failed to hot-reload database:", err);
     }
   },
 

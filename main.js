@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 
 let mainWindow;
+let dbWatcher = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -32,6 +33,9 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', function () {
+  if (dbWatcher) {
+    dbWatcher.close();
+  }
   if (process.platform !== 'darwin') app.quit();
 });
 
@@ -42,6 +46,29 @@ const ensureDirectoryExists = (dirPath) => {
   }
 };
 
+// File Watcher Helper to hot-reload database changes instantly
+const startWatchingDbFile = (filePath) => {
+  if (dbWatcher) {
+    dbWatcher.close();
+    dbWatcher = null;
+  }
+
+  if (!filePath || !fs.existsSync(filePath)) return;
+
+  try {
+    // Watch database file for modifications
+    dbWatcher = fs.watch(filePath, (eventType) => {
+      if (eventType === 'change') {
+        if (mainWindow) {
+          mainWindow.webContents.send('database-file-changed', filePath);
+        }
+      }
+    });
+  } catch (err) {
+    console.error('Failed to start file watcher:', err);
+  }
+};
+
 // IPC Handlers
 ipcMain.handle('get-last-db-path', () => {
   try {
@@ -49,6 +76,8 @@ ipcMain.handle('get-last-db-path', () => {
     if (fs.existsSync(configPath)) {
       const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
       if (config.lastActiveDbPath && fs.existsSync(config.lastActiveDbPath)) {
+        // Start watching the file on launch
+        startWatchingDbFile(config.lastActiveDbPath);
         return config.lastActiveDbPath;
       }
     }
@@ -63,6 +92,14 @@ ipcMain.handle('set-last-db-path', (event, dbPath) => {
     const configPath = path.join(app.getAppPath(), 'app_config.json');
     const config = { lastActiveDbPath: dbPath };
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+    
+    if (dbPath) {
+      startWatchingDbFile(dbPath);
+    } else if (dbWatcher) {
+      dbWatcher.close();
+      dbWatcher = null;
+    }
+    
     return true;
   } catch (err) {
     console.error('Error writing app_config:', err);
@@ -104,6 +141,12 @@ ipcMain.handle('read-vault', async (event, filePath) => {
       return { exists: false, data: null };
     }
     const rawData = fs.readFileSync(filePath, 'utf8');
+    
+    // Ensure we are actively watching this file
+    if (!dbWatcher) {
+      startWatchingDbFile(filePath);
+    }
+    
     return { exists: true, data: rawData, path: filePath };
   } catch (error) {
     console.error('Error reading vault:', error);
@@ -113,6 +156,12 @@ ipcMain.handle('read-vault', async (event, filePath) => {
 
 ipcMain.handle('write-vault', async (event, payload, filePath) => {
   try {
+    // 1. Temporarily pause the watcher to avoid self-triggering on write
+    if (dbWatcher) {
+      dbWatcher.close();
+      dbWatcher = null;
+    }
+
     const dirPath = path.dirname(filePath);
     ensureDirectoryExists(dirPath);
     
@@ -121,14 +170,19 @@ ipcMain.handle('write-vault', async (event, payload, filePath) => {
     fs.writeFileSync(tempPath, payload, 'utf8');
     
     if (fs.existsSync(filePath)) {
-      // Create backup (.bak) of the current database before renaming
       const backupPath = filePath + '.bak';
       fs.copyFileSync(filePath, backupPath);
     }
     
     fs.renameSync(tempPath, filePath);
+    
+    // 2. Restart watching after successful write completes
+    startWatchingDbFile(filePath);
+
     return { success: true, path: filePath };
   } catch (error) {
+    // Make sure we resume watching even on errors
+    startWatchingDbFile(filePath);
     console.error('Error writing vault:', error);
     throw new Error('Failed to save database file securely: ' + error.message);
   }
