@@ -1,0 +1,39 @@
+directories:
+  output: dist
+  buildResources: build
+appId: com.mavagems.stock
+productName: Mava Gems
+asar: true
+files:
+  - filter:
+      - main.js
+      - preload.js
+      - renderer/**/*
+      - package.json
+mac:
+  category: public.app-category.business
+  target:
+    - dmg
+dmg:
+  title: Mava Gems Installer
+  window:
+    width: 540
+    height: 380
+  contents:
+    - x: 410
+      'y': 150
+      type: link
+      path: /Applications
+    - x: 130
+      'y': 150
+      type: file
+win:
+  target:
+    - nsis
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Mava Gems
+electronVersion: 33.4.11
