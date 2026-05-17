@@ -6,8 +6,15 @@ DATA/
 *.tmp
 *.bak
 
+# Persistent Local Machine Configuration
+app_config.json
+
 # Node dependencies
 node_modules/
+
+# Compiled Desktop App Distribution Installers
+dist/
+out/
 
 # System / OS files
 .DS_Store
