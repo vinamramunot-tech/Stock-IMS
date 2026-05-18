@@ -5,6 +5,13 @@
   "scripts": {
     "dev": "source $HOME/.cargo/env && tauri dev",
     "build": "source $HOME/.cargo/env && tauri build",
+    "build:mac": "source $HOME/.cargo/env && tauri build",
+    "android:init": "source $HOME/.cargo/env && tauri android init",
+    "android:dev": "source $HOME/.cargo/env && tauri android dev",
+    "android:build": "source $HOME/.cargo/env && tauri android build",
+    "ios:init": "source $HOME/.cargo/env && tauri ios init",
+    "ios:dev": "source $HOME/.cargo/env && tauri ios dev",
+    "ios:build": "source $HOME/.cargo/env && tauri ios build",
     "tauri": "source $HOME/.cargo/env && tauri"
   },
   "keywords": [

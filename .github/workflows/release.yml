@@ -1,0 +1,50 @@
+name: 'publish'
+
+on:
+  push:
+    tags:
+      - 'v*' # Triggers workflow on tag push matching v*, e.g., v1.0.0
+
+jobs:
+  publish-tauri:
+    permissions:
+      contents: write # Essential to compile and upload binary release assets
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'macos-latest'
+            args: '--target aarch64-apple-darwin' # Compile native Apple Silicon binary
+          - platform: 'macos-latest'
+            args: '--target x86_64-apple-darwin'  # Compile Intel Mac binary
+          - platform: 'windows-latest'
+            args: ''                              # Compile Windows EXE/MSI installers
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          
+      - name: Install Rust Stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+        
+      - name: Install project dependencies
+        run: npm install
+        
+      - name: Build and Upload Assets via Tauri Action
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Mava Gems Stock ${{ github.ref_name }}'
+          releaseBody: 'Production-ready compiled binaries for Mava Gems. Secure inventory management.'
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
