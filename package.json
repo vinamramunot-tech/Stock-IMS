@@ -2,76 +2,22 @@
   "name": "mava-gems-stock",
   "version": "1.0.0",
   "description": "Premium, secure desktop stock management for jewelry inventory.",
-  "main": "main.js",
   "scripts": {
-    "start": "electron .",
-    "build:mac": "electron-builder --mac --x64 --arm64",
-    "build:win": "electron-builder --win --x64",
-    "build:all": "electron-builder --mac --win --x64 --arm64"
+    "dev": "source $HOME/.cargo/env && tauri dev",
+    "build": "source $HOME/.cargo/env && tauri build",
+    "tauri": "source $HOME/.cargo/env && tauri"
   },
   "keywords": [
     "jewelry",
     "inventory",
     "stock",
     "security",
-    "electron"
+    "tauri",
+    "desktop"
   ],
   "author": "Antigravity",
   "license": "ISC",
   "devDependencies": {
-    "electron": "^33.0.2",
-    "electron-builder": "^24.13.3"
-  },
-  "build": {
-    "appId": "com.mavagems.stock",
-    "productName": "Mava Gems",
-    "asar": true,
-    "directories": {
-      "output": "dist"
-    },
-    "files": [
-      "main.js",
-      "preload.js",
-      "renderer/**/*",
-      "package.json"
-    ],
-    "mac": {
-      "category": "public.app-category.business",
-      "target": [
-        "dmg"
-      ]
-    },
-    "dmg": {
-      "title": "Mava Gems Installer",
-      "window": {
-        "width": 540,
-        "height": 380
-      },
-      "contents": [
-        {
-          "x": 410,
-          "y": 150,
-          "type": "link",
-          "path": "/Applications"
-        },
-        {
-          "x": 130,
-          "y": 150,
-          "type": "file"
-        }
-      ]
-    },
-    "win": {
-      "target": [
-        "nsis"
-      ]
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "Mava Gems"
-    }
+    "@tauri-apps/cli": "^2.0.0"
   }
 }
