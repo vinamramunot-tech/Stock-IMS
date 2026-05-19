@@ -7,17 +7,32 @@ const App = {
   activeTab: 'tab-catalog',
 
   async init() {
-    // 1. Check if there is a remembered database path in the application local configuration
-    const rememberedPath = await window.electronAPI.getLastDbPath();
-    if (rememberedPath) {
-      await this.bootstrapDatabase(rememberedPath);
-    } else {
-      this.showStartupScreen();
-    }
+    // 1. Check if there is a remembered database path in the application local configuration and show the appropriate screen
+    await this.showStartupScreen();
+
 
     // Onboarding setup button click listeners
     document.getElementById('btn-startup-create').addEventListener('click', () => this.handleStartupCreate());
     document.getElementById('btn-startup-open').addEventListener('click', () => this.handleStartupOpen());
+
+    // Confirmation screen button click listeners
+    document.getElementById('btn-startup-continue').addEventListener('click', () => this.handleStartupContinue());
+    document.getElementById('btn-startup-confirm-create').addEventListener('click', () => this.handleStartupCreate());
+    document.getElementById('btn-startup-confirm-open').addEventListener('click', () => this.handleStartupOpen());
+
+    // Global keydown event listener to confirm database path when Enter is pressed
+    window.addEventListener('keydown', (e) => {
+      const confirmView = document.getElementById('startup-confirm-path-view');
+      const startupScreen = document.getElementById('startup-screen');
+      if (
+        confirmView && !confirmView.classList.contains('hidden') &&
+        startupScreen && !startupScreen.classList.contains('hidden') &&
+        e.key === 'Enter'
+      ) {
+        e.preventDefault();
+        this.handleStartupContinue();
+      }
+    });
 
     // Listen for external database changes to support instant hot-reloading
     window.electronAPI.onDatabaseChanged((filePath) => this.handleExternalDbChange(filePath));
@@ -133,10 +148,16 @@ const App = {
     document.getElementById('btn-clear-logs').addEventListener('click', () => this.handleClearLogs());
   },
 
-  /**
-   * Startup onboarding screen triggers
-   */
-  showStartupScreen() {
+  async showStartupScreen() {
+    const rememberedPath = await window.electronAPI.getLastDbPath();
+    if (rememberedPath) {
+      document.getElementById('startup-initial-setup-view').classList.add('hidden');
+      document.getElementById('startup-confirm-path-view').classList.remove('hidden');
+      document.getElementById('startup-db-path-text').textContent = rememberedPath;
+    } else {
+      document.getElementById('startup-confirm-path-view').classList.add('hidden');
+      document.getElementById('startup-initial-setup-view').classList.remove('hidden');
+    }
     document.getElementById('app-workspace').classList.add('hidden');
     document.getElementById('startup-screen').classList.remove('hidden');
   },
@@ -180,6 +201,18 @@ const App = {
     }
   },
 
+  async handleStartupContinue() {
+    try {
+      const rememberedPath = await window.electronAPI.getLastDbPath();
+      if (rememberedPath) {
+        await this.bootstrapDatabase(rememberedPath);
+      }
+    } catch (err) {
+      console.error(err);
+      UI.showToast("Database load failure: " + err.message, true);
+    }
+  },
+
   async handleDisconnectVault() {
     const check = confirm("Are you sure you want to disconnect this database?\n\nThis will safely close the active catalog and return you to the setup dashboard, where you can choose a different database or create a new one. Your data remains perfectly intact at its current location.");
     if (!check) return;
@@ -194,7 +227,7 @@ const App = {
       await window.electronAPI.setLastDbPath(null);
 
       UI.showToast("Database disconnected successfully.");
-      this.showStartupScreen();
+      await this.showStartupScreen();
     } catch (err) {
       UI.showToast("Failed to disconnect: " + err.message, true);
     }
@@ -220,7 +253,7 @@ const App = {
    */
   async bootstrapDatabase(customPath) {
     if (!customPath) {
-      this.showStartupScreen();
+      await this.showStartupScreen();
       return;
     }
     try {
@@ -239,7 +272,7 @@ const App = {
     } catch (err) {
       console.error(err);
       UI.showToast("Database file read failure: " + err.message, true);
-      this.showStartupScreen(); // Redirect back to setup screen if file is corrupted/missing
+      await this.showStartupScreen(); // Redirect back to setup screen if file is corrupted/missing
     }
   },
 

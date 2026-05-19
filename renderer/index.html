@@ -22,23 +22,59 @@
         <span class="divider">|</span>
         <span class="startup-tagline">DATABASE SETUP</span>
       </div>
-      <p class="startup-desc">To begin managing your jewelry stock inventory and gold valuations, select an option below to set up your database file.</p>
       
-      <div class="startup-options-grid">
-        <div class="startup-option-box" id="btn-startup-create">
-          <h3>Create New Database</h3>
-          <p>Choose a safe folder on your hard drive to create a brand new, empty database file (.db) to start fresh.</p>
-          <div class="option-action-indicator">INITIALIZE NEW FILE &rarr;</div>
-        </div>
+      <!-- Option A: Confirm Database Path (Visible when a remembered path exists) -->
+      <div id="startup-confirm-path-view" class="hidden">
+        <p class="startup-desc">We found a previously used database file on your system. Please verify the path before starting the application.</p>
         
-        <div class="startup-option-box" id="btn-startup-open">
-          <h3>Open Existing Database</h3>
-          <p>Browse your filesystem to connect an existing Mava Gems inventory file and resume managing your stock.</p>
-          <div class="option-action-indicator">CONNECT DATABASE FILE &rarr;</div>
+        <div class="db-path-display-card">
+          <div class="db-path-card-header">ACTIVE DATABASE PATH</div>
+          <div id="startup-db-path-text" class="db-path-card-value">/Users/username/Documents/MavaGemsJewelleryStock/mava_gems_stock.db</div>
+        </div>
+
+        <div class="confirm-actions-row">
+          <button type="button" id="btn-startup-continue" class="btn btn-primary btn-large confirm-continue-btn" style="width: 100%; height: 50px; font-size: 14px; margin-bottom: 20px;">
+            Continue to Application <span class="enter-badge">Press Enter</span>
+          </button>
+        </div>
+
+        <div class="alternative-title"><span>OR USE A DIFFERENT DATABASE</span></div>
+
+        <div class="startup-options-grid mini">
+          <div class="startup-option-box mini-box" id="btn-startup-confirm-create">
+            <h3>Create New Database</h3>
+            <p>Initialize a new database file in a folder of your choice.</p>
+            <div class="option-action-indicator">CREATE NEW &rarr;</div>
+          </div>
+          <div class="startup-option-box mini-box" id="btn-startup-confirm-open">
+            <h3>Open Existing Database</h3>
+            <p>Browse your filesystem to connect another database file.</p>
+            <div class="option-action-indicator">OPEN EXISTING &rarr;</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Option B: Initial Setup (Visible when no remembered path exists) -->
+      <div id="startup-initial-setup-view">
+        <p class="startup-desc">To begin managing your jewelry stock inventory and gold valuations, select an option below to set up your database file.</p>
+        
+        <div class="startup-options-grid">
+          <div class="startup-option-box" id="btn-startup-create">
+            <h3>Create New Database</h3>
+            <p>Choose a safe folder on your hard drive to create a brand new, empty database file (.db) to start fresh.</p>
+            <div class="option-action-indicator">INITIALIZE NEW FILE &rarr;</div>
+          </div>
+          
+          <div class="startup-option-box" id="btn-startup-open">
+            <h3>Open Existing Database</h3>
+            <p>Browse your filesystem to connect an existing Mava Gems inventory file and resume managing your stock.</p>
+            <div class="option-action-indicator">CONNECT DATABASE FILE &rarr;</div>
+          </div>
         </div>
       </div>
     </div>
   </div>
+
 
   <!-- ==================== MAIN WORKSPACE CONTAINER ==================== -->
   <div id="app-workspace" class="workspace-container hidden">
