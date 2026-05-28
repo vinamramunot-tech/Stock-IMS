@@ -569,7 +569,7 @@ const App = {
           
           <div class="product-price-row">
             <div>
-              <div class="price-lbl">VALUATION (RAW VALUE)</div>
+              <div class="price-lbl">MARKET COST PRICE</div>
               <div class="price-val" style="font-size: 15px; color: var(--text-muted); margin-bottom: 8px;">₹${item.evaluation.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
               <div class="price-lbl">SELLING PRICE</div>
               <div class="price-val">₹${item.calculatedTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
