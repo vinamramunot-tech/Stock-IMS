@@ -5,7 +5,11 @@
   "scripts": {
     "dev": "source $HOME/.cargo/env && tauri dev",
     "build": "source $HOME/.cargo/env && tauri build",
-    "build:mac": "source $HOME/.cargo/env && tauri build",
+    "build:mac-intel": "source $HOME/.cargo/env && tauri build --target x86_64-apple-darwin",
+    "build:mac-silicon": "source $HOME/.cargo/env && tauri build --target aarch64-apple-darwin",
+    "build:mac-universal": "source $HOME/.cargo/env && tauri build --target universal-apple-darwin",
+    "build:windows": "source $HOME/.cargo/env && tauri build --target x86_64-pc-windows-msvc",
+    "build:all": "npm run build:mac-universal && npm run build:windows",
     "android:init": "source $HOME/.cargo/env && tauri android init",
     "android:dev": "source $HOME/.cargo/env && tauri android dev",
     "android:build": "source $HOME/.cargo/env && tauri android build",
