@@ -366,6 +366,49 @@ const App = {
     this.refreshAllDisplays();
   },
 
+  populateKaratFilterOptions() {
+    const filterSelect = document.getElementById('filter-karat');
+    if (!filterSelect) return;
+
+    // Remember currently selected karat
+    const currentSelected = filterSelect.value;
+
+    // Gather all unique karats from the items
+    const allItems = DBManager.getItems();
+    const uniqueKarats = new Set();
+    
+    allItems.forEach(item => {
+      (item.metals || []).forEach(m => {
+        if (m.karat !== undefined && m.karat !== null && !isNaN(m.karat)) {
+          uniqueKarats.add(Number(m.karat));
+        }
+      });
+    });
+
+    // Sort karats descending
+    const sortedKarats = Array.from(uniqueKarats).sort((a, b) => b - a);
+
+    // Build options HTML
+    let optionsHtml = `<option value="">All Karats</option>`;
+    sortedKarats.forEach(kt => {
+      optionsHtml += `<option value="${kt}">${kt}KT Gold</option>`;
+    });
+
+    // To prevent infinite loops or cursor loss during keyup, only update DOM if options actually changed
+    const currentOptionsString = Array.from(filterSelect.options).map(o => o.value).join(',');
+    const newOptionsString = ["", ...sortedKarats].join(',');
+    
+    if (currentOptionsString !== newOptionsString) {
+      filterSelect.innerHTML = optionsHtml;
+      // Restore selected value if still valid
+      if (uniqueKarats.has(Number(currentSelected))) {
+        filterSelect.value = currentSelected;
+      } else {
+        filterSelect.value = "";
+      }
+    }
+  },
+
   /**
    * Dashboard Rendering
    */
@@ -402,7 +445,7 @@ const App = {
     // Render Metrics Box
     document.getElementById('metric-total-valuation').textContent = `₹${totalPortfolioValuation.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
     document.getElementById('metric-total-pieces').textContent = items.length;
-    document.getElementById('metric-gold-weight').textContent = `${totalGoldWeight.toFixed(2)} g`;
+    document.getElementById('metric-gold-weight').textContent = `${totalGoldWeight.toFixed(3)} g`;
     document.getElementById('metric-gem-weight').textContent = `${totalGemWeight.toFixed(2)} cts`;
   },
 
@@ -415,6 +458,10 @@ const App = {
     
     const query = document.getElementById('search-input').value.toLowerCase().trim();
     const filterCat = document.getElementById('filter-category').value;
+    
+    // Dynamically populate the karat dropdown filter based on actual catalog items
+    this.populateKaratFilterOptions();
+    
     const filterKarat = document.getElementById('filter-karat').value;
     const sortVal = document.getElementById('sort-items').value;
 
@@ -506,7 +553,7 @@ const App = {
           <div class="product-specs">
             <div class="specs-line" title="${metalsStr}"><strong>Metal:</strong> ${metalsStr || 'None added'}</div>
             <div class="specs-line"><strong>Gemstones:</strong> ${stonesSum > 0 ? stonesSum.toFixed(2) + ' cts total' : 'None added'}</div>
-            <div class="specs-line"><strong>Gross Weight:</strong> ${grossWeight.toFixed(2)} g</div>
+            <div class="specs-line"><strong>Gross Weight:</strong> ${grossWeight.toFixed(3)} g</div>
             <div class="specs-line" style="margin-bottom:0;" title="${item.description || ''}"><strong>Notes:</strong> ${item.description || 'No description'}</div>
           </div>
           
