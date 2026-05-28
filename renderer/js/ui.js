@@ -272,9 +272,11 @@ const UI = {
     const karat = Number(row.querySelector('.metal-part-karat').value || 18);
     const weight = Number(row.querySelector('.metal-part-weight').value || 0);
     const goldRate24kt = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
+    const wastage = Number(document.getElementById('item-wastage').value || 0);
     
-    const value = Calc.calculateMetalValue(weight, karat, goldRate24kt);
-    row.querySelector('.metal-part-val').textContent = `₹${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    const baseValue = Calc.calculateMetalValue(weight, karat, goldRate24kt);
+    const valueWithWastage = baseValue * (1 + wastage / 100);
+    row.querySelector('.metal-part-val').textContent = `₹${valueWithWastage.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
   },
 
   /**
@@ -450,6 +452,7 @@ const UI = {
     // Gathers items state on the fly
     const currentItem = {
       labourCost: Number(document.getElementById('item-labour').value || 0),
+      wastage: Number(document.getElementById('item-wastage').value || 0),
       commission: {
         value: Number(document.getElementById('item-commission').value || 0),
         isManual: this.activeItemState && this.activeItemState.commission ? this.activeItemState.commission.isManual : false
@@ -534,6 +537,7 @@ const UI = {
     };
     
     document.getElementById('jewelry-form').reset();
+    document.getElementById('item-wastage').value = '15.00';
     document.getElementById('metals-list-container').innerHTML = '';
     document.getElementById('stones-list-container').innerHTML = '';
     document.getElementById('dp-list-container').innerHTML = '';
@@ -564,6 +568,7 @@ const UI = {
     document.getElementById('item-sku').value = item.sku || '';
     document.getElementById('item-category').value = item.category || 'Ring';
     document.getElementById('item-labour').value = item.labourCost || '';
+    document.getElementById('item-wastage').value = item.wastage !== undefined ? Number(item.wastage).toFixed(2) : '15.00';
     document.getElementById('item-description').value = item.description || '';
 
     // Image Setup

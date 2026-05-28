@@ -81,10 +81,12 @@ const Calc = {
   evaluateItem(itemData, goldRate24kt) {
     // 1. Metal values
     let metalTotal = 0;
+    const wastage = Number(itemData.wastage !== undefined ? itemData.wastage : 15);
     const metals = itemData.metals || [];
     metals.forEach(part => {
       metalTotal += this.calculateMetalValue(part.weight, part.karat, goldRate24kt);
     });
+    metalTotal = metalTotal * (1 + wastage / 100);
 
     // 2. Stone values
     let stoneTotal = 0;

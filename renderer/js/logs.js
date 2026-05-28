@@ -22,7 +22,8 @@ const Logs = {
       { key: 'sku', label: 'SKU' },
       { key: 'category', label: 'Category' },
       { key: 'description', label: 'Description' },
-      { key: 'labourCost', label: 'Labour Cost', isCurrency: true }
+      { key: 'labourCost', label: 'Labour Cost', isCurrency: true },
+      { key: 'wastage', label: 'Metal Wastage', isPercentage: true }
     ];
 
     basicFields.forEach(field => {
@@ -32,8 +33,8 @@ const Logs = {
       if (oldVal !== newVal) {
         changes.push({
           field: field.label,
-          old: field.isCurrency ? `₹${Number(oldVal).toLocaleString()}` : oldVal,
-          new: field.isCurrency ? `₹${Number(newVal).toLocaleString()}` : newVal
+          old: field.isCurrency ? `₹${Number(oldVal).toLocaleString()}` : (field.isPercentage ? `${oldVal}%` : oldVal),
+          new: field.isCurrency ? `₹${Number(newVal).toLocaleString()}` : (field.isPercentage ? `${newVal}%` : newVal)
         });
       }
     });

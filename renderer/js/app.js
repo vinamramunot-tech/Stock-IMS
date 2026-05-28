@@ -116,6 +116,16 @@ const App = {
       }
     });
 
+    // Labour cost and metal wastage input change listener
+    document.getElementById('item-labour').addEventListener('input', () => UI.updateFormCalculations());
+    document.getElementById('item-wastage').addEventListener('input', () => {
+      // Recompute individual metal part rows with new wastage percentage
+      document.querySelectorAll('.metal-part-entry-card').forEach(row => {
+        UI.updatePartValuation(row);
+      });
+      UI.updateFormCalculations();
+    });
+
     // Auto reset commission button click
     document.getElementById('btn-toggle-manual-commission').addEventListener('click', () => {
       if (UI.activeItemState) {
@@ -559,7 +569,9 @@ const App = {
           
           <div class="product-price-row">
             <div>
-              <div class="price-lbl">VALUATION AT CURRENT RATE</div>
+              <div class="price-lbl">VALUATION (RAW VALUE)</div>
+              <div class="price-val" style="font-size: 15px; color: var(--text-muted); margin-bottom: 8px;">₹${item.evaluation.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+              <div class="price-lbl">SELLING PRICE</div>
               <div class="price-val">₹${item.calculatedTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
             </div>
             <div class="product-actions">
@@ -627,6 +639,7 @@ const App = {
       stones: [],
       diamondsPolki: [],
       labourCost,
+      wastage: Number(document.getElementById('item-wastage').value || 0),
       commission: {
         value: Number(document.getElementById('item-commission').value || 0),
         isManual: UI.activeItemState.commission ? UI.activeItemState.commission.isManual : false

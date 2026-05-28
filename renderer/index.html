@@ -383,6 +383,11 @@
               <p>Add the individual metal components of the piece. Different parts of a single piece may use different gold karats (e.g. Chain vs Body). Metal values will calculate automatically based on their karat and the global gold rate.</p>
             </div>
             
+            <div class="input-group" style="margin-bottom: 20px; max-width: 240px;">
+              <label for="item-wastage">Metal Wastage (%)</label>
+              <input type="number" id="item-wastage" step="0.01" min="0" placeholder="15.00" value="15.00" class="recalc-trigger">
+            </div>
+            
             <div id="metals-list-container">
               <!-- Dynamic metal parts go here -->
             </div>
