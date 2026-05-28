@@ -34,6 +34,21 @@ const App = {
       }
     });
 
+    // Editable database path listener (on enter connect) and browse button listener
+    const activeVaultInput = document.getElementById('active-vault-input');
+    if (activeVaultInput) {
+      activeVaultInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          this.handleVaultPathChange(e.target.value.trim());
+        }
+      });
+    }
+    const btnBrowseVault = document.getElementById('btn-browse-vault');
+    if (btnBrowseVault) {
+      btnBrowseVault.addEventListener('click', () => this.handleStartupOpen());
+    }
+
     // Listen for external database changes to support instant hot-reloading
     window.electronAPI.onDatabaseChanged((filePath) => this.handleExternalDbChange(filePath));
 
@@ -176,8 +191,11 @@ const App = {
       if (initResult.success) {
         this.hideStartupScreen();
         // Populate path indicators in UI
-        document.getElementById('active-vault-name').textContent = chosenPath;
-        document.getElementById('active-vault-name').title = chosenPath;
+        const activeInput = document.getElementById('active-vault-input');
+        if (activeInput) {
+          activeInput.value = chosenPath;
+          activeInput.title = chosenPath;
+        }
         document.getElementById('settings-vault-path').textContent = chosenPath;
         
         UI.showToast("Database successfully initialized!");
@@ -248,6 +266,34 @@ const App = {
     }
   },
 
+  async handleVaultPathChange(newPath) {
+    if (!newPath) {
+      UI.showToast("Please enter a valid database path.", true);
+      const activeInput = document.getElementById('active-vault-input');
+      if (activeInput) activeInput.value = DBManager.activePath || '';
+      return;
+    }
+    try {
+      const loadResult = await DBManager.loadVault(newPath);
+      if (loadResult.success) {
+        const activeInput = document.getElementById('active-vault-input');
+        if (activeInput) {
+          activeInput.value = newPath;
+          activeInput.title = newPath;
+        }
+        document.getElementById('settings-vault-path').textContent = newPath;
+        UI.showToast("Successfully connected to the new database!");
+        this.refreshAllDisplays();
+      }
+    } catch (err) {
+      console.error(err);
+      UI.showToast("Failed to connect to database: " + err.message, true);
+      // Revert input field value
+      const activeInput = document.getElementById('active-vault-input');
+      if (activeInput) activeInput.value = DBManager.activePath || '';
+    }
+  },
+
   /**
    * Bootstrap Database loading routine.
    */
@@ -262,8 +308,11 @@ const App = {
       if (loadResult.success) {
         this.hideStartupScreen();
         // Populate path indicators in UI
-        document.getElementById('active-vault-name').textContent = customPath;
-        document.getElementById('active-vault-name').title = customPath;
+        const activeInput = document.getElementById('active-vault-input');
+        if (activeInput) {
+          activeInput.value = customPath;
+          activeInput.title = customPath;
+        }
         document.getElementById('settings-vault-path').textContent = customPath;
         
         UI.showToast("Database successfully loaded!");

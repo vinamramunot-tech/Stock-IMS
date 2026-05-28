@@ -100,9 +100,12 @@
       </div>
 
       <div class="header-right">
-        <div class="vault-info">
-          <span class="vault-status-indicator"></span>
-          <span id="active-vault-name" title="Database Path">Documents/mava_gems_stock.db</span>
+        <div class="vault-info" id="vault-info-container">
+          <span class="vault-status-indicator" title="Connected"></span>
+          <input type="text" id="active-vault-input" class="vault-path-input" title="Edit database path and press Enter to connect" value="Documents/mava_gems_stock.db">
+          <button type="button" id="btn-browse-vault" class="btn-icon" title="Browse database file">
+            <svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
+          </button>
         </div>
       </div>
     </header>
