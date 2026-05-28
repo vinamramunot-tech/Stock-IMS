@@ -479,9 +479,14 @@ const App = {
       // Build specs preview string
       const metalsStr = (item.metals || []).map(m => `${m.karat}KT (${m.weight}g)`).join(', ');
       
+      let totalMetalWeight = 0;
+      (item.metals || []).forEach(m => totalMetalWeight += Number(m.weight || 0));
+
       let stonesSum = 0;
       (item.stones || []).forEach(s => stonesSum += Number(s.weight || 0));
       (item.diamondsPolki || []).forEach(d => stonesSum += Number(d.weight || 0));
+
+      const grossWeight = totalMetalWeight + (stonesSum * 0.2);
 
       const imageHtml = item.image 
         ? `<img src="${item.image}" alt="${item.name}" class="product-img">`
@@ -501,6 +506,7 @@ const App = {
           <div class="product-specs">
             <div class="specs-line" title="${metalsStr}"><strong>Metal:</strong> ${metalsStr || 'None added'}</div>
             <div class="specs-line"><strong>Gemstones:</strong> ${stonesSum > 0 ? stonesSum.toFixed(2) + ' cts total' : 'None added'}</div>
+            <div class="specs-line"><strong>Gross Weight:</strong> ${grossWeight.toFixed(2)} g</div>
             <div class="specs-line" style="margin-bottom:0;" title="${item.description || ''}"><strong>Notes:</strong> ${item.description || 'No description'}</div>
           </div>
           
@@ -597,10 +603,11 @@ const App = {
     stoneRows.forEach(row => {
       const type = row.getAttribute('data-stone-type');
       const shape = row.querySelector('.stone-shape').value.trim() || 'Mixed';
+      const pieces = Number(row.querySelector('.stone-pieces').value || 0);
       const weight = Number(row.querySelector('.stone-weight').value || 0);
       const ratePerCarat = Number(row.querySelector('.stone-rate').value || 0);
       const totalValue = Number(row.querySelector('.stone-total-val').value || 0);
-      savedItem.stones.push({ type, shape, weight, ratePerCarat, totalValue });
+      savedItem.stones.push({ type, shape, pieces, weight, ratePerCarat, totalValue });
     });
 
     // Diamonds/Polki
@@ -608,10 +615,11 @@ const App = {
     dpRows.forEach(row => {
       const type = row.getAttribute('data-dp-type');
       const shape = row.querySelector('.dp-shape').value.trim() || 'Round';
+      const pieces = Number(row.querySelector('.dp-pieces').value || 0);
       const weight = Number(row.querySelector('.dp-weight').value || 0);
       const ratePerCarat = Number(row.querySelector('.dp-rate').value || 0);
       const totalValue = Number(row.querySelector('.dp-total-val').value || 0);
-      savedItem.diamondsPolki.push({ type, shape, weight, ratePerCarat, totalValue });
+      savedItem.diamondsPolki.push({ type, shape, pieces, weight, ratePerCarat, totalValue });
     });
 
     // Recalculate dynamic subtotals for logging

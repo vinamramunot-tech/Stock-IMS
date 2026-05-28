@@ -219,15 +219,8 @@ const UI = {
         <input type="text" class="metal-part-name" placeholder="e.g. Main Ring Shank" value="${part.name || ''}">
       </div>
       <div class="input-group" style="margin-bottom:0;">
-        <label>Karat</label>
-        <select class="metal-part-karat recalc-trigger">
-          <option value="24" ${part.karat == 24 ? 'selected' : ''}>24KT Gold</option>
-          <option value="22" ${part.karat == 22 ? 'selected' : ''}>22KT Gold</option>
-          <option value="18" ${part.karat == 18 ? 'selected' : ''}>18KT Gold</option>
-          <option value="14" ${part.karat == 14 ? 'selected' : ''}>14KT Gold</option>
-          <option value="10" ${part.karat == 10 ? 'selected' : ''}>10KT Gold</option>
-          <option value="9" ${part.karat == 9 ? 'selected' : ''}>9KT Gold</option>
-        </select>
+        <label>Karat (KT)</label>
+        <input type="number" class="metal-part-karat recalc-trigger" step="0.01" min="0" max="24" placeholder="e.g. 18" value="${part.karat || ''}">
       </div>
       <div class="input-group" style="margin-bottom:0;">
         <label>Weight (grams)</label>
@@ -258,9 +251,10 @@ const UI = {
       this.updateFormCalculations();
     };
 
-    // Karat updates on change & input
+    // Karat updates on change, input, and keyup
     karatSelect.addEventListener('change', triggerRecalc);
     karatSelect.addEventListener('input', triggerRecalc);
+    karatSelect.addEventListener('keyup', triggerRecalc);
 
     // Weight updates on typing (input), change, and key release (keyup)
     weightInput.addEventListener('input', triggerRecalc);
@@ -286,7 +280,7 @@ const UI = {
   /**
    * Colored Gemstone Components UI Builders
    */
-  createStoneRow(stone = { type: 'Emerald', shape: '', weight: '', ratePerCarat: '', totalValue: '' }) {
+  createStoneRow(stone = { type: 'Emerald', shape: '', weight: '', ratePerCarat: '', totalValue: '', pieces: '' }) {
     const container = document.getElementById('stones-list-container');
     const stoneId = 'stone_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
 
@@ -299,6 +293,10 @@ const UI = {
       <div class="input-group" style="margin-bottom:0;">
         <label>${stone.type} - Shape/Cut</label>
         <input type="text" class="stone-shape" placeholder="e.g. Oval Mixed" value="${stone.shape || ''}">
+      </div>
+      <div class="input-group" style="margin-bottom:0;">
+        <label>Pieces</label>
+        <input type="number" class="stone-pieces recalc-trigger" min="1" step="1" placeholder="1" value="${stone.pieces || ''}">
       </div>
       <div class="input-group" style="margin-bottom:0;">
         <label>Weight (cts)</label>
@@ -318,12 +316,13 @@ const UI = {
     `;
 
     // Wire up events
+    const piecesInput = card.querySelector('.stone-pieces');
     const weightInput = card.querySelector('.stone-weight');
     const rateInput = card.querySelector('.stone-rate');
     const totalInput = card.querySelector('.stone-total-val');
     
     // Bidirectional Calculation: Changing weight or rate updates total
-    [weightInput, rateInput].forEach(inp => {
+    [piecesInput, weightInput, rateInput].forEach(inp => {
       inp.addEventListener('input', () => {
         const wt = Number(weightInput.value || 0);
         const rt = Number(rateInput.value || 0);
@@ -364,7 +363,7 @@ const UI = {
   /**
    * Diamonds & Polki UI Builders
    */
-  createDPRow(dp = { type: 'Diamond', shape: '', weight: '', ratePerCarat: '', totalValue: '' }) {
+  createDPRow(dp = { type: 'Diamond', shape: '', weight: '', ratePerCarat: '', totalValue: '', pieces: '' }) {
     const container = document.getElementById('dp-list-container');
     const dpId = 'dp_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
 
@@ -377,6 +376,10 @@ const UI = {
       <div class="input-group" style="margin-bottom:0;">
         <label>${dp.type} - Shape / Size</label>
         <input type="text" class="dp-shape" placeholder="e.g. Round Brilliant" value="${dp.shape || ''}">
+      </div>
+      <div class="input-group" style="margin-bottom:0;">
+        <label>Pieces</label>
+        <input type="number" class="dp-pieces recalc-trigger" min="1" step="1" placeholder="1" value="${dp.pieces || ''}">
       </div>
       <div class="input-group" style="margin-bottom:0;">
         <label>Weight (cts)</label>
@@ -396,11 +399,12 @@ const UI = {
     `;
 
     // Wire up events
+    const piecesInput = card.querySelector('.dp-pieces');
     const weightInput = card.querySelector('.dp-weight');
     const rateInput = card.querySelector('.dp-rate');
     const totalInput = card.querySelector('.dp-total-val');
 
-    [weightInput, rateInput].forEach(inp => {
+    [piecesInput, weightInput, rateInput].forEach(inp => {
       inp.addEventListener('input', () => {
         const wt = Number(weightInput.value || 0);
         const rt = Number(rateInput.value || 0);
@@ -469,10 +473,11 @@ const UI = {
     stoneRows.forEach(row => {
       const type = row.getAttribute('data-stone-type');
       const shape = row.querySelector('.stone-shape').value || 'Mixed';
+      const pieces = Number(row.querySelector('.stone-pieces').value || 0);
       const weight = Number(row.querySelector('.stone-weight').value || 0);
       const ratePerCarat = Number(row.querySelector('.stone-rate').value || 0);
       const totalValue = Number(row.querySelector('.stone-total-val').value || 0);
-      currentItem.stones.push({ type, shape, weight, ratePerCarat, totalValue });
+      currentItem.stones.push({ type, shape, pieces, weight, ratePerCarat, totalValue });
     });
 
     // Diamonds/Polki
@@ -480,10 +485,11 @@ const UI = {
     dpRows.forEach(row => {
       const type = row.getAttribute('data-dp-type');
       const shape = row.querySelector('.dp-shape').value || 'Round';
+      const pieces = Number(row.querySelector('.dp-pieces').value || 0);
       const weight = Number(row.querySelector('.dp-weight').value || 0);
       const ratePerCarat = Number(row.querySelector('.dp-rate').value || 0);
       const totalValue = Number(row.querySelector('.dp-total-val').value || 0);
-      currentItem.diamondsPolki.push({ type, shape, weight, ratePerCarat, totalValue });
+      currentItem.diamondsPolki.push({ type, shape, pieces, weight, ratePerCarat, totalValue });
     });
 
     // Perform Evaluation

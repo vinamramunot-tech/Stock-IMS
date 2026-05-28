@@ -72,7 +72,7 @@ const Logs = {
     if (JSON.stringify(oldStones) !== JSON.stringify(newStones)) {
       const formatStones = (arr) => {
         if (arr.length === 0) return 'None';
-        return arr.map(s => `${s.type || 'Stone'} (${s.shape || ''}, ${s.weight} cts, @₹${Number(s.ratePerCarat).toLocaleString()})`).join(' | ');
+        return arr.map(s => `${s.type || 'Stone'} (${s.pieces ? s.pieces + ' pcs, ' : ''}${s.shape || ''}, ${s.weight} cts, @₹${Number(s.ratePerCarat).toLocaleString()})`).join(' | ');
       };
       changes.push({
         field: 'Stone Details',
@@ -87,7 +87,7 @@ const Logs = {
     if (JSON.stringify(oldDP) !== JSON.stringify(newDP)) {
       const formatDP = (arr) => {
         if (arr.length === 0) return 'None';
-        return arr.map(d => `${d.type || 'Diamond'} (${d.shape || ''}, ${d.weight} cts, @₹${Number(d.ratePerCarat).toLocaleString()})`).join(' | ');
+        return arr.map(d => `${d.type || 'Diamond'} (${d.pieces ? d.pieces + ' pcs, ' : ''}${d.shape || ''}, ${d.weight} cts, @₹${Number(d.ratePerCarat).toLocaleString()})`).join(' | ');
       };
       changes.push({
         field: 'Diamond / Polki Details',
