@@ -170,29 +170,29 @@ const App = {
       // Diff visual rendering if edits exist
       let diffHtml = '';
       if (log.changes && log.changes.length > 0) {
-        diffHtml = \`<div class="log-diff-box">\`;
+        diffHtml = `<div class="log-diff-box">`;
         log.changes.forEach(c => {
-          diffHtml += \`
+          diffHtml += `
             <div class="log-diff-item">
-              <span class="diff-field">\${c.field}:</span>
-              <span class="diff-old">\${c.old}</span>
+              <span class="diff-field">${c.field}:</span>
+              <span class="diff-old">${c.old}</span>
               <span class="diff-arrow">&rarr;</span>
-              <span class="diff-new">\${c.new}</span>
+              <span class="diff-new">${c.new}</span>
             </div>
-          \`;
+          `;
         });
-        diffHtml += \`</div>\`;
+        diffHtml += `</div>`;
       }
 
-      row.innerHTML = \`
-        <td class="log-time">\${timeFormatted}</td>
-        <td><span class="badge-action \${badgeClass}">\${actionLabel}</span></td>
-        <td class="log-target">\${log.targetName || 'Vault'}</td>
+      row.innerHTML = `
+        <td class="log-time">${timeFormatted}</td>
+        <td><span class="badge-action ${badgeClass}">${actionLabel}</span></td>
+        <td class="log-target">${log.targetName || 'Vault'}</td>
         <td>
-          <div class="log-summary">\${log.details || ''}</div>
-          \${diffHtml}
+          <div class="log-summary">${log.details || ''}</div>
+          ${diffHtml}
         </td>
-      \`;
+      `;
 
       tbody.appendChild(row);
     });

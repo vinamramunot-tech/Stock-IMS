@@ -11,6 +11,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
+        "label": "main",
         "title": "Mava Gems | Jewelry Stock Management",
         "width": 1200,
         "height": 850,

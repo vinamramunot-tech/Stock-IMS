@@ -35,6 +35,68 @@
       }
     };
   } else {
-    console.log("⚡ Electron environment or dev-browser detected. Skipping Tauri translation bridge...");
+    console.log("⚡ Electron environment or dev-browser detected. Initializing browser mock translation bridge...");
+    window.electronAPI = {
+      getLastDbPath: async () => {
+        return localStorage.getItem('lastActiveDbPath') || '';
+      },
+      setLastDbPath: async (dbPath) => {
+        if (dbPath) {
+          localStorage.setItem('lastActiveDbPath', dbPath);
+        } else {
+          localStorage.removeItem('lastActiveDbPath');
+        }
+        return true;
+      },
+      createDbDialog: async () => {
+        return prompt("Enter path for new database:", "mava_gems_stock.db");
+      },
+      openDbDialog: async () => {
+        return prompt("Enter path of database to open:", "mava_gems_stock.db");
+      },
+      selectDirectory: async () => {
+        return "/mock/directory";
+      },
+      exportBackupDialog: async (defaultName) => {
+        return defaultName || "mava_gems_stock_backup.db";
+      },
+      importBackupDialog: async () => {
+        return "mava_gems_stock_backup.db";
+      },
+      readVault: async (customPath) => {
+        const key = "mock_db_" + customPath;
+        let data = localStorage.getItem(key);
+        if (!data) {
+          data = JSON.stringify({
+            settings: {
+              currency: "₹",
+              goldRate24kt: {
+                ratePerGram: 0,
+                effectiveDate: new Date().toISOString().split('T')[0],
+                updatedAt: new Date().toISOString()
+              }
+            },
+            items: [],
+            logs: []
+          });
+          localStorage.setItem(key, data);
+        }
+        return { exists: true, data, path: customPath };
+      },
+      writeVault: async (payload, customPath) => {
+        localStorage.setItem("mock_db_" + customPath, payload);
+        return { success: true, path: customPath };
+      },
+      copyFile: async (sourcePath, destPath) => {
+        const data = localStorage.getItem("mock_db_" + sourcePath);
+        if (data) {
+          localStorage.setItem("mock_db_" + destPath, data);
+        }
+        return true;
+      },
+      onDatabaseChanged: (callback) => {
+        console.log("📝 Mock database changed watcher registered.");
+      }
+    };
   }
 })();
