@@ -1,0 +1,177 @@
+/**
+ * Startup Module
+ * Manages database initialization, connecting, and the onboarding screens.
+ */
+
+const Startup = {
+  init() {
+    // Onboarding setup button click listeners
+    document.getElementById('btn-startup-create').addEventListener('click', () => this.handleStartupCreate());
+    document.getElementById('btn-startup-open').addEventListener('click', () => this.handleStartupOpen());
+
+    // Confirmation screen button click listeners
+    document.getElementById('btn-startup-continue').addEventListener('click', () => this.handleStartupContinue());
+    document.getElementById('btn-startup-confirm-create').addEventListener('click', () => this.handleStartupCreate());
+    document.getElementById('btn-startup-confirm-open').addEventListener('click', () => this.handleStartupOpen());
+
+    // Global keydown event listener to confirm database path when Enter is pressed
+    window.addEventListener('keydown', (e) => {
+      const confirmView = document.getElementById('startup-confirm-path-view');
+      const startupScreen = document.getElementById('startup-screen');
+      if (
+        confirmView && !confirmView.classList.contains('hidden') &&
+        startupScreen && !startupScreen.classList.contains('hidden') &&
+        e.key === 'Enter'
+      ) {
+        e.preventDefault();
+        this.handleStartupContinue();
+      }
+    });
+
+    // Editable database path listener (on enter connect) and browse button listener
+    const activeVaultInput = document.getElementById('active-vault-input');
+    if (activeVaultInput) {
+      activeVaultInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          this.handleVaultPathChange(e.target.value.trim());
+        }
+      });
+    }
+    const btnBrowseVault = document.getElementById('btn-browse-vault');
+    if (btnBrowseVault) {
+      btnBrowseVault.addEventListener('click', () => this.handleStartupOpen());
+    }
+
+    this.showStartupScreen();
+  },
+
+  async showStartupScreen() {
+    const rememberedPath = await window.electronAPI.getLastDbPath();
+    if (rememberedPath) {
+      document.getElementById('startup-initial-setup-view').classList.add('hidden');
+      document.getElementById('startup-confirm-path-view').classList.remove('hidden');
+      document.getElementById('startup-db-path-text').textContent = rememberedPath;
+    } else {
+      document.getElementById('startup-confirm-path-view').classList.add('hidden');
+      document.getElementById('startup-initial-setup-view').classList.remove('hidden');
+    }
+    document.getElementById('app-workspace').classList.add('hidden');
+    document.getElementById('startup-screen').classList.remove('hidden');
+  },
+
+  hideStartupScreen() {
+    document.getElementById('startup-screen').classList.add('hidden');
+    document.getElementById('app-workspace').classList.remove('hidden');
+  },
+
+  async handleStartupCreate() {
+    try {
+      const chosenPath = await window.electronAPI.createDbDialog();
+      if (!chosenPath) return; // User canceled
+
+      const initResult = await DBManager.initVault(chosenPath);
+      if (initResult.success) {
+        this.hideStartupScreen();
+        // Populate path indicators in UI
+        const activeInput = document.getElementById('active-vault-input');
+        if (activeInput) {
+          activeInput.value = chosenPath;
+          activeInput.title = chosenPath;
+        }
+        document.getElementById('settings-vault-path').textContent = chosenPath;
+        
+        UI.showToast("Database successfully initialized!");
+        App.refreshAllDisplays();
+      }
+    } catch (err) {
+      console.error(err);
+      UI.showToast("Database initialization failure: " + err.message, true);
+    }
+  },
+
+  async handleStartupOpen() {
+    try {
+      const chosenPath = await window.electronAPI.openDbDialog();
+      if (!chosenPath) return; // User canceled
+
+      await this.bootstrapDatabase(chosenPath);
+    } catch (err) {
+      console.error(err);
+      UI.showToast("Database connection failure: " + err.message, true);
+    }
+  },
+
+  async handleStartupContinue() {
+    try {
+      const rememberedPath = await window.electronAPI.getLastDbPath();
+      if (rememberedPath) {
+        await this.bootstrapDatabase(rememberedPath);
+      }
+    } catch (err) {
+      console.error(err);
+      UI.showToast("Database load failure: " + err.message, true);
+    }
+  },
+
+  async handleVaultPathChange(newPath) {
+    if (!newPath) {
+      UI.showToast("Please enter a valid database path.", true);
+      const activeInput = document.getElementById('active-vault-input');
+      if (activeInput) activeInput.value = DBManager.activePath || '';
+      return;
+    }
+    try {
+      const loadResult = await DBManager.loadVault(newPath);
+      if (loadResult.success) {
+        const activeInput = document.getElementById('active-vault-input');
+        if (activeInput) {
+          activeInput.value = newPath;
+          activeInput.title = newPath;
+        }
+        document.getElementById('settings-vault-path').textContent = newPath;
+        UI.showToast("Successfully connected to the new database!");
+        App.refreshAllDisplays();
+      }
+    } catch (err) {
+      console.error(err);
+      UI.showToast("Failed to connect to database: " + err.message, true);
+      // Revert input field value
+      const activeInput = document.getElementById('active-vault-input');
+      if (activeInput) activeInput.value = DBManager.activePath || '';
+    }
+  },
+
+  /**
+   * Bootstrap Database loading routine.
+   */
+  async bootstrapDatabase(customPath) {
+    if (!customPath) {
+      await this.showStartupScreen();
+      return;
+    }
+    try {
+      const loadResult = await DBManager.loadVault(customPath);
+      
+      if (loadResult.success) {
+        this.hideStartupScreen();
+        // Populate path indicators in UI
+        const activeInput = document.getElementById('active-vault-input');
+        if (activeInput) {
+          activeInput.value = customPath;
+          activeInput.title = customPath;
+        }
+        document.getElementById('settings-vault-path').textContent = customPath;
+        
+        UI.showToast("Database successfully loaded!");
+        App.refreshAllDisplays();
+      }
+    } catch (err) {
+      console.error(err);
+      UI.showToast("Database file read failure: " + err.message, true);
+      await this.showStartupScreen(); // Redirect back to setup screen if file is corrupted/missing
+    }
+  }
+};
+
+window.Startup = Startup;
