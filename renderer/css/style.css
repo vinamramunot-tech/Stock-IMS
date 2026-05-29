@@ -1,23 +1,23 @@
 /* ==================== MAVA GEMS DESIGN TOKENS ==================== */
 :root {
-  --bg-base: #FAF9F5;          /* Warm Ivory / Eggshell Base */
-  --bg-card: #FFFFFF;          /* Stark White Cards */
+  --bg-base: #F9F9F9;          /* Very Light Grey Base */
+  --bg-card: #FFFFFF;          /* Pure White Cards */
   --bg-sidebar: #FFFFFF;       /* Pure White Sidebar */
   
-  --text-main: #1A1A1D;        /* High-Contrast Charcoal Black */
-  --text-muted: #6B6B6F;       /* Slate Grey for help text */
-  --text-gold: #B89047;        /* Elegant Champagne Gold */
-  --text-gold-dark: #8F6A26;   /* Legible dark gold for active elements */
+  --text-main: #000000;        /* Pure Black Main Text */
+  --text-muted: #666666;       /* Medium Grey for Help Text */
+  --text-gold: #000000;        /* Black for Accent Text */
+  --text-gold-dark: #000000;   /* Black for Highlight Text */
   
-  --border-dark: #1A1A1D;      /* 1px Solid Charcoal outline */
-  --border-light: #E0DFDA;     /* Soft Warm Grey outline */
-  --border-gold: #D4AF37;      /* Classic Gold Accent Line */
+  --border-dark: #000000;      /* Stark Black Outlines */
+  --border-light: #E0E0E0;     /* Crisp Light Grey Outlines */
+  --border-gold: #CCCCCC;      /* Medium Grey Accent Lines */
   
-  --gold-accent: #B89047;
-  --gold-hover: #9D7631;
-  --danger-red: #D32F2F;
-  --danger-hover: #B71C1C;
-  --success-green: #388E3C;
+  --gold-accent: #000000;      /* Black Accents */
+  --gold-hover: #444444;       /* Charcoal Hover Actions */
+  --danger-red: #000000;       /* Black for Danger Actions (minimalist) */
+  --danger-hover: #444444;
+  --success-green: #000000;
   
   --font-serif: Georgia, serif;
   --font-sans: system-ui, -apple-system, sans-serif;
