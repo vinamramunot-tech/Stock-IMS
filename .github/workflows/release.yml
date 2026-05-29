@@ -10,18 +10,45 @@ on:
   workflow_dispatch: # Allows manual run of the workflow from GitHub Actions tab
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Extract version from package.json or git tag
+        id: get_version
+        shell: bash
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          else
+            VERSION=$(node -p "require('./package.json').version")
+            echo "version=v$VERSION" >> $GITHUB_OUTPUT
+          fi
+
   publish-tauri:
+    needs: prepare
     permissions:
       contents: write # Essential to compile and upload binary release assets
     strategy:
       fail-fast: false
       matrix:
-        include:
+        settings:
           - platform: 'macos-latest'
-            args: '--target universal-apple-darwin' # Compile universal macOS DMG/app bundle
+            args: '--target universal-apple-darwin'
+            targets: 'aarch64-apple-darwin,x86_64-apple-darwin'
           - platform: 'windows-latest'
-            args: ''                              # Compile Windows EXE/MSI installers
-    runs-on: ${{ matrix.platform }}
+            args: ''
+            targets: ''
+    runs-on: ${{ matrix.settings.platform }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -34,30 +61,117 @@ jobs:
       - name: Install Rust Stable toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: ${{ matrix.settings.targets }}
         
       - name: Install project dependencies
         run: npm install
-
-      - name: Extract version from package.json or git tag
-        id: get_version
-        shell: bash
-        run: |
-          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
-          else
-            VERSION=$(node -p "require('./package.json').version")
-            echo "version=v$VERSION" >> $GITHUB_OUTPUT
-          fi
         
       - name: Build and Upload Assets via Tauri Action
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: "${{ steps.get_version.outputs.version }}"
-          releaseName: "Mava Gems Stock ${{ steps.get_version.outputs.version }}"
+          tagName: "${{ needs.prepare.outputs.version }}"
+          releaseName: "Mava Gems Stock ${{ needs.prepare.outputs.version }}"
           releaseBody: 'Production-ready compiled binaries for Mava Gems. Secure inventory management.'
           releaseDraft: true
           prerelease: false
-          args: ${{ matrix.args }}
+          args: ${{ matrix.settings.args }}
+
+  publish-android:
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Install Rust Stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: 'aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android'
+
+      - name: Install project dependencies
+        run: npm install
+
+      - name: Initialize Android project
+        run: npx tauri android init --ci --skip-targets-install
+
+      - name: Build Android APK
+        run: npx tauri android build --apk --release --skip-targets-install
+
+      - name: Upload APK to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "${{ needs.prepare.outputs.version }}"
+          name: "Mava Gems Stock ${{ needs.prepare.outputs.version }}"
+          draft: true
+          prerelease: false
+          files: |
+            src-tauri/gen/android/app/build/outputs/apk/release/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-ios:
+    needs: prepare
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Install Rust Stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: 'aarch64-apple-ios,x86_64-apple-ios,aarch64-apple-ios-sim'
+
+      - name: Install project dependencies
+        run: npm install
+
+      - name: Initialize iOS project
+        run: npx tauri ios init --ci --skip-targets-install
+
+      - name: Build iOS App
+        run: npx tauri ios build --no-signing --skip-targets-install
+
+      - name: Compress iOS App Bundle
+        run: |
+          mkdir -p build-assets
+          find src-tauri/gen/apple -name "*.app" -exec cp -r {} build-assets/ \;
+          cd build-assets
+          zip -r ../mava-gems-stock-ios.zip .
+          cd ..
+
+      - name: Upload iOS Assets to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "${{ needs.prepare.outputs.version }}"
+          name: "Mava Gems Stock ${{ needs.prepare.outputs.version }}"
+          draft: true
+          prerelease: false
+          files: |
+            src-tauri/gen/apple/build/arm64/*.ipa
+            mava-gems-stock-ios.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
