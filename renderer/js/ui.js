@@ -376,7 +376,7 @@ const UI = {
 
     card.innerHTML = `
       <div class="input-group" style="margin-bottom:0;">
-        <label>${dp.type} - Shape / Size</label>
+        <label class="dp-type-label"></label>
         <input type="text" class="dp-shape" placeholder="e.g. Round Brilliant" value="${dp.shape || ''}">
       </div>
       <div class="input-group" style="margin-bottom:0;">
@@ -399,6 +399,9 @@ const UI = {
         <span style="font-size:11px; color:var(--text-muted); cursor:pointer;" class="btn-remove-dp-card">&times; Erase</span>
       </div>
     `;
+
+    const typeLabel = card.querySelector('.dp-type-label');
+    typeLabel.textContent = `${dp.type || ''} - Shape / Size`;
 
     // Wire up events
     const piecesInput = card.querySelector('.dp-pieces');
