@@ -35,7 +35,6 @@ const App = {
     UI.initModalTabs();
     UI.initImageUploader();
     UI.initStoneSelectors();
-    UI.initDPSelectors();
 
     // Dynamic metal row button click
     document.getElementById('btn-add-metal-part').addEventListener('click', () => {

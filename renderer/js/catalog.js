@@ -31,7 +31,39 @@ const Catalog = {
       btnNavAddItem.addEventListener('click', openAddModal);
     }
 
+    // View toggle listeners
+    this.viewType = localStorage.getItem('catalogViewType') || 'grid';
+    this.updateViewToggleUI();
+
+    document.getElementById('btn-view-grid').addEventListener('click', () => {
+      this.setViewType('grid');
+    });
+    document.getElementById('btn-view-list').addEventListener('click', () => {
+      this.setViewType('list');
+    });
+
     document.getElementById('btn-save-jewelry-piece').addEventListener('click', () => this.handleSaveJewelryPiece());
+  },
+
+  setViewType(type) {
+    this.viewType = type;
+    localStorage.setItem('catalogViewType', type);
+    this.updateViewToggleUI();
+    this.renderCatalogGrid();
+  },
+
+  updateViewToggleUI() {
+    const gridBtn = document.getElementById('btn-view-grid');
+    const listBtn = document.getElementById('btn-view-list');
+    if (!gridBtn || !listBtn) return;
+
+    if (this.viewType === 'list') {
+      gridBtn.classList.remove('active');
+      listBtn.classList.add('active');
+    } else {
+      listBtn.classList.remove('active');
+      gridBtn.classList.add('active');
+    }
   },
 
   populateKaratFilterOptions() {
@@ -117,6 +149,12 @@ const Catalog = {
   renderCatalogGrid() {
     const gridContainer = document.getElementById('catalog-grid');
     const emptyState = document.getElementById('catalog-empty-state');
+    
+    if (this.viewType === 'list') {
+      gridContainer.classList.add('list-view');
+    } else {
+      gridContainer.classList.remove('list-view');
+    }
     
     const query = document.getElementById('search-input').value.toLowerCase().trim();
     const filterCat = document.getElementById('filter-category').value;
@@ -314,28 +352,22 @@ const Catalog = {
       savedItem.metals.push({ name: partName, karat, weight });
     });
 
-    // Stones
+    // Stones & Diamonds
     const stoneRows = document.querySelectorAll('.stone-entry-card');
     stoneRows.forEach(row => {
-      const type = row.getAttribute('data-stone-type');
+      const type = row.getAttribute('data-stone-type') || 'Emerald';
       const shape = row.querySelector('.stone-shape').value.trim() || 'Mixed';
       const pieces = Number(row.querySelector('.stone-pieces').value || 0);
       const weight = Number(row.querySelector('.stone-weight').value || 0);
       const ratePerCarat = Number(row.querySelector('.stone-rate').value || 0);
       const totalValue = Number(row.querySelector('.stone-total-val').value || 0);
-      savedItem.stones.push({ type, shape, pieces, weight, ratePerCarat, totalValue });
-    });
-
-    // Diamonds/Polki
-    const dpRows = document.querySelectorAll('.dp-entry-card');
-    dpRows.forEach(row => {
-      const type = row.getAttribute('data-dp-type');
-      const shape = row.querySelector('.dp-shape').value.trim() || 'Round';
-      const pieces = Number(row.querySelector('.dp-pieces').value || 0);
-      const weight = Number(row.querySelector('.dp-weight').value || 0);
-      const ratePerCarat = Number(row.querySelector('.dp-rate').value || 0);
-      const totalValue = Number(row.querySelector('.dp-total-val').value || 0);
-      savedItem.diamondsPolki.push({ type, shape, pieces, weight, ratePerCarat, totalValue });
+      
+      const component = { type, shape, pieces, weight, ratePerCarat, totalValue };
+      if (type === 'Diamond' || type === 'Polki') {
+        savedItem.diamondsPolki.push(component);
+      } else {
+        savedItem.stones.push(component);
+      }
     });
 
     // Recalculate dynamic subtotals for logging

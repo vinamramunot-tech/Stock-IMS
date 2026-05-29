@@ -1556,4 +1556,121 @@ label {
   font-size: 11px;
 }
 
+/* ==================== VIEW TOGGLE ==================== */
+.view-toggle-group {
+  display: flex;
+  border: 1px solid var(--border-dark);
+}
+
+.btn-view-toggle {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.btn-view-toggle.active {
+  background-color: var(--border-dark);
+  color: var(--bg-card);
+}
+
+.btn-view-toggle:not(.active):hover {
+  background-color: var(--border-light);
+}
+
+/* ==================== LIST VIEW LAYOUT OVERRIDES ==================== */
+.catalog-grid-container.list-view {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.catalog-grid-container.list-view .product-card {
+  flex-direction: row;
+  align-items: center;
+  padding: 10px 15px;
+  height: auto;
+  gap: 20px;
+}
+
+.catalog-grid-container.list-view .product-img-box {
+  width: 80px;
+  height: 80px;
+  border-bottom: none;
+  border: 1px solid var(--border-light);
+  flex-shrink: 0;
+}
+
+.catalog-grid-container.list-view .product-cat-badge {
+  display: none;
+}
+
+.catalog-grid-container.list-view .product-body {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0;
+  gap: 20px;
+}
+
+.catalog-grid-container.list-view .product-meta {
+  width: 25%;
+  min-width: 150px;
+  margin-bottom: 0;
+}
+
+.catalog-grid-container.list-view .product-specs {
+  width: 45%;
+  border-top: none;
+  padding-top: 0;
+  margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.catalog-grid-container.list-view .specs-line {
+  margin-bottom: 0;
+}
+
+.catalog-grid-container.list-view .product-price-row {
+  width: 30%;
+  margin-top: 0;
+  border-top: none;
+  padding-top: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.catalog-grid-container.list-view .product-price-row > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.catalog-grid-container.list-view .price-lbl {
+  display: none;
+}
+
+.catalog-grid-container.list-view .price-val {
+  margin-bottom: 0 !important;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.catalog-grid-container.list-view .product-actions {
+  flex-direction: row;
+  gap: 8px;
+}
+
 

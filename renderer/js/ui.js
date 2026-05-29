@@ -375,89 +375,7 @@ const UI = {
     });
   },
 
-  /**
-   * Diamonds & Polki UI Builders
-   */
-  createDPRow(dp = { type: 'Diamond', shape: '', weight: '', ratePerCarat: '', totalValue: '', pieces: '' }) {
-    const container = document.getElementById('dp-list-container');
-    const dpId = 'dp_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
 
-    const card = document.createElement('div');
-    card.className = 'dp-entry-card';
-    card.id = dpId;
-    card.setAttribute('data-dp-type', dp.type);
-
-    card.innerHTML = `
-      <div class="input-group" style="margin-bottom:0;">
-        <label class="dp-type-label"></label>
-        <input type="text" class="dp-shape" placeholder="e.g. Round Brilliant" value="${dp.shape || ''}">
-      </div>
-      <div class="input-group" style="margin-bottom:0;">
-        <label>Pieces</label>
-        <input type="number" class="dp-pieces recalc-trigger" min="1" step="1" placeholder="1" value="${dp.pieces || ''}">
-      </div>
-      <div class="input-group" style="margin-bottom:0;">
-        <label>Weight (cts)</label>
-        <input type="number" class="dp-weight recalc-trigger" step="0.01" min="0" placeholder="0.00" value="${dp.weight || ''}">
-      </div>
-      <div class="input-group" style="margin-bottom:0;">
-        <label>Rate / Carat (@/ct)</label>
-        <input type="number" class="dp-rate recalc-trigger" step="0.01" min="0" placeholder="0.00" value="${dp.ratePerCarat || ''}">
-      </div>
-      <div class="input-group" style="margin-bottom:0;">
-        <label>Total Value (₹)</label>
-        <input type="number" class="dp-total-val" step="0.01" min="0" placeholder="0.00" value="${dp.totalValue || ''}">
-      </div>
-      <div class="entry-card-btn-col" style="padding-bottom:0;">
-        <span style="font-size:11px; color:var(--text-muted); cursor:pointer;" class="btn-remove-dp-card">&times; Erase</span>
-      </div>
-    `;
-
-    const typeLabel = card.querySelector('.dp-type-label');
-    typeLabel.textContent = `${dp.type || ''} - Shape / Size`;
-
-    // Wire up events
-    const piecesInput = card.querySelector('.dp-pieces');
-    const weightInput = card.querySelector('.dp-weight');
-    const rateInput = card.querySelector('.dp-rate');
-    const totalInput = card.querySelector('.dp-total-val');
-
-    [piecesInput, weightInput, rateInput].forEach(inp => {
-      inp.addEventListener('input', () => {
-        const wt = Number(weightInput.value || 0);
-        const rt = Number(rateInput.value || 0);
-        const computed = Calc.calculateStoneTotal(wt, rt);
-        totalInput.value = computed > 0 ? computed : '';
-        this.updateFormCalculations();
-      });
-    });
-
-    totalInput.addEventListener('input', () => {
-      const wt = Number(weightInput.value || 0);
-      const tot = Number(totalInput.value || 0);
-      const computedRate = Calc.calculateStoneRate(wt, tot);
-      rateInput.value = computedRate > 0 ? computedRate : '';
-      this.updateFormCalculations();
-    });
-
-    card.querySelector('.btn-remove-dp-card').addEventListener('click', () => {
-      card.remove();
-      this.updateFormCalculations();
-    });
-
-    container.appendChild(card);
-  },
-
-  initDPSelectors() {
-    const addBtns = document.querySelectorAll('.btn-add-dp');
-    addBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        const type = btn.getAttribute('data-type');
-        this.createDPRow({ type: type });
-        this.updateFormCalculations();
-      });
-    });
-  },
 
   /**
    * Real-time form calculator
@@ -488,28 +406,22 @@ const UI = {
       currentItem.metals.push({ name, karat, weight });
     });
 
-    // Stones
+    // Stones & Diamonds
     const stoneRows = document.querySelectorAll('.stone-entry-card');
     stoneRows.forEach(row => {
-      const type = row.getAttribute('data-stone-type');
+      const type = row.getAttribute('data-stone-type') || 'Emerald';
       const shape = row.querySelector('.stone-shape').value || 'Mixed';
       const pieces = Number(row.querySelector('.stone-pieces').value || 0);
       const weight = Number(row.querySelector('.stone-weight').value || 0);
       const ratePerCarat = Number(row.querySelector('.stone-rate').value || 0);
       const totalValue = Number(row.querySelector('.stone-total-val').value || 0);
-      currentItem.stones.push({ type, shape, pieces, weight, ratePerCarat, totalValue });
-    });
-
-    // Diamonds/Polki
-    const dpRows = document.querySelectorAll('.dp-entry-card');
-    dpRows.forEach(row => {
-      const type = row.getAttribute('data-dp-type');
-      const shape = row.querySelector('.dp-shape').value || 'Round';
-      const pieces = Number(row.querySelector('.dp-pieces').value || 0);
-      const weight = Number(row.querySelector('.dp-weight').value || 0);
-      const ratePerCarat = Number(row.querySelector('.dp-rate').value || 0);
-      const totalValue = Number(row.querySelector('.dp-total-val').value || 0);
-      currentItem.diamondsPolki.push({ type, shape, pieces, weight, ratePerCarat, totalValue });
+      
+      const component = { type, shape, pieces, weight, ratePerCarat, totalValue };
+      if (type === 'Diamond' || type === 'Polki') {
+        currentItem.diamondsPolki.push(component);
+      } else {
+        currentItem.stones.push(component);
+      }
     });
 
     // Perform Evaluation
@@ -517,8 +429,8 @@ const UI = {
 
     // Update Form View
     document.getElementById('summary-metal-subtotal').textContent = `₹${evalResult.metalSubtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
-    document.getElementById('summary-stone-subtotal').textContent = `₹${evalResult.stoneSubtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
-    document.getElementById('summary-dp-subtotal').textContent = `₹${evalResult.diamondSubtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    const combinedStonesVal = evalResult.stoneSubtotal + evalResult.diamondSubtotal;
+    document.getElementById('summary-stone-subtotal').textContent = `₹${combinedStonesVal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
     document.getElementById('summary-labour-subtotal').textContent = `₹${evalResult.subtotal ? currentItem.labourCost.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '0.00'}`;
     
     document.getElementById('summary-subtotal').textContent = `₹${evalResult.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
@@ -571,7 +483,6 @@ const UI = {
     document.getElementById('item-profit-pct').value = '40.0';
     document.getElementById('metals-list-container').innerHTML = '';
     document.getElementById('stones-list-container').innerHTML = '';
-    document.getElementById('dp-list-container').innerHTML = '';
     
     // Reset image uploader display
     document.getElementById('item-image-file').value = '';
@@ -618,9 +529,9 @@ const UI = {
     const stones = item.stones || [];
     stones.forEach(stone => this.createStoneRow(stone));
 
-    // Diamonds Load
+    // Diamonds Load (loaded into same stones container)
     const dp = item.diamondsPolki || [];
-    dp.forEach(d => this.createDPRow(d));
+    dp.forEach(d => this.createStoneRow({ ...d, type: d.type || 'Diamond' }));
 
     // Commission Configuration
     if (item.commission && item.commission.isManual) {
