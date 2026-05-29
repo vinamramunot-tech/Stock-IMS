@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*' # Triggers workflow on tag push matching v*, e.g., v1.0.0
+  workflow_dispatch: # Allows manual run of the workflow from GitHub Actions tab
 
 jobs:
   publish-tauri:
@@ -14,9 +15,7 @@ jobs:
       matrix:
         include:
           - platform: 'macos-latest'
-            args: '--target aarch64-apple-darwin' # Compile native Apple Silicon binary
-          - platform: 'macos-latest'
-            args: '--target x86_64-apple-darwin'  # Compile Intel Mac binary
+            args: '--target universal-apple-darwin' # Compile universal macOS DMG/app bundle
           - platform: 'windows-latest'
             args: ''                              # Compile Windows EXE/MSI installers
     runs-on: ${{ matrix.platform }}
@@ -42,8 +41,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'Mava Gems Stock ${{ github.ref_name }}'
+          tagName: ${{ github.ref_name || 'v1.0.0-draft' }}
+          releaseName: 'Mava Gems Stock ${{ github.ref_name || 'v1.0.0-draft' }}'
           releaseBody: 'Production-ready compiled binaries for Mava Gems. Secure inventory management.'
           releaseDraft: true
           prerelease: false
