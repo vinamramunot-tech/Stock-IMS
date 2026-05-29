@@ -20,16 +20,6 @@ Designed with a high-contrast **Stark Light Luxury aesthetic** (ivory eggshell p
 - **Infinite Combinations**: Add infinite rows of the exact same gemstone or diamond category (e.g. multiple distinct Emerald or Diamond rows with different shapes, weights, and rates!).
 - **Dynamic Bidirectional Math**: Each gemstone and diamond component features high-performance bidirectional calculations (changing Weight and Rate updates the Total, and changing the Total auto-recalculates the Rate per Carat).
 
-### 📐 Dynamic Mathematical Valuation Engine
-- **Independent Karats**: Break down a jewelry piece into infinite metal parts with different gold karats (24KT, 22KT, 18KT, 14KT, 10KT, etc.) and custom weights.
-- **Universal Gold Price Display**: Set your universal 24KT gold price per gram in the header. Valuations across all inventory items are automatically and instantly recalculated.
-- **Progressive Slab Commissions**: Evaluates labor and progressive commission slabs (ranging from 10% down to 2% based on total value brackets). Features a manual override toggle.
-- **Market Cost Price**: Computed as metal parts value (with wastage) + gemstones + diamonds/polki + labor + commission.
-- **Home Cost Price (Emerald discount)**: Automatically displayed whenever an **Emerald** stone is selected on an item. The Home Cost Price values emeralds at 50% cost while keeping all other calculations (metal, diamonds/polki, labor, and commission) identical.
-- **Flexible Markup Selling Price**: Configured via a Profit Percentage field in the form (defaults to `40%`). The selling price is calculated using the formula:
-  $$\text{Selling Price} = \left((\text{Market Cost} - \text{Emerald Value}) \times \left(1 + \frac{\text{Profit\%}}{100}\right)\right) + \text{Emerald Value}$$
-  *(Emerald values are excluded from the profit markup calculation and added back at 100% cost afterwards).*
-
 ### 📷 Client-Side Canvas Image Compression & Base64 Storage
 - **Canvas Compression**: Uploaded jewelry photos are automatically down-scaled in-memory via an HTML canvas to a maximum dimension of `400px` (under 30KB) and stored directly inside the database text file as base64 JPEG strings, making database backups completely self-contained.
 
