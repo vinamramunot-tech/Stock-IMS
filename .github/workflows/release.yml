@@ -113,10 +113,14 @@ jobs:
         run: npm install
 
       - name: Initialize Android project
-        run: npx tauri android init --ci --skip-targets-install
+        run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+          npx tauri android init --ci --skip-targets-install
 
       - name: Build Android APK
-        run: npx tauri android build --apk --release --skip-targets-install
+        run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+          npx tauri android build --apk --release --skip-targets-install
 
       - name: Upload APK to Release
         uses: softprops/action-gh-release@v2
@@ -153,10 +157,14 @@ jobs:
         run: npm install
 
       - name: Initialize iOS project
-        run: npx tauri ios init --ci --skip-targets-install
+        run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+          npx tauri ios init --ci --skip-targets-install
 
       - name: Build iOS App
-        run: npx tauri ios build --no-signing --skip-targets-install
+        run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+          npx tauri ios build --no-signing --skip-targets-install
 
       - name: Compress iOS App Bundle
         run: |
