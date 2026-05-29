@@ -36,20 +36,24 @@ jobs:
       - name: Install project dependencies
         run: npm install
 
-      - name: Extract version from package.json
+      - name: Extract version from package.json or git tag
         id: get_version
         shell: bash
         run: |
-          VERSION=$(node -p "require('./package.json').version")
-          echo "version=v$VERSION" >> $GITHUB_OUTPUT
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          else
+            VERSION=$(node -p "require('./package.json').version")
+            echo "version=v$VERSION" >> $GITHUB_OUTPUT
+          fi
         
       - name: Build and Upload Assets via Tauri Action
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: "${{ github.ref_type == 'tag' && github.ref_name || steps.get_version.outputs.version }}"
-          releaseName: "Mava Gems Stock ${{ github.ref_type == 'tag' && github.ref_name || steps.get_version.outputs.version }}"
+          tagName: "${{ steps.get_version.outputs.version }}"
+          releaseName: "Mava Gems Stock ${{ steps.get_version.outputs.version }}"
           releaseBody: 'Production-ready compiled binaries for Mava Gems. Secure inventory management.'
           releaseDraft: true
           prerelease: false
