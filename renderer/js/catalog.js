@@ -11,7 +11,7 @@ const Catalog = {
     document.getElementById('filter-karat').addEventListener('change', () => this.renderCatalogGrid());
     document.getElementById('sort-items').addEventListener('change', () => this.renderCatalogGrid());
     
-    document.getElementById('btn-empty-add').addEventListener('click', () => {
+    const openAddModal = () => {
       const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
       if (!goldRate || goldRate <= 0) {
         UI.showToast("Please set the Universal 24KT Gold Rate at the top of the screen before adding jewelry pieces to ensure correct metal valuations.", true);
@@ -19,7 +19,17 @@ const Catalog = {
       }
       UI.resetForm();
       UI.openModal('modal-jewelry-item');
-    });
+    };
+
+    const btnEmptyAdd = document.getElementById('btn-empty-add');
+    if (btnEmptyAdd) {
+      btnEmptyAdd.addEventListener('click', openAddModal);
+    }
+
+    const btnNavAddItem = document.getElementById('btn-nav-add-item');
+    if (btnNavAddItem) {
+      btnNavAddItem.addEventListener('click', openAddModal);
+    }
 
     document.getElementById('btn-save-jewelry-piece').addEventListener('click', () => this.handleSaveJewelryPiece());
   },
