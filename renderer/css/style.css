@@ -1621,13 +1621,13 @@ label {
 }
 
 .catalog-grid-container.list-view .product-meta {
-  width: 25%;
+  flex: 1 1 180px;
   min-width: 150px;
   margin-bottom: 0;
 }
 
 .catalog-grid-container.list-view .product-specs {
-  width: 45%;
+  flex: 2 1 250px;
   border-top: none;
   padding-top: 0;
   margin-top: 0;
@@ -1641,7 +1641,8 @@ label {
 }
 
 .catalog-grid-container.list-view .product-price-row {
-  width: 30%;
+  flex: 0 0 auto;
+  min-width: 260px;
   margin-top: 0;
   border-top: none;
   padding-top: 0;
@@ -1656,6 +1657,7 @@ label {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex-shrink: 0;
 }
 
 .catalog-grid-container.list-view .price-lbl {
@@ -1671,6 +1673,7 @@ label {
 .catalog-grid-container.list-view .product-actions {
   flex-direction: row;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 
