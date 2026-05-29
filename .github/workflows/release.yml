@@ -37,7 +37,37 @@ jobs:
             echo "version=v$VERSION" >> $GITHUB_OUTPUT
           fi
 
-  publish-tauri:
+publish-tauri:
+    needs: prepare
+    runs-on: ${{ matrix.settings.platform }}
+    strategy:
+      matrix:
+        settings:
+          - platform: 'macos-latest'
+            args: '--target universal-apple-darwin'
+          - platform: 'windows-latest'
+            args: ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm install
+      
+      # Manually build the binaries
+      - name: Build Tauri App
+        run: npx tauri build ${{ matrix.settings.args }}
+
+      # Upload using the same mechanism as your Android/iOS jobs
+      - name: Upload Binaries
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "${{ needs.prepare.outputs.version }}"
+          draft: true
+          files: |
+            src-tauri/target/release/bundle/**/*.dmg
+            src-tauri/target/release/bundle/**/*.exe
+            src-tauri/target/release/bundle/**/*.msi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     needs: prepare
     permissions:
       contents: write # Essential to compile and upload binary release assets
@@ -80,6 +110,11 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.settings.args }}
+
+
+
+
+
 
   publish-android:
     needs: prepare
