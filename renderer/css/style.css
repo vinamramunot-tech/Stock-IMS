@@ -19,8 +19,8 @@
   --danger-hover: #B71C1C;
   --success-green: #388E3C;
   
-  --font-serif: 'Playfair Display', Georgia, serif;
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-serif: Georgia, serif;
+  --font-sans: system-ui, -apple-system, sans-serif;
   
   --shadow-subtle: 0 4px 20px rgba(26, 26, 29, 0.03);
   --shadow-modal: 0 10px 50px rgba(0, 0, 0, 0.08);
