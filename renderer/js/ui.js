@@ -453,6 +453,7 @@ const UI = {
     const currentItem = {
       labourCost: Number(document.getElementById('item-labour').value || 0),
       wastage: Number(document.getElementById('item-wastage').value || 0),
+      profitPercentage: Number(document.getElementById('item-profit-pct').value || 100),
       commission: {
         value: Number(document.getElementById('item-commission').value || 0),
         isManual: this.activeItemState && this.activeItemState.commission ? this.activeItemState.commission.isManual : false
@@ -524,7 +525,19 @@ const UI = {
       resetCommBtn.classList.remove('hidden');
     }
 
-    document.getElementById('summary-grand-total').textContent = `₹${evalResult.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    document.getElementById('summary-grand-total').textContent = `₹${evalResult.marketCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    
+    // Home Cost display condition
+    const homeCostCard = document.getElementById('home-cost-card');
+    if (evalResult.hasEmerald) {
+      homeCostCard.classList.remove('hidden');
+      document.getElementById('summary-home-cost').textContent = `₹${evalResult.homeCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    } else {
+      homeCostCard.classList.add('hidden');
+    }
+
+    // Selling Price display
+    document.getElementById('summary-selling-price').textContent = `₹${evalResult.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
   },
 
   /**
@@ -533,11 +546,13 @@ const UI = {
   resetForm() {
     this.activeItemState = {
       image: null,
-      commission: { value: 0, isManual: false }
+      commission: { value: 0, isManual: false },
+      profitPercentage: 40
     };
     
     document.getElementById('jewelry-form').reset();
     document.getElementById('item-wastage').value = '15.00';
+    document.getElementById('item-profit-pct').value = '40.0';
     document.getElementById('metals-list-container').innerHTML = '';
     document.getElementById('stones-list-container').innerHTML = '';
     document.getElementById('dp-list-container').innerHTML = '';
@@ -569,6 +584,7 @@ const UI = {
     document.getElementById('item-category').value = item.category || 'Ring';
     document.getElementById('item-labour').value = item.labourCost || '';
     document.getElementById('item-wastage').value = item.wastage !== undefined ? Number(item.wastage).toFixed(2) : '15.00';
+    document.getElementById('item-profit-pct').value = item.profitPercentage !== undefined ? Number(item.profitPercentage).toFixed(1) : '40.0';
     document.getElementById('item-description').value = item.description || '';
 
     // Image Setup

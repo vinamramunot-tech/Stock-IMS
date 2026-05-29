@@ -116,8 +116,9 @@ const App = {
       }
     });
 
-    // Labour cost and metal wastage input change listener
+    // Labour cost, profit percentage, and metal wastage input change listener
     document.getElementById('item-labour').addEventListener('input', () => UI.updateFormCalculations());
+    document.getElementById('item-profit-pct').addEventListener('input', () => UI.updateFormCalculations());
     document.getElementById('item-wastage').addEventListener('input', () => {
       // Recompute individual metal part rows with new wastage percentage
       document.querySelectorAll('.metal-part-entry-card').forEach(row => {
@@ -504,7 +505,7 @@ const App = {
       const evaluation = Calc.evaluateItem(item, goldRate);
       return {
         ...item,
-        calculatedTotal: evaluation.grandTotal,
+        calculatedTotal: evaluation.marketCostPrice,
         evaluation: evaluation
       };
     });
@@ -549,6 +550,11 @@ const App = {
         ? `<img src="${item.image}" alt="${item.name}" class="product-img">`
         : `<svg viewBox="0 0 24 24" width="60" height="60" class="product-fallback-svg"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H7c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.04-.42 1.99-1.07 2.75z"/></svg>`;
 
+      const homeCostHtml = item.evaluation.hasEmerald
+        ? `<div class="price-lbl">HOME COST PRICE</div>
+           <div class="price-val" style="font-size: 15px; color: var(--text-muted); margin-bottom: 8px;">₹${item.evaluation.homeCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>`
+        : '';
+
       card.innerHTML = `
         <div class="product-img-box">
           ${imageHtml}
@@ -570,9 +576,10 @@ const App = {
           <div class="product-price-row">
             <div>
               <div class="price-lbl">MARKET COST PRICE</div>
-              <div class="price-val" style="font-size: 15px; color: var(--text-muted); margin-bottom: 8px;">₹${item.evaluation.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+              <div class="price-val" style="font-size: 15px; color: var(--text-muted); margin-bottom: 8px;">₹${item.evaluation.marketCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+              ${homeCostHtml}
               <div class="price-lbl">SELLING PRICE</div>
-              <div class="price-val">₹${item.calculatedTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+              <div class="price-val">₹${item.evaluation.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
             </div>
             <div class="product-actions">
               <button type="button" class="btn btn-secondary btn-small btn-edit" title="Edit details">Edit</button>
@@ -640,6 +647,7 @@ const App = {
       diamondsPolki: [],
       labourCost,
       wastage: Number(document.getElementById('item-wastage').value || 0),
+      profitPercentage: Number(document.getElementById('item-profit-pct').value || 40),
       commission: {
         value: Number(document.getElementById('item-commission').value || 0),
         isManual: UI.activeItemState.commission ? UI.activeItemState.commission.isManual : false

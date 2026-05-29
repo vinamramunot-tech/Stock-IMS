@@ -90,9 +90,14 @@ const Calc = {
 
     // 2. Stone values
     let stoneTotal = 0;
+    let emeraldTotal = 0;
     const stones = itemData.stones || [];
     stones.forEach(stone => {
-      stoneTotal += Number(stone.totalValue || 0);
+      const val = Number(stone.totalValue || 0);
+      stoneTotal += val;
+      if (stone.type && stone.type.toLowerCase() === 'emerald') {
+        emeraldTotal += val;
+      }
     });
 
     // 3. Diamonds & Polki values
@@ -118,8 +123,9 @@ const Calc = {
       isManual = true;
     }
 
-    // 7. Overall Grand Total
+    // 7. Overall Grand Total (Market Cost Price)
     const grandTotal = Number((subtotal + finalCommValue).toFixed(2));
+    const profitPct = Number(itemData.profitPercentage !== undefined ? itemData.profitPercentage : 40);
 
     return {
       metalSubtotal: Number(metalTotal.toFixed(2)),
@@ -129,7 +135,12 @@ const Calc = {
       commissionValue: finalCommValue,
       commissionPercentage: isManual ? Number(((finalCommValue / subtotal) * 100 || 0).toFixed(1)) : autoComm.percentage,
       isManualCommission: isManual,
-      grandTotal: grandTotal
+      grandTotal: grandTotal,
+      marketCostPrice: grandTotal,
+      homeCostPrice: Number((grandTotal - (emeraldTotal * 0.5)).toFixed(2)),
+      emeraldTotal: emeraldTotal,
+      sellingPrice: Number((((grandTotal - emeraldTotal) * (1 + profitPct / 100)) + emeraldTotal).toFixed(2)),
+      hasEmerald: emeraldTotal > 0
     };
   }
 };
