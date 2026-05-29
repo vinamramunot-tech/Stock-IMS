@@ -5,6 +5,15 @@
 const UI = {
   activeItemState: null, // Temporary store for the item currently being added/edited
 
+  escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  },
+
   // Toast Notification
   showToast(message, isError = false) {
     const toast = document.getElementById('toast-alert');
@@ -285,6 +294,10 @@ const UI = {
   createStoneRow(stone = { type: 'Emerald', shape: '', weight: '', ratePerCarat: '', totalValue: '', pieces: '' }) {
     const container = document.getElementById('stones-list-container');
     const stoneId = 'stone_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+    const safeStoneType = this.escapeHtml(stone.type || '');
+    const safeStoneShape = this.escapeHtml(stone.shape || '');
+    const safeStonePieces = this.escapeHtml(stone.pieces || '');
+    const safeStoneWeight = this.escapeHtml(stone.weight || '');
 
     const card = document.createElement('div');
     card.className = 'stone-entry-card';
@@ -293,16 +306,16 @@ const UI = {
 
     card.innerHTML = `
       <div class="input-group" style="margin-bottom:0;">
-        <label>${stone.type} - Shape/Cut</label>
-        <input type="text" class="stone-shape" placeholder="e.g. Oval Mixed" value="${stone.shape || ''}">
+        <label>${safeStoneType} - Shape/Cut</label>
+        <input type="text" class="stone-shape" placeholder="e.g. Oval Mixed" value="${safeStoneShape}">
       </div>
       <div class="input-group" style="margin-bottom:0;">
         <label>Pieces</label>
-        <input type="number" class="stone-pieces recalc-trigger" min="1" step="1" placeholder="1" value="${stone.pieces || ''}">
+        <input type="number" class="stone-pieces recalc-trigger" min="1" step="1" placeholder="1" value="${safeStonePieces}">
       </div>
       <div class="input-group" style="margin-bottom:0;">
         <label>Weight (cts)</label>
-        <input type="number" class="stone-weight recalc-trigger" step="0.01" min="0" placeholder="0.00" value="${stone.weight || ''}">
+        <input type="number" class="stone-weight recalc-trigger" step="0.01" min="0" placeholder="0.00" value="${safeStoneWeight}">
       </div>
       <div class="input-group" style="margin-bottom:0;">
         <label>Rate / Carat (@/ct)</label>
