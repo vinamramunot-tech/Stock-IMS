@@ -11,6 +11,7 @@ use aes::Aes256;
 use aes::cipher::{block_padding::Pkcs7, typenum::{U16, U32}, BlockDecryptMut, BlockEncryptMut, KeyIvInit, generic_array::GenericArray};
 use sha2::{Digest, Sha256};
 use rand::Rng;
+#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 use rfd::FileDialog;
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -217,64 +218,99 @@ fn set_last_db_path(handle: AppHandle, db_path: Option<String>) -> bool {
 
 #[tauri::command]
 fn create_db_dialog(handle: AppHandle) -> Option<String> {
-    let doc_dir = handle.path().document_dir().ok();
-    
-    let mut dialog = FileDialog::new()
-        .set_title("Create New Mava Gems Database")
-        .add_filter("Mava Gems Database", &["db", "json"])
-        .add_filter("All Files", &["*"]);
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    {
+        let doc_dir = handle.path().document_dir().ok();
         
-    if let Some(ref path) = doc_dir {
-        dialog = dialog.set_directory(path).set_file_name("mava_gems_stock.db");
+        let mut dialog = FileDialog::new()
+            .set_title("Create New Mava Gems Database")
+            .add_filter("Mava Gems Database", &["db", "json"])
+            .add_filter("All Files", &["*"]);
+            
+        if let Some(ref path) = doc_dir {
+            dialog = dialog.set_directory(path).set_file_name("mava_gems_stock.db");
+        }
+        
+        dialog.save_file().map(|p| p.to_string_lossy().to_string())
     }
-    
-    dialog.save_file().map(|p| p.to_string_lossy().to_string())
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    {
+        None
+    }
 }
 
 #[tauri::command]
 fn open_db_dialog() -> Option<String> {
-    FileDialog::new()
-        .set_title("Open Existing Mava Gems Database")
-        .add_filter("Mava Gems Database", &["db", "json"])
-        .add_filter("All Files", &["*"])
-        .pick_file()
-        .map(|p| p.to_string_lossy().to_string())
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    {
+        FileDialog::new()
+            .set_title("Open Existing Mava Gems Database")
+            .add_filter("Mava Gems Database", &["db", "json"])
+            .add_filter("All Files", &["*"])
+            .pick_file()
+            .map(|p| p.to_string_lossy().to_string())
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    {
+        None
+    }
 }
 
 #[tauri::command]
 fn select_directory() -> Option<String> {
-    FileDialog::new()
-        .set_title("Select Folder for Mava Gems Database")
-        .pick_folder()
-        .map(|p| p.to_string_lossy().to_string())
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    {
+        FileDialog::new()
+            .set_title("Select Folder for Mava Gems Database")
+            .pick_folder()
+            .map(|p| p.to_string_lossy().to_string())
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    {
+        None
+    }
 }
 
 #[tauri::command]
 fn export_backup_dialog(handle: AppHandle, default_name: Option<String>) -> Option<String> {
-    let doc_dir = handle.path().document_dir().ok();
-    let default_filename = default_name.unwrap_or_else(|| "mava_gems_stock_backup.db".to_string());
-    
-    let mut dialog = FileDialog::new()
-        .set_title("Export Database Backup")
-        .add_filter("Mava Gems Database", &["db", "json"])
-        .add_filter("All Files", &["*"]);
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    {
+        let doc_dir = handle.path().document_dir().ok();
+        let default_filename = default_name.unwrap_or_else(|| "mava_gems_stock_backup.db".to_string());
         
-    if let Some(path) = doc_dir {
-        dialog = dialog.set_directory(path);
+        let mut dialog = FileDialog::new()
+            .set_title("Export Database Backup")
+            .add_filter("Mava Gems Database", &["db", "json"])
+            .add_filter("All Files", &["*"]);
+            
+        if let Some(path) = doc_dir {
+            dialog = dialog.set_directory(path);
+        }
+        dialog = dialog.set_file_name(&default_filename);
+        
+        dialog.save_file().map(|p| p.to_string_lossy().to_string())
     }
-    dialog = dialog.set_file_name(&default_filename);
-    
-    dialog.save_file().map(|p| p.to_string_lossy().to_string())
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    {
+        None
+    }
 }
 
 #[tauri::command]
 fn import_backup_dialog() -> Option<String> {
-    FileDialog::new()
-        .set_title("Import Database Backup")
-        .add_filter("Mava Gems Database", &["db", "json"])
-        .add_filter("All Files", &["*"])
-        .pick_file()
-        .map(|p| p.to_string_lossy().to_string())
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    {
+        FileDialog::new()
+            .set_title("Import Database Backup")
+            .add_filter("Mava Gems Database", &["db", "json"])
+            .add_filter("All Files", &["*"])
+            .pick_file()
+            .map(|p| p.to_string_lossy().to_string())
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    {
+        None
+    }
 }
 
 #[tauri::command]
