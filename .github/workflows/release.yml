@@ -162,23 +162,19 @@ jobs:
           export PATH="$HOME/.cargo/bin:$PATH"
           npx tauri ios build --no-sign
 
-      - name: Compress iOS App Bundle
+      - name: Package iOS App as IPA
         run: |
-          mkdir -p build-assets
-          find src-tauri/gen/apple -name "*.app" -exec cp -r {} build-assets/ \;
-          cd build-assets
-          zip -r ../mava-gems-stock-ios-${{ needs.prepare.outputs.version }}.zip .
-          cd ..
+          mkdir -p Payload
+          find src-tauri/gen/apple -name "*.app" -exec cp -r {} Payload/ \;
+          zip -r mava-gems-stock-ios-${{ needs.prepare.outputs.version }}.ipa Payload
 
       # Upload built iOS assets to workflow artifacts
       - name: Upload iOS Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ios-artifacts
-          path: |
-            src-tauri/gen/apple/build/arm64/*.ipa
-            mava-gems-stock-ios-${{ needs.prepare.outputs.version }}.zip
-          if-no-files-found: ignore
+          path: mava-gems-stock-ios-${{ needs.prepare.outputs.version }}.ipa
+          if-no-files-found: error
 
   create-release:
     needs: [prepare, publish-tauri, publish-android, publish-ios]
