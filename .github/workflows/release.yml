@@ -119,7 +119,7 @@ jobs:
       - name: Build Android APK
         run: |
           export PATH="$HOME/.cargo/bin:$PATH"
-          npx tauri android build --apk --release --skip-targets-install
+          npx tauri android build --apk --skip-targets-install
 
       # Upload built APK to workflow artifacts
       - name: Upload Android Artifacts
@@ -157,7 +157,7 @@ jobs:
       - name: Build iOS App
         run: |
           export PATH="$HOME/.cargo/bin:$PATH"
-          npx tauri ios build --no-signing --skip-targets-install
+          npx tauri ios build --no-sign --skip-targets-install
 
       - name: Compress iOS App Bundle
         run: |
