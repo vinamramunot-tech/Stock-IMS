@@ -1442,7 +1442,7 @@ label {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  height: 220px;
+  min-height: 220px;
 }
 
 .startup-option-box:hover {
@@ -1682,6 +1682,127 @@ label {
   flex-direction: row;
   gap: 8px;
   flex-shrink: 0;
+}
+
+/* ==================== RESPONSIVE MOBILE STYLES ==================== */
+@media screen and (max-width: 768px) {
+  .startup-card {
+    padding: calc(30px + env(safe-area-inset-top, 20px)) 20px 30px 20px;
+    margin: 15px;
+    max-width: 100%;
+  }
+
+  .startup-options-grid,
+  .startup-options-grid.mini {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+
+  .startup-option-box {
+    min-height: unset;
+    height: auto;
+    padding: 20px;
+  }
+
+  .startup-option-box.mini-box {
+    height: auto;
+    min-height: unset;
+  }
+
+  /* Main Workspace Layout Responsiveness */
+  .app-header {
+    padding: calc(12px + env(safe-area-inset-top, 20px)) 15px 12px 15px;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .header-left {
+    justify-content: center;
+  }
+  .header-middle {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+  .header-right {
+    display: none !important; /* Hide path field on mobile for simplicity */
+  }
+
+  .metrics-bar {
+    grid-template-columns: repeat(2, 1fr);
+    padding: 15px;
+    gap: 10px;
+  }
+  .metric-card {
+    padding: 10px;
+    align-items: center;
+    text-align: center;
+  }
+  .metric-value {
+    font-size: 18px;
+  }
+
+  .workspace-body {
+    flex-direction: column;
+  }
+
+  .workspace-sidebar {
+    width: 100%;
+    padding: 8px 0;
+    border-right: none;
+    border-bottom: 1px solid var(--border-light);
+  }
+  .sidebar-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 0 10px;
+    gap: 8px;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+  }
+  .nav-item {
+    padding: 8px 12px;
+    font-size: 12px;
+    white-space: nowrap;
+    border-radius: 4px;
+    justify-content: center;
+    flex-shrink: 0; /* Prevent the tab buttons from shrinking and cutting off text */
+  }
+  .nav-item svg {
+    margin-right: 6px;
+  }
+  .sidebar-footer {
+    display: none !important; /* Hide footer to save space */
+  }
+
+  .workspace-main {
+    padding: 15px;
+  }
+  .section-title {
+    font-size: 20px;
+    margin-bottom: 15px;
+  }
+
+  /* Catalog Filters on Mobile */
+  .filter-bar {
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 15px;
+  }
+  .search-box {
+    width: 100%;
+  }
+  .filters-group {
+    flex-direction: column;
+    width: 100%;
+    gap: 8px;
+  }
+  .filter-select {
+    width: 100%;
+  }
+  .view-toggle-group {
+    display: none !important; /* Force list view or hide toggle on mobile for space */
+  }
 }
 
 

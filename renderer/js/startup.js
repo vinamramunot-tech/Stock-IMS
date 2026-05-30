@@ -168,6 +168,25 @@ const Startup = {
       }
     } catch (err) {
       console.error(err);
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile) {
+        // Automatically initialize default database file if it doesn't exist on mobile
+        try {
+          await DBManager.initVault(customPath);
+          this.hideStartupScreen();
+          const activeInput = document.getElementById('active-vault-input');
+          if (activeInput) {
+            activeInput.value = customPath;
+            activeInput.title = customPath;
+          }
+          document.getElementById('settings-vault-path').textContent = customPath;
+          UI.showToast("Database successfully initialized!");
+          App.refreshAllDisplays();
+          return;
+        } catch (initErr) {
+          console.error("Auto-initialization failed on mobile:", initErr);
+        }
+      }
       UI.showToast("Database file read failure: " + err.message, true);
       await this.showStartupScreen(); // Redirect back to setup screen if file is corrupted/missing
     }

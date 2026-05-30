@@ -179,13 +179,32 @@ fn get_last_db_path(handle: AppHandle) -> Option<String> {
             if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
                 if let Some(path_str) = json.get("lastActiveDbPath").and_then(|v| v.as_str()) {
                     if std::path::Path::new(path_str).exists() {
-                        start_watching_db_file(handle, path_str.to_string());
+                        start_watching_db_file(handle.clone(), path_str.to_string());
                         return Some(path_str.to_string());
                     }
                 }
             }
         }
     }
+    
+    // On mobile targets, return a default path in the document directory
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    {
+        if let Ok(doc_dir) = handle.path().document_dir() {
+            let default_db_path = doc_dir.join("mava_gems_stock.db");
+            let path_str = default_db_path.to_string_lossy().to_string();
+            // Automatically write it as last path
+            let config = serde_json::json!({
+                "lastActiveDbPath": path_str
+            });
+            if let Ok(content) = serde_json::to_string_pretty(&config) {
+                let _ = std::fs::create_dir_all(&config_dir);
+                let _ = std::fs::write(&config_path, content);
+            }
+            return Some(path_str);
+        }
+    }
+    
     None
 }
 

@@ -14,10 +14,89 @@
 
       // Native file/folder picker dialogs
       createDbDialog: () => window.__TAURI__.core.invoke('create_db_dialog'),
-      openDbDialog: () => window.__TAURI__.core.invoke('open_db_dialog'),
+      
+      openDbDialog: async () => {
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        if (isMobile) {
+          return new Promise((resolve) => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.db,.json';
+            input.onchange = async (e) => {
+              const file = e.target.files[0];
+              if (!file) {
+                resolve(null);
+                return;
+              }
+              const reader = new FileReader();
+              reader.onload = async (evt) => {
+                try {
+                  const text = evt.target.result;
+                  // Validate JSON
+                  const parsed = JSON.parse(text);
+                  if (!parsed.settings || !parsed.items) {
+                    alert("Invalid database file structure.");
+                    resolve(null);
+                    return;
+                  }
+                  await window.electronAPI.writeVault(text, DBManager.activePath);
+                  resolve(DBManager.activePath);
+                } catch (err) {
+                  alert("Failed to parse database file: " + err.message);
+                  resolve(null);
+                }
+              };
+              reader.readAsText(file);
+            };
+            input.click();
+          });
+        } else {
+          return window.__TAURI__.core.invoke('open_db_dialog');
+        }
+      },
+
       selectDirectory: () => window.__TAURI__.core.invoke('select_directory'),
       exportBackupDialog: (defaultName) => window.__TAURI__.core.invoke('export_backup_dialog', { defaultName }),
-      importBackupDialog: () => window.__TAURI__.core.invoke('import_backup_dialog'),
+      
+      importBackupDialog: async () => {
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        if (isMobile) {
+          return new Promise((resolve) => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.db,.json';
+            input.onchange = async (e) => {
+              const file = e.target.files[0];
+              if (!file) {
+                resolve(null);
+                return;
+              }
+              const reader = new FileReader();
+              reader.onload = async (evt) => {
+                try {
+                  const text = evt.target.result;
+                  // Validate JSON
+                  const parsed = JSON.parse(text);
+                  if (!parsed.settings || !parsed.items) {
+                    alert("Invalid database file structure.");
+                    resolve(null);
+                    return;
+                  }
+                  await window.electronAPI.writeVault(text, DBManager.activePath);
+                  resolve(DBManager.activePath);
+                } catch (err) {
+                  alert("Failed to parse database file: " + err.message);
+                  resolve(null);
+                }
+              };
+              reader.readAsText(file);
+            };
+            input.click();
+          });
+        } else {
+          return window.__TAURI__.core.invoke('import_backup_dialog');
+        }
+      },
 
       // Database reads and writes (AES-256-CBC)
       readVault: (customPath) => window.__TAURI__.core.invoke('read_vault', { customPath }),
