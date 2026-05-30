@@ -77,9 +77,8 @@ jobs:
         with:
           name: desktop-artifacts-${{ matrix.settings.platform }}
           path: |
-            src-tauri/target/release/bundle/dmg/*.dmg
-            src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
-            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/**/bundle/dmg/*.dmg
+            src-tauri/target/**/bundle/nsis/*.exe
           if-no-files-found: ignore
 
   publish-android:
@@ -120,9 +119,9 @@ jobs:
         run: |
           export PATH="$HOME/.cargo/bin:$PATH"
           npx tauri android build --apk
-          APK_PATH=$(find src-tauri/gen/android/app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          APK_PATH=$(find src-tauri/gen/android -name "*.apk" | head -n 1)
           if [ -n "$APK_PATH" ]; then
-            cp "$APK_PATH" "src-tauri/gen/android/app/build/outputs/apk/release/mava-gems-stock-android-${{ needs.prepare.outputs.version }}.apk"
+            cp "$APK_PATH" "mava-gems-stock-android-${{ needs.prepare.outputs.version }}.apk"
           fi
 
       # Upload built APK to workflow artifacts
@@ -130,7 +129,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: android-artifacts
-          path: src-tauri/gen/android/app/build/outputs/apk/release/mava-gems-stock-android-${{ needs.prepare.outputs.version }}.apk
+          path: mava-gems-stock-android-${{ needs.prepare.outputs.version }}.apk
           if-no-files-found: ignore
 
   publish-ios:
