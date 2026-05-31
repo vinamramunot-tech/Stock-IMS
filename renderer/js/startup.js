@@ -79,26 +79,34 @@ const Startup = {
 
   async handleStartupCreate() {
     try {
-      const chosenPath = await window.electronAPI.createDbDialog();
-      if (!chosenPath) return; // User canceled
+      let chosenPath;
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+      if (isMobile) {
+        // Native file dialog unavailable on iOS — use a fixed default path
+        // (Tauri on iOS places app data in the app sandbox Documents dir)
+        chosenPath = await window.electronAPI.getLastDbPath() || 'mava_gems_stock.db';
+      } else {
+        chosenPath = await window.electronAPI.createDbDialog();
+      }
+
+      if (!chosenPath) return; // User canceled (desktop only)
 
       const initResult = await DBManager.initVault(chosenPath);
       if (initResult.success) {
         this.hideStartupScreen();
-        // Populate path indicators in UI
         const activeInput = document.getElementById('active-vault-input');
         if (activeInput) {
           activeInput.value = chosenPath;
           activeInput.title = chosenPath;
         }
         document.getElementById('settings-vault-path').textContent = chosenPath;
-        
-        UI.showToast("Database successfully initialized!");
+        UI.showToast('Database successfully initialized!');
         App.refreshAllDisplays();
       }
     } catch (err) {
       console.error(err);
-      UI.showToast("Database initialization failure: " + err.message, true);
+      UI.showToast('Database initialization failure: ' + err.message, true);
     }
   },
 

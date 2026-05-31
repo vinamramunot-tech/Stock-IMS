@@ -35,22 +35,27 @@ const Settings = {
   },
 
   async handleDisconnectVault() {
-    const check = confirm("Are you sure you want to disconnect this database?\n\nThis will safely close the active catalog and return you to the setup dashboard, where you can choose a different database or create a new one. Your data remains perfectly intact at its current location.");
+    const check = confirm("Are you sure you want to disconnect this database?\n\nThis will return you to the setup screen where you can choose a different database.");
     if (!check) return;
 
     try {
-      // Clear memory active database state
+      // Clear in-memory database state
       DBManager.database = null;
       DBManager.activePath = null;
       DBManager.isLoaded = false;
 
-      // Reset last active database path in config file
-      await window.electronAPI.setLastDbPath(null);
+      // Try to clear the persisted path — may fail on iOS (no native file system config),
+      // but we still proceed to show the startup screen regardless.
+      try {
+        await window.electronAPI.setLastDbPath(null);
+      } catch (persistErr) {
+        console.warn('Could not clear persisted DB path (expected on mobile):', persistErr);
+      }
 
-      UI.showToast("Database disconnected successfully.");
+      UI.showToast('Database disconnected.');
       await Startup.showStartupScreen();
     } catch (err) {
-      UI.showToast("Failed to disconnect: " + err.message, true);
+      UI.showToast('Failed to disconnect: ' + err.message, true);
     }
   },
 

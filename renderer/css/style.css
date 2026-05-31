@@ -1918,13 +1918,12 @@ label {
     display: none !important;
   }
 
-  /* Mobile action bar: Home + Change DB strip */
+  /* Mobile action bar: Home + Change DB — sits inside the header between logo and gold rate */
   .mobile-action-bar {
     display: flex;
-    flex-shrink: 0;
     width: 100%;
-    border-top: 1px solid var(--border-light);
-    background-color: var(--bg-card);
+    border: 1px solid var(--border-light);
+    background-color: var(--bg-base);
   }
 
   .mobile-action-btn {
@@ -1933,7 +1932,7 @@ label {
     align-items: center;
     justify-content: center;
     gap: 6px;
-    padding: 8px 10px;
+    padding: 7px 10px;
     background: none;
     border: none;
     font-family: var(--font-sans);
@@ -1947,7 +1946,7 @@ label {
   }
 
   .mobile-action-btn:active {
-    background-color: var(--bg-base);
+    background-color: var(--border-light);
     color: var(--text-main);
   }
 
