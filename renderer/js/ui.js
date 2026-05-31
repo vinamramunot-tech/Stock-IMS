@@ -152,6 +152,10 @@ const UI = {
     const promptContainer = document.getElementById('uploader-prompt');
     const removeBtn = document.getElementById('btn-remove-image');
 
+    // Prevent default drag/drop behaviors globally to stop browser from navigating/opening images
+    window.addEventListener('dragover', (e) => e.preventDefault(), false);
+    window.addEventListener('drop', (e) => e.preventDefault(), false);
+
     dropzone.addEventListener('click', (e) => {
       if (e.target !== removeBtn) {
         fileInput.click();
