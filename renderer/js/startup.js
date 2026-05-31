@@ -43,6 +43,18 @@ const Startup = {
       btnBrowseVault.addEventListener('click', () => this.handleStartupOpen());
     }
 
+    // Mobile action bar buttons
+    const btnMobileHome = document.getElementById('btn-mobile-home');
+    if (btnMobileHome) {
+      btnMobileHome.addEventListener('click', () => this.showStartupScreen());
+    }
+    const btnMobileChangeDb = document.getElementById('btn-mobile-change-db');
+    if (btnMobileChangeDb) {
+      btnMobileChangeDb.addEventListener('click', () => {
+        if (window.Settings) Settings.handleDisconnectVault();
+      });
+    }
+
     this.showStartupScreen();
   },
 

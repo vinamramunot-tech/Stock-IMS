@@ -42,6 +42,7 @@ body {
   color: var(--text-main);
   overflow: hidden;
   height: 100vh;
+  height: 100dvh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -321,6 +322,7 @@ label {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
   width: 100vw;
 }
 
@@ -543,11 +545,17 @@ label {
   color: var(--text-gold-dark);
 }
 
+/* Mobile action bar — hidden on desktop, shown as a strip on mobile */
+.mobile-action-bar {
+  display: none; /* hidden by default on desktop */
+}
+
 /* MAIN WORKAREA CONTENT */
 .workspace-main {
   flex-grow: 1;
   padding: 35px 45px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .tab-content {
@@ -962,6 +970,7 @@ label {
 .modal-body {
   padding: 30px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   flex-grow: 1;
 }
 
@@ -1736,10 +1745,38 @@ label {
 
 /* ==================== RESPONSIVE MOBILE STYLES ==================== */
 @media screen and (max-width: 768px) {
+
+  /* ── 1. ROOT: let document be exactly the viewport ── */
+  html, body {
+    height: 100%;
+    overflow: hidden; /* prevent double-scroll; content scrolls inside .workspace-main */
+  }
+
+  /* ── 2. STARTUP / ONBOARDING: fixed overlay, card scrolls ── */
+  .startup-overlay-container {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    overflow: hidden;              /* overlay does NOT scroll */
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 0;
+  }
+
+  /* The card fills the overlay and scrolls internally */
   .startup-card {
-    padding: calc(30px + env(safe-area-inset-top, 20px)) 20px 30px 20px;
-    margin: 15px;
+    width: 100%;
     max-width: 100%;
+    height: 100%;
+    max-height: 100%;
+    margin: 0;
+    overflow-y: auto;              /* THIS scrolls on iOS */
+    -webkit-overflow-scrolling: touch;
+    padding: env(safe-area-inset-top, 30px) 20px
+             calc(env(safe-area-inset-bottom, 20px) + 30px);
+    box-sizing: border-box;
+    border: none;
+    box-shadow: none;
   }
 
   .startup-options-grid,
@@ -1759,12 +1796,57 @@ label {
     min-height: unset;
   }
 
-  /* Main Workspace Layout Responsiveness */
+  /* ── 3. MODALS: fixed overlay, card scrolls ── */
+  .modal-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    overflow: hidden;              /* overlay does NOT scroll */
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  .modal-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    margin: 0;
+    overflow-y: auto;              /* card scrolls */
+    -webkit-overflow-scrolling: touch;
+    border: none;
+  }
+
+  .modal-card.mini,
+  .modal-card.large {
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  .modal-body {
+    overflow-y: visible;           /* card is the scroll container */
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ── 4. MAIN APP WORKSPACE: fixed-height column, content scrolls ── */
+  .workspace-container {
+    height: 100%;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* clipping box — children handle their own scroll */
+  }
+
+  /* Compact header */
   .app-header {
-    padding: calc(12px + env(safe-area-inset-top, 20px)) 15px 12px 15px;
+    flex-shrink: 0;
+    height: auto;
+    padding: env(safe-area-inset-top, 12px) 15px 10px;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
   }
   .header-left {
     justify-content: center;
@@ -1775,84 +1857,142 @@ label {
     justify-content: center;
   }
   .header-right {
-    display: none !important; /* Hide path field on mobile for simplicity */
+    display: none !important;
   }
 
+  /* Compact metrics bar — 2 columns, no flex-shrink disabled */
   .metrics-bar {
+    flex-shrink: 0;
     grid-template-columns: repeat(2, 1fr);
-    padding: 15px;
-    gap: 10px;
+    padding: 10px 15px;
+    gap: 8px;
   }
   .metric-card {
-    padding: 10px;
+    padding: 8px 10px;
     align-items: center;
     text-align: center;
   }
   .metric-value {
-    font-size: 18px;
+    font-size: 16px;
   }
 
+  /* Workspace body: column, fills remaining height */
   .workspace-body {
+    flex: 1 1 0;
+    min-height: 0;           /* critical: allows flex child to shrink below content size */
+    display: flex;
     flex-direction: column;
+    overflow: hidden;
   }
 
+  /* Sidebar becomes a horizontal tab bar — fixed height, no grow */
   .workspace-sidebar {
+    flex-shrink: 0;
     width: 100%;
-    padding: 8px 0;
+    padding: 6px 0;
     border-right: none;
     border-bottom: 1px solid var(--border-light);
   }
   .sidebar-nav {
     flex-direction: row;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
     padding: 0 10px;
     gap: 8px;
-    -webkit-overflow-scrolling: touch;
     width: 100%;
+    /* hide scrollbar */
+    scrollbar-width: none;
   }
+  .sidebar-nav::-webkit-scrollbar { display: none; }
   .nav-item {
     padding: 8px 12px;
     font-size: 12px;
     white-space: nowrap;
-    border-radius: 4px;
     justify-content: center;
-    flex-shrink: 0; /* Prevent the tab buttons from shrinking and cutting off text */
+    flex-shrink: 0;
   }
   .nav-item svg {
     margin-right: 6px;
   }
   .sidebar-footer {
-    display: none !important; /* Hide footer to save space */
+    display: none !important;
   }
 
-  .workspace-main {
-    padding: 15px;
+  /* Mobile action bar: Home + Change DB strip */
+  .mobile-action-bar {
+    display: flex;
+    flex-shrink: 0;
+    width: 100%;
+    border-top: 1px solid var(--border-light);
+    background-color: var(--bg-card);
   }
+
+  .mobile-action-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 10px;
+    background: none;
+    border: none;
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background-color var(--transition-fast), color var(--transition-fast);
+  }
+
+  .mobile-action-btn:active {
+    background-color: var(--bg-base);
+    color: var(--text-main);
+  }
+
+  .mobile-action-divider {
+    width: 1px;
+    background-color: var(--border-light);
+    align-self: stretch;
+  }
+
+  /* THE KEY FIX: workspace-main is the ONE element that scrolls */
+  .workspace-main {
+    flex: 1 1 0;
+    min-height: 0;           /* allows it to shrink in the flex column */
+    overflow-y: auto;        /* this element scrolls */
+    -webkit-overflow-scrolling: touch;
+    padding: 15px;
+    /* add bottom safe-area padding so last items clear the home indicator */
+    padding-bottom: calc(15px + env(safe-area-inset-bottom, 20px));
+  }
+
+  /* Tab panels: natural height, no fixed height */
+  .tab-content {
+    height: auto !important;
+    min-height: 0;
+  }
+
   .section-title {
     font-size: 20px;
     margin-bottom: 15px;
   }
 
-  /* Catalog Filters on Mobile */
+  /* ── 5. CATALOG FILTERS ── */
   .filter-bar {
     flex-direction: column;
     gap: 10px;
     margin-bottom: 15px;
   }
-  .search-box {
-    width: 100%;
-  }
+  .search-box { width: 100%; }
   .filters-group {
     flex-direction: column;
     width: 100%;
     gap: 8px;
   }
-  .filter-select {
-    width: 100%;
-  }
+  .filter-select { width: 100%; }
   .view-toggle-group {
-    display: none !important; /* Force list view or hide toggle on mobile for space */
+    display: none !important;
   }
 }
-
-
