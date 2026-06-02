@@ -50,9 +50,7 @@ const Startup = {
     }
     const btnMobileChangeDb = document.getElementById('btn-mobile-change-db');
     if (btnMobileChangeDb) {
-      btnMobileChangeDb.addEventListener('click', () => {
-        if (window.Settings) Settings.handleDisconnectVault();
-      });
+      btnMobileChangeDb.addEventListener('click', () => this.handleMobileChangeDb());
     }
 
     this.showStartupScreen();
@@ -209,6 +207,27 @@ const Startup = {
       }
       UI.showToast("Database file read failure: " + err.message, true);
       await this.showStartupScreen(); // Redirect back to setup screen if file is corrupted/missing
+    }
+  },
+
+  /**
+   * Mobile-only: open a file picker, validate and load the chosen database,
+   * then cleanly replace the active vault — no null-activePath race condition.
+   */
+  async handleMobileChangeDb() {
+    try {
+      const check = confirm('Select a database file (.db) to switch to. Your current session will be replaced.');
+      if (!check) return;
+
+      const chosenPath = await window.electronAPI.mobilePickAndLoadDb();
+      if (!chosenPath) return; // user cancelled
+
+      // If we got here the file was already written to disk at chosenPath;
+      // just bootstrap from it.
+      await this.bootstrapDatabase(chosenPath);
+    } catch (err) {
+      console.error('Mobile change DB error:', err);
+      UI.showToast('Failed to switch database: ' + err.message, true);
     }
   }
 };

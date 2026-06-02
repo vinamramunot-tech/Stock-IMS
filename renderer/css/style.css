@@ -1825,6 +1825,10 @@ label {
     height: 100% !important;
   }
 
+  .modal-header {
+    padding-top: calc(env(safe-area-inset-top, 20px) + 20px);
+  }
+
   .modal-body {
     overflow-y: visible;           /* card is the scroll container */
     -webkit-overflow-scrolling: touch;

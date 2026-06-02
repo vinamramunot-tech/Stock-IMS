@@ -98,6 +98,41 @@
         }
       },
 
+      // Mobile-only: pick a .db file from the document picker, write it to a
+      // known fixed path (so activePath is never null), and return that path.
+      mobilePickAndLoadDb: () => new Promise((resolve) => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.db,.json';
+        input.onchange = async (e) => {
+          const file = e.target.files[0];
+          if (!file) { resolve(null); return; }
+          const reader = new FileReader();
+          reader.onload = async (evt) => {
+            try {
+              const text = evt.target.result;
+              // Validate structure
+              const parsed = JSON.parse(text);
+              if (!parsed.settings || !parsed.items) {
+                alert('Invalid database file: missing required fields.');
+                resolve(null);
+                return;
+              }
+              // Write to a fixed path (same default the app always uses on mobile)
+              const targetPath = 'mava_gems_stock.db';
+              await window.electronAPI.writeVault(text, targetPath);
+              await window.electronAPI.setLastDbPath(targetPath);
+              resolve(targetPath);
+            } catch (err) {
+              alert('Failed to read database file: ' + err.message);
+              resolve(null);
+            }
+          };
+          reader.readAsText(file);
+        };
+        input.click();
+      }),
+
       // Database reads and writes (AES-256-CBC)
       readVault: (customPath) => window.__TAURI__.core.invoke('read_vault', { customPath }),
       writeVault: (payload, customPath) => window.__TAURI__.core.invoke('write_vault', { payload, customPath }),
