@@ -11,6 +11,9 @@ const App = {
     Startup.init();
     Catalog.init();
     Settings.init();
+    if (window.EmeraldController) {
+      EmeraldController.init();
+    }
 
     // 2. Tab switching navigation listeners
     const navItems = document.querySelectorAll('.nav-item[data-target]');
@@ -101,6 +104,9 @@ const App = {
   refreshAllDisplays() {
     Catalog.renderDashboard();
     Catalog.renderCatalogGrid();
+    if (window.EmeraldController) {
+      EmeraldController.renderEmeraldGrid();
+    }
     this.renderActivityLogs();
     
     // Update settings tab path display

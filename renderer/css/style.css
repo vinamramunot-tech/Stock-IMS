@@ -581,13 +581,17 @@ label {
 .filter-bar {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   margin-bottom: 30px;
   gap: 20px;
+  flex-wrap: wrap;
 }
 
 .search-box {
   position: relative;
-  width: 400px;
+  width: 100%;
+  max-width: 400px;
+  min-width: 200px;
 }
 .search-box input {
   padding-left: 45px;
@@ -603,10 +607,11 @@ label {
 .filters-group {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
 }
 .filter-select {
   height: 42px;
-  width: 180px;
+  width: 160px;
   border-color: var(--border-light);
   cursor: pointer;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236b6b6f'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");

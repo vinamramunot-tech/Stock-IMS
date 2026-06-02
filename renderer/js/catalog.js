@@ -139,6 +139,14 @@ const Catalog = {
       dp.forEach(d => totalGemWeight += Number(d.weight || 0));
     });
 
+    // Sum loose emeralds weight & valuation
+    const emeralds = DBManager.getEmeralds();
+    emeralds.forEach(e => {
+      const w = Number(e.weight || e.size || 0);
+      totalGemWeight += w;
+      totalPortfolioValuation += Number(w * (e.pricePerCarat || 0));
+    });
+
     // Render Metrics Box
     document.getElementById('metric-total-valuation').textContent = `₹${totalPortfolioValuation.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
     document.getElementById('metric-total-pieces').textContent = items.length;

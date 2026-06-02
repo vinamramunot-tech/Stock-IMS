@@ -20,6 +20,7 @@ const DBManager = {
         }
       },
       items: [],
+      emeralds: [],
       logs: []
     };
   },
@@ -67,6 +68,9 @@ const DBManager = {
 
       // Read raw JSON from disk
       const db = JSON.parse(fileInfo.data);
+      if (!db.emeralds) {
+        db.emeralds = [];
+      }
 
       // Successful load
       this.database = db;
@@ -134,6 +138,13 @@ const DBManager = {
    */
   getItems() {
     return this.database ? this.database.items || [] : [];
+  },
+
+  /**
+   * Retrieve active database emerald items
+   */
+  getEmeralds() {
+    return this.database ? this.database.emeralds || [] : [];
   },
 
   /**
