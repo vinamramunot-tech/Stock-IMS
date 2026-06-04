@@ -239,10 +239,6 @@ const UI = {
         <label>Weight (grams)</label>
         <input type="number" class="metal-part-weight recalc-trigger" step="0.01" min="0" placeholder="0.00" value="${part.weight || ''}">
       </div>
-      <div class="input-group" style="margin-bottom:0;">
-        <label>Metal Value (₹)</label>
-        <div class="readonly-calc-box metal-part-val">₹0.00</div>
-      </div>
       <div class="entry-card-btn-col">
         <button type="button" class="btn btn-danger btn-small btn-remove-part">&times;</button>
       </div>
@@ -260,7 +256,6 @@ const UI = {
     const weightInput = row.querySelector('.metal-part-weight');
 
     const triggerRecalc = () => {
-      this.updatePartValuation(row);
       this.updateFormCalculations();
     };
 
@@ -278,18 +273,11 @@ const UI = {
     nameInput.addEventListener('input', triggerRecalc);
 
     container.appendChild(row);
-    this.updatePartValuation(row); // Initial calculation
+    this.updateFormCalculations(); // Initial calculation
   },
 
   updatePartValuation(row) {
-    const karat = Number(row.querySelector('.metal-part-karat').value || 18);
-    const weight = Number(row.querySelector('.metal-part-weight').value || 0);
-    const goldRate24kt = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
-    const wastage = Number(document.getElementById('item-wastage').value || 0);
-    
-    const baseValue = Calc.calculateMetalValue(weight, karat, goldRate24kt);
-    const valueWithWastage = baseValue * (1 + wastage / 100);
-    row.querySelector('.metal-part-val').textContent = `₹${valueWithWastage.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    this.updateFormCalculations();
   },
 
   /**
@@ -433,6 +421,8 @@ const UI = {
 
     // Update Form View
     document.getElementById('summary-metal-subtotal').textContent = `₹${evalResult.metalSubtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    document.getElementById('summary-total-gross-weight').textContent = `${evalResult.totalGrossWeight.toFixed(3)} g`;
+    document.getElementById('summary-total-net-weight').textContent = `${evalResult.totalNetMetalWeight.toFixed(3)} g`;
     const combinedStonesVal = evalResult.stoneSubtotal + evalResult.diamondSubtotal;
     document.getElementById('summary-stone-subtotal').textContent = `₹${combinedStonesVal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
     document.getElementById('summary-labour-subtotal').textContent = `₹${evalResult.subtotal ? currentItem.labourCost.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '0.00'}`;

@@ -27,6 +27,41 @@ const Calc = {
   },
 
   /**
+   * Helper to get total stone weight in grams (1 ct = 0.2 g)
+   */
+  getStoneWeightInGrams(itemData) {
+    let stonesSum = 0;
+    (itemData.stones || []).forEach(s => stonesSum += Number(s.weight || 0));
+    (itemData.diamondsPolki || []).forEach(d => stonesSum += Number(d.weight || 0));
+    return Number((stonesSum * 0.2).toFixed(4));
+  },
+
+  /**
+   * Helper to calculate proportional net weight of each metal part
+   */
+  getNetMetals(itemData) {
+    const metals = itemData.metals || [];
+    const stoneWeightGrams = this.getStoneWeightInGrams(itemData);
+    const totalGrossWeight = metals.reduce((sum, m) => sum + Number(m.weight || 0), 0);
+
+    if (totalGrossWeight <= 0) {
+      return metals.map(m => ({ ...m, netWeight: 0, grossWeight: Number(m.weight || 0) }));
+    }
+
+    return metals.map(m => {
+      const gross = Number(m.weight || 0);
+      const proportion = totalGrossWeight > 0 ? (gross / totalGrossWeight) : 0;
+      const deduction = stoneWeightGrams * proportion;
+      const netWeight = Math.max(0, gross - deduction);
+      return {
+        ...m,
+        grossWeight: gross,
+        netWeight: Number(netWeight.toFixed(4))
+      };
+    });
+  },
+
+  /**
    * Bidirectional Stone Calculations
    */
   calculateStoneTotal(weight, ratePerCarat) {
@@ -79,12 +114,13 @@ const Calc = {
    * @param {number} goldRate24kt - Active 24KT rate per gram
    */
   evaluateItem(itemData, goldRate24kt) {
+    const netMetals = this.getNetMetals(itemData);
+
     // 1. Metal values
     let metalTotal = 0;
     const wastage = Number(itemData.wastage !== undefined ? itemData.wastage : 15);
-    const metals = itemData.metals || [];
-    metals.forEach(part => {
-      metalTotal += this.calculateMetalValue(part.weight, part.karat, goldRate24kt);
+    netMetals.forEach(part => {
+      metalTotal += this.calculateMetalValue(part.netWeight, part.karat, goldRate24kt);
     });
     metalTotal = metalTotal * (1 + wastage / 100);
 
@@ -140,7 +176,9 @@ const Calc = {
       homeCostPrice: Number((grandTotal - (emeraldTotal * 0.5)).toFixed(2)),
       emeraldTotal: emeraldTotal,
       sellingPrice: Number((((grandTotal - emeraldTotal) * (1 + profitPct / 100)) + emeraldTotal).toFixed(2)),
-      hasEmerald: emeraldTotal > 0
+      hasEmerald: emeraldTotal > 0,
+      totalGrossWeight: Number(netMetals.reduce((sum, m) => sum + m.grossWeight, 0).toFixed(3)),
+      totalNetMetalWeight: Number(netMetals.reduce((sum, m) => sum + m.netWeight, 0).toFixed(3))
     };
   }
 };

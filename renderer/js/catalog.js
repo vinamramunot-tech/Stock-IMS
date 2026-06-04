@@ -135,9 +135,9 @@ const Catalog = {
       const evaluation = Calc.evaluateItem(item, goldRate);
       totalPortfolioValuation += evaluation.grandTotal;
 
-      // Sum metals weight
-      const metals = item.metals || [];
-      metals.forEach(m => totalGoldWeight += Number(m.weight || 0));
+      // Sum metals weight (net)
+      const netMetals = Calc.getNetMetals(item);
+      netMetals.forEach(m => totalGoldWeight += m.netWeight);
 
       // Sum stones weight (cts)
       const stones = item.stones || [];
@@ -281,7 +281,8 @@ const Catalog = {
       card.className = 'product-card';
 
       // Build specs preview string
-      const metalsStr = (item.metals || []).map(m => `${m.karat}KT (${m.weight}g)`).join(', ');
+      const netMetals = Calc.getNetMetals(item);
+      const metalsStr = netMetals.map(m => `${m.karat}KT (Net: ${m.netWeight.toFixed(2)}g)`).join(', ');
       
       let totalMetalWeight = 0;
       (item.metals || []).forEach(m => totalMetalWeight += Number(m.weight || 0));
@@ -290,7 +291,8 @@ const Catalog = {
       (item.stones || []).forEach(s => stonesSum += Number(s.weight || 0));
       (item.diamondsPolki || []).forEach(d => stonesSum += Number(d.weight || 0));
 
-      const grossWeight = totalMetalWeight + (stonesSum * 0.2);
+      const grossWeight = totalMetalWeight;
+      const netMetalWeight = Math.max(0, totalMetalWeight - (stonesSum * 0.2));
 
       const imageHtml = item.image 
         ? `<img src="${item.image}" alt="${item.name}" class="product-img">`
@@ -316,6 +318,7 @@ const Catalog = {
             <div class="specs-line" title="${metalsStr}"><strong>Metal:</strong> ${metalsStr || 'None added'}</div>
             <div class="specs-line"><strong>Gemstones:</strong> ${stonesSum > 0 ? stonesSum.toFixed(2) + ' cts total' : 'None added'}</div>
             <div class="specs-line"><strong>Gross Weight:</strong> ${grossWeight.toFixed(3)} g</div>
+            <div class="specs-line"><strong>Net Metal Wt:</strong> ${netMetalWeight.toFixed(3)} g</div>
             <div class="specs-line" style="margin-bottom:0;" title="${item.description || ''}"><strong>Notes:</strong> ${item.description || 'No description'}</div>
           </div>
           
