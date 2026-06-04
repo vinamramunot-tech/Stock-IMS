@@ -30,6 +30,7 @@ const App = {
       btn.addEventListener('click', () => {
         UI.closeModal('modal-jewelry-item');
         UI.closeModal('modal-gold-rate');
+        UI.closeModal('modal-usd-rate');
         UI.closeModal('modal-erase-confirm');
       });
     });

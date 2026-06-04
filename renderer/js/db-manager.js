@@ -17,6 +17,11 @@ const DBManager = {
           ratePerGram: 0,
           effectiveDate: new Date().toISOString().split('T')[0],
           updatedAt: new Date().toISOString()
+        },
+        usdToInr: {
+          rate: 0,
+          effectiveDate: new Date().toISOString().split('T')[0],
+          updatedAt: new Date().toISOString()
         }
       },
       items: [],

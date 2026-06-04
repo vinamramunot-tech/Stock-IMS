@@ -109,13 +109,24 @@
         </button>
       </div>
 
-      <!-- Universal 24KT Gold Rate Card -->
+      <!-- Universal Rates Display -->
       <div class="header-middle">
         <div class="gold-rate-display" id="gold-rate-banner">
-          <span class="rate-label">UNIVERSAL 24KT RATE:</span>
+          <span class="rate-label">24KT GOLD:</span>
           <span class="rate-value" id="header-gold-rate">₹0.00 / g</span>
           <span class="rate-date" id="header-gold-date">No date set</span>
           <button type="button" id="btn-edit-gold-rate" class="btn-icon" title="Update universal 24KT gold rate">
+            <svg viewBox="0 0 24 24" width="16" height="16">
+              <path fill="currentColor"
+                d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+            </svg>
+          </button>
+        </div>
+        <div class="gold-rate-display" id="usd-rate-banner">
+          <span class="rate-label">USD/INR:</span>
+          <span class="rate-value" id="header-usd-rate" style="color: var(--text-main);">₹0.00</span>
+          <span class="rate-date" id="header-usd-date">No date set</span>
+          <button type="button" id="btn-edit-usd-rate" class="btn-icon" title="Update USD to INR exchange rate">
             <svg viewBox="0 0 24 24" width="16" height="16">
               <path fill="currentColor"
                 d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
@@ -450,6 +461,33 @@
     </div>
   </div>
 
+  <!-- ==================== MODAL: USD/INR RATE UPDATE ==================== -->
+  <div id="modal-usd-rate" class="modal-overlay hidden">
+    <div class="modal-card mini">
+      <div class="modal-header">
+        <h3>Update USD to INR Rate</h3>
+        <button type="button" class="btn-close modal-close-trigger">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-instructions">Set the current USD to INR exchange rate. This is used to display emerald prices in US Dollars alongside the Rupee values.</p>
+
+        <div class="input-group">
+          <label for="usd-rate-input">1 USD = ₹ (INR)</label>
+          <input type="number" id="usd-rate-input" step="0.01" min="0" placeholder="e.g. 83.50">
+        </div>
+
+        <div class="input-group">
+          <label for="usd-rate-date">Effective Date</label>
+          <input type="date" id="usd-rate-date">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary modal-close-trigger">Cancel</button>
+        <button type="button" id="btn-save-usd-rate" class="btn btn-primary">Update Exchange Rate</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ==================== MODAL: JEWELRY ITEM FORM ==================== -->
   <div id="modal-jewelry-item" class="modal-overlay hidden">
     <div class="modal-card large">
@@ -721,10 +759,31 @@
         <form id="emerald-form" onsubmit="return false;">
           <input type="hidden" id="emerald-item-id">
 
-          <div class="input-group">
-            <label for="emerald-shape">Shape <span class="required">*</span></label>
-            <input type="text" id="emerald-shape" list="emerald-shapes-list" placeholder="Select or type shape..."
-              required>
+          <div class="emerald-sizes-section">
+            <span class="section-label">SIZE BREAKDOWN <span class="required">*</span></span>
+            
+            <div class="emerald-sizes-header">
+              <span>Shape</span>
+              <span>MM</span>
+              <span>Pcs</span>
+              <span>cts (Weight)</span>
+              <span></span>
+            </div>
+            
+            <div id="emerald-sizes-container">
+              <!-- Dynamic size rows will be appended here -->
+            </div>
+            
+            <div class="emerald-sizes-totals" id="emerald-sizes-totals">
+              <span class="totals-label">Total</span>
+              <span id="emerald-total-pcs">0</span>
+              <span id="emerald-total-cts">0.00</span>
+              <span></span>
+            </div>
+            
+            <button type="button" class="btn-add-size-row" id="btn-add-emerald-size">+ Add Size Row</button>
+
+            <!-- Keep datalist available for shape suggestions -->
             <datalist id="emerald-shapes-list">
               <option value="Octagon">
               <option value="Ovals">
@@ -735,11 +794,6 @@
               <option value="Maniya">
               <option value="Beads">
             </datalist>
-          </div>
-
-          <div class="input-group">
-            <label for="emerald-weight">Weight (Carats) <span class="required">*</span></label>
-            <input type="number" id="emerald-weight" step="0.001" min="0" placeholder="e.g. 2.45" required>
           </div>
 
           <div class="input-group">

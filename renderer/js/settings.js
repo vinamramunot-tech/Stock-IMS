@@ -32,6 +32,15 @@ const Settings = {
       UI.openModal('modal-gold-rate');
     });
     document.getElementById('btn-save-gold-rate').addEventListener('click', () => this.handleUpdateGoldRate());
+
+    // USD/INR Rate Modal click trigger
+    document.getElementById('btn-edit-usd-rate').addEventListener('click', () => {
+      const currentRate = DBManager.getSettings().usdToInr ? DBManager.getSettings().usdToInr.rate : 0;
+      document.getElementById('usd-rate-input').value = currentRate > 0 ? currentRate : '';
+      document.getElementById('usd-rate-date').value = new Date().toISOString().split('T')[0];
+      UI.openModal('modal-usd-rate');
+    });
+    document.getElementById('btn-save-usd-rate').addEventListener('click', () => this.handleUpdateUsdRate());
   },
 
   async handleDisconnectVault() {
@@ -95,6 +104,51 @@ const Settings = {
       await DBManager.saveVault();
       UI.closeModal('modal-gold-rate');
       UI.showToast("Valuation rates successfully rotated!");
+      App.refreshAllDisplays();
+    } catch (err) {
+      UI.showToast(err.message, true);
+    }
+  },
+
+  /**
+   * Update USD to INR Exchange Rate
+   */
+  async handleUpdateUsdRate() {
+    const newRate = Number(document.getElementById('usd-rate-input').value || 0);
+    const dateVal = document.getElementById('usd-rate-date').value;
+
+    if (newRate <= 0) {
+      UI.showToast("Please enter a valid USD to INR exchange rate.", true);
+      return;
+    }
+    if (!dateVal) {
+      UI.showToast("Effective date is required.", true);
+      return;
+    }
+
+    const oldRate = DBManager.getSettings().usdToInr ? DBManager.getSettings().usdToInr.rate : 0;
+
+    // Update DB
+    if (!DBManager.database.settings.usdToInr) {
+      DBManager.database.settings.usdToInr = {};
+    }
+    DBManager.database.settings.usdToInr = {
+      rate: newRate,
+      effectiveDate: dateVal,
+      updatedAt: new Date().toISOString()
+    };
+
+    // Log
+    const changes = [
+      { field: 'USD to INR Rate', old: `₹${oldRate.toLocaleString()}`, new: `₹${newRate.toLocaleString()}` },
+      { field: 'Rate Effective Date', old: DBManager.getSettings().usdToInr ? DBManager.getSettings().usdToInr.effectiveDate || 'None' : 'None', new: dateVal }
+    ];
+    DBManager.addLog("GOLD_RATE_UPDATE", "usd_to_inr", "USD/INR Exchange Rate", `Updated USD/INR rate from ₹${oldRate.toLocaleString()} to ₹${newRate.toLocaleString()}`, changes);
+
+    try {
+      await DBManager.saveVault();
+      UI.closeModal('modal-usd-rate');
+      UI.showToast("USD/INR exchange rate updated!");
       App.refreshAllDisplays();
     } catch (err) {
       UI.showToast(err.message, true);

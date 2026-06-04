@@ -118,6 +118,12 @@ const Catalog = {
     document.getElementById('header-gold-rate').textContent = goldRate > 0 ? `₹${goldRate.toLocaleString()}/g` : '₹0.00/g';
     document.getElementById('header-gold-date').textContent = dateStr ? `Effective: ${new Date(dateStr).toLocaleDateString('en-IN', {day: '2-digit', month: 'short', year: 'numeric'})}` : 'No date set';
 
+    // USD/INR rate header rendering
+    const usdRate = DBManager.getSettings().usdToInr ? DBManager.getSettings().usdToInr.rate : 0;
+    const usdDateStr = DBManager.getSettings().usdToInr ? DBManager.getSettings().usdToInr.effectiveDate : '';
+    document.getElementById('header-usd-rate').textContent = usdRate > 0 ? `₹${usdRate.toLocaleString()}` : '₹0.00';
+    document.getElementById('header-usd-date').textContent = usdDateStr ? `Effective: ${new Date(usdDateStr).toLocaleDateString('en-IN', {day: '2-digit', month: 'short', year: 'numeric'})}` : 'No date set';
+
     let totalPortfolioValuation = 0;
     let totalGoldWeight = 0;
     let totalGemWeight = 0;
@@ -142,7 +148,12 @@ const Catalog = {
     // Sum loose emeralds weight & valuation
     const emeralds = DBManager.getEmeralds();
     emeralds.forEach(e => {
-      const w = Number(e.weight || e.size || 0);
+      let w = 0;
+      if (e.sizes && e.sizes.length > 0) {
+        w = e.sizes.reduce((sum, s) => sum + Number(s.weight || 0), 0);
+      } else {
+        w = Number(e.weight || e.size || 0);
+      }
       totalGemWeight += w;
       totalPortfolioValuation += Number(w * (e.pricePerCarat || 0));
     });
