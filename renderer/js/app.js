@@ -140,6 +140,8 @@ const App = {
       }
     });
 
+
+
     this.refreshAllDisplays();
   },
 

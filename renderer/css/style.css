@@ -443,13 +443,21 @@ label {
 
 /* PORTFOLIO METRICS BAR */
 .metrics-bar {
-  background-color: var(--bg-card);
-  border-bottom: 1px solid var(--border-light);
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  padding: 20px 30px;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  margin-bottom: 30px;
   gap: 20px;
   flex-shrink: 0;
+}
+
+.metrics-line-1,
+.metrics-line-2,
+.metrics-line-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
 }
 
 .metric-card {
@@ -1979,11 +1987,20 @@ label {
     display: none !important;
   }
 
-  /* Compact metrics bar — 2 columns, no flex-shrink disabled */
+  /* Compact metrics bar — stacked rows, no flex-shrink disabled */
   .metrics-bar {
     flex-shrink: 0;
-    grid-template-columns: repeat(2, 1fr);
-    padding: 10px 15px;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    margin-bottom: 20px;
+    gap: 8px;
+  }
+  .metrics-line-1,
+  .metrics-line-2,
+  .metrics-line-3 {
+    display: grid;
+    grid-template-columns: 1fr;
     gap: 8px;
   }
   .metric-card {

@@ -126,7 +126,10 @@ const Catalog = {
 
     let totalPortfolioValuation = 0;
     let totalGoldWeight = 0;
-    let totalGemWeight = 0;
+    let totalJewelryGemWeight = 0;
+    let totalLooseEmeraldWeight = 0;
+
+    const gemTypeWeights = {};
 
     items.forEach(item => {
       const evaluation = Calc.evaluateItem(item, goldRate);
@@ -138,11 +141,25 @@ const Catalog = {
 
       // Sum stones weight (cts)
       const stones = item.stones || [];
-      stones.forEach(s => totalGemWeight += Number(s.weight || 0));
+      stones.forEach(s => {
+        const w = Number(s.weight || 0);
+        totalJewelryGemWeight += w;
+        if (w > 0) {
+          const type = s.type || 'Other';
+          gemTypeWeights[type] = (gemTypeWeights[type] || 0) + w;
+        }
+      });
 
       // Sum diamonds weight (cts)
       const dp = item.diamondsPolki || [];
-      dp.forEach(d => totalGemWeight += Number(d.weight || 0));
+      dp.forEach(d => {
+        const w = Number(d.weight || 0);
+        totalJewelryGemWeight += w;
+        if (w > 0) {
+          const type = d.type || 'Other';
+          gemTypeWeights[type] = (gemTypeWeights[type] || 0) + w;
+        }
+      });
     });
 
     // Sum loose emeralds weight & valuation
@@ -154,7 +171,7 @@ const Catalog = {
       } else {
         w = Number(e.weight || e.size || 0);
       }
-      totalGemWeight += w;
+      totalLooseEmeraldWeight += w;
       totalPortfolioValuation += Number(w * (e.pricePerCarat || 0));
     });
 
@@ -162,7 +179,28 @@ const Catalog = {
     document.getElementById('metric-total-valuation').textContent = `₹${totalPortfolioValuation.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
     document.getElementById('metric-total-pieces').textContent = items.length;
     document.getElementById('metric-gold-weight').textContent = `${totalGoldWeight.toFixed(3)} g`;
-    document.getElementById('metric-gem-weight').textContent = `${totalGemWeight.toFixed(2)} cts`;
+    document.getElementById('metric-gem-weight').textContent = `${totalJewelryGemWeight.toFixed(2)} cts`;
+    document.getElementById('metric-emerald-weight').textContent = `${totalLooseEmeraldWeight.toFixed(2)} cts`;
+
+    // Render bifurcation breakdown
+    const breakdownEl = document.getElementById('metric-gem-breakdown');
+    if (breakdownEl) {
+      let breakdownHtml = '';
+      if (totalJewelryGemWeight > 0) {
+        const sortedTypes = Object.keys(gemTypeWeights).sort((a, b) => gemTypeWeights[b] - gemTypeWeights[a]);
+        breakdownHtml = sortedTypes.map(type => {
+          const weight = gemTypeWeights[type];
+          const pct = ((weight / totalJewelryGemWeight) * 100).toFixed(1);
+          return `<div style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background-color: var(--bg-base); border: 1px solid var(--border-light); border-radius: 4px; white-space: nowrap;">
+            <span style="font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--text-muted);">${type}</span>
+            <span style="color: var(--text-main); font-weight: 700; font-size: 12px;">${weight.toFixed(2)} cts (${pct}%)</span>
+          </div>`;
+        }).join('');
+      } else {
+        breakdownHtml = `<div style="color: var(--text-muted); font-style: italic; font-size: 11px;">No gemstones added</div>`;
+      }
+      breakdownEl.innerHTML = breakdownHtml;
+    }
   },
 
   renderCatalogGrid() {

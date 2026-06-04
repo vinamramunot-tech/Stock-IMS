@@ -150,25 +150,6 @@
       </div>
     </header>
 
-    <!-- METRICS SUMMARY ROW -->
-    <section class="metrics-bar">
-      <div class="metric-card gold-border">
-        <span class="metric-label">TOTAL STOCK VALUATION</span>
-        <span class="metric-value text-gold" id="metric-total-valuation">₹0.00</span>
-      </div>
-      <div class="metric-card">
-        <span class="metric-label">TOTAL PIECES</span>
-        <span class="metric-value" id="metric-total-pieces">0</span>
-      </div>
-      <div class="metric-card">
-        <span class="metric-label">TOTAL GOLD WEIGHT</span>
-        <span class="metric-value" id="metric-gold-weight">0.00 g</span>
-      </div>
-      <div class="metric-card">
-        <span class="metric-label">TOTAL GEMSTONES</span>
-        <span class="metric-value" id="metric-gem-weight">0.00 cts</span>
-      </div>
-    </section>
 
     <!-- WORKSPACE SPLIT LAYOUT -->
     <div class="workspace-body">
@@ -225,8 +206,20 @@
       <!-- MAIN WORKSPACE WORKAREA -->
       <main class="workspace-main">
 
+
+
         <!-- ==================== TAB: EMERALD CATALOG ==================== -->
         <div id="tab-emerald-catalog" class="tab-content hidden">
+
+          <!-- EMERALD METRICS SUMMARY ROW -->
+          <section class="metrics-bar">
+            <div class="metrics-line-1">
+              <div class="metric-card">
+                <span class="metric-label">EMERALD STOCK</span>
+                <span class="metric-value" id="metric-emerald-weight">0.00 cts</span>
+              </div>
+            </div>
+          </section>
 
           <!-- SEARCH & FILTERS -->
           <div class="filter-bar">
@@ -284,7 +277,7 @@
           </div>
 
           <!-- EMERALD CATALOG GRID -->
-          <div id="emerald-catalog-grid" class="catalog-grid-container">
+          <div id="emerald-catalog-grid" style="display: flex; flex-direction: column; gap: 15px;">
             <!-- Dynamic cards will render here -->
           </div>
 
@@ -298,6 +291,36 @@
 
         <!-- ==================== TAB: CATALOG ==================== -->
         <div id="tab-catalog" class="tab-content active">
+
+          <!-- JEWELRY METRICS SUMMARY ROW -->
+          <section class="metrics-bar">
+            <!-- Line 1: Valuation, Pieces, Gold Weight -->
+            <div class="metrics-line-1">
+              <div class="metric-card gold-border">
+                <span class="metric-label">TOTAL JEWELRY STOCK EVALUATION</span>
+                <span class="metric-value text-gold" id="metric-total-valuation">₹0.00</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">TOTAL PIECES</span>
+                <span class="metric-value" id="metric-total-pieces">0</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">TOTAL GOLD WEIGHT</span>
+                <span class="metric-value" id="metric-gold-weight">0.00 g</span>
+              </div>
+            </div>
+
+            <!-- Line 2: Jewelry Gemstones with Horizontal Breakdown -->
+            <div class="metrics-line-2">
+              <div class="metric-card" style="grid-column: span 3;">
+                <span class="metric-label">JEWELRY GEMSTONES</span>
+                <div style="display: flex; align-items: center; gap: 25px; flex-wrap: wrap; margin-top: 8px;">
+                  <span class="metric-value" id="metric-gem-weight" style="font-size: 24px; margin-bottom: 0;">0.00 cts</span>
+                  <div class="metric-breakdown" id="metric-gem-breakdown" style="flex-grow: 1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;"></div>
+                </div>
+              </div>
+            </div>
+          </section>
 
           <!-- SEARCH & FILTERS -->
           <div class="filter-bar">

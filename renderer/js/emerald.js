@@ -355,23 +355,6 @@ const EmeraldController = {
       return matchesSearch && matchesGroup && matchesShape && matchesLustre && matchesOrigin;
     });
 
-    // Sort
-    if (sortVal === 'newest') {
-      filtered.sort((a, b) => Number(b.id.split('_')[1] || 0) - Number(a.id.split('_')[1] || 0));
-    } else if (sortVal === 'weight-high' || sortVal === 'size-high') {
-      filtered.sort((a, b) => this.getEmeraldWeight(b) - this.getEmeraldWeight(a));
-    } else if (sortVal === 'weight-low' || sortVal === 'size-low') {
-      filtered.sort((a, b) => this.getEmeraldWeight(a) - this.getEmeraldWeight(b));
-    } else if (sortVal === 'price-high') {
-      filtered.sort((a, b) => Number(b.pricePerCarat || 0) - Number(a.pricePerCarat || 0));
-    } else if (sortVal === 'price-low') {
-      filtered.sort((a, b) => Number(a.pricePerCarat || 0) - Number(b.pricePerCarat || 0));
-    } else if (sortVal === 'color-high') {
-      filtered.sort((a, b) => Number(b.color || 0) - Number(a.color || 0));
-    } else if (sortVal === 'color-low') {
-      filtered.sort((a, b) => Number(a.color || 0) - Number(b.color || 0));
-    }
-
     if (filtered.length === 0) {
       gridContainer.classList.add('hidden');
       emptyState.classList.remove('hidden');
@@ -381,91 +364,256 @@ const EmeraldController = {
     emptyState.classList.add('hidden');
     gridContainer.classList.remove('hidden');
 
+    // Grouping
+    const groups = {};
     filtered.forEach(e => {
-      const card = document.createElement('div');
-      card.className = 'product-card';
-
-      const originsStr = (e.origins || []).join(', ');
-      const totalWeight = this.getEmeraldWeight(e);
-      const totalPieces = this.getEmeraldPieces(e);
-      const shapes = this.getEmeraldShapes(e);
-      const shapesDisplay = shapes.length > 0 ? shapes.join(', ') : 'Unknown Shape';
-
-      // Build sizes breakdown HTML for the card
-      let sizesHtml = '';
-      if (e.sizes && e.sizes.length > 0) {
-        sizesHtml = '<div class="specs-line" style="margin-top:4px;">';
-        sizesHtml += '<table style="width:100%; font-size:12px; border-collapse:collapse; margin-top:4px;">';
-        sizesHtml += '<tr style="color:var(--text-muted); font-size:10px; text-transform:uppercase; letter-spacing:0.05em;"><td>Shape</td><td>MM</td><td style="text-align:right;">Pcs</td><td style="text-align:right;">cts</td></tr>';
-        e.sizes.forEach(s => {
-          sizesHtml += `<tr><td>${UI.escapeHtml(s.shape || '')}</td><td>${UI.escapeHtml(s.mm || '')}</td><td style="text-align:right;">${s.pieces || 0}</td><td style="text-align:right;">${Number(s.weight || 0).toFixed(2)}</td></tr>`;
-        });
-        sizesHtml += `<tr style="font-weight:700; border-top:1px solid var(--border-light);"><td colspan="2" style="text-align:right;">Total</td><td style="text-align:right;">${totalPieces}</td><td style="text-align:right;">${totalWeight.toFixed(2)}</td></tr>`;
-        sizesHtml += '</table></div>';
+      const groupName = (e.group && e.group.trim()) ? e.group.trim() : "Unassigned Group";
+      if (!groups[groupName]) {
+        groups[groupName] = {
+          name: groupName,
+          items: [],
+          totalWeight: 0,
+          totalValue: 0
+        };
       }
+      
+      const w = this.getEmeraldWeight(e);
+      const val = w * (e.pricePerCarat || 0);
+      
+      groups[groupName].items.push(e);
+      groups[groupName].totalWeight += w;
+      groups[groupName].totalValue += val;
+    });
 
-      // Calculate dollar prices
-      const usdRate = DBManager.getSettings().usdToInr ? DBManager.getSettings().usdToInr.rate : 0;
-      const pricePerCaratInr = e.pricePerCarat || 0;
-      const totalValueInr = totalWeight * pricePerCaratInr;
-      const pricePerCaratUsd = usdRate > 0 ? pricePerCaratInr / usdRate : 0;
-      const totalValueUsd = usdRate > 0 ? totalValueInr / usdRate : 0;
+    // Group into grades within each group
+    Object.values(groups).forEach(g => {
+      const grades = {};
+      g.items.forEach(item => {
+        const gradeName = (item.lustreGrade && item.lustreGrade.trim()) ? item.lustreGrade.trim() : "Unassigned Grade";
+        if (!grades[gradeName]) {
+          grades[gradeName] = {
+            name: gradeName,
+            items: [],
+            totalWeight: 0,
+            totalValue: 0
+          };
+        }
+        
+        const w = this.getEmeraldWeight(item);
+        const val = w * (item.pricePerCarat || 0);
+        
+        grades[gradeName].items.push(item);
+        grades[gradeName].totalWeight += w;
+        grades[gradeName].totalValue += val;
+      });
+      
+      // Sort items by Pudia number (color field)
+      Object.values(grades).forEach(grade => {
+        grade.items.sort((a, b) => Number(a.color || 0) - Number(b.color || 0));
+      });
+      
+      g.grades = grades;
+    });
 
-      const dollarPriceHtml = usdRate > 0 ? `
-              <div class="price-lbl" style="margin-top: 8px;">PRICE PER CARAT (USD)</div>
-              <div class="price-val" style="font-size: 15px; color: var(--text-muted); margin-bottom: 6px;">$${pricePerCaratUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-              <div class="price-lbl">TOTAL VALUE (USD)</div>
-              <div class="price-val" style="color: var(--success-green);">$${totalValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-      ` : '';
+    // Sort Groups Array based on search sorting preference
+    const groupsArray = Object.values(groups);
+    if (sortVal === 'weight-high' || sortVal === 'size-high') {
+      groupsArray.sort((a, b) => b.totalWeight - a.totalWeight);
+    } else if (sortVal === 'weight-low' || sortVal === 'size-low') {
+      groupsArray.sort((a, b) => a.totalWeight - b.totalWeight);
+    } else if (sortVal === 'price-high') {
+      groupsArray.sort((a, b) => b.totalValue - a.totalValue);
+    } else if (sortVal === 'price-low') {
+      groupsArray.sort((a, b) => a.totalValue - b.totalValue);
+    } else {
+      // Default / newest: sort by group name
+      groupsArray.sort((a, b) => a.name.localeCompare(b.name));
+    }
 
-      card.innerHTML = `
-        <div class="product-img-box">
-          <svg viewBox="0 0 24 24" width="60" height="60" class="product-fallback-svg" style="color: #000000;">
-            <path fill="currentColor" d="M16 2H8L2 8l10 14 10-14-6-6zM12 4.12L15.38 8H8.62L12 4.12z" />
-          </svg>
-          <div class="product-cat-badge">Emerald</div>
-        </div>
-        <div class="product-body">
-          <div class="product-meta">
-            <div class="product-sku">${e.group ? 'Group: ' + UI.escapeHtml(e.group) : 'No Group'}</div>
-            <h3 class="product-title">${UI.escapeHtml(shapesDisplay)}</h3>
-          </div>
+    // Render Group Cards Accordion
+    groupsArray.forEach(group => {
+      const groupCard = document.createElement('div');
+      groupCard.className = 'emerald-group-card';
+      groupCard.style.cssText = 'background-color: var(--bg-card); border: 1px solid var(--border-light); border-radius: 4px; overflow: hidden; transition: border-color var(--transition-fast);';
+      
+      const groupHeader = document.createElement('div');
+      groupHeader.className = 'emerald-group-header';
+      groupHeader.style.cssText = 'display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 15px 20px; user-select: none; background-color: var(--bg-card);';
+      
+      const groupTitleCol = `<div style="display: flex; align-items: center; gap: 15px;">
+        <span class="group-expand-icon" style="font-family: monospace; font-size: 14px; width: 15px; color: var(--text-muted);">▶</span>
+        <span style="font-weight: 700; font-size: 16px; color: var(--text-main); font-family: var(--font-serif);">${UI.escapeHtml(group.name)}</span>
+      </div>`;
+      
+      const groupStatsCol = `<div style="display: flex; align-items: center; gap: 20px; font-size: 13px; color: var(--text-muted); flex-wrap: wrap;">
+        <span>Weight: <strong style="color: var(--text-main);">${group.totalWeight.toFixed(2)} cts</strong></span>
+        <span>Value: <strong style="color: var(--text-gold-dark);">₹${group.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
+        <span style="background-color: var(--bg-base); padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; color: var(--text-main);">${group.items.length} Pudias</span>
+      </div>`;
+      
+      groupHeader.innerHTML = groupTitleCol + groupStatsCol;
+      groupCard.appendChild(groupHeader);
+      
+      const groupBody = document.createElement('div');
+      groupBody.className = 'emerald-group-body hidden';
+      groupBody.style.cssText = 'padding: 10px 20px 20px 20px; border-top: 1px solid var(--border-light); background-color: var(--bg-base); display: flex; flex-direction: column; gap: 12px;';
+      
+      // Render Grades
+      const sortedGrades = Object.values(group.grades).sort((a, b) => a.name.localeCompare(b.name));
+      sortedGrades.forEach(grade => {
+        const gradeBlock = document.createElement('div');
+        gradeBlock.className = 'emerald-grade-block';
+        gradeBlock.style.cssText = 'border-radius: 4px; overflow: hidden; border: 1px solid var(--border-light); background-color: var(--bg-card);';
+        
+        const gradeHeader = document.createElement('div');
+        gradeHeader.className = 'emerald-grade-header';
+        gradeHeader.style.cssText = 'display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 10px 15px; user-select: none; background-color: var(--bg-card);';
+        
+        const gradeTitleCol = `<div style="display: flex; align-items: center; gap: 12px;">
+          <span class="grade-expand-icon" style="font-family: monospace; font-size: 12px; width: 12px; color: var(--text-muted);">▶</span>
+          <span style="font-weight: 600; font-size: 14px; color: var(--text-main);">Grade: <strong style="color: var(--text-gold-dark); font-family: var(--font-serif);">${UI.escapeHtml(grade.name)}</strong></span>
+        </div>`;
+        
+        const gradeStatsCol = `<div style="display: flex; align-items: center; gap: 15px; font-size: 12px; color: var(--text-muted);">
+          <span>Weight: <strong style="color: var(--text-main);">${grade.totalWeight.toFixed(2)} cts</strong></span>
+          <span>Value: <strong style="color: var(--text-gold-dark);">₹${grade.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
+          <span style="background-color: var(--bg-base); padding: 1px 6px; border-radius: 10px; font-size: 10px; font-weight: 600; color: var(--text-main);">${grade.items.length} items</span>
+        </div>`;
+        
+        gradeHeader.innerHTML = gradeTitleCol + gradeStatsCol;
+        gradeBlock.appendChild(gradeHeader);
+        
+        const gradeBody = document.createElement('div');
+        gradeBody.className = 'emerald-grade-body hidden';
+        gradeBody.style.cssText = 'padding: 10px 15px; border-top: 1px solid var(--border-light); background-color: var(--bg-base); display: flex; flex-direction: column; gap: 10px;';
+        
+        // Render Pudias
+        grade.items.forEach(item => {
+          const pudiaBlock = document.createElement('div');
+          pudiaBlock.className = 'emerald-pudia-block';
+          pudiaBlock.style.cssText = 'border-radius: 4px; overflow: hidden; border: 1px solid var(--border-light); background-color: var(--bg-card);';
           
-          <div class="product-specs">
-            ${sizesHtml || `<div class="specs-line"><strong>Weight:</strong> ${totalWeight} carats</div>`}
-            <div class="specs-line"><strong>Lustre:</strong> ${UI.escapeHtml(e.lustreGrade || 'N/A')}</div>
-            <div class="specs-line"><strong>Pudia Number:</strong> ${e.color || 'N/A'}</div>
-            <div class="specs-line"><strong>Pair:</strong> ${e.pair || 'No'}</div>
-            <div class="specs-line" style="margin-bottom:0;"><strong>Origin:</strong> ${originsStr || 'None'}</div>
-          </div>
+          const pudiaHeader = document.createElement('div');
+          pudiaHeader.className = 'emerald-pudia-header';
+          pudiaHeader.style.cssText = 'display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px 12px; user-select: none; background-color: var(--bg-card);';
           
-          <div class="product-price-row" style="border-top: 1px dashed var(--border-light); padding-top: 12px; margin-top: 10px;">
-            <div>
-              <div class="price-lbl">PRICE PER CARAT</div>
-              <div class="price-val" style="font-size: 15px; color: var(--text-muted); margin-bottom: 6px;">₹${pricePerCaratInr.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
-              <div class="price-lbl">TOTAL VALUE</div>
-              <div class="price-val">₹${totalValueInr.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
-              ${dollarPriceHtml}
+          const totalWeight = this.getEmeraldWeight(item);
+          const totalPieces = this.getEmeraldPieces(item);
+          const shapes = this.getEmeraldShapes(item);
+          const shapesDisplay = shapes.length > 0 ? shapes.join(', ') : 'Unknown Shape';
+          const originsStr = (item.origins || []).join(', ');
+          
+          const pudiaTitleCol = `<div style="display: flex; align-items: center; gap: 10px;">
+            <span class="pudia-expand-icon" style="font-family: monospace; font-size: 10px; width: 10px; color: var(--text-muted);">▶</span>
+            <span style="font-weight: 600; font-size: 13px; color: var(--text-main);">Pudia Number: <strong style="color: var(--text-gold-dark);">#${item.color || 'N/A'}</strong></span>
+          </div>`;
+          
+          const pricePerCaratInr = item.pricePerCarat || 0;
+          const totalValueInr = totalWeight * pricePerCaratInr;
+          
+          const pudiaStatsCol = `<div style="display: flex; align-items: center; gap: 15px; font-size: 12px; color: var(--text-muted); flex-wrap: wrap;">
+            <span>Weight: <strong style="color: var(--text-main);">${totalWeight.toFixed(2)} cts</strong></span>
+            <span>Pcs: <strong style="color: var(--text-main);">${totalPieces}</strong></span>
+            <span>Rate: <strong style="color: var(--text-main);">₹${pricePerCaratInr.toLocaleString()}/ct</strong></span>
+            <span>Value: <strong style="color: var(--text-gold-dark);">₹${totalValueInr.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
+          </div>`;
+          
+          pudiaHeader.innerHTML = pudiaTitleCol + pudiaStatsCol;
+          pudiaBlock.appendChild(pudiaHeader);
+          
+          const pudiaBody = document.createElement('div');
+          pudiaBody.className = 'emerald-pudia-body hidden';
+          pudiaBody.style.cssText = 'padding: 15px; border-top: 1px dashed var(--border-light); background-color: var(--bg-base);';
+          
+          // Build sizes table HTML
+          let sizesHtml = '';
+          if (item.sizes && item.sizes.length > 0) {
+            sizesHtml = '<table style="width:100%; font-size:12px; border-collapse:collapse; margin-top:4px;">';
+            sizesHtml += '<tr style="color:var(--text-muted); font-size:10px; text-transform:uppercase; letter-spacing:0.05em; border-bottom:1px solid var(--border-light);"><td>Shape</td><td>MM</td><td style="text-align:right;">Pcs</td><td style="text-align:right;">cts</td></tr>';
+            item.sizes.forEach(s => {
+              sizesHtml += `<tr style="border-bottom: 1px solid rgba(0,0,0,0.03);"><td>${UI.escapeHtml(s.shape || '')}</td><td>${UI.escapeHtml(s.mm || '')}</td><td style="text-align:right;">${s.pieces || 0}</td><td style="text-align:right;">${Number(s.weight || 0).toFixed(2)}</td></tr>`;
+            });
+            sizesHtml += `<tr style="font-weight:700; border-top:1px solid var(--border-light);"><td colspan="2" style="text-align:right;">Total</td><td style="text-align:right;">${totalPieces}</td><td style="text-align:right;">${totalWeight.toFixed(2)}</td></tr>`;
+            sizesHtml += '</table>';
+          }
+          
+          const usdRate = DBManager.getSettings().usdToInr ? DBManager.getSettings().usdToInr.rate : 0;
+          const pricePerCaratUsd = usdRate > 0 ? pricePerCaratInr / usdRate : 0;
+          const totalValueUsd = usdRate > 0 ? totalValueInr / usdRate : 0;
+          
+          const dollarPriceHtml = usdRate > 0 ? `
+            <div style="display: flex; gap: 15px; margin-top: 10px; padding: 8px; border: 1px dashed var(--border-light); background-color: var(--bg-card); font-size: 11px;">
+              <div><strong>Price/ct (USD):</strong> $${pricePerCaratUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+              <div><strong>Value (USD):</strong> $${totalValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             </div>
-            <div class="product-actions" style="margin-top: 12px;">
+          ` : '';
+          
+          pudiaBody.innerHTML = `
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;">
+              <div>
+                <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Specifications</div>
+                <div style="font-size: 13px; line-height: 1.6;">
+                  <div><strong>Pair:</strong> ${item.pair || 'No'}</div>
+                  <div><strong>Origin:</strong> ${originsStr || 'None'}</div>
+                  <div><strong>Shape:</strong> ${shapesDisplay}</div>
+                  <div><strong>Lustre Grade:</strong> ${UI.escapeHtml(item.lustreGrade || 'N/A')}</div>
+                </div>
+                ${dollarPriceHtml}
+              </div>
+              <div>
+                <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Sizes Breakdown</div>
+                ${sizesHtml || `<div style="font-size: 13px;"><strong>Weight:</strong> ${totalWeight} carats</div>`}
+              </div>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px; border-top: 1px solid var(--border-light); padding-top: 12px;">
               <button type="button" class="btn btn-secondary btn-small btn-edit" title="Edit details">Edit</button>
               <button type="button" class="btn btn-danger btn-small btn-delete" title="Delete emerald">Delete</button>
             </div>
-          </div>
-        </div>
-      `;
-
-      // Events
-      card.querySelector('.btn-edit').addEventListener('click', () => {
-        this.loadItemIntoForm(e);
-        UI.openModal('modal-emerald-item');
+          `;
+          
+          // Wire up pudia actions
+          pudiaBody.querySelector('.btn-edit').addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            this.loadItemIntoForm(item);
+            UI.openModal('modal-emerald-item');
+          });
+          
+          pudiaBody.querySelector('.btn-delete').addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            this.handleDeleteEmerald(item);
+          });
+          
+          pudiaBlock.appendChild(pudiaBody);
+          
+          // Wire up pudia header click toggle
+          pudiaHeader.addEventListener('click', () => {
+            const isCollapsed = pudiaBody.classList.toggle('hidden');
+            pudiaHeader.querySelector('.pudia-expand-icon').textContent = isCollapsed ? '▶' : '▼';
+          });
+          
+          gradeBody.appendChild(pudiaBlock);
+        });
+        
+        gradeBlock.appendChild(gradeBody);
+        
+        // Wire up grade header click toggle
+        gradeHeader.addEventListener('click', () => {
+          const isCollapsed = gradeBody.classList.toggle('hidden');
+          gradeHeader.querySelector('.grade-expand-icon').textContent = isCollapsed ? '▶' : '▼';
+        });
+        
+        groupBody.appendChild(gradeBlock);
       });
-
-      card.querySelector('.btn-delete').addEventListener('click', () => {
-        this.handleDeleteEmerald(e);
+      
+      groupCard.appendChild(groupBody);
+      
+      // Wire up group header click toggle
+      groupHeader.addEventListener('click', () => {
+        const isCollapsed = groupBody.classList.toggle('hidden');
+        groupHeader.querySelector('.group-expand-icon').textContent = isCollapsed ? '▶' : '▼';
       });
-
-      gridContainer.appendChild(card);
+      
+      gridContainer.appendChild(groupCard);
     });
   },
 
