@@ -12,6 +12,10 @@ const Logs = {
    * @returns {Array} List of changes: { field: string, old: any, new: any }
    */
   diffItem(oldItem, newItem) {
+    if (oldItem && oldItem.id && oldItem.id.startsWith('emerald_')) {
+      return this.diffEmerald(oldItem, newItem);
+    }
+
     const changes = [];
 
     if (!oldItem) return changes; // For creations, no diff needed
@@ -51,12 +55,11 @@ const Logs = {
       });
     }
 
-    // 3. Metals Array (Simplify by listing stringified parts comparison or checking structural differences)
+    // 3. Metals Array
     const oldMetals = oldItem.metals || [];
     const newMetals = newItem.metals || [];
     
     if (JSON.stringify(oldMetals) !== JSON.stringify(newMetals)) {
-      // Build visual representations
       const formatMetals = (arr) => {
         if (arr.length === 0) return 'None';
         return arr.map(m => `${m.name || 'Body'} (${m.karat}KT, ${m.weight}g)`).join(' | ');
@@ -113,11 +116,72 @@ const Logs = {
   },
 
   /**
+   * Compare two emerald stock items and return the differences.
+   * @param {Object} oldItem - Original emerald object
+   * @param {Object} newItem - Updated emerald object
+   * @returns {Array} List of changes: { field: string, old: any, new: any }
+   */
+  diffEmerald(oldItem, newItem) {
+    const changes = [];
+
+    if (!oldItem) return changes;
+
+    const basicFields = [
+      { key: 'lustreGrade', label: 'Lustre Grade' },
+      { key: 'color', label: 'Pudia Number' },
+      { key: 'pricePerCarat', label: 'Price per Carat', isCurrency: true },
+      { key: 'pair', label: 'Is Pair' },
+      { key: 'group', label: 'Group / Lot' }
+    ];
+
+    basicFields.forEach(field => {
+      const oldVal = oldItem[field.key] !== undefined ? oldItem[field.key] : '';
+      const newVal = newItem[field.key] !== undefined ? newItem[field.key] : '';
+      
+      if (oldVal !== newVal) {
+        changes.push({
+          field: field.label,
+          old: field.isCurrency ? `₹${Number(oldVal).toLocaleString()}` : oldVal,
+          new: field.isCurrency ? `₹${Number(newVal).toLocaleString()}` : newVal
+        });
+      }
+    });
+
+    // Origins
+    const oldOrigins = oldItem.origins || [];
+    const newOrigins = newItem.origins || [];
+    if (JSON.stringify(oldOrigins.sort()) !== JSON.stringify(newOrigins.sort())) {
+      changes.push({
+        field: 'Origins',
+        old: oldOrigins.join(', ') || 'None',
+        new: newOrigins.join(', ') || 'None'
+      });
+    }
+
+    // Sizes Breakdown
+    const oldSizes = oldItem.sizes || [];
+    const newSizes = newItem.sizes || [];
+    if (JSON.stringify(oldSizes) !== JSON.stringify(newSizes)) {
+      const formatSizes = (arr) => {
+        if (arr.length === 0) return 'None';
+        return arr.map(s => `${s.shape || 'Unknown'} (${s.mm || 'N/A'}, ${s.pieces || 0} pcs, ${s.weight || 0} cts)`).join(' | ');
+      };
+      changes.push({
+        field: 'Sizes Breakdown',
+        old: formatSizes(oldSizes),
+        new: formatSizes(newSizes)
+      });
+    }
+
+    return changes;
+  },
+
+  /**
    * Build a beautiful, concise summary text from a list of changes.
    */
   buildSummary(changes, actionName) {
     if (changes.length === 0) {
-      return `${actionName} jewelry item details.`;
+      return `${actionName} details.`;
     }
     const descriptions = changes.map(c => `Modified ${c.field} [${c.old} → ${c.new}]`);
     return `${actionName}: ` + descriptions.slice(0, 3).join(', ') + (descriptions.length > 3 ? ` (+${descriptions.length - 3} more changes)` : '');

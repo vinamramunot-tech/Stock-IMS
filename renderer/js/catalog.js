@@ -133,7 +133,7 @@ const Catalog = {
 
     items.forEach(item => {
       const evaluation = Calc.evaluateItem(item, goldRate);
-      totalPortfolioValuation += evaluation.grandTotal;
+      totalPortfolioValuation += evaluation.marketCostPrice;
 
       // Sum metals weight (net)
       const netMetals = Calc.getNetMetals(item);
@@ -172,7 +172,6 @@ const Catalog = {
         w = Number(e.weight || e.size || 0);
       }
       totalLooseEmeraldWeight += w;
-      totalPortfolioValuation += Number(w * (e.pricePerCarat || 0));
     });
 
     // Render Metrics Box
