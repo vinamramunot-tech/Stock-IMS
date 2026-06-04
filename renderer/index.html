@@ -217,6 +217,13 @@
                 <span class="metric-label">EMERALD STOCK</span>
                 <span class="metric-value" id="metric-emerald-weight">0.00 cts</span>
               </div>
+              <div class="metric-card gold-border">
+                <span class="metric-label">EMERALD STOCK VALUATION</span>
+                <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
+                  <span class="metric-value text-gold" id="metric-emerald-valuation-inr" style="font-size: 24px; margin-bottom: 0;">₹0.00</span>
+                  <span class="metric-value" id="metric-emerald-valuation-usd" style="font-size: 14px; color: var(--text-muted); margin-bottom: 0; font-weight: 500;">$0.00</span>
+                </div>
+              </div>
             </div>
           </section>
 
@@ -769,6 +776,24 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary modal-close-trigger">Cancel</button>
         <button type="button" id="btn-erase-vault-confirm" class="btn btn-danger" disabled>Erase Vault Database</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== CONFIRM DIALOG: CLEAR LOGS ==================== -->
+  <div id="modal-clear-logs-confirm" class="modal-overlay hidden">
+    <div class="modal-card mini dangerous-card">
+      <div class="modal-header">
+        <h3>Clear Activity History?</h3>
+        <button type="button" class="btn-close modal-close-trigger">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-instructions font-bold">WARNING: This operation will permanently erase your entire activity log history.</p>
+        <p class="modal-instructions">The vault history will be reset, keeping only a single entry noting that the logs were cleared.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary modal-close-trigger">Cancel</button>
+        <button type="button" id="btn-clear-logs-confirm" class="btn btn-danger">Clear History</button>
       </div>
     </div>
   </div>

@@ -162,6 +162,8 @@ const Catalog = {
       });
     });
 
+    let totalLooseEmeraldValuationINR = 0;
+
     // Sum loose emeralds weight & valuation
     const emeralds = DBManager.getEmeralds();
     emeralds.forEach(e => {
@@ -172,7 +174,10 @@ const Catalog = {
         w = Number(e.weight || e.size || 0);
       }
       totalLooseEmeraldWeight += w;
+      totalLooseEmeraldValuationINR += Number(w * (e.pricePerCarat || 0));
     });
+
+    const totalLooseEmeraldValuationUSD = usdRate > 0 ? (totalLooseEmeraldValuationINR / usdRate) : 0;
 
     // Render Metrics Box
     document.getElementById('metric-total-valuation').textContent = `₹${totalPortfolioValuation.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
@@ -180,6 +185,15 @@ const Catalog = {
     document.getElementById('metric-gold-weight').textContent = `${totalGoldWeight.toFixed(3)} g`;
     document.getElementById('metric-gem-weight').textContent = `${totalJewelryGemWeight.toFixed(2)} cts`;
     document.getElementById('metric-emerald-weight').textContent = `${totalLooseEmeraldWeight.toFixed(2)} cts`;
+
+    const valInrEl = document.getElementById('metric-emerald-valuation-inr');
+    const valUsdEl = document.getElementById('metric-emerald-valuation-usd');
+    if (valInrEl) {
+      valInrEl.textContent = `₹${totalLooseEmeraldValuationINR.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    }
+    if (valUsdEl) {
+      valUsdEl.textContent = `$${totalLooseEmeraldValuationUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
 
     // Render bifurcation breakdown
     const breakdownEl = document.getElementById('metric-gem-breakdown');

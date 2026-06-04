@@ -22,7 +22,10 @@ const Settings = {
     });
     
     document.getElementById('btn-erase-vault-confirm').addEventListener('click', () => this.handleEraseVault());
-    document.getElementById('btn-clear-logs').addEventListener('click', () => this.handleClearLogs());
+    document.getElementById('btn-clear-logs').addEventListener('click', () => {
+      UI.openModal('modal-clear-logs-confirm');
+    });
+    document.getElementById('btn-clear-logs-confirm').addEventListener('click', () => this.handleClearLogs());
 
     // Gold Rate Modal Update click trigger
     document.getElementById('btn-edit-gold-rate').addEventListener('click', () => {
@@ -215,17 +218,16 @@ const Settings = {
    * Clear logs
    */
   async handleClearLogs() {
-    const check = confirm("Are you sure you want to clear the activity log history? The vault will keep a single initialization log.");
-    if (!check) return;
-
     try {
       DBManager.database.logs = [];
       DBManager.addLog("ADD", "vault", "Vault", "Activity logs cleared by administrator.", []);
       await DBManager.saveVault();
       
+      UI.closeModal('modal-clear-logs-confirm');
       UI.showToast("Audit logs successfully cleared.");
       App.refreshAllDisplays();
     } catch (err) {
+      UI.closeModal('modal-clear-logs-confirm');
       UI.showToast(err.message, true);
     }
   }

@@ -32,6 +32,7 @@ const App = {
         UI.closeModal('modal-gold-rate');
         UI.closeModal('modal-usd-rate');
         UI.closeModal('modal-erase-confirm');
+        UI.closeModal('modal-clear-logs-confirm');
       });
     });
 
