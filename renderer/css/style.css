@@ -2015,9 +2015,53 @@ label {
 
 @media screen and (max-width: 1100px) {
   .catalog-grid-container.list-view .product-card {
+    gap: 12px;
+    padding: 8px 12px;
+  }
+  
+  .catalog-grid-container.list-view .product-img-box {
+    width: 65px;
+    height: 65px;
+  }
+  
+  .catalog-grid-container.list-view .product-body {
+    gap: 12px;
+  }
+  
+  .catalog-grid-container.list-view .product-meta {
+    flex: 1 1 100px;
+    min-width: 80px;
+  }
+  
+  .catalog-grid-container.list-view .product-specs {
+    flex: 1.2 1 140px;
+    min-width: 120px;
+    font-size: 11px;
+  }
+  
+  .catalog-grid-container.list-view .product-price-row {
+    flex: 0 0 240px;
+    gap: 10px;
+  }
+  
+  .catalog-grid-container.list-view .price-val {
+    font-size: 12px;
+  }
+  
+  .catalog-grid-container.list-view .product-actions {
+    gap: 4px;
+  }
+}
+
+/* ==================== RESPONSIVE MOBILE STYLES ==================== */
+@media screen and (max-width: 768px) {
+
+  /* List view layout overrides for mobile: stack into vertical blocks */
+  .catalog-grid-container.list-view .product-card {
     flex-direction: column;
     align-items: stretch;
     gap: 15px;
+    padding: 15px;
   }
   
   .catalog-grid-container.list-view .product-img-box {
@@ -2039,6 +2083,7 @@ label {
   .catalog-grid-container.list-view .product-specs {
     flex: none;
     min-width: 0;
+    font-size: 12px;
   }
   
   .catalog-grid-container.list-view .product-price-row {
@@ -2050,10 +2095,6 @@ label {
     border-top: 1px dashed var(--border-light);
     padding-top: 15px;
   }
-}
-
-/* ==================== RESPONSIVE MOBILE STYLES ==================== */
-@media screen and (max-width: 768px) {
 
   /* ── 1. ROOT: let document be exactly the viewport ── */
   html, body {
