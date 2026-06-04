@@ -27,12 +27,48 @@ Designed with a high-contrast **Stark Light Luxury aesthetic** (ivory eggshell p
 
 ## 🛠️ Prerequisites
 
-Before compiling or running the project, you need the following developer tools installed on your system:
-- **Node.js (LTS Version)**: [nodejs.org](https://nodejs.org/).
-- **Rust Toolchain**: Install via rustup from [rustup.rs](https://rustup.rs/).
-- **Platform Dependencies**:
-  - **macOS**: Xcode Command Line Tools (`xcode-select --install`).
-  - **Windows**: Build Tools for Visual Studio 2022 (with C++ build tools workload).
+Before compiling or running the project, you need the following developer tools installed on your computer.
+
+### 1. Node.js (LTS Version)
+Ensure you have Node.js installed. You can download it from [nodejs.org](https://nodejs.org/).
+To verify, run:
+```bash
+node -v
+```
+
+### 2. Platform Dependencies (C/C++ Build Tools)
+Tauri compiles to a native desktop application, which requires local C/C++ build tools.
+
+* **macOS**: Install Xcode Command Line Tools by running:
+  ```bash
+  xcode-select --install
+  ```
+* **Windows**: Download and install [Build Tools for Visual Studio 2022](https://visualstudio.microsoft.com/visual-cpp-build-tools/). During installation, make sure to check the **"Desktop development with C++"** workload.
+
+### 3. Rust Toolchain (Compiler & Cargo)
+Tauri's core is written in Rust, so you must install the Rust toolchain.
+
+* **macOS and Linux (via rustup)**:
+  Run the following command in your terminal:
+  ```bash
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+  ```
+  Once installed, you must load Cargo into your current shell path:
+  ```bash
+  source "$HOME/.cargo/env"
+  ```
+  *(Optional)* To make Cargo permanently available in all future terminal sessions on macOS, run:
+  ```bash
+  echo 'source "$HOME/.cargo/env"' >> ~/.zshrc
+  ```
+
+* **Windows**:
+  Download and run `rustup-init.exe` from [rustup.rs](https://rustup.rs/) and follow the default prompts. After installation, restart your terminal or computer for changes to take effect.
+
+To verify your Rust installation is successful, run:
+```bash
+cargo --version
+```
 
 ---
 
@@ -46,13 +82,13 @@ git clone https://github.com/YOUR_GITHUB_USERNAME/Jewellery-Stock.git
 cd Jewellery-Stock
 ```
 
-### 2. Install Dependencies
+### 2. Install Node Dependencies
 ```bash
 npm install
 ```
 
 ### 3. Run the Development Server
-This boots up the hot-reloaded development app shell:
+This boots up the hot-reloaded desktop app shell:
 ```bash
 npm run dev
 ```
