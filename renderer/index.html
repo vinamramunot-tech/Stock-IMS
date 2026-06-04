@@ -538,10 +538,6 @@
                   <input type="text" id="item-name" placeholder="e.g. Classic Emerald Solitaire Ring" required>
                 </div>
                 <div class="input-group">
-                  <label for="item-sku">SKU / Code <span class="required">*</span></label>
-                  <input type="text" id="item-sku" placeholder="e.g. RING-EM-002" required>
-                </div>
-                <div class="input-group">
                   <label for="item-category">Category <span class="required">*</span></label>
                   <select id="item-category" required>
                     <option value="Ring">Ring</option>
@@ -551,6 +547,11 @@
                     <option value="Pendant">Pendant</option>
                     <option value="Other">Other</option>
                   </select>
+                </div>
+                <div class="input-group">
+                  <label for="item-sku">SKU / Code <span class="required">*</span></label>
+                  <input type="text" id="item-sku" placeholder="e.g. RING-EM-002" required>
+                  <div id="sku-helper-text" class="form-helper-text" style="font-size: 11px; color: var(--text-muted); margin-top: 5px; text-align: left;"></div>
                 </div>
                 <div class="input-group">
                   <label for="item-labour">Labour Cost (₹)</label>

@@ -40,6 +40,11 @@ const App = {
     UI.initImageUploader();
     UI.initStoneSelectors();
 
+    // SKU helper updates on category change
+    document.getElementById('item-category').addEventListener('change', () => {
+      UI.updateSkuSuggestion();
+    });
+
     // Dynamic metal row button click
     document.getElementById('btn-add-metal-part').addEventListener('click', () => {
       UI.createMetalPartRow();

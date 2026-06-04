@@ -499,6 +499,7 @@ const UI = {
     // Default metals/stones (can start empty)
     this.resetModalTabs();
     this.updateFormCalculations();
+    this.updateSkuSuggestion();
   },
 
   /**
@@ -544,6 +545,71 @@ const UI = {
 
     this.resetModalTabs();
     this.updateFormCalculations();
+    this.updateSkuSuggestion();
+  },
+
+  /**
+   * Dynamically calculate and display suggested next SKU for selected category
+   */
+  updateSkuSuggestion() {
+    const helperEl = document.getElementById('sku-helper-text');
+    if (!helperEl) return;
+
+    const categorySelect = document.getElementById('item-category');
+    if (!categorySelect) return;
+
+    const category = categorySelect.value;
+    const isEdit = this.activeItemState && this.activeItemState.id !== undefined;
+
+    // Prefixes mapping
+    const prefixes = {
+      'Ring': 'RING-',
+      'Necklace': 'NECK-',
+      'Earrings': 'EAR-',
+      'Bracelet': 'BRAC-',
+      'Pendant': 'PEND-',
+      'Other': 'JW-'
+    };
+
+    const prefix = prefixes[category] || 'JW-';
+    const allItems = DBManager.getItems();
+    const categoryItems = allItems.filter(item => item.category === category);
+    const count = categoryItems.length;
+
+    // Find highest suffix number in existing SKUs of this category
+    let maxNum = 0;
+    categoryItems.forEach(item => {
+      if (item.sku) {
+        const match = item.sku.match(/\d+$/);
+        if (match) {
+          const num = parseInt(match[0], 10);
+          if (num > maxNum) {
+            maxNum = num;
+          }
+        }
+      }
+    });
+
+    const nextNum = maxNum > 0 ? maxNum + 1 : count + 1;
+    const formattedNum = String(nextNum).padStart(3, '0');
+    const suggestedSku = `${prefix}${formattedNum}`;
+
+    const skuInput = document.getElementById('item-sku');
+    if (skuInput) {
+      if (isEdit) {
+        helperEl.innerHTML = `Next suggestion for new ${category}s: <span style="color: var(--text-gold); font-weight: 600;">${suggestedSku}</span> (<span>${count} ${category}${count === 1 ? '' : 's'} exist</span>)`;
+      } else {
+        helperEl.innerHTML = `Suggested next SKU: <span id="sku-suggestion-value" style="color: var(--text-gold); font-weight: 600; cursor: pointer; text-decoration: underline;" title="Click to auto-fill">${suggestedSku}</span> (<span>${count} ${category}${count === 1 ? '' : 's'} exist</span>) — Click to apply`;
+        
+        const suggestionValueEl = document.getElementById('sku-suggestion-value');
+        if (suggestionValueEl) {
+          suggestionValueEl.addEventListener('click', () => {
+            skuInput.value = suggestedSku;
+            this.showToast(`Applied SKU: ${suggestedSku}`);
+          });
+        }
+      }
+    }
   }
 };
 
