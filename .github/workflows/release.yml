@@ -45,11 +45,11 @@ jobs:
       matrix:
         settings:
           - platform: 'macos-latest'
-            args: '--target universal-apple-darwin'
+            args: '--target universal-apple-darwin --no-sign'
             targets: 'aarch64-apple-darwin,x86_64-apple-darwin'
           - platform: 'windows-latest'
-            args: ''
-            targets: ''
+            args: '--no-sign'
+            targets: 'x86_64-pc-windows-msvc'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -79,7 +79,7 @@ jobs:
           path: |
             src-tauri/target/**/bundle/dmg/*.dmg
             src-tauri/target/**/bundle/nsis/*.exe
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   publish-android:
     needs: prepare
