@@ -86,103 +86,103 @@ jobs:
           path: dist-desktop/
           if-no-files-found: error
 
-  publish-android:
-    needs: prepare
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Install Rust Stable toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: 'aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android'
-
-      - name: Install project dependencies
-        run: npm install
-
-      - name: Initialize Android project
-        run: |
-          export PATH="$HOME/.cargo/bin:$PATH"
-          npx tauri android init --ci --skip-targets-install
-
-      - name: Build Android APK
-        run: |
-          export PATH="$HOME/.cargo/bin:$PATH"
-          npx tauri android build --apk
-          APK_PATH=$(find src-tauri/gen/android -name "*.apk" | head -n 1)
-          if [ -n "$APK_PATH" ]; then
-            cp "$APK_PATH" "mava-gems-stock-android-${{ needs.prepare.outputs.version }}.apk"
-          fi
-
-      # Upload built APK to workflow artifacts
-      - name: Upload Android Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-artifacts
-          path: mava-gems-stock-android-${{ needs.prepare.outputs.version }}.apk
-          if-no-files-found: ignore
-
-  publish-ios:
-    needs: prepare
-    runs-on: macos-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Install Rust Stable toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: 'aarch64-apple-ios,x86_64-apple-ios,aarch64-apple-ios-sim'
-
-      - name: Install project dependencies
-        run: npm install
-
-      - name: Initialize iOS project
-        run: |
-          export PATH="$HOME/.cargo/bin:$PATH"
-          npx tauri ios init --ci --skip-targets-install
-
-      - name: Build iOS App
-        run: |
-          export PATH="$HOME/.cargo/bin:$PATH"
-          npx tauri ios build --no-sign
-
-      - name: Package iOS App as IPA
-        run: |
-          mkdir -p Payload
-          find src-tauri/gen/apple -name "*.app" -exec cp -r {} Payload/ \;
-          zip -r mava-gems-stock-ios-${{ needs.prepare.outputs.version }}.ipa Payload
-
-      # Upload built iOS assets to workflow artifacts
-      - name: Upload iOS Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-artifacts
-          path: mava-gems-stock-ios-${{ needs.prepare.outputs.version }}.ipa
-          if-no-files-found: error
-
+#   publish-android:
+#     needs: prepare
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Checkout repository
+#         uses: actions/checkout@v4
+# 
+#       - name: Setup Java
+#         uses: actions/setup-java@v4
+#         with:
+#           distribution: 'temurin'
+#           java-version: '17'
+# 
+#       - name: Setup Android SDK
+#         uses: android-actions/setup-android@v3
+# 
+#       - name: Setup Node.js
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: 22
+# 
+#       - name: Install Rust Stable toolchain
+#         uses: dtolnay/rust-toolchain@stable
+#         with:
+#           targets: 'aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android'
+# 
+#       - name: Install project dependencies
+#         run: npm install
+# 
+#       - name: Initialize Android project
+#         run: |
+#           export PATH="$HOME/.cargo/bin:$PATH"
+#           npx tauri android init --ci --skip-targets-install
+# 
+#       - name: Build Android APK
+#         run: |
+#           export PATH="$HOME/.cargo/bin:$PATH"
+#           npx tauri android build --apk
+#           APK_PATH=$(find src-tauri/gen/android -name "*.apk" | head -n 1)
+#           if [ -n "$APK_PATH" ]; then
+#             cp "$APK_PATH" "mava-gems-stock-android-${{ needs.prepare.outputs.version }}.apk"
+#           fi
+# 
+#       # Upload built APK to workflow artifacts
+#       - name: Upload Android Artifacts
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: android-artifacts
+#           path: mava-gems-stock-android-${{ needs.prepare.outputs.version }}.apk
+#           if-no-files-found: ignore
+# 
+#   publish-ios:
+#     needs: prepare
+#     runs-on: macos-latest
+#     steps:
+#       - name: Checkout repository
+#         uses: actions/checkout@v4
+# 
+#       - name: Setup Node.js
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: 22
+# 
+#       - name: Install Rust Stable toolchain
+#         uses: dtolnay/rust-toolchain@stable
+#         with:
+#           targets: 'aarch64-apple-ios,x86_64-apple-ios,aarch64-apple-ios-sim'
+# 
+#       - name: Install project dependencies
+#         run: npm install
+# 
+#       - name: Initialize iOS project
+#         run: |
+#           export PATH="$HOME/.cargo/bin:$PATH"
+#           npx tauri ios init --ci --skip-targets-install
+# 
+#       - name: Build iOS App
+#         run: |
+#           export PATH="$HOME/.cargo/bin:$PATH"
+#           npx tauri ios build --no-sign
+# 
+#       - name: Package iOS App as IPA
+#         run: |
+#           mkdir -p Payload
+#           find src-tauri/gen/apple -name "*.app" -exec cp -r {} Payload/ \;
+#           zip -r mava-gems-stock-ios-${{ needs.prepare.outputs.version }}.ipa Payload
+# 
+#       # Upload built iOS assets to workflow artifacts
+#       - name: Upload iOS Artifacts
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: ios-artifacts
+#           path: mava-gems-stock-ios-${{ needs.prepare.outputs.version }}.ipa
+#           if-no-files-found: error
+# 
   create-release:
-    needs: [prepare, publish-tauri, publish-android, publish-ios]
+    needs: [prepare, publish-tauri]
     runs-on: ubuntu-latest
     permissions:
       contents: write
