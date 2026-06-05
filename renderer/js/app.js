@@ -88,6 +88,54 @@ const App = {
 
     // Listen for external database changes to support instant hot-reloading
     window.electronAPI.onDatabaseChanged((filePath) => this.handleExternalDbChange(filePath));
+
+    // Mobile Menu Wire up
+    const btnMobileMenu = document.getElementById('btn-mobile-menu');
+    const mobileMenuOverlay = document.getElementById('mobile-menu-overlay');
+    const btnCloseMobileMenu = document.getElementById('btn-close-mobile-menu');
+
+    if (btnMobileMenu && mobileMenuOverlay) {
+      btnMobileMenu.addEventListener('click', () => {
+        mobileMenuOverlay.classList.remove('hidden');
+      });
+    }
+
+    if (btnCloseMobileMenu && mobileMenuOverlay) {
+      btnCloseMobileMenu.addEventListener('click', () => {
+        mobileMenuOverlay.classList.add('hidden');
+      });
+      // Click outside content to close
+      mobileMenuOverlay.addEventListener('click', (e) => {
+        if (e.target === mobileMenuOverlay) {
+          mobileMenuOverlay.classList.add('hidden');
+        }
+      });
+    }
+
+    // Handle mobile menu clicks
+    const mobileMenuItems = document.querySelectorAll('.mobile-menu-item');
+    mobileMenuItems.forEach(item => {
+      item.addEventListener('click', () => {
+        const action = item.getAttribute('data-action');
+        mobileMenuOverlay.classList.add('hidden');
+
+        if (action === 'tab-catalog' || action === 'tab-emerald-catalog' || action === 'tab-logs' || action === 'tab-settings') {
+          this.switchTab(action);
+        } else if (action === 'add-jewelry') {
+          const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
+          if (!goldRate || goldRate <= 0) {
+            UI.showToast("Please set the Universal 24KT Gold Rate at the top of the screen before adding jewelry pieces.", true);
+            return;
+          }
+          UI.resetForm();
+          UI.openModal('modal-jewelry-item');
+        } else if (action === 'add-emerald') {
+          if (window.EmeraldController) {
+            window.EmeraldController.openAddModal();
+          }
+        }
+      });
+    });
   },
 
   async handleExternalDbChange(filePath) {

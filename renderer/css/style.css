@@ -2248,13 +2248,9 @@ label {
     overflow: hidden;
   }
 
-  /* Sidebar becomes a horizontal tab bar — fixed height, no grow */
+  /* Hide sidebar completely on mobile since we use the new mobile menu drawer */
   .workspace-sidebar {
-    flex-shrink: 0;
-    width: 100%;
-    padding: 6px 0;
-    border-right: none;
-    border-bottom: 1px solid var(--border-light);
+    display: none !important;
   }
   .sidebar-nav {
     flex-direction: row;
@@ -2356,5 +2352,116 @@ label {
   .filter-select { width: 100%; }
   .view-toggle-group {
     display: none !important;
+  }
+
+  /* ==================== MOBILE MENU OVERLAY ==================== */
+  .mobile-menu-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    z-index: 2000;
+    display: flex;
+    justify-content: flex-end;
+    transition: opacity 0.25s ease;
+  }
+
+  .mobile-menu-overlay.hidden {
+    display: none !important;
+  }
+
+  .mobile-menu-content {
+    width: 280px;
+    height: 100%;
+    background-color: var(--bg-card);
+    border-left: 1px solid var(--border-light);
+    display: flex;
+    flex-direction: column;
+    box-shadow: -5px 0 25px rgba(0, 0, 0, 0.2);
+    padding: calc(20px + env(safe-area-inset-top, 20px)) 20px calc(20px + env(safe-area-inset-bottom, 20px));
+    box-sizing: border-box;
+  }
+
+  .mobile-menu-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--border-light);
+    margin-bottom: 15px;
+  }
+
+  .mobile-menu-title {
+    font-family: var(--font-serif);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-main);
+  }
+
+  .btn-close-menu {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color 0.2s, color 0.2s;
+  }
+
+  .btn-close-menu:hover {
+    background-color: var(--bg-hover);
+    color: var(--text-main);
+  }
+
+  .mobile-menu-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .mobile-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 16px;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-main);
+    font-size: 14px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+    box-sizing: border-box;
+  }
+
+  .mobile-menu-item:hover, .mobile-menu-item:active {
+    background-color: var(--bg-hover);
+    color: var(--accent-emerald);
+  }
+
+  .mobile-menu-item svg {
+    color: var(--text-muted);
+    flex-shrink: 0;
+    transition: color 0.2s;
+  }
+
+  .mobile-menu-item:hover svg, .mobile-menu-item:active svg {
+    color: var(--accent-emerald);
+  }
+
+  .mobile-menu-separator {
+    height: 1px;
+    background-color: var(--border-light);
+    margin: 8px 0;
   }
 }
