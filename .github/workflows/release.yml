@@ -71,14 +71,19 @@ jobs:
       - name: Build Tauri App
         run: npx tauri build ${{ matrix.settings.args }}
 
+      - name: Organize Desktop Artifacts
+        shell: bash
+        run: |
+          mkdir -p dist-desktop
+          find src-tauri/target -name "*.exe" -exec cp {} dist-desktop/ \; || true
+          find src-tauri/target -name "*.dmg" -exec cp {} dist-desktop/ \; || true
+
       # Upload build outputs to workflow artifacts
       - name: Upload Desktop Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: desktop-artifacts-${{ matrix.settings.platform }}
-          path: |
-            src-tauri/target/**/bundle/dmg/*.dmg
-            src-tauri/target/**/bundle/nsis/*.exe
+          path: dist-desktop/
           if-no-files-found: error
 
   publish-android:
