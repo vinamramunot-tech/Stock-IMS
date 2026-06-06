@@ -108,15 +108,25 @@ const Startup = {
     }
   },
 
-  async handleStartupOpen() {
+  async handleOpenExistingVault() {
     try {
-      const chosenPath = await window.electronAPI.openDbDialog();
-      if (!chosenPath) return; // User canceled
+      const selectedPath = await window.electronAPI.openDbDialog();
+      if (!selectedPath) return;
 
-      await this.bootstrapDatabase(chosenPath);
+      if (DBManager.isLoaded) {
+        UI.confirm('Select a database file (.db) to switch to. Your current session will be replaced.', async () => {
+          try {
+            await Startup.bootstrapDatabase(selectedPath);
+          } catch (err) {
+            UI.showToast("Failed to open vault: " + err.message, true);
+          }
+        });
+        return;
+      }
+
+      await Startup.bootstrapDatabase(selectedPath);
     } catch (err) {
-      console.error(err);
-      UI.showToast("Database connection failure: " + err.message, true);
+      UI.showToast("Failed to open vault: " + err.message, true);
     }
   },
 
@@ -216,18 +226,22 @@ const Startup = {
    */
   async handleMobileChangeDb() {
     try {
-      const check = confirm('Select a database file (.db) to switch to. Your current session will be replaced.');
-      if (!check) return;
+      UI.confirm('Select a database file (.db) to switch to. Your current session will be replaced.', async () => {
+        try {
+          const chosenPath = await window.electronAPI.mobilePickAndLoadDb();
+          if (!chosenPath) return; // user cancelled
 
-      const chosenPath = await window.electronAPI.mobilePickAndLoadDb();
-      if (!chosenPath) return; // user cancelled
-
-      // If we got here the file was already written to disk at chosenPath;
-      // just bootstrap from it.
-      await this.bootstrapDatabase(chosenPath);
+          // If we got here the file was already written to disk at chosenPath;
+          // just bootstrap from it.
+          await Startup.bootstrapDatabase(chosenPath);
+        } catch (err) {
+          console.error('Mobile change DB error:', err);
+          UI.showToast('Failed to switch database: ' + err.message, true);
+        }
+      });
     } catch (err) {
-      console.error('Mobile change DB error:', err);
-      UI.showToast('Failed to switch database: ' + err.message, true);
+      console.error('Mobile change DB wrapper error:', err);
+      UI.showToast('Failed to start DB switch: ' + err.message, true);
     }
   }
 };

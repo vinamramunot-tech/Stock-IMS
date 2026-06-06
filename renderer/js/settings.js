@@ -46,29 +46,19 @@ const Settings = {
     document.getElementById('btn-save-usd-rate').addEventListener('click', () => this.handleUpdateUsdRate());
   },
 
-  async handleDisconnectVault() {
-    const check = confirm("Are you sure you want to disconnect this database?\n\nThis will return you to the setup screen where you can choose a different database.");
-    if (!check) return;
-
-    try {
-      // Clear in-memory database state
-      DBManager.database = null;
-      DBManager.activePath = null;
-      DBManager.isLoaded = false;
-
-      // Try to clear the persisted path — may fail on iOS (no native file system config),
-      // but we still proceed to show the startup screen regardless.
+  handleDisconnectVault() {
+    UI.confirm("Are you sure you want to disconnect this database?\n\nThis will return you to the setup screen where you can choose a different database.", async () => {
       try {
-        await window.electronAPI.setLastDbPath(null);
-      } catch (persistErr) {
-        console.warn('Could not clear persisted DB path (expected on mobile):', persistErr);
+        await DBManager.disconnectVault();
+        document.getElementById('view-settings').classList.remove('active');
+        document.getElementById('view-dashboard').classList.remove('active');
+        document.getElementById('view-catalog').classList.remove('active');
+        
+        StartupController.init();
+      } catch (err) {
+        UI.showToast(err.message, true);
       }
-
-      UI.showToast('Database disconnected.');
-      await Startup.showStartupScreen();
-    } catch (err) {
-      UI.showToast('Failed to disconnect: ' + err.message, true);
-    }
+    });
   },
 
   /**
@@ -182,15 +172,18 @@ const Settings = {
       const backupPath = await window.electronAPI.importBackupDialog();
       if (!backupPath) return;
 
-      const check = confirm("WARNING: Importing a backup will overwrite your current active database completely. Are you sure you want to proceed?");
-      if (!check) return;
-
-      // Copy backup to active database location
-      await window.electronAPI.copyFile(backupPath, DBManager.activePath);
-      
-      // Bootstrap the newly imported database directly!
-      await Startup.bootstrapDatabase(DBManager.activePath);
-      UI.showToast("Database backup successfully imported!");
+      UI.confirm("WARNING: Importing a backup will overwrite your current active database completely. Are you sure you want to proceed?", async () => {
+        try {
+          // Copy backup to active database location
+          await window.electronAPI.copyFile(backupPath, DBManager.activePath);
+          
+          // Bootstrap the newly imported database directly!
+          await Startup.bootstrapDatabase(DBManager.activePath);
+          UI.showToast("Database backup successfully imported!");
+        } catch (err) {
+          UI.showToast(err.message, true);
+        }
+      });
     } catch (err) {
       UI.showToast(err.message, true);
     }

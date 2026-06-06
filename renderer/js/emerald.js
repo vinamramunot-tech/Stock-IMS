@@ -449,6 +449,7 @@ const EmeraldController = {
         <span>Weight: <strong style="color: var(--text-main);">${group.totalWeight.toFixed(2)} cts</strong></span>
         <span>Value: <strong style="color: var(--text-gold-dark);">₹${group.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
         <span style="background-color: var(--bg-base); padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; color: var(--text-main);">${group.items.length} Pudias</span>
+        <button type="button" class="btn btn-danger btn-small btn-delete-group" style="padding: 2px 6px; font-size: 11px;" title="Delete Entire Group">Delete</button>
       </div>`;
       
       groupHeader.innerHTML = groupTitleCol + groupStatsCol;
@@ -478,6 +479,7 @@ const EmeraldController = {
           <span>Weight: <strong style="color: var(--text-main);">${grade.totalWeight.toFixed(2)} cts</strong></span>
           <span>Value: <strong style="color: var(--text-gold-dark);">₹${grade.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
           <span style="background-color: var(--bg-base); padding: 1px 6px; border-radius: 10px; font-size: 10px; font-weight: 600; color: var(--text-main);">${grade.items.length} items</span>
+          <button type="button" class="btn btn-danger btn-small btn-delete-grade" style="padding: 2px 6px; font-size: 10px;" title="Delete Entire Grade">Delete</button>
         </div>`;
         
         gradeHeader.innerHTML = gradeTitleCol + gradeStatsCol;
@@ -597,7 +599,12 @@ const EmeraldController = {
         gradeBlock.appendChild(gradeBody);
         
         // Wire up grade header click toggle
-        gradeHeader.addEventListener('click', () => {
+        gradeHeader.addEventListener('click', (ev) => {
+          if (ev.target.closest('.btn-delete-grade')) {
+            ev.stopPropagation();
+            this.handleDeleteEmeraldGrade(group.name, grade.name);
+            return;
+          }
           const isCollapsed = gradeBody.classList.toggle('hidden');
           gradeHeader.querySelector('.grade-expand-icon').textContent = isCollapsed ? '▶' : '▼';
         });
@@ -608,7 +615,12 @@ const EmeraldController = {
       groupCard.appendChild(groupBody);
       
       // Wire up group header click toggle
-      groupHeader.addEventListener('click', () => {
+      groupHeader.addEventListener('click', (ev) => {
+        if (ev.target.closest('.btn-delete-group')) {
+          ev.stopPropagation();
+          this.handleDeleteEmeraldGroup(group.name);
+          return;
+        }
         const isCollapsed = groupBody.classList.toggle('hidden');
         groupHeader.querySelector('.group-expand-icon').textContent = isCollapsed ? '▶' : '▼';
       });
@@ -701,23 +713,61 @@ const EmeraldController = {
   async handleDeleteEmerald(emerald) {
     const weight = this.getEmeraldWeight(emerald);
     const shapes = this.getEmeraldShapes(emerald).join(', ') || 'Emerald';
-    const check = confirm(`Are you absolutely sure you want to delete this ${shapes} (${weight}ct) from emerald stock? This cannot be undone.`);
-    if (!check) return;
+    
+    UI.confirm(`Are you absolutely sure you want to delete this ${shapes} (${weight}ct) from emerald stock? This cannot be undone.`, async () => {
+      try {
+        DBManager.addLog("DELETE", emerald.id, "Emerald", `Deleted emerald stock entry (${shapes}, ${weight}ct)`, []);
+        
+        const index = DBManager.database.emeralds.findIndex(e => e.id === emerald.id);
+        if (index !== -1) {
+          DBManager.database.emeralds.splice(index, 1);
+        }
 
-    try {
-      DBManager.addLog("DELETE", emerald.id, `Emerald (${shapes})`, `Deleted emerald stock: ${shapes} (${weight}ct)`, []);
-      
-      const index = DBManager.database.emeralds.findIndex(e => e.id === emerald.id);
-      if (index !== -1) {
-        DBManager.database.emeralds.splice(index, 1);
+        await DBManager.saveVault();
+        UI.showToast("Emerald deleted from stock.");
+        App.refreshAllDisplays();
+      } catch (err) {
+        UI.showToast(err.message, true);
       }
+    });
+  },
 
-      await DBManager.saveVault();
-      UI.showToast("Emerald item deleted from stock.");
-      App.refreshAllDisplays();
-    } catch (err) {
-      UI.showToast(err.message, true);
-    }
+  async handleDeleteEmeraldGroup(groupName) {
+    UI.confirm(`Are you absolutely sure you want to delete ALL emeralds in the group "${groupName}"? This cannot be undone.`, async () => {
+      try {
+        const initialCount = DBManager.database.emeralds.length;
+        DBManager.database.emeralds = DBManager.database.emeralds.filter(e => (e.group || 'Default') !== groupName);
+        const deletedCount = initialCount - DBManager.database.emeralds.length;
+        
+        DBManager.addLog("DELETE", `group_${groupName}`, "Emerald Group", `Deleted emerald group "${groupName}" (${deletedCount} items)`, []);
+        await DBManager.saveVault();
+        UI.showToast(`Deleted ${deletedCount} items from group "${groupName}".`);
+        App.refreshAllDisplays();
+      } catch (err) {
+        UI.showToast(err.message, true);
+      }
+    });
+  },
+
+  async handleDeleteEmeraldGrade(groupName, gradeName) {
+    UI.confirm(`Are you absolutely sure you want to delete ALL emeralds in the grade "${gradeName}" (Group: "${groupName}")? This cannot be undone.`, async () => {
+      try {
+        const initialCount = DBManager.database.emeralds.length;
+        DBManager.database.emeralds = DBManager.database.emeralds.filter(e => {
+          const eGroup = e.group || 'Default';
+          const eGrade = e.grade || 'Default';
+          return !(eGroup === groupName && eGrade === gradeName);
+        });
+        const deletedCount = initialCount - DBManager.database.emeralds.length;
+        
+        DBManager.addLog("DELETE", `grade_${groupName}_${gradeName}`, "Emerald Grade", `Deleted emerald grade "${gradeName}" from group "${groupName}" (${deletedCount} items)`, []);
+        await DBManager.saveVault();
+        UI.showToast(`Deleted ${deletedCount} items from grade "${gradeName}".`);
+        App.refreshAllDisplays();
+      } catch (err) {
+        UI.showToast(err.message, true);
+      }
+    });
   }
 };
 
