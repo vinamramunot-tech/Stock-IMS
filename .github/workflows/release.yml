@@ -75,8 +75,8 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist-desktop
-          find src-tauri/target -name "*.exe" -exec cp {} dist-desktop/ \; || true
-          find src-tauri/target -name "*.dmg" -exec cp {} dist-desktop/ \; || true
+          find src-tauri/target -path "*bundle/nsis/*.exe" -exec cp {} dist-desktop/ \; || true
+          find src-tauri/target -path "*bundle/dmg/*.dmg" -exec cp {} dist-desktop/ \; || true
 
       # Upload build outputs to workflow artifacts
       - name: Upload Desktop Artifacts
