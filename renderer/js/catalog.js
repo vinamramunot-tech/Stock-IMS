@@ -477,23 +477,22 @@ const Catalog = {
   },
 
   async handleDeleteItem(item) {
-    const check = confirm(`Are you absolutely sure you want to delete "${item.name}" (SKU: ${item.sku}) from stock? This cannot be undone.`);
-    if (!check) return;
+    UI.confirm(`Are you absolutely sure you want to delete "${item.name}" (SKU: ${item.sku}) from stock? This cannot be undone.`, async () => {
+      try {
+        DBManager.addLog("DELETE", item.id, item.name, `Deleted jewelry item: ${item.name}`, []);
+        
+        const index = DBManager.database.items.findIndex(i => i.id === item.id);
+        if (index !== -1) {
+          DBManager.database.items.splice(index, 1);
+        }
 
-    try {
-      DBManager.addLog("DELETE", item.id, item.name, `Deleted jewelry item: ${item.name}`, []);
-      
-      const index = DBManager.database.items.findIndex(i => i.id === item.id);
-      if (index !== -1) {
-        DBManager.database.items.splice(index, 1);
+        await DBManager.saveVault();
+        UI.showToast("Item deleted from stock.");
+        App.refreshAllDisplays();
+      } catch (err) {
+        UI.showToast(err.message, true);
       }
-
-      await DBManager.saveVault();
-      UI.showToast("Item deleted from stock.");
-      App.refreshAllDisplays();
-    } catch (err) {
-      UI.showToast(err.message, true);
-    }
+    });
   }
 };
 
