@@ -14,7 +14,8 @@
     "android:dev": "tauri android dev",
     "android:build": "tauri android build",
     "ios:init": "tauri ios init",
-    "ios:dev": "tauri ios dev",
+    "ios:dev": "tauri ios dev \"iPhone 15 Pro\"",
+    "ios:dev:device": "tauri ios dev",
     "ios:build": "tauri ios build",
     "tauri": "tauri"
   },
