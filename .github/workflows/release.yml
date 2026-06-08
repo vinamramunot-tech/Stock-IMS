@@ -2,6 +2,7 @@ name: 'publish'
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  NODE_NO_WARNINGS: "1"           # silence punycode/other Node deprecation warnings from actions
   # sccache settings
   SCCACHE_GHA_ENABLED: "true"
   RUSTC_WRAPPER: "sccache"
