@@ -28,3 +28,13 @@ sha2 = "0.10"
 rand = "0.8"
 [target.'cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))'.dependencies]
 rfd = "0.15"
+
+# ── Build profiles ────────────────────────────────────────────────────────────
+# "thin" LTO is much faster to link than "fat" (the rustc default for release)
+# while still delivering meaningful dead-code elimination.
+# Raising codegen-units lets the 4-core Windows runner parallelize compilation.
+[profile.release]
+lto = "thin"
+codegen-units = 4
+opt-level = 3
+strip = true   # strip debug symbols → smaller binary, faster artifact upload
