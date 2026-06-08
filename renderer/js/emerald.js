@@ -88,6 +88,8 @@ const EmeraldController = {
     this.updateSizeTotals();
 
     this.populateGroupAutocomplete();
+    this.populateShapeAutocomplete();
+    this.populateMmAutocomplete();
   },
 
   /**
@@ -107,7 +109,7 @@ const EmeraldController = {
 
     row.innerHTML = `
       <input type="text" class="size-shape" list="emerald-shapes-list" placeholder="e.g. Oval" value="${safeShape}">
-      <input type="text" class="size-mm" placeholder="e.g. 7x5" value="${safeMM}">
+      <input type="text" class="size-mm" list="emerald-mm-list" placeholder="e.g. 7x5" value="${safeMM}">
       <input type="number" class="size-pieces" min="0" step="1" placeholder="0" value="${safePieces}">
       <input type="number" class="size-weight" min="0" step="0.01" placeholder="0.00" value="${safeWeight}">
       <button type="button" class="btn-remove-size" title="Remove this size row">&times;</button>
@@ -225,6 +227,65 @@ const EmeraldController = {
     });
 
     document.getElementById('emerald-modal-title').textContent = "Edit Emerald Stock";
+  },
+
+  /**
+   * Refresh the shape datalist with all unique shapes from saved emerald entries,
+   * merged with the built-in seed defaults so neither is ever lost.
+   */
+  populateShapeAutocomplete() {
+    const list = document.getElementById('emerald-shapes-list');
+    if (!list) return;
+
+    // Seed defaults — always present
+    const SEED_SHAPES = ['Octagon', 'Ovals', 'Pears', 'Marquise', 'Rounds', 'Fancy', 'Maniya', 'Beads'];
+    const allShapes = new Set(SEED_SHAPES);
+
+    // Collect shapes from every saved emerald
+    const emeralds = DBManager.getEmeralds();
+    emeralds.forEach(e => {
+      (e.sizes || []).forEach(s => {
+        if (s.shape && s.shape.trim()) allShapes.add(s.shape.trim());
+      });
+      // Backward-compat: old single-shape field
+      if (e.shape && e.shape.trim()) {
+        e.shape.split(',').forEach(sh => {
+          const trimmed = sh.trim();
+          if (trimmed) allShapes.add(trimmed);
+        });
+      }
+    });
+
+    list.innerHTML = '';
+    Array.from(allShapes).sort().forEach(shape => {
+      const opt = document.createElement('option');
+      opt.value = shape;
+      list.appendChild(opt);
+    });
+  },
+
+  /**
+   * Refresh the MM datalist with all unique MM values from saved emerald entries.
+   */
+  populateMmAutocomplete() {
+    const list = document.getElementById('emerald-mm-list');
+    if (!list) return;
+
+    const allMm = new Set();
+
+    const emeralds = DBManager.getEmeralds();
+    emeralds.forEach(e => {
+      (e.sizes || []).forEach(s => {
+        if (s.mm && s.mm.trim()) allMm.add(s.mm.trim());
+      });
+    });
+
+    list.innerHTML = '';
+    Array.from(allMm).sort().forEach(mm => {
+      const opt = document.createElement('option');
+      opt.value = mm;
+      list.appendChild(opt);
+    });
   },
 
   populateGroupAutocomplete() {

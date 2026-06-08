@@ -863,7 +863,7 @@
             
             <button type="button" class="btn-add-size-row" id="btn-add-emerald-size">+ Add Size Row</button>
 
-            <!-- Keep datalist available for shape suggestions -->
+            <!-- Datalist for shape suggestions — seeded with defaults, extended dynamically from saved entries -->
             <datalist id="emerald-shapes-list">
               <option value="Octagon">
               <option value="Ovals">
@@ -874,6 +874,8 @@
               <option value="Maniya">
               <option value="Beads">
             </datalist>
+            <!-- Datalist for MM suggestions — fully dynamic, populated from saved entries -->
+            <datalist id="emerald-mm-list"></datalist>
           </div>
 
           <div class="input-group">
