@@ -57,12 +57,18 @@ const Startup = {
   },
 
   async showStartupScreen() {
-    const rememberedPath = await window.electronAPI.getLastDbPath();
-    if (rememberedPath) {
-      document.getElementById('startup-initial-setup-view').classList.add('hidden');
-      document.getElementById('startup-confirm-path-view').classList.remove('hidden');
-      document.getElementById('startup-db-path-text').textContent = rememberedPath;
-    } else {
+    try {
+      const rememberedPath = await window.electronAPI.getLastDbPath();
+      if (rememberedPath) {
+        document.getElementById('startup-initial-setup-view').classList.add('hidden');
+        document.getElementById('startup-confirm-path-view').classList.remove('hidden');
+        document.getElementById('startup-db-path-text').textContent = rememberedPath;
+      } else {
+        document.getElementById('startup-confirm-path-view').classList.add('hidden');
+        document.getElementById('startup-initial-setup-view').classList.remove('hidden');
+      }
+    } catch (err) {
+      console.error("Failed to get last DB path:", err);
       document.getElementById('startup-confirm-path-view').classList.add('hidden');
       document.getElementById('startup-initial-setup-view').classList.remove('hidden');
     }

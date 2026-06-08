@@ -92,5 +92,5 @@ if [ "$SELECTED_TYPE" = "sim" ]; then
   DEV_NAME=$(echo "$SELECTED_NAME" | sed 's/ (.*)//')
   exec npx tauri ios dev "$DEV_NAME"
 else
-  exec npx tauri ios dev
+  exec npx tauri ios dev --host
 fi
