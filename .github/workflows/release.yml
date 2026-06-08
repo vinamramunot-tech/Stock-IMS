@@ -58,6 +58,42 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # ── Sync version numbers from the git tag ────────────────────────────────
+      # Strips the leading 'v' (v3.5.0 → 3.5.0) and patches all three version
+      # files so the built binaries always carry the tag version, not whatever
+      # was last committed. Falls back to the existing package.json version on
+      # workflow_dispatch runs (no tag).
+      - name: Sync version from git tag
+        shell: bash
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#v}"   # strip leading 'v'
+          else
+            VERSION=$(node -p "require('./package.json').version")
+          fi
+          echo "Syncing version to: $VERSION"
+
+          # package.json
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json','utf8'));
+            pkg.version = '$VERSION';
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+
+          # src-tauri/Cargo.toml  (patches only the first version = "…" line)
+          sed -i.bak "0,/^version = \"[^\"]*\"/{s/^version = \"[^\"]*\"/version = \"$VERSION\"/}" src-tauri/Cargo.toml
+          rm -f src-tauri/Cargo.toml.bak
+
+          # src-tauri/tauri.conf.json
+          node -e "
+            const fs = require('fs');
+            const cfg = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json','utf8'));
+            cfg.version = '$VERSION';
+            fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(cfg, null, 2) + '\n');
+          "
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
