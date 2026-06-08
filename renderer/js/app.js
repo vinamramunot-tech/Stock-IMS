@@ -14,6 +14,9 @@ const App = {
     if (window.EmeraldController) {
       EmeraldController.init();
     }
+    if (window.MemoController) {
+      MemoController.init();
+    }
 
     // 2. Tab switching navigation listeners
     const navItems = document.querySelectorAll('.nav-item[data-target]');
@@ -119,7 +122,7 @@ const App = {
         const action = item.getAttribute('data-action');
         mobileMenuOverlay.classList.add('hidden');
 
-        if (action === 'tab-catalog' || action === 'tab-emerald-catalog' || action === 'tab-logs' || action === 'tab-settings') {
+        if (action === 'tab-catalog' || action === 'tab-emerald-catalog' || action === 'tab-memos' || action === 'tab-logs' || action === 'tab-settings') {
           this.switchTab(action);
         } else if (action === 'add-jewelry') {
           const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
@@ -132,6 +135,10 @@ const App = {
         } else if (action === 'add-emerald') {
           if (window.EmeraldController) {
             window.EmeraldController.openAddModal();
+          }
+        } else if (action === 'add-memo') {
+          if (window.MemoController) {
+            window.MemoController.openCreateMemoModal();
           }
         }
       });
@@ -161,6 +168,9 @@ const App = {
     Catalog.renderCatalogGrid();
     if (window.EmeraldController) {
       EmeraldController.renderEmeraldGrid();
+    }
+    if (window.MemoController) {
+      MemoController.renderMemoList();
     }
     this.renderActivityLogs();
     
