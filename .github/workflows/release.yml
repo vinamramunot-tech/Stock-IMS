@@ -90,9 +90,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: src-tauri/target
-          key: ${{ runner.os }}-tauri-target-${{ matrix.settings.targets }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-tauri-target-${{ matrix.settings.platform }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-tauri-target-${{ matrix.settings.targets }}-
+            ${{ runner.os }}-tauri-target-${{ matrix.settings.platform }}-
             ${{ runner.os }}-tauri-target-
 
       - name: Install project dependencies
