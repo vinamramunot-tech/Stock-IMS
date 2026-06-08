@@ -6,6 +6,8 @@
  */
 
 const MemoController = {
+  selectedItems: [],
+  activeCreateSelectedId: null,
 
   // ── Initialisation ──────────────────────────────────────────────────────────
 
@@ -37,6 +39,38 @@ const MemoController = {
     document.querySelectorAll('.modal-close-trigger-memo-detail').forEach(btn => {
       btn.addEventListener('click', () => UI.closeModal('modal-memo-detail'));
     });
+
+    // Close triggers for partial action input modal
+    document.querySelectorAll('.modal-close-trigger-memo-action').forEach(btn => {
+      btn.addEventListener('click', () => UI.closeModal('modal-memo-action-input'));
+    });
+
+    // Save partial action button
+    const btnSaveMemoAction = document.getElementById('btn-save-memo-action');
+    if (btnSaveMemoAction) {
+      btnSaveMemoAction.addEventListener('click', () => this.handleSaveMemoAction());
+    }
+
+    // Form control listeners for create modal
+    const groupSelect = document.getElementById('memo-create-group');
+    if (groupSelect) {
+      groupSelect.addEventListener('change', () => this.handleCreateGroupChange());
+    }
+
+    const shapeSelect = document.getElementById('memo-create-shape');
+    if (shapeSelect) {
+      shapeSelect.addEventListener('change', () => this.handleCreateShapeChange());
+    }
+
+    const searchInp = document.getElementById('memo-create-search');
+    if (searchInp) {
+      searchInp.addEventListener('input', () => this.handleCreateSearchInput());
+    }
+
+    const btnAddItem = document.getElementById('btn-memo-add-item');
+    if (btnAddItem) {
+      btnAddItem.addEventListener('click', () => this.handleAddItemToSelected());
+    }
 
     // Filter and search in memo list tab
     const statusFilter = document.getElementById('memo-filter-status');
@@ -73,7 +107,8 @@ const MemoController = {
       if (memo.status === 'open') {
         (memo.items || []).forEach(item => {
           if (item.emeraldId === emeraldId) {
-            total += Number(item.carats || 0);
+            const rem = (item.carats || 0) - (item.returnedCarats || 0) - (item.soldCarats || 0);
+            if (rem > 0) total += rem;
           }
         });
       }
@@ -90,7 +125,8 @@ const MemoController = {
     DBManager.getMemos().filter(m => m.status === 'open').forEach(memo => {
       (memo.items || []).forEach(item => {
         if (!map[item.emeraldId]) map[item.emeraldId] = 0;
-        map[item.emeraldId] += Number(item.carats || 0);
+        const rem = (item.carats || 0) - (item.returnedCarats || 0) - (item.soldCarats || 0);
+        if (rem > 0) map[item.emeraldId] += rem;
       });
     });
     return map;
@@ -108,6 +144,8 @@ const MemoController = {
   // ── Create Memo ─────────────────────────────────────────────────────────────
 
   openCreateMemoModal() {
+    this.selectedItems = [];
+    this.activeCreateSelectedId = null;
     this.resetCreateMemoForm();
     UI.openModal('modal-create-memo');
   },
@@ -119,9 +157,25 @@ const MemoController = {
     if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
     const notesInput = document.getElementById('memo-notes');
     if (notesInput) notesInput.value = '';
+    
+    // Reset inputs
+    const searchInp = document.getElementById('memo-create-search');
+    if (searchInp) searchInp.value = '';
+    const caratsInp = document.getElementById('memo-create-carats');
+    if (caratsInp) caratsInp.value = '';
+    const piecesInp = document.getElementById('memo-create-pieces');
+    if (piecesInp) piecesInp.value = '';
+    
+    const availLabel = document.getElementById('memo-create-avail-carats-lbl');
+    if (availLabel) availLabel.textContent = '(Available: —)';
+
+    this.activeCreateSelectedId = null;
+
     this.populateBrokerDatalist();
-    this.renderEmeraldPickerRows();
-    this.updateMemoTotals();
+    this.populateGroupSelect();
+    this.populateShapeSelect();
+    this.filterCreatePudias();
+    this.renderSelectedItemsTable();
   },
 
   populateBrokerDatalist() {
@@ -135,87 +189,264 @@ const MemoController = {
     });
   },
 
-  /**
-   * Build the emerald picker table inside the create-memo modal.
-   * Each row = one Pudia, with an input for carats to issue.
-   */
-  renderEmeraldPickerRows() {
-    const tbody = document.getElementById('memo-picker-tbody');
-    if (!tbody) return;
-    tbody.innerHTML = '';
+  populateGroupSelect() {
+    const select = document.getElementById('memo-create-group');
+    if (!select) return;
+    select.innerHTML = '<option value="">-- All Groups --</option>';
+    
+    const groups = new Set();
+    DBManager.getEmeralds().forEach(e => {
+      if (e.group) groups.add(e.group);
+    });
+    
+    Array.from(groups).sort().forEach(g => {
+      const opt = document.createElement('option');
+      opt.value = g;
+      opt.textContent = g;
+      select.appendChild(opt);
+    });
+  },
 
-    const emeralds = DBManager.getEmeralds();
-    if (emeralds.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">No emerald stock in the vault.</td></tr>';
+  populateShapeSelect() {
+    const select = document.getElementById('memo-create-shape');
+    if (!select) return;
+    select.innerHTML = '<option value="">-- All Shapes --</option>';
+    
+    const shapes = new Set();
+    DBManager.getEmeralds().forEach(e => {
+      if (e.shape) shapes.add(e.shape);
+    });
+    
+    Array.from(shapes).sort().forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s;
+      opt.textContent = s;
+      select.appendChild(opt);
+    });
+  },
+
+  handleCreateGroupChange() {
+    const searchInp = document.getElementById('memo-create-search');
+    if (searchInp) searchInp.value = '';
+    this.filterCreatePudias();
+  },
+
+  handleCreateShapeChange() {
+    const searchInp = document.getElementById('memo-create-search');
+    if (searchInp) searchInp.value = '';
+    this.filterCreatePudias();
+  },
+
+  handleCreateSearchInput() {
+    const groupSelect = document.getElementById('memo-create-group');
+    if (groupSelect) groupSelect.value = '';
+    const shapeSelect = document.getElementById('memo-create-shape');
+    if (shapeSelect) shapeSelect.value = '';
+    this.filterCreatePudias();
+  },
+
+  filterCreatePudias() {
+    const listContainer = document.getElementById('memo-create-pudia-list');
+    if (!listContainer) return;
+    listContainer.innerHTML = '';
+
+    const query = (document.getElementById('memo-create-search').value || '').toLowerCase().trim();
+    const groupVal = document.getElementById('memo-create-group').value;
+    const shapeVal = document.getElementById('memo-create-shape').value;
+
+    // Do not auto-populate list if no query or filters are active
+    if (!query && !groupVal && !shapeVal) {
+      listContainer.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-muted);font-size:12px;font-style:italic;">Type search term or select filters to view Pudias</div>';
       return;
     }
 
+    const emeralds = DBManager.getEmeralds();
     const memoCaratsMap = this.buildMemoCaratsMap();
 
-    // Sort: group → grade → pudia number
-    const sorted = [...emeralds].sort((a, b) => {
-      const gDiff = (a.group || '').localeCompare(b.group || '');
-      if (gDiff !== 0) return gDiff;
-      const lDiff = (a.lustreGrade || '').localeCompare(b.lustreGrade || '');
-      if (lDiff !== 0) return lDiff;
-      return Number(a.color || 0) - Number(b.color || 0);
+    const filtered = emeralds.filter(e => {
+      if (this.selectedItems.some(item => item.emeraldId === e.id)) {
+        return false;
+      }
+
+      const totalCts = EmeraldController.getEmeraldWeight(e);
+      const memoCts  = Number((memoCaratsMap[e.id] || 0).toFixed(3));
+      const availCts = Math.max(0, Number((totalCts - memoCts).toFixed(3)));
+      if (availCts <= 0) return false;
+
+      if (groupVal && e.group !== groupVal) {
+        return false;
+      }
+
+      if (shapeVal && e.shape !== shapeVal) {
+        return false;
+      }
+
+      if (query) {
+        const matchGroup = (e.group || '').toLowerCase().includes(query);
+        const matchGrade = (e.lustreGrade || '').toLowerCase().includes(query);
+        const matchPudia = String(e.color || '').toLowerCase().includes(query);
+        const matchShape = (e.shape || '').toLowerCase().includes(query);
+        const matchCarats = String(availCts.toFixed(2)).includes(query) || String(availCts).includes(query);
+        return matchGroup || matchGrade || matchPudia || matchShape || matchCarats;
+      }
+
+      return true;
     });
 
-    sorted.forEach(e => {
+    if (filtered.length === 0) {
+      listContainer.innerHTML = '<div style="padding:10px;text-align:center;color:var(--text-muted);font-size:12px;">No matching Pudias found</div>';
+      return;
+    }
+
+    filtered.forEach(e => {
       const totalCts = EmeraldController.getEmeraldWeight(e);
       const memoCts  = Number((memoCaratsMap[e.id] || 0).toFixed(3));
       const availCts = Math.max(0, Number((totalCts - memoCts).toFixed(3)));
 
-      const tr = document.createElement('tr');
-      tr.dataset.emeraldId = e.id;
-      tr.innerHTML = `
-        <td style="font-weight:600;">${UI.escapeHtml(e.group || '—')}</td>
-        <td style="text-align:center;font-weight:700;color:var(--text-gold-dark);">#${e.color || 'N/A'}</td>
-        <td>${UI.escapeHtml(e.lustreGrade || '—')}</td>
-        <td style="text-align:right;">
-          <span style="font-weight:600;color:var(--text-main);">${availCts.toFixed(2)}</span>
-          ${memoCts > 0 ? `<br><span style="font-size:10px;color:var(--text-muted);">${memoCts.toFixed(2)} on memo</span>` : ''}
-        </td>
-        <td style="text-align:center;">
-          <input type="number"
-            class="memo-carat-input"
-            data-emerald-id="${e.id}"
-            data-max="${availCts}"
-            min="0" step="0.01" max="${availCts}"
-            placeholder="0.00"
-            ${availCts <= 0 ? 'disabled' : ''}
-            style="width:80px;padding:4px 8px;font-size:13px;text-align:right;border:1px solid var(--border-light);border-radius:3px;background:var(--bg-base);color:var(--text-main);">
-        </td>
-        <td style="text-align:center;">
-          <input type="number"
-            class="memo-pieces-input"
-            data-emerald-id="${e.id}"
-            min="0" step="1"
-            placeholder="0"
-            ${availCts <= 0 ? 'disabled' : ''}
-            style="width:60px;padding:4px 8px;font-size:13px;text-align:right;border:1px solid var(--border-light);border-radius:3px;background:var(--bg-base);color:var(--text-main);">
-        </td>
+      const div = document.createElement('div');
+      div.className = 'pudia-picker-row';
+      div.dataset.id = e.id;
+      div.style = 'padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border-light);display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--text-main);transition:background var(--transition-fast);';
+      div.innerHTML = `
+        <span><strong>#${e.color || 'N/A'}</strong> - ${UI.escapeHtml(e.group || '—')} (${UI.escapeHtml(e.shape || '—')}, ${UI.escapeHtml(e.lustreGrade || '—')})</span>
+        <span style="font-weight:700;color:var(--text-gold-dark);">${availCts.toFixed(2)} cts</span>
       `;
 
-      tr.querySelector('.memo-carat-input').addEventListener('input', () => this.updateMemoTotals());
-      tbody.appendChild(tr);
+      if (this.activeCreateSelectedId === e.id) {
+        div.style.backgroundColor = 'var(--border-light)';
+        div.style.fontWeight = '700';
+      }
+
+      div.addEventListener('click', () => {
+        // Clear previous selection highlight
+        listContainer.querySelectorAll('.pudia-picker-row').forEach(row => {
+          row.style.backgroundColor = '';
+          row.style.fontWeight = '';
+        });
+
+        // Highlight this item
+        div.style.backgroundColor = 'var(--border-light)';
+        div.style.fontWeight = '700';
+
+        this.activeCreateSelectedId = e.id;
+        
+        // Fill inputs
+        const lbl = document.getElementById('memo-create-avail-carats-lbl');
+        const caratsInp = document.getElementById('memo-create-carats');
+        const piecesInp = document.getElementById('memo-create-pieces');
+
+        if (lbl) lbl.textContent = `(Available: ${availCts.toFixed(2)} cts)`;
+        caratsInp.max = availCts;
+        caratsInp.value = availCts;
+        piecesInp.value = e.pieces || '';
+      });
+
+      listContainer.appendChild(div);
     });
   },
 
-  updateMemoTotals() {
-    let totalCts = 0;
-    let itemCount = 0;
-    document.querySelectorAll('.memo-carat-input').forEach(inp => {
-      const val = Number(inp.value || 0);
-      if (val > 0) {
-        totalCts += val;
-        itemCount++;
-      }
+  handleAddItemToSelected() {
+    const caratsInp = document.getElementById('memo-create-carats');
+    const piecesInp = document.getElementById('memo-create-pieces');
+
+    if (!caratsInp) return;
+
+    const emeraldId = this.activeCreateSelectedId;
+    if (!emeraldId) {
+      UI.showToast('Please click on a Pudia from the list to select it.', true);
+      return;
+    }
+
+    const inputCarats = Number(caratsInp.value || 0);
+    const inputPieces = Number(piecesInp.value || 0);
+
+    const emerald = DBManager.getEmeralds().find(e => e.id === emeraldId);
+    if (!emerald) return;
+
+    const memoCaratsMap = this.buildMemoCaratsMap();
+    const totalCts = EmeraldController.getEmeraldWeight(emerald);
+    const memoCts  = Number((memoCaratsMap[emerald.id] || 0).toFixed(3));
+    const maxCts = Math.max(0, Number((totalCts - memoCts).toFixed(3)));
+
+    if (inputCarats <= 0) {
+      UI.showToast('Please enter a valid amount of carats.', true);
+      return;
+    }
+
+    if (inputCarats > maxCts + 0.001) {
+      UI.showToast(`Cannot issue more than available carats (${maxCts.toFixed(2)} cts).`, true);
+      return;
+    }
+
+    this.selectedItems.push({
+      emeraldId,
+      emeraldSnapshot: {
+        group: emerald.group || '',
+        lustreGrade: emerald.lustreGrade || '',
+        color: emerald.color || '',
+        shape: emerald.shape || ''
+      },
+      carats: Number(inputCarats.toFixed(3)),
+      pieces: inputPieces,
+      returnedCarats: 0,
+      soldCarats: 0,
+      returnedPieces: 0,
+      soldPieces: 0
     });
+
+    this.activeCreateSelectedId = null;
+    caratsInp.value = '';
+    piecesInp.value = '';
+    const lbl = document.getElementById('memo-create-avail-carats-lbl');
+    if (lbl) lbl.textContent = '(Available: —)';
+
+    this.filterCreatePudias();
+    this.renderSelectedItemsTable();
+  },
+
+  renderSelectedItemsTable() {
+    const tbody = document.getElementById('memo-selected-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (this.selectedItems.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">No items selected yet. Select a Pudia above and click "Add Item".</td></tr>';
+      this.updateSelectedTotals();
+      return;
+    }
+
+    this.selectedItems.forEach((item, index) => {
+      const snap = item.emeraldSnapshot;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="padding:10px 12px;font-weight:600;">${UI.escapeHtml(snap.group || '—')}</td>
+        <td style="padding:10px 12px;text-align:center;font-weight:700;color:var(--text-gold-dark);">#${snap.color || 'N/A'}</td>
+        <td style="padding:10px 12px;">${UI.escapeHtml(snap.shape || '—')} / ${UI.escapeHtml(snap.lustreGrade || '—')}</td>
+        <td style="padding:10px 12px;text-align:right;font-weight:700;">${item.carats.toFixed(2)} cts</td>
+        <td style="padding:10px 12px;text-align:right;">${item.pieces || '—'}</td>
+        <td style="padding:10px 12px;text-align:center;">
+          <button type="button" class="btn btn-danger btn-small" style="font-size:10px;padding:3px 6px;" data-index="${index}">Remove</button>
+        </td>
+      `;
+
+      tr.querySelector('.btn-danger').addEventListener('click', () => {
+        this.selectedItems.splice(index, 1);
+        this.filterCreatePudias();
+        this.renderSelectedItemsTable();
+      });
+
+      tbody.appendChild(tr);
+    });
+
+    this.updateSelectedTotals();
+  },
+
+  updateSelectedTotals() {
+    const totalCts = this.selectedItems.reduce((sum, item) => sum + item.carats, 0);
     const totalEl = document.getElementById('memo-total-carats');
     const countEl = document.getElementById('memo-item-count');
     if (totalEl) totalEl.textContent = totalCts.toFixed(2);
-    if (countEl) countEl.textContent = itemCount;
+    if (countEl) countEl.textContent = this.selectedItems.length;
   },
 
   async handleSaveMemo() {
@@ -225,49 +456,12 @@ const MemoController = {
 
     if (!brokerName) { UI.showToast('Please enter a broker name.', true); return; }
     if (!date)       { UI.showToast('Please select a memo date.', true); return; }
-
-    // Collect selected emerald rows
-    const items  = [];
-    let hasError = false;
-
-    document.querySelectorAll('.memo-carat-input').forEach(inp => {
-      const carats     = Number(inp.value || 0);
-      if (carats <= 0) return;                              // skip empty rows
-
-      const emeraldId  = inp.getAttribute('data-emerald-id');
-      const maxCts     = Number(inp.getAttribute('data-max'));
-
-      if (carats > maxCts + 0.001) {                       // small float tolerance
-        UI.showToast(`Cannot issue more carats than available for a Pudia.`, true);
-        hasError = true;
-        return;
-      }
-
-      const piecesInp  = inp.closest('tr').querySelector('.memo-pieces-input');
-      const pieces     = Number(piecesInp ? piecesInp.value || 0 : 0);
-      const emerald    = DBManager.getEmeralds().find(e => e.id === emeraldId);
-      if (!emerald) return;
-
-      items.push({
-        emeraldId,
-        emeraldSnapshot: {
-          group: emerald.group || '',
-          lustreGrade: emerald.lustreGrade || '',
-          color: emerald.color || '',
-          shape: emerald.shape || ''
-        },
-        carats: Number(carats.toFixed(3)),
-        pieces
-      });
-    });
-
-    if (hasError) return;
-    if (items.length === 0) {
-      UI.showToast('Please enter carats for at least one Pudia.', true);
+    if (this.selectedItems.length === 0) {
+      UI.showToast('Please add at least one Pudia to the memo.', true);
       return;
     }
 
-    const totalCarats = Number(items.reduce((s, i) => s + i.carats, 0).toFixed(3));
+    const totalCarats = Number(this.selectedItems.reduce((s, i) => s + i.carats, 0).toFixed(3));
     const memoNumber  = this.getNextMemoNumber();
 
     const memo = {
@@ -275,11 +469,11 @@ const MemoController = {
       memoNumber,
       brokerName,
       date,
-      status: 'open',          // "open" | "returned" | "sold"
+      status: 'open',          // "open" | "returned" | "sold" | "closed"
       createdAt: new Date().toISOString(),
       closedAt: null,
       notes,
-      items,
+      items: this.selectedItems,
       totalCarats
     };
 
@@ -288,7 +482,7 @@ const MemoController = {
 
     DBManager.addLog(
       'ADD', memo.id, `Memo ${memoNumber}`,
-      `Issued memo ${memoNumber} to ${brokerName}: ${totalCarats.toFixed(2)} cts (${items.length} Pudia${items.length !== 1 ? 's' : ''})`,
+      `Issued memo ${memoNumber} to ${brokerName}: ${totalCarats.toFixed(2)} cts (${this.selectedItems.length} Pudia${this.selectedItems.length !== 1 ? 's' : ''})`,
       []
     );
 
@@ -349,7 +543,8 @@ const MemoController = {
     const statusStyle = {
       open:     { bg: 'rgba(80,200,120,0.15)', color: '#50c878' },
       returned: { bg: 'rgba(140,140,160,0.15)', color: 'var(--text-muted)' },
-      sold:     { bg: 'rgba(212,175,55,0.15)',  color: 'var(--text-gold-dark)' }
+      sold:     { bg: 'rgba(212,175,55,0.15)',  color: 'var(--text-gold-dark)' },
+      closed:   { bg: 'rgba(140,140,160,0.15)', color: 'var(--text-muted)' }
     };
 
     filtered.forEach(memo => {
@@ -386,8 +581,8 @@ const MemoController = {
       tr.querySelector('.btn-view-memo').addEventListener('click', () => this.openMemoDetail(memo.id));
       const retBtn  = tr.querySelector('.btn-return-memo');
       const sellBtn = tr.querySelector('.btn-sell-memo');
-      if (retBtn)  retBtn.addEventListener('click',  () => this.handleCloseMemo(memo.id, 'returned'));
-      if (sellBtn) sellBtn.addEventListener('click',  () => this.handleCloseMemo(memo.id, 'sold'));
+      if (retBtn)  retBtn.addEventListener('click',  () => this.openMemoActionInputModal(memo.id, null, 'returned'));
+      if (sellBtn) sellBtn.addEventListener('click',  () => this.openMemoActionInputModal(memo.id, null, 'sold'));
 
       tbody.appendChild(tr);
     });
@@ -421,16 +616,41 @@ const MemoController = {
     // Items table
     const tbody = document.getElementById('memo-detail-items-tbody');
     tbody.innerHTML = '';
-    (memo.items || []).forEach(item => {
+    (memo.items || []).forEach((item, index) => {
       const snap = item.emeraldSnapshot || {};
+      
+      const rCarats = item.returnedCarats || 0;
+      const sCarats = item.soldCarats || 0;
+      const remCarats = Math.max(0, Number((item.carats - rCarats - sCarats).toFixed(3)));
+
+      const rPieces = item.returnedPieces || 0;
+      const sPieces = item.soldPieces || 0;
+      const remPieces = Math.max(0, (item.pieces || 0) - rPieces - sPieces);
+
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${UI.escapeHtml(snap.group || '—')}</td>
-        <td style="text-align:center;font-weight:700;color:var(--text-gold-dark);">#${snap.color || 'N/A'}</td>
-        <td>${UI.escapeHtml(snap.lustreGrade || '—')}</td>
-        <td style="text-align:right;font-weight:700;">${Number(item.carats || 0).toFixed(2)} cts</td>
-        <td style="text-align:right;">${item.pieces || '—'}</td>
+        <td style="padding:10px 12px;">${UI.escapeHtml(snap.group || '—')}</td>
+        <td style="padding:10px 12px;text-align:center;font-weight:700;color:var(--text-gold-dark);">#${snap.color || 'N/A'}</td>
+        <td style="padding:10px 12px;">${UI.escapeHtml(snap.shape || '—')} / ${UI.escapeHtml(snap.lustreGrade || '—')}</td>
+        <td style="padding:10px 12px;text-align:right;">${(item.carats || 0).toFixed(2)} cts<br><span style="font-size:10px;color:var(--text-muted);">${item.pieces || '—'} pcs</span></td>
+        <td style="padding:10px 12px;text-align:right;color:var(--text-muted);">${rCarats > 0 ? `${rCarats.toFixed(2)} cts<br><span style="font-size:10px;">${rPieces} pcs</span>` : '—'}</td>
+        <td style="padding:10px 12px;text-align:right;color:var(--text-gold-dark);">${sCarats > 0 ? `${sCarats.toFixed(2)} cts<br><span style="font-size:10px;">${sPieces} pcs</span>` : '—'}</td>
+        <td style="padding:10px 12px;text-align:right;font-weight:700;color:var(--text-main);">${remCarats > 0 ? `${remCarats.toFixed(2)} cts<br><span style="font-size:10px;font-weight:normal;color:var(--text-muted);">${remPieces} pcs</span>` : '<span style="color:var(--success-green);font-size:11px;">CLOSED</span>'}</td>
+        <td style="padding:10px 12px;text-align:center;">
+          ${memo.status === 'open' && remCarats > 0 ? `
+            <div style="display:flex;gap:4px;justify-content:center;">
+              <button type="button" class="btn btn-secondary btn-small btn-row-return" style="font-size:10px;padding:3px 6px;" data-index="${index}">Return</button>
+              <button type="button" class="btn btn-primary btn-small btn-row-sell" style="font-size:10px;padding:3px 6px;" data-index="${index}">Sold</button>
+            </div>
+          ` : '—'}
+        </td>
       `;
+
+      if (memo.status === 'open' && remCarats > 0) {
+        tr.querySelector('.btn-row-return').addEventListener('click', () => this.openMemoActionInputModal(memo.id, index, 'returned'));
+        tr.querySelector('.btn-row-sell').addEventListener('click', () => this.openMemoActionInputModal(memo.id, index, 'sold'));
+      }
+
       tbody.appendChild(tr);
     });
 
@@ -439,8 +659,8 @@ const MemoController = {
     if (actionsEl) {
       if (memo.status === 'open') {
         actionsEl.innerHTML = `
-          <button type="button" class="btn btn-secondary" id="btn-detail-return">Mark as Returned</button>
-          <button type="button" class="btn btn-primary" id="btn-detail-sell">Mark as Sold</button>
+          <button type="button" class="btn btn-secondary" id="btn-detail-return">Return All Remaining</button>
+          <button type="button" class="btn btn-primary" id="btn-detail-sell">Sell All Remaining</button>
         `;
         document.getElementById('btn-detail-return').addEventListener('click', () => {
           UI.closeModal('modal-memo-detail');
@@ -458,7 +678,227 @@ const MemoController = {
     UI.openModal('modal-memo-detail');
   },
 
-  // ── Close Memo (Return / Sell) ────────────────────────────────────────────────
+  // ── Single Item Action Form (Partial Return / Sale) ──────────────────────────
+
+  openMemoActionInputModal(memoId, itemIndex, actionType) {
+    const memo = DBManager.getMemos().find(m => m.id === memoId);
+    if (!memo) return;
+
+    this.activeActionContext = { memoId, itemIndex, actionType };
+
+    const titleEl    = document.getElementById('memo-action-title');
+    const subtitleEl = document.getElementById('memo-action-subtitle');
+    const selectorGroup = document.getElementById('memo-action-item-selector-group');
+    const itemSelect = document.getElementById('memo-action-item-select');
+    const caratsInp  = document.getElementById('memo-action-carats');
+    const piecesInp  = document.getElementById('memo-action-pieces');
+
+    titleEl.textContent = actionType === 'sold' ? 'Mark Goods as Sold' : 'Return Goods to Stock';
+
+    // Reset dropdown change listener
+    itemSelect.onchange = null;
+
+    if (itemIndex !== null && itemIndex !== undefined) {
+      // Direct item-level action (from details modal)
+      selectorGroup.classList.add('hidden');
+      const item = memo.items[itemIndex];
+      subtitleEl.innerHTML = `<strong>Pudia:</strong> #${item.emeraldSnapshot.color || 'N/A'} (${item.emeraldSnapshot.group || '—'})<br><strong>Grade:</strong> ${item.emeraldSnapshot.lustreGrade || '—'}`;
+      this.setupActionInputRanges(item);
+    } else {
+      // Memo-level action (from main list view)
+      selectorGroup.classList.remove('hidden');
+      subtitleEl.innerHTML = `<strong>Memo:</strong> ${memo.memoNumber} | <strong>Broker:</strong> ${memo.brokerName}`;
+      
+      // Populate dropdown
+      itemSelect.innerHTML = '<option value="all">-- Entire Memo (All Remaining Items) --</option>';
+      memo.items.forEach((item, idx) => {
+        const remCts = Math.max(0, Number((item.carats - (item.returnedCarats || 0) - (item.soldCarats || 0)).toFixed(3)));
+        if (remCts > 0) {
+          const opt = document.createElement('option');
+          opt.value = idx;
+          opt.textContent = `#${item.emeraldSnapshot.color || 'N/A'} - ${item.emeraldSnapshot.group || '—'} (${remCts.toFixed(2)} cts left)`;
+          itemSelect.appendChild(opt);
+        }
+      });
+
+      // Update inputs based on dropdown selection
+      const updateSelection = () => {
+        const selectedVal = itemSelect.value;
+        if (selectedVal === 'all') {
+          // Bulk action totals
+          const totalRemCarats = memo.items.reduce((sum, it) => sum + Math.max(0, Number((it.carats - (it.returnedCarats || 0) - (it.soldCarats || 0)).toFixed(3))), 0);
+          const totalRemPieces = memo.items.reduce((sum, it) => sum + Math.max(0, (it.pieces || 0) - (it.returnedPieces || 0) - (it.soldPieces || 0)), 0);
+          
+          caratsInp.value = totalRemCarats.toFixed(3);
+          caratsInp.max = totalRemCarats;
+          caratsInp.disabled = true; // disable edits for bulk full memo action
+          piecesInp.value = totalRemPieces;
+          piecesInp.max = totalRemPieces;
+          piecesInp.disabled = true;
+          document.getElementById('memo-action-carats-max-label').textContent = `Total remaining: ${totalRemCarats.toFixed(2)} cts`;
+          document.getElementById('memo-action-pieces-max-label').textContent = `Total remaining: ${totalRemPieces} pcs`;
+        } else {
+          // Specific item selected
+          const idx = parseInt(selectedVal, 10);
+          const item = memo.items[idx];
+          caratsInp.disabled = false;
+          piecesInp.disabled = false;
+          this.setupActionInputRanges(item);
+        }
+      };
+
+      itemSelect.onchange = updateSelection;
+      updateSelection();
+    }
+
+    UI.openModal('modal-memo-action-input');
+  },
+
+  setupActionInputRanges(item) {
+    const caratsInp = document.getElementById('memo-action-carats');
+    const piecesInp = document.getElementById('memo-action-pieces');
+    const remCarats = Math.max(0, Number((item.carats - (item.returnedCarats || 0) - (item.soldCarats || 0)).toFixed(3)));
+    const remPieces = Math.max(0, (item.pieces || 0) - (item.returnedPieces || 0) - (item.soldPieces || 0));
+
+    caratsInp.value = remCarats;
+    caratsInp.max = remCarats;
+    document.getElementById('memo-action-carats-max-label').textContent = `Max: ${remCarats.toFixed(2)} cts`;
+
+    piecesInp.value = remPieces;
+    piecesInp.max = remPieces;
+    document.getElementById('memo-action-pieces-max-label').textContent = `Max: ${remPieces} pcs`;
+  },
+
+  async handleSaveMemoAction() {
+    if (!this.activeActionContext) return;
+    const { memoId, itemIndex, actionType } = this.activeActionContext;
+
+    const memo = DBManager.getMemos().find(m => m.id === memoId);
+    if (!memo) return;
+
+    const itemSelect = document.getElementById('memo-action-item-select');
+    const selectedVal = (itemIndex !== null && itemIndex !== undefined) ? String(itemIndex) : itemSelect.value;
+
+    if (selectedVal === 'all') {
+      // Bulk closure of entire remaining items
+      UI.closeModal('modal-memo-action-input');
+      
+      // Re-enable inputs just in case they were disabled
+      document.getElementById('memo-action-carats').disabled = false;
+      document.getElementById('memo-action-pieces').disabled = false;
+      
+      this.handleCloseMemo(memoId, actionType);
+      return;
+    }
+
+    const idx = parseInt(selectedVal, 10);
+    const item = memo.items[idx];
+    if (!item) return;
+
+    const inputCarats = Number(document.getElementById('memo-action-carats').value || 0);
+    const inputPieces = Number(document.getElementById('memo-action-pieces').value || 0);
+
+    const remCarats = Math.max(0, Number((item.carats - (item.returnedCarats || 0) - (item.soldCarats || 0)).toFixed(3)));
+    const remPieces = Math.max(0, (item.pieces || 0) - (item.returnedPieces || 0) - (item.soldPieces || 0));
+
+    if (inputCarats <= 0) {
+      UI.showToast('Please enter a valid weight in carats.', true);
+      return;
+    }
+    if (inputCarats > remCarats + 0.001) {
+      UI.showToast(`Cannot process more than remaining carats (${remCarats.toFixed(2)} cts).`, true);
+      return;
+    }
+    if (inputPieces > remPieces) {
+      UI.showToast(`Cannot process more than remaining pieces (${remPieces} pcs).`, true);
+      return;
+    }
+
+    // Re-enable fields to prevent form reset bugs later
+    document.getElementById('memo-action-carats').disabled = false;
+    document.getElementById('memo-action-pieces').disabled = false;
+
+    // Apply change
+    if (actionType === 'returned') {
+      item.returnedCarats = Number(((item.returnedCarats || 0) + inputCarats).toFixed(3));
+      item.returnedPieces = (item.returnedPieces || 0) + inputPieces;
+    } else {
+      item.soldCarats = Number(((item.soldCarats || 0) + inputCarats).toFixed(3));
+      item.soldPieces = (item.soldPieces || 0) + inputPieces;
+
+      // Permanently deduct from stock
+      const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
+      if (emerald) {
+        const currentWeight = EmeraldController.getEmeraldWeight(emerald);
+        const newWeight     = Math.max(0, Number((currentWeight - inputCarats).toFixed(3)));
+
+        if (emerald.sizes && emerald.sizes.length > 0 && currentWeight > 0) {
+          const ratio = newWeight / currentWeight;
+          emerald.sizes.forEach(s => {
+            s.weight = Number((Number(s.weight || 0) * ratio).toFixed(3));
+          });
+        }
+        emerald.weight = newWeight;
+        emerald.updatedAt = new Date().toISOString();
+      }
+    }
+
+    // Check if entire memo is fully completed
+    const totalRemaining = memo.items.reduce((sum, it) => {
+      const rem = it.carats - (it.returnedCarats || 0) - (it.soldCarats || 0);
+      return sum + Math.max(0, rem);
+    }, 0);
+
+    let isDeleted = false;
+    if (totalRemaining <= 0.001) {
+      const totalSold = memo.items.reduce((sum, it) => sum + (it.soldCarats || 0), 0);
+      if (totalSold <= 0.001) {
+        // Delete memo completely since everything has been returned!
+        DBManager.database.memos = DBManager.database.memos.filter(m => m.id !== memo.id);
+        isDeleted = true;
+      } else {
+        const totalReturned = memo.items.reduce((sum, it) => sum + (it.returnedCarats || 0), 0);
+        if (totalReturned > 0) {
+          memo.status = 'closed';
+        } else {
+          memo.status = 'sold';
+        }
+        memo.closedAt = new Date().toISOString();
+      }
+    }
+
+    DBManager.addLog(
+      actionType === 'sold' ? 'DELETE' : 'EDIT',
+      memo.id,
+      `Memo ${memo.memoNumber}`,
+      `Processed partial ${actionType} on Memo ${memo.memoNumber}: ${inputCarats.toFixed(2)} cts of Pudia #${item.emeraldSnapshot.color || 'N/A'}.`,
+      []
+    );
+
+    try {
+      await DBManager.saveVault();
+      UI.closeModal('modal-memo-action-input');
+      
+      if (isDeleted) {
+        UI.closeModal('modal-memo-detail');
+        UI.showToast(`Memo ${memo.memoNumber} has been fully returned and deleted.`);
+      } else {
+        UI.showToast(`Successfully processed partial ${actionType} — ${inputCarats.toFixed(2)} cts`);
+      }
+      
+      // Update UI displays
+      App.refreshAllDisplays();
+
+      // Re-render detail modal to stay open with new data if not deleted and itemIndex was passed
+      if (!isDeleted && itemIndex !== null && itemIndex !== undefined) {
+        this.openMemoDetail(memo.id);
+      }
+    } catch (err) {
+      UI.showToast(err.message, true);
+    }
+  },
+
+  // ── Close Memo (Return / Sell All Remaining) ──────────────────────────────────
 
   handleCloseMemo(memoId, action) {
     const memos = DBManager.getMemos();
@@ -466,48 +906,75 @@ const MemoController = {
     if (!memo || memo.status !== 'open') return;
 
     const actionLabel = action === 'sold'
-      ? 'mark as Sold — this will permanently deduct the issued carats from stock'
-      : 'mark as Returned — the goods come back into company stock';
+      ? 'mark ALL remaining goods as Sold — this will permanently deduct them from stock'
+      : 'mark ALL remaining goods as Returned — they will return into company stock';
 
     UI.confirm(
-      `Are you sure you want to ${actionLabel}?\n\nMemo: ${memo.memoNumber} | Broker: ${memo.brokerName} | ${memo.totalCarats.toFixed(2)} cts`,
+      `Are you sure you want to ${actionLabel}?\n\nMemo: ${memo.memoNumber} | Broker: ${memo.brokerName}`,
       async () => {
         memo.status   = action;
         memo.closedAt = new Date().toISOString();
 
-        if (action === 'sold') {
-          // Permanently deduct issued carats from each affected Pudia
-          (memo.items || []).forEach(item => {
+        (memo.items || []).forEach(item => {
+          const rem = Math.max(0, Number((item.carats - (item.returnedCarats || 0) - (item.soldCarats || 0)).toFixed(3)));
+          const remPcs = Math.max(0, (item.pieces || 0) - (item.returnedPieces || 0) - (item.soldPieces || 0));
+          if (rem <= 0) return;
+
+          if (action === 'sold') {
+            item.soldCarats = Number(((item.soldCarats || 0) + rem).toFixed(3));
+            item.soldPieces = (item.soldPieces || 0) + remPcs;
+
             const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
-            if (!emerald) return;
+            if (emerald) {
+              const currentWeight = EmeraldController.getEmeraldWeight(emerald);
+              const newWeight     = Math.max(0, Number((currentWeight - rem).toFixed(3)));
 
-            const currentWeight = EmeraldController.getEmeraldWeight(emerald);
-            const deduct        = Number(item.carats || 0);
-            const newWeight     = Math.max(0, Number((currentWeight - deduct).toFixed(3)));
-
-            if (emerald.sizes && emerald.sizes.length > 0 && currentWeight > 0) {
-              // Proportionally reduce each size row weight
-              const ratio = newWeight / currentWeight;
-              emerald.sizes.forEach(s => {
-                s.weight = Number((Number(s.weight || 0) * ratio).toFixed(3));
-              });
+              if (emerald.sizes && emerald.sizes.length > 0 && currentWeight > 0) {
+                const ratio = newWeight / currentWeight;
+                emerald.sizes.forEach(s => {
+                  s.weight = Number((Number(s.weight || 0) * ratio).toFixed(3));
+                });
+              }
+              emerald.weight = newWeight;
+              emerald.updatedAt = new Date().toISOString();
             }
-            emerald.weight     = newWeight;
-            emerald.updatedAt  = new Date().toISOString();
-          });
+          } else {
+            item.returnedCarats = Number(((item.returnedCarats || 0) + rem).toFixed(3));
+            item.returnedPieces = (item.returnedPieces || 0) + remPcs;
+          }
+        });
+
+        // After processing remaining items, check if it was fully returned without any sales
+        const totalSold = memo.items.reduce((sum, it) => sum + (it.soldCarats || 0), 0);
+        let isDeleted = false;
+
+        if (totalSold <= 0.001) {
+          // Delete memo completely
+          DBManager.database.memos = DBManager.database.memos.filter(m => m.id !== memo.id);
+          isDeleted = true;
+        } else {
+          memo.status   = action === 'returned' ? 'closed' : action;
+          memo.closedAt = new Date().toISOString();
         }
 
         DBManager.addLog(
-          action === 'sold' ? 'DELETE' : 'EDIT',
+          isDeleted || action === 'sold' ? 'DELETE' : 'EDIT',
           memo.id,
           `Memo ${memo.memoNumber}`,
-          `Memo ${memo.memoNumber} (${memo.brokerName}) marked as ${action}. ${memo.totalCarats.toFixed(2)} cts.`,
+          isDeleted 
+            ? `Memo ${memo.memoNumber} (${memo.brokerName}) fully returned and deleted.`
+            : `Memo ${memo.memoNumber} (${memo.brokerName}) fully closed as ${action}.`,
           []
         );
 
         try {
           await DBManager.saveVault();
-          UI.showToast(`Memo ${memo.memoNumber} marked as ${action}.`);
+          if (isDeleted) {
+            UI.closeModal('modal-memo-detail');
+            UI.showToast(`Memo ${memo.memoNumber} fully returned and deleted.`);
+          } else {
+            UI.showToast(`Memo ${memo.memoNumber} fully closed as ${action}.`);
+          }
           App.refreshAllDisplays();
         } catch (err) {
           UI.showToast(err.message, true);

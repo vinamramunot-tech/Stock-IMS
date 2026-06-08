@@ -66,6 +66,7 @@ const EmeraldController = {
 
   openAddModal() {
     this.resetForm();
+    this.createSizeRow(); // Seed with one default size row to prevent layout jerking/shifting and save a click
     document.getElementById('emerald-modal-title').textContent = "Add New Emerald Stock";
     UI.openModal('modal-emerald-item');
   },

@@ -129,6 +129,11 @@ label {
   color: var(--danger-red);
 }
 
+option, datalist option {
+  color: #000000 !important;
+  background-color: #ffffff !important;
+}
+
 /* BUTTONS */
 .btn {
   display: inline-flex;
