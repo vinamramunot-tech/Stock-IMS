@@ -122,15 +122,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-registry-
 
-      # ── Compiled dependency cache (the biggest win on Windows) ───────────────
-      - name: Cache Tauri target directory
-        uses: actions/cache@v4
+      # ── Rust dependency cache (smarter than caching target/ directly) ─────────
+      # Only caches compiled dependency artifacts, not your own crate.
+      # This survives Cargo.lock patch-bumps via restore-keys fallback and
+      # keeps cache size small by excluding build scripts & proc-macros.
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
         with:
-          path: src-tauri/target
-          key: ${{ runner.os }}-tauri-target-${{ matrix.settings.platform }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-tauri-target-${{ matrix.settings.platform }}-
-            ${{ runner.os }}-tauri-target-
+          workspaces: "src-tauri -> target"
+          cache-on-failure: true
 
       - name: Install project dependencies
         run: npm ci
