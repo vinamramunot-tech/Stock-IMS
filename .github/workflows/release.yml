@@ -12,6 +12,11 @@ on:
     tags:
       - 'v*' # Triggers workflow on tag push matching v*, e.g., v1.0.0
   workflow_dispatch: # Allows manual run of the workflow from GitHub Actions tab
+    inputs:
+      version:
+        description: 'Version tag (e.g. v4.2.0). If empty, version is read from package.json.'
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -34,7 +39,9 @@ jobs:
         id: get_version
         shell: bash
         run: |
-          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
             echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
           else
             VERSION=$(node -p "require('./package.json').version")
