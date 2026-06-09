@@ -171,6 +171,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+          cache: 'gradle'
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -179,14 +180,40 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: 'npm'
 
       - name: Install Rust Stable toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: 'aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android'
 
+      # ── Compiler-level caching via sccache ──────────────────────────────────
+      - name: Setup sccache
+        uses: mozilla/sccache-action@v0.0.9
+        with:
+          version: "v0.10.0"
+
+      # ── Cargo registry / index cache ─────────────────────────────────────────
+      - name: Cache Cargo registry & index
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      # ── Rust dependency cache ────────────────────────────────────────────────
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "src-tauri -> target"
+          cache-on-failure: true
+
       - name: Install project dependencies
-        run: npm install
+        run: npm ci
 
       - name: Initialize Android project
         run: |
@@ -221,14 +248,40 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: 'npm'
 
       - name: Install Rust Stable toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: 'aarch64-apple-ios,x86_64-apple-ios,aarch64-apple-ios-sim'
 
+      # ── Compiler-level caching via sccache ──────────────────────────────────
+      - name: Setup sccache
+        uses: mozilla/sccache-action@v0.0.9
+        with:
+          version: "v0.10.0"
+
+      # ── Cargo registry / index cache ─────────────────────────────────────────
+      - name: Cache Cargo registry & index
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      # ── Rust dependency cache ────────────────────────────────────────────────
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "src-tauri -> target"
+          cache-on-failure: true
+
       - name: Install project dependencies
-        run: npm install
+        run: npm ci
 
       - name: Initialize iOS project
         run: |
