@@ -39,8 +39,10 @@
                     resolve(null);
                     return;
                   }
-                  await window.electronAPI.writeVault(text, DBManager.activePath);
-                  resolve(DBManager.activePath);
+                  const targetPath = DBManager.activePath || 'mava_gems_stock.db';
+                  await window.electronAPI.writeVault(text, targetPath);
+                  await window.electronAPI.setLastDbPath(targetPath);
+                  resolve(targetPath);
                 } catch (err) {
                   alert("Failed to parse database file: " + err.message);
                   resolve(null);

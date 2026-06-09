@@ -7,12 +7,12 @@ const Startup = {
   init() {
     // Onboarding setup button click listeners
     document.getElementById('btn-startup-create').addEventListener('click', () => this.handleStartupCreate());
-    document.getElementById('btn-startup-open').addEventListener('click', () => this.handleStartupOpen());
+    document.getElementById('btn-startup-open').addEventListener('click', () => this.handleOpenExistingVault());
 
     // Confirmation screen button click listeners
     document.getElementById('btn-startup-continue').addEventListener('click', () => this.handleStartupContinue());
     document.getElementById('btn-startup-confirm-create').addEventListener('click', () => this.handleStartupCreate());
-    document.getElementById('btn-startup-confirm-open').addEventListener('click', () => this.handleStartupOpen());
+    document.getElementById('btn-startup-confirm-open').addEventListener('click', () => this.handleOpenExistingVault());
 
     // Global keydown event listener to confirm database path when Enter is pressed
     window.addEventListener('keydown', (e) => {
@@ -40,7 +40,7 @@ const Startup = {
     }
     const btnBrowseVault = document.getElementById('btn-browse-vault');
     if (btnBrowseVault) {
-      btnBrowseVault.addEventListener('click', () => this.handleStartupOpen());
+      btnBrowseVault.addEventListener('click', () => this.handleOpenExistingVault());
     }
 
     // Mobile action bar buttons
