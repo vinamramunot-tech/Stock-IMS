@@ -30,24 +30,23 @@
               const reader = new FileReader();
               reader.onload = async (evt) => {
                 try {
-                  const text = evt.target.result;
-                  // Validate JSON
-                  const parsed = JSON.parse(text);
-                  if (!parsed.settings || !parsed.items) {
-                    alert("Invalid database file structure.");
-                    resolve(null);
-                    return;
+                  const dataUrl = evt.target.result;
+                  const base64Data = dataUrl.split(',')[1];
+                  let targetPath = DBManager.activePath;
+                  if (!targetPath) {
+                    targetPath = await window.electronAPI.getLastDbPath();
                   }
-                  const targetPath = DBManager.activePath || 'mava_gems_stock.db';
-                  await window.electronAPI.writeVault(text, targetPath);
-                  await window.electronAPI.setLastDbPath(targetPath);
+                  if (!targetPath) {
+                    targetPath = 'mava_gems_stock.db';
+                  }
+                  await window.__TAURI__.core.invoke('import_db_file', { base64Data, customPath: targetPath });
                   resolve(targetPath);
                 } catch (err) {
-                  alert("Failed to parse database file: " + err.message);
+                  alert("Failed to import database file: " + err.message);
                   resolve(null);
                 }
               };
-              reader.readAsText(file);
+              reader.readAsDataURL(file);
             };
             input.click();
           });
@@ -74,22 +73,17 @@
               const reader = new FileReader();
               reader.onload = async (evt) => {
                 try {
-                  const text = evt.target.result;
-                  // Validate JSON
-                  const parsed = JSON.parse(text);
-                  if (!parsed.settings || !parsed.items) {
-                    alert("Invalid database file structure.");
-                    resolve(null);
-                    return;
-                  }
-                  await window.electronAPI.writeVault(text, DBManager.activePath);
-                  resolve(DBManager.activePath);
+                  const dataUrl = evt.target.result;
+                  const base64Data = dataUrl.split(',')[1];
+                  const targetPath = DBManager.activePath || 'mava_gems_stock.db';
+                  await window.__TAURI__.core.invoke('import_db_file', { base64Data, customPath: targetPath });
+                  resolve(targetPath);
                 } catch (err) {
-                  alert("Failed to parse database file: " + err.message);
+                  alert("Failed to import backup file: " + err.message);
                   resolve(null);
                 }
               };
-              reader.readAsText(file);
+              reader.readAsDataURL(file);
             };
             input.click();
           });
@@ -109,25 +103,20 @@
           const reader = new FileReader();
           reader.onload = async (evt) => {
             try {
-              const text = evt.target.result;
-              // Validate structure
-              const parsed = JSON.parse(text);
-              if (!parsed.settings || !parsed.items) {
-                alert('Invalid database file: missing required fields.');
-                resolve(null);
-                return;
+              const dataUrl = evt.target.result;
+              const base64Data = dataUrl.split(',')[1];
+              let targetPath = await window.electronAPI.getLastDbPath();
+              if (!targetPath) {
+                targetPath = 'mava_gems_stock.db';
               }
-              // Write to a fixed path (same default the app always uses on mobile)
-              const targetPath = 'mava_gems_stock.db';
-              await window.electronAPI.writeVault(text, targetPath);
-              await window.electronAPI.setLastDbPath(targetPath);
+              await window.__TAURI__.core.invoke('import_db_file', { base64Data, customPath: targetPath });
               resolve(targetPath);
             } catch (err) {
               alert('Failed to read database file: ' + err.message);
               resolve(null);
             }
           };
-          reader.readAsText(file);
+          reader.readAsDataURL(file);
         };
         input.click();
       }),

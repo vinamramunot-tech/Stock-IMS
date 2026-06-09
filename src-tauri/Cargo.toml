@@ -26,5 +26,6 @@ aes = "0.8"
 cbc = "0.1"
 sha2 = "0.10"
 rand = "0.8"
+base64 = "0.21"
 [target.'cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))'.dependencies]
 rfd = "0.15"

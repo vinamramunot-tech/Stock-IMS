@@ -387,6 +387,44 @@ fn write_vault(handle: AppHandle, payload: String, custom_path: String) -> Resul
 }
 
 #[tauri::command]
+fn import_db_file(handle: AppHandle, base64_data: String, custom_path: String) -> Result<bool, String> {
+    use base64::{Engine as _, engine::general_purpose};
+    
+    let buffer = general_purpose::STANDARD.decode(&base64_data)
+        .map_err(|e| format!("Failed to decode base64: {:?}", e))?;
+        
+    let decrypted = match decrypt_data(&buffer) {
+        Ok(json_str) => Some(json_str),
+        Err(_) => {
+            if let Ok(utf8_str) = std::str::from_utf8(&buffer) {
+                let trimmed = utf8_str.trim();
+                if trimmed.starts_with('{') {
+                    Some(utf8_str.to_string())
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }
+    };
+    
+    if let Some(json_str) = decrypted {
+        let parsed: serde_json::Value = serde_json::from_str(&json_str)
+            .map_err(|e| format!("Invalid JSON format: {:?}", e))?;
+            
+        if parsed.get("settings").is_none() || parsed.get("items").is_none() {
+            return Err("Invalid database file structure: missing settings or items.".to_string());
+        }
+        
+        write_vault(handle, json_str, custom_path)?;
+        Ok(true)
+    } else {
+        Err("The selected file is not a valid Mava Gems database.".to_string())
+    }
+}
+
+#[tauri::command]
 fn copy_file(source_path: String, dest_path: String) -> Result<bool, String> {
     std::fs::copy(&source_path, &dest_path)
         .map_err(|e| format!("Failed to copy file: {:?}", e))?;
@@ -416,7 +454,8 @@ pub fn run() {
             import_backup_dialog,
             read_vault,
             write_vault,
-            copy_file
+            copy_file,
+            import_db_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
