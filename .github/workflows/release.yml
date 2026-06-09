@@ -2,6 +2,10 @@ name: 'publish'
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  NODE_NO_WARNINGS: "1"           # silence punycode/other Node deprecation warnings from actions
+  # sccache settings
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: "sccache"
 
 on:
   push:
@@ -54,6 +58,47 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # ── Sync version numbers from the git tag ────────────────────────────────
+      # Strips the leading 'v' (v3.5.0 → 3.5.0) and patches all three version
+      # files so the built binaries always carry the tag version, not whatever
+      # was last committed. Falls back to the existing package.json version on
+      # workflow_dispatch runs (no tag).
+      - name: Sync version from git tag
+        shell: bash
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#v}"   # strip leading 'v'
+          else
+            VERSION=$(node -p "require('./package.json').version")
+          fi
+          echo "Syncing version to: $VERSION"
+
+          # package.json
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json','utf8'));
+            pkg.version = '$VERSION';
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+
+          # src-tauri/Cargo.toml  (patches only the first version = "…" line)
+          node -e "
+            const fs = require('fs');
+            let content = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
+            // Replace only the FIRST occurrence of:  version = \"x.y.z\"
+            content = content.replace(/^version = \"[^\"]*\"/m, 'version = \"$VERSION\"');
+            fs.writeFileSync('src-tauri/Cargo.toml', content);
+          "
+
+          # src-tauri/tauri.conf.json
+          node -e "
+            const fs = require('fs');
+            const cfg = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json','utf8'));
+            cfg.version = '$VERSION';
+            fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(cfg, null, 2) + '\n');
+          "
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -64,8 +109,36 @@ jobs:
         with:
           targets: ${{ matrix.settings.targets }}
 
+      # ── Compiler-level caching via sccache ──────────────────────────────────
+      - name: Setup sccache
+        uses: mozilla/sccache-action@v0.0.9
+        with:
+          version: "v0.10.0"
+
+      # ── Cargo registry / index cache ─────────────────────────────────────────
+      - name: Cache Cargo registry & index
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      # ── Rust dependency cache (smarter than caching target/ directly) ─────────
+      # Only caches compiled dependency artifacts, not your own crate.
+      # This survives Cargo.lock patch-bumps via restore-keys fallback and
+      # keeps cache size small by excluding build scripts & proc-macros.
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "src-tauri -> target"
+          cache-on-failure: true
+
       - name: Install project dependencies
-        run: npm install
+        run: npm ci
 
       # Manually build the binaries
       - name: Build Tauri App
@@ -92,34 +165,34 @@ jobs:
 #     steps:
 #       - name: Checkout repository
 #         uses: actions/checkout@v4
-# 
+#
 #       - name: Setup Java
 #         uses: actions/setup-java@v4
 #         with:
 #           distribution: 'temurin'
 #           java-version: '17'
-# 
+#
 #       - name: Setup Android SDK
 #         uses: android-actions/setup-android@v3
-# 
+#
 #       - name: Setup Node.js
 #         uses: actions/setup-node@v4
 #         with:
 #           node-version: 22
-# 
+#
 #       - name: Install Rust Stable toolchain
 #         uses: dtolnay/rust-toolchain@stable
 #         with:
 #           targets: 'aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android'
-# 
+#
 #       - name: Install project dependencies
 #         run: npm install
-# 
+#
 #       - name: Initialize Android project
 #         run: |
 #           export PATH="$HOME/.cargo/bin:$PATH"
 #           npx tauri android init --ci --skip-targets-install
-# 
+#
 #       - name: Build Android APK
 #         run: |
 #           export PATH="$HOME/.cargo/bin:$PATH"
@@ -128,7 +201,7 @@ jobs:
 #           if [ -n "$APK_PATH" ]; then
 #             cp "$APK_PATH" "mava-gems-stock-android-${{ needs.prepare.outputs.version }}.apk"
 #           fi
-# 
+#
 #       # Upload built APK to workflow artifacts
 #       - name: Upload Android Artifacts
 #         uses: actions/upload-artifact@v4
@@ -136,43 +209,43 @@ jobs:
 #           name: android-artifacts
 #           path: mava-gems-stock-android-${{ needs.prepare.outputs.version }}.apk
 #           if-no-files-found: ignore
-# 
+#
 #   publish-ios:
 #     needs: prepare
 #     runs-on: macos-latest
 #     steps:
 #       - name: Checkout repository
 #         uses: actions/checkout@v4
-# 
+#
 #       - name: Setup Node.js
 #         uses: actions/setup-node@v4
 #         with:
 #           node-version: 22
-# 
+#
 #       - name: Install Rust Stable toolchain
 #         uses: dtolnay/rust-toolchain@stable
 #         with:
 #           targets: 'aarch64-apple-ios,x86_64-apple-ios,aarch64-apple-ios-sim'
-# 
+#
 #       - name: Install project dependencies
 #         run: npm install
-# 
+#
 #       - name: Initialize iOS project
 #         run: |
 #           export PATH="$HOME/.cargo/bin:$PATH"
 #           npx tauri ios init --ci --skip-targets-install
-# 
+#
 #       - name: Build iOS App
 #         run: |
 #           export PATH="$HOME/.cargo/bin:$PATH"
 #           npx tauri ios build --no-sign
-# 
+#
 #       - name: Package iOS App as IPA
 #         run: |
 #           mkdir -p Payload
 #           find src-tauri/gen/apple -name "*.app" -exec cp -r {} Payload/ \;
 #           zip -r mava-gems-stock-ios-${{ needs.prepare.outputs.version }}.ipa Payload
-# 
+#
 #       # Upload built iOS assets to workflow artifacts
 #       - name: Upload iOS Artifacts
 #         uses: actions/upload-artifact@v4
@@ -180,7 +253,7 @@ jobs:
 #           name: ios-artifacts
 #           path: mava-gems-stock-ios-${{ needs.prepare.outputs.version }}.ipa
 #           if-no-files-found: error
-# 
+#
   create-release:
     needs: [prepare, publish-tauri]
     runs-on: ubuntu-latest

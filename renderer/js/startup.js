@@ -169,10 +169,32 @@ const Startup = {
       }
     } catch (err) {
       console.error(err);
-      UI.showToast("Failed to connect to database: " + err.message, true);
-      // Revert input field value
-      const activeInput = document.getElementById('active-vault-input');
-      if (activeInput) activeInput.value = DBManager.activePath || '';
+      if (err.message.includes("does not exist")) {
+        UI.confirm("The specified database file does not exist.\n\nWould you like to initialize a new database at this path?", async () => {
+          try {
+            const initResult = await DBManager.initVault(newPath);
+            if (initResult.success) {
+              const activeInput = document.getElementById('active-vault-input');
+              if (activeInput) {
+                activeInput.value = newPath;
+                activeInput.title = newPath;
+              }
+              document.getElementById('settings-vault-path').textContent = newPath;
+              UI.showToast("Database successfully initialized!");
+              App.refreshAllDisplays();
+            }
+          } catch (initErr) {
+            UI.showToast("Failed to initialize database: " + initErr.message, true);
+            const activeInput = document.getElementById('active-vault-input');
+            if (activeInput) activeInput.value = DBManager.activePath || '';
+          }
+        });
+      } else {
+        UI.showToast("Failed to connect to database: " + err.message, true);
+        // Revert input field value
+        const activeInput = document.getElementById('active-vault-input');
+        if (activeInput) activeInput.value = DBManager.activePath || '';
+      }
     }
   },
 

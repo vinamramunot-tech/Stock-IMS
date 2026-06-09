@@ -26,6 +26,7 @@ const DBManager = {
       },
       items: [],
       emeralds: [],
+      memos: [],
       logs: []
     };
   },
@@ -75,6 +76,9 @@ const DBManager = {
       const db = JSON.parse(fileInfo.data);
       if (!db.emeralds) {
         db.emeralds = [];
+      }
+      if (!db.memos) {
+        db.memos = [];
       }
 
       // Successful load
@@ -164,6 +168,13 @@ const DBManager = {
    */
   getSettings() {
     return this.database ? this.database.settings || {} : {};
+  },
+
+  /**
+   * Retrieve all memo records
+   */
+  getMemos() {
+    return this.database ? this.database.memos || [] : [];
   }
 };
 
