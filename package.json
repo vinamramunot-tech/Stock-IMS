@@ -17,6 +17,7 @@
     "ios:dev": "bash scripts/ios-dev.sh",
     "ios:dev:device": "tauri ios dev",
     "ios:build": "tauri ios build",
+    "release": "bash scripts/release.sh",
     "tauri": "tauri"
   },
   "keywords": [
