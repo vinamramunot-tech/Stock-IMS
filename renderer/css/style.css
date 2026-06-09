@@ -2470,3 +2470,141 @@ option, datalist option {
     margin: 8px 0;
   }
 }
+
+/* Print pudias selection container inside the modal */
+.print-pudias-checklist-container {
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid var(--border-light);
+  background-color: var(--bg-base);
+  padding: 10px 15px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 10px;
+}
+.print-pudia-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-transform: none;
+  font-size: 13px;
+  font-weight: normal;
+  cursor: pointer;
+  margin-bottom: 0;
+  user-select: none;
+}
+.print-pudia-checkbox-label input {
+  width: auto;
+}
+
+/* ==================== PRINT STYLING ==================== */
+@media print {
+  body {
+    background: #FFFFFF !important;
+    color: #000000 !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  #app-workspace,
+  .modal-overlay,
+  .toast,
+  .mobile-menu-overlay {
+    display: none !important;
+  }
+
+  #print-section {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 20px !important;
+    box-sizing: border-box !important;
+  }
+
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    font-size: 11px;
+    color: #000000;
+  }
+
+  .print-table th,
+  .print-table td {
+    border: 1px solid #000000;
+    padding: 8px 10px;
+    text-align: left;
+  }
+
+  .print-table th {
+    background-color: #F0F0F0 !important;
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 10px;
+  }
+
+  .print-header {
+    border-bottom: 2px solid #000000;
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+  }
+
+  .print-header h1 {
+    font-family: Georgia, serif;
+    font-size: 24px;
+    margin: 0 0 5px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .print-header .meta-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #333333;
+  }
+
+  .print-summary-cards {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+  }
+
+  .print-summary-card {
+    border: 1px solid #000000;
+    padding: 10px 15px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .print-summary-card .label {
+    font-size: 8px;
+    text-transform: uppercase;
+    font-weight: bold;
+    color: #555555;
+    margin-bottom: 4px;
+  }
+
+  .print-summary-card .value {
+    font-size: 18px;
+    font-family: Georgia, serif;
+    font-weight: bold;
+  }
+
+  .print-sizes-list {
+    margin: 0;
+    padding-left: 15px;
+    font-size: 10px;
+  }
+
+  .print-sizes-list li {
+    margin-bottom: 2px;
+  }
+}
+
+@media screen {
+  #print-section {
+    display: none !important;
+  }
+}

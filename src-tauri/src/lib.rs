@@ -431,6 +431,38 @@ fn copy_file(source_path: String, dest_path: String) -> Result<bool, String> {
     Ok(true)
 }
 
+#[tauri::command]
+fn save_file_dialog(handle: AppHandle, default_name: String) -> Option<String> {
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    {
+        let doc_dir = handle.path().document_dir().ok();
+        let mut dialog = FileDialog::new()
+            .set_title("Save PDF Report")
+            .add_filter("PDF Document", &["pdf"]);
+            
+        if let Some(path) = doc_dir {
+            dialog = dialog.set_directory(path);
+        }
+        dialog = dialog.set_file_name(&default_name);
+        
+        dialog.save_file().map(|p| p.to_string_lossy().to_string())
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    {
+        None
+    }
+}
+
+#[tauri::command]
+fn save_pdf_file(base64_data: String, path: String) -> Result<bool, String> {
+    use base64::{Engine as _, engine::general_purpose};
+    let buffer = general_purpose::STANDARD.decode(&base64_data)
+        .map_err(|e| format!("Failed to decode base64: {:?}", e))?;
+    std::fs::write(path, buffer)
+        .map_err(|e| format!("Failed to save PDF file: {:?}", e))?;
+    Ok(true)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -455,7 +487,9 @@ pub fn run() {
             read_vault,
             write_vault,
             copy_file,
-            import_db_file
+            import_db_file,
+            save_file_dialog,
+            save_pdf_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -366,6 +366,12 @@
                 <option value="color-high">Pudia Number (High to Low)</option>
                 <option value="color-low">Pudia Number (Low to High)</option>
               </select>
+              <button type="button" id="btn-print-emerald" class="btn btn-secondary" style="height: 42px;">
+                <svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align: middle; margin-right: 6px;">
+                  <path fill="currentColor" d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/>
+                </svg>
+                Print
+              </button>
             </div>
           </div>
 
@@ -1253,6 +1259,72 @@
     </div>
   </div>
 
+  <!-- ==================== MODAL: EMERALD PRINT SELECTION ==================== -->
+  <div id="modal-print-emerald" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Print Emerald Catalog Report</h3>
+        <button type="button" class="btn-close modal-close-trigger-print-emerald">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-instructions">Filter and select the specific stock items you want to print.</p>
+        
+        <div class="form-grid-row">
+          <div class="form-col-6">
+            <div class="input-group">
+              <label for="print-select-group">Select Group</label>
+              <select id="print-select-group">
+                <option value="">All Groups</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-col-6">
+            <div class="input-group">
+              <label for="print-select-grade">Select Grade</label>
+              <select id="print-select-grade">
+                <option value="">All Grades</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="input-group" style="margin-top: 10px;">
+          <label style="display: flex; align-items: center; justify-content: space-between;">
+            <span>Select Pudia Numbers</span>
+            <span style="font-size: 10px; text-transform: none; letter-spacing: normal;">
+              <button type="button" id="btn-print-select-all-pudias" class="btn-text" style="margin-right: 8px;">Select All</button>
+              <button type="button" id="btn-print-select-none-pudias" class="btn-text">Deselect All</button>
+            </span>
+          </label>
+          <div id="print-pudias-list-container" class="print-pudias-checklist-container">
+            <!-- Checkbox list of pudias will populate dynamically here -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary modal-close-trigger-print-emerald">Cancel</button>
+        <button type="button" id="btn-submit-print-emerald" class="btn btn-primary">Print Report</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: EMERALD PRINT PREVIEW ==================== -->
+  <div id="modal-print-preview" class="modal-overlay hidden">
+    <div class="modal-card large" style="max-width: 850px; height: 90vh; display: flex; flex-direction: column;">
+      <div class="modal-header">
+        <h3>Report Print Preview</h3>
+        <button type="button" class="btn-close modal-close-trigger-print-preview">&times;</button>
+      </div>
+      <div class="modal-body" style="flex-grow: 1; padding: 15px; display: flex; flex-direction: column; overflow: hidden; background: var(--bg-base);">
+        <iframe id="print-preview-iframe" style="width: 100%; height: 100%; border: 1px solid var(--border-light); background: #ffffff;"></iframe>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary modal-close-trigger-print-preview">Close Preview</button>
+        <button type="button" id="btn-save-print-pdf" class="btn btn-primary">Save PDF File...</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ==================== MOBILE MENU OVERLAY ==================== -->
   <div id="mobile-menu-overlay" class="mobile-menu-overlay hidden">
     <div class="mobile-menu-content">
@@ -1305,7 +1377,9 @@
     </div>
   </div>
 
+  <div id="print-section"></div>
   <!-- Load Scripts -->
+  <script src="js/jspdf.umd.min.js"></script>
   <script src="js/tauri-shim.js"></script>
   <script src="js/db-manager.js"></script>
   <script src="js/calc.js"></script>

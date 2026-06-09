@@ -127,6 +127,10 @@
 
       // Local utility functions
       copyFile: (sourcePath, destPath) => window.__TAURI__.core.invoke('copy_file', { sourcePath, destPath }),
+      
+      // PDF saving dialog and file writing
+      saveFileDialog: (defaultName) => window.__TAURI__.core.invoke('save_file_dialog', { defaultName }),
+      savePdfFile: (base64Data, path) => window.__TAURI__.core.invoke('save_pdf_file', { base64Data: base64Data, path }),
 
       // Real-time Database File Change Hook (Tauri Events)
       onDatabaseChanged: (callback) => {
@@ -194,6 +198,13 @@
         if (data) {
           localStorage.setItem("mock_db_" + destPath, data);
         }
+        return true;
+      },
+      saveFileDialog: async (defaultName) => {
+        return prompt("Save PDF to path:", defaultName);
+      },
+      savePdfFile: async (base64Data, path) => {
+        console.log(`Mock: Saved PDF file to ${path}`);
         return true;
       },
       onDatabaseChanged: (callback) => {

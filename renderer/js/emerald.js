@@ -62,6 +62,54 @@ const EmeraldController = {
     if (btnAddSize) {
       btnAddSize.addEventListener('click', () => this.createSizeRow());
     }
+
+    // Print button
+    const btnPrintEmerald = document.getElementById('btn-print-emerald');
+    if (btnPrintEmerald) {
+      btnPrintEmerald.addEventListener('click', () => this.openPrintModal());
+    }
+
+    // Print Selection Modal listeners
+    const printCloseTriggers = document.querySelectorAll('.modal-close-trigger-print-emerald');
+    printCloseTriggers.forEach(btn => {
+      btn.addEventListener('click', () => UI.closeModal('modal-print-emerald'));
+    });
+
+    const printGroupSel = document.getElementById('print-select-group');
+    if (printGroupSel) {
+      printGroupSel.addEventListener('change', () => this.handlePrintGroupChange());
+    }
+
+    const printGradeSel = document.getElementById('print-select-grade');
+    if (printGradeSel) {
+      printGradeSel.addEventListener('change', () => this.handlePrintGradeChange());
+    }
+
+    const btnSelectAllPudias = document.getElementById('btn-print-select-all-pudias');
+    if (btnSelectAllPudias) {
+      btnSelectAllPudias.addEventListener('click', () => this.toggleAllPrintPudias(true));
+    }
+
+    const btnSelectNonePudias = document.getElementById('btn-print-select-none-pudias');
+    if (btnSelectNonePudias) {
+      btnSelectNonePudias.addEventListener('click', () => this.toggleAllPrintPudias(false));
+    }
+
+    const btnSubmitPrint = document.getElementById('btn-submit-print-emerald');
+    if (btnSubmitPrint) {
+      btnSubmitPrint.addEventListener('click', () => this.printFromSelection());
+    }
+
+    // Print Preview Modal listeners
+    const previewCloseTriggers = document.querySelectorAll('.modal-close-trigger-print-preview');
+    previewCloseTriggers.forEach(btn => {
+      btn.addEventListener('click', () => UI.closeModal('modal-print-preview'));
+    });
+
+    const btnSavePdf = document.getElementById('btn-save-print-pdf');
+    if (btnSavePdf) {
+      btnSavePdf.addEventListener('click', () => this.handleSavePdfClick());
+    }
   },
 
   openAddModal() {
@@ -373,29 +421,16 @@ const EmeraldController = {
     return 0;
   },
 
-  renderEmeraldGrid() {
-    const gridContainer = document.getElementById('emerald-catalog-grid');
-    const emptyState = document.getElementById('emerald-empty-state');
-    if (!gridContainer || !emptyState) return;
-
+  getFilteredEmeralds() {
     const query = document.getElementById('emerald-search-input').value.toLowerCase().trim();
-    
-    // Dynamically populate group filter options
-    this.populateGroupFilterOptions();
-    
     const filterGroup = document.getElementById('emerald-filter-group').value;
     const filterShape = document.getElementById('emerald-filter-shape').value;
     const filterLustre = document.getElementById('emerald-filter-lustre').value;
     const filterOrigin = document.getElementById('emerald-filter-origin').value;
-    const sortVal = document.getElementById('emerald-sort-items').value;
 
     const allEmeralds = DBManager.getEmeralds();
 
-    // Clear grid
-    gridContainer.innerHTML = '';
-
-    // Filter
-    let filtered = allEmeralds.filter(e => {
+    return allEmeralds.filter(e => {
       const shapes = this.getEmeraldShapes(e);
       const shapesStr = shapes.join(' ').toLowerCase();
       const sizesStr = (e.sizes || []).map(s => `${s.shape} ${s.mm}`).join(' ').toLowerCase();
@@ -416,6 +451,21 @@ const EmeraldController = {
 
       return matchesSearch && matchesGroup && matchesShape && matchesLustre && matchesOrigin;
     });
+  },
+
+  renderEmeraldGrid() {
+    const gridContainer = document.getElementById('emerald-catalog-grid');
+    const emptyState = document.getElementById('emerald-empty-state');
+    if (!gridContainer || !emptyState) return;
+
+    // Dynamically populate group filter options
+    this.populateGroupFilterOptions();
+
+    let filtered = this.getFilteredEmeralds();
+    const sortVal = document.getElementById('emerald-sort-items').value;
+
+    // Clear grid
+    gridContainer.innerHTML = '';
 
     if (filtered.length === 0) {
       gridContainer.classList.add('hidden');
@@ -830,6 +880,404 @@ const EmeraldController = {
         UI.showToast(err.message, true);
       }
     });
+  },
+
+  openPrintModal() {
+    this.populatePrintGroupsAndGrades();
+    this.populatePrintPudiasChecklist();
+    UI.openModal('modal-print-emerald');
+  },
+
+  populatePrintGroupsAndGrades() {
+    const groupSelect = document.getElementById('print-select-group');
+    const gradeSelect = document.getElementById('print-select-grade');
+    if (!groupSelect || !gradeSelect) return;
+    
+    const allEmeralds = DBManager.getEmeralds();
+    const groups = new Set();
+    const grades = new Set();
+    
+    allEmeralds.forEach(e => {
+      if (e.group && e.group.trim()) groups.add(e.group.trim());
+      if (e.lustreGrade && e.lustreGrade.trim()) grades.add(e.lustreGrade.trim());
+    });
+    
+    groupSelect.innerHTML = '<option value="">All Groups</option>';
+    Array.from(groups).sort().forEach(g => {
+      groupSelect.innerHTML += `<option value="${g}">${UI.escapeHtml(g)}</option>`;
+    });
+    
+    gradeSelect.innerHTML = '<option value="">All Grades</option>';
+    Array.from(grades).sort().forEach(g => {
+      gradeSelect.innerHTML += `<option value="${g}">${UI.escapeHtml(g)}</option>`;
+    });
+  },
+
+  populatePrintPudiasChecklist() {
+    const container = document.getElementById('print-pudias-list-container');
+    if (!container) return;
+    container.innerHTML = '';
+    
+    const selectedGroup = document.getElementById('print-select-group').value;
+    const selectedGrade = document.getElementById('print-select-grade').value;
+    
+    const allEmeralds = DBManager.getEmeralds();
+    const filtered = allEmeralds.filter(e => {
+      const groupName = e.group || '';
+      const gradeName = e.lustreGrade || '';
+      const matchesGroup = !selectedGroup || groupName === selectedGroup;
+      const matchesGrade = !selectedGrade || gradeName === selectedGrade;
+      return matchesGroup && matchesGrade;
+    });
+    
+    // Sort by Pudia number
+    filtered.sort((a, b) => Number(a.color || 0) - Number(b.color || 0));
+    
+    if (filtered.length === 0) {
+      container.innerHTML = '<div style="font-size:12px; color:var(--text-muted); grid-column: 1/-1;">No Pudias found for these criteria.</div>';
+      return;
+    }
+    
+    filtered.forEach(e => {
+      const weight = this.getEmeraldWeight(e);
+      const label = document.createElement('label');
+      label.className = 'print-pudia-checkbox-label';
+      label.innerHTML = `
+        <input type="checkbox" class="print-pudia-checkbox" value="${e.id}" checked>
+        #${e.color || 'N/A'} (${weight.toFixed(2)}ct)
+      `;
+      container.appendChild(label);
+    });
+  },
+
+  handlePrintGroupChange() {
+    const groupSelect = document.getElementById('print-select-group');
+    const gradeSelect = document.getElementById('print-select-grade');
+    if (!groupSelect || !gradeSelect) return;
+    
+    const selectedGroup = groupSelect.value;
+    const allEmeralds = DBManager.getEmeralds();
+    const grades = new Set();
+    
+    allEmeralds.forEach(e => {
+      const groupName = e.group || '';
+      if (!selectedGroup || groupName === selectedGroup) {
+        if (e.lustreGrade && e.lustreGrade.trim()) {
+          grades.add(e.lustreGrade.trim());
+        }
+      }
+    });
+    
+    const currentGrade = gradeSelect.value;
+    gradeSelect.innerHTML = '<option value="">All Grades</option>';
+    Array.from(grades).sort().forEach(g => {
+      gradeSelect.innerHTML += `<option value="${g}">${UI.escapeHtml(g)}</option>`;
+    });
+    
+    if (grades.has(currentGrade)) {
+      gradeSelect.value = currentGrade;
+    }
+    
+    this.populatePrintPudiasChecklist();
+  },
+
+  handlePrintGradeChange() {
+    this.populatePrintPudiasChecklist();
+  },
+
+  toggleAllPrintPudias(checked) {
+    const checkBoxes = document.querySelectorAll('.print-pudia-checkbox');
+    checkBoxes.forEach(cb => cb.checked = checked);
+  },
+
+  printFromSelection() {
+    const checkedBoxes = document.querySelectorAll('.print-pudia-checkbox:checked');
+    if (checkedBoxes.length === 0) {
+      UI.showToast("Please select at least one Pudia to print.", true);
+      return;
+    }
+
+    const selectedIds = Array.from(checkedBoxes).map(cb => cb.value);
+    const allEmeralds = DBManager.getEmeralds();
+    const filtered = allEmeralds.filter(e => selectedIds.includes(e.id));
+
+    // Sort and group for report printing
+    const groups = {};
+    let grandTotalWeight = 0;
+    let grandTotalValue = 0;
+    let grandTotalPieces = 0;
+
+    filtered.forEach(e => {
+      const groupName = (e.group && e.group.trim()) ? e.group.trim() : "Unassigned Group";
+      if (!groups[groupName]) {
+        groups[groupName] = {
+          name: groupName,
+          items: [],
+          totalWeight: 0,
+          totalValue: 0,
+          totalPieces: 0
+        };
+      }
+      
+      const w = this.getEmeraldWeight(e);
+      const pcs = this.getEmeraldPieces(e);
+      const val = w * (e.pricePerCarat || 0);
+      
+      groups[groupName].items.push(e);
+      groups[groupName].totalWeight += w;
+      groups[groupName].totalValue += val;
+      groups[groupName].totalPieces += pcs;
+
+      grandTotalWeight += w;
+      grandTotalValue += val;
+      grandTotalPieces += pcs;
+    });
+
+    const sortedGroupNames = Object.keys(groups).sort();
+
+    let html = `
+      <div class="print-header">
+        <h1>Mava Gems &mdash; Emerald Stock Report</h1>
+        <div class="meta-row">
+          <div><strong>Generated:</strong> ${new Date().toLocaleString()}</div>
+          <div><strong>Selection Details:</strong> Hand-selected ${filtered.length} stock item(s) to print.</div>
+        </div>
+      </div>
+
+      <div class="print-summary-cards">
+        <div class="print-summary-card">
+          <span class="label">Total Weight</span>
+          <span class="value">${grandTotalWeight.toFixed(2)} cts</span>
+        </div>
+        <div class="print-summary-card">
+          <span class="label">Total Pieces</span>
+          <span class="value">${grandTotalPieces} pcs</span>
+        </div>
+        <div class="print-summary-card">
+          <span class="label">Total Valuation (INR)</span>
+          <span class="value">₹${grandTotalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+        </div>
+    `;
+
+    const usdRate = DBManager.getSettings().usdToInr ? DBManager.getSettings().usdToInr.rate : 0;
+    if (usdRate > 0) {
+      const grandTotalValueUsd = grandTotalValue / usdRate;
+      html += `
+        <div class="print-summary-card">
+          <span class="label">Total Valuation (USD)</span>
+          <span class="value">$${grandTotalValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+        </div>
+      `;
+    }
+
+    html += `
+        <div class="print-summary-card">
+          <span class="label">Pudias Count</span>
+          <span class="value">${filtered.length}</span>
+        </div>
+      </div>
+    `;
+
+    sortedGroupNames.forEach(groupName => {
+      const group = groups[groupName];
+      group.items.sort((a, b) => {
+        const gradeA = a.lustreGrade || '';
+        const gradeB = b.lustreGrade || '';
+        const gradeCompare = gradeA.localeCompare(gradeB);
+        if (gradeCompare !== 0) return gradeCompare;
+        return Number(a.color || 0) - Number(b.color || 0);
+      });
+
+      html += `
+        <h3 style="font-family: Georgia, serif; margin-top: 25px; margin-bottom: 8px; border-bottom: 1px solid #000000; padding-bottom: 4px; display: flex; justify-content: space-between; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em;">
+          <span>Group: <strong>${UI.escapeHtml(groupName)}</strong></span>
+          <span style="font-size: 11px; font-weight: normal; color: #333333; text-transform: none; letter-spacing: normal;">
+            Weight: <strong>${group.totalWeight.toFixed(2)} cts</strong> | 
+            Value: <strong>₹${group.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+          </span>
+        </h3>
+        
+        <table class="print-table">
+          <thead>
+            <tr>
+              <th style="width: 10%;">Pudia #</th>
+              <th style="width: 15%;">Grade</th>
+              <th style="width: 8%;">Pair</th>
+              <th style="width: 12%;">Origin</th>
+              <th style="width: 25%;">Sizes & Shapes Breakdown</th>
+              <th style="width: 8%; text-align: right;">Pcs</th>
+              <th style="width: 10%; text-align: right;">Weight (cts)</th>
+              <th style="width: 12%; text-align: right;">Rate / ct</th>
+              <th style="width: 15%; text-align: right;">Total Value</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      group.items.forEach(item => {
+        const weight = this.getEmeraldWeight(item);
+        const pieces = this.getEmeraldPieces(item);
+        const val = weight * (item.pricePerCarat || 0);
+        const origins = (item.origins || []).join(', ');
+        
+        let sizesList = '';
+        if (item.sizes && item.sizes.length > 0) {
+          sizesList = '<ul class="print-sizes-list">';
+          item.sizes.forEach(s => {
+            sizesList += `<li>${UI.escapeHtml(s.shape)} ${UI.escapeHtml(s.mm)} (${s.pieces} pcs / ${Number(s.weight).toFixed(2)} cts)</li>`;
+          });
+          sizesList += '</ul>';
+        } else {
+          sizesList = UI.escapeHtml(item.shape || 'N/A');
+        }
+
+        html += `
+          <tr>
+            <td><strong>#${item.color || 'N/A'}</strong></td>
+            <td>${UI.escapeHtml(item.lustreGrade || 'N/A')}</td>
+            <td>${item.pair || 'No'}</td>
+            <td>${UI.escapeHtml(origins)}</td>
+            <td>${sizesList}</td>
+            <td style="text-align: right;">${pieces}</td>
+            <td style="text-align: right;">${weight.toFixed(2)}</td>
+            <td style="text-align: right;">₹${(item.pricePerCarat || 0).toLocaleString()}</td>
+            <td style="text-align: right;"><strong>₹${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
+          </tr>
+        `;
+      });
+
+      html += `
+          </tbody>
+        </table>
+      `;
+    });
+
+    const doc = this.generatePDF(filtered);
+    this.activePdfDocument = doc;
+
+    const iframe = document.getElementById('print-preview-iframe');
+    if (iframe) {
+      iframe.src = doc.output('datauristring');
+    }
+    UI.closeModal('modal-print-emerald');
+    UI.openModal('modal-print-preview');
+  },
+
+  activePdfDocument: null,
+
+  generatePDF(filtered) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    // Title
+    doc.setFont("georgia", "bold");
+    doc.setFontSize(18);
+    doc.text("MAVA GEMS - EMERALD STOCK REPORT", 14, 20);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 27);
+    doc.text(`Total Pudias: ${filtered.length}`, 14, 32);
+
+    // Separator line
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.3);
+    doc.line(14, 35, 196, 35);
+
+    // Table Header
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.text("Pudia #", 14, 41);
+    doc.text("Group", 28, 41);
+    doc.text("Grade", 58, 41);
+    doc.text("Origin", 88, 41);
+    doc.text("Pcs", 124, 41);
+    doc.text("Weight", 138, 41);
+    doc.text("Rate/ct", 156, 41);
+    doc.text("Total Value (INR)", 174, 41);
+
+    doc.line(14, 44, 196, 44);
+
+    doc.setFont("helvetica", "normal");
+    let y = 50;
+    let grandTotalWeight = 0;
+    let grandTotalValue = 0;
+    let grandTotalPieces = 0;
+
+    filtered.forEach((item) => {
+      if (y > 275) {
+        doc.addPage();
+        y = 20;
+        doc.setFont("helvetica", "bold");
+        doc.text("Pudia #", 14, y);
+        doc.text("Group", 28, y);
+        doc.text("Grade", 58, y);
+        doc.text("Origin", 88, y);
+        doc.text("Pcs", 124, y);
+        doc.text("Weight", 138, y);
+        doc.text("Rate/ct", 156, y);
+        doc.text("Total Value (INR)", 174, y);
+        doc.line(14, y + 3, 196, y + 3);
+        doc.setFont("helvetica", "normal");
+        y += 9;
+      }
+
+      const weight = this.getEmeraldWeight(item);
+      const pieces = this.getEmeraldPieces(item);
+      const val = weight * (item.pricePerCarat || 0);
+      const groupName = item.group || 'N/A';
+      const grade = item.lustreGrade || 'N/A';
+      const origins = (item.origins || []).join(', ');
+
+      grandTotalWeight += weight;
+      grandTotalValue += val;
+      grandTotalPieces += pieces;
+
+      doc.setFont("helvetica", "bold");
+      doc.text(`#${item.color || 'N/A'}`, 14, y);
+      doc.setFont("helvetica", "normal");
+      doc.text(groupName.substring(0, 16), 28, y);
+      doc.text(grade.substring(0, 16), 58, y);
+      doc.text(origins.substring(0, 18), 88, y);
+      doc.text(pieces.toString(), 124, y);
+      doc.text(`${weight.toFixed(2)}ct`, 138, y);
+      doc.text(`Rs ${(item.pricePerCarat || 0).toLocaleString()}`, 156, y);
+      doc.text(`Rs ${val.toLocaleString()}`, 174, y);
+
+      y += 7;
+    });
+
+    // Draw final summary line
+    doc.line(14, y, 196, y);
+    y += 6;
+
+    doc.setFont("helvetica", "bold");
+    doc.text("Grand Total", 14, y);
+    doc.text(grandTotalPieces.toString(), 124, y);
+    doc.text(`${grandTotalWeight.toFixed(2)}ct`, 138, y);
+    doc.text(`Rs ${grandTotalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 174, y);
+
+    return doc;
+  },
+
+  async handleSavePdfClick() {
+    if (!this.activePdfDocument) return;
+
+    try {
+      const defaultName = `emerald_stock_report_${new Date().toISOString().split('T')[0]}.pdf`;
+      const savePath = await window.electronAPI.saveFileDialog(defaultName);
+      
+      if (!savePath) return; // user cancelled/closed dialog
+
+      // Get pdf raw string and convert to base64
+      const pdfBase64 = this.activePdfDocument.output('datauristring').split(',')[1];
+      
+      await window.electronAPI.savePdfFile(pdfBase64, savePath);
+      UI.showToast("PDF saved successfully!");
+      UI.closeModal('modal-print-preview');
+    } catch (err) {
+      UI.showToast("Failed to save PDF: " + err.message, true);
+    }
   }
 };
 

@@ -32,5 +32,8 @@
   "license": "ISC",
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0"
+  },
+  "dependencies": {
+    "jspdf": "^4.2.1"
   }
 }
