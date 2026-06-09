@@ -162,6 +162,8 @@ jobs:
   publish-android:
     needs: prepare
     runs-on: ubuntu-latest
+    env:
+      RUSTC_WRAPPER: ""
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -186,12 +188,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: 'aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android'
-
-      # ── Compiler-level caching via sccache ──────────────────────────────────
-      - name: Setup sccache
-        uses: mozilla/sccache-action@v0.0.9
-        with:
-          version: "v0.10.0"
 
       # ── Cargo registry / index cache ─────────────────────────────────────────
       - name: Cache Cargo registry & index
@@ -240,6 +236,8 @@ jobs:
   publish-ios:
     needs: prepare
     runs-on: macos-latest
+    env:
+      RUSTC_WRAPPER: ""
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -254,12 +252,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: 'aarch64-apple-ios,x86_64-apple-ios,aarch64-apple-ios-sim'
-
-      # ── Compiler-level caching via sccache ──────────────────────────────────
-      - name: Setup sccache
-        uses: mozilla/sccache-action@v0.0.9
-        with:
-          version: "v0.10.0"
 
       # ── Cargo registry / index cache ─────────────────────────────────────────
       - name: Cache Cargo registry & index
