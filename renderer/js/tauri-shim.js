@@ -21,7 +21,6 @@
           return new Promise((resolve) => {
             const input = document.createElement('input');
             input.type = 'file';
-            input.accept = '.db,.json';
             input.onchange = async (e) => {
               const file = e.target.files[0];
               if (!file) {
@@ -66,7 +65,6 @@
           return new Promise((resolve) => {
             const input = document.createElement('input');
             input.type = 'file';
-            input.accept = '.db,.json';
             input.onchange = async (e) => {
               const file = e.target.files[0];
               if (!file) {
@@ -105,7 +103,6 @@
       mobilePickAndLoadDb: () => new Promise((resolve) => {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = '.db,.json';
         input.onchange = async (e) => {
           const file = e.target.files[0];
           if (!file) { resolve(null); return; }
