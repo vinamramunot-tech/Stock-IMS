@@ -1169,89 +1169,130 @@ const EmeraldController = {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
 
-    // Title
-    doc.setFont("georgia", "bold");
-    doc.setFontSize(18);
-    doc.text("MAVA GEMS - EMERALD STOCK REPORT", 14, 20);
+    // Helper to draw headers on any page
+    const drawHeader = () => {
+      // Title
+      doc.setFont("georgia", "bold");
+      doc.setFontSize(18);
+      doc.text("MAVA GEMS - EMERALD STOCK REPORT", 14, 20);
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 27);
-    doc.text(`Total Pudias: ${filtered.length}`, 14, 32);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 27);
+      doc.text(`Total Pudias: ${filtered.length}`, 14, 32);
 
-    // Separator line
-    doc.setDrawColor(0);
-    doc.setLineWidth(0.3);
-    doc.line(14, 35, 196, 35);
+      // Separator line
+      doc.setDrawColor(0);
+      doc.setLineWidth(0.3);
+      doc.line(14, 35, 196, 35);
 
-    // Table Header
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.text("Pudia #", 14, 41);
-    doc.text("Group", 28, 41);
-    doc.text("Grade", 58, 41);
-    doc.text("Origin", 88, 41);
-    doc.text("Pcs", 124, 41);
-    doc.text("Weight", 138, 41);
-    doc.text("Rate/ct", 156, 41);
-    doc.text("Total Value (INR)", 174, 41);
+      // Table Header (excluding Group as it is now a grouping header)
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.text("Pudia #", 14, 41);
+      doc.text("Grade", 28, 41);
+      doc.text("Origin", 70, 41);
+      doc.text("Pcs", 124, 41);
+      doc.text("Weight", 138, 41);
+      doc.text("Rate/ct", 156, 41);
+      doc.text("Total Value (INR)", 174, 41);
 
-    doc.line(14, 44, 196, 44);
+      doc.line(14, 44, 196, 44);
+    };
 
-    doc.setFont("helvetica", "normal");
+    drawHeader();
+
+    // Group the items by group name
+    const groups = {};
+    filtered.forEach(item => {
+      const g = item.group || 'Other';
+      if (!groups[g]) {
+        groups[g] = [];
+      }
+      groups[g].push(item);
+    });
+
     let y = 50;
     let grandTotalWeight = 0;
     let grandTotalValue = 0;
     let grandTotalPieces = 0;
 
-    filtered.forEach((item) => {
-      if (y > 275) {
+    // Helper to check page break and handle headers
+    const checkPageBreak = (neededHeight) => {
+      if (y + neededHeight > 280) {
         doc.addPage();
-        y = 20;
-        doc.setFont("helvetica", "bold");
-        doc.text("Pudia #", 14, y);
-        doc.text("Group", 28, y);
-        doc.text("Grade", 58, y);
-        doc.text("Origin", 88, y);
-        doc.text("Pcs", 124, y);
-        doc.text("Weight", 138, y);
-        doc.text("Rate/ct", 156, y);
-        doc.text("Total Value (INR)", 174, y);
-        doc.line(14, y + 3, 196, y + 3);
+        y = 50;
+        drawHeader();
         doc.setFont("helvetica", "normal");
-        y += 9;
       }
+    };
 
-      const weight = this.getEmeraldWeight(item);
-      const pieces = this.getEmeraldPieces(item);
-      const val = weight * (item.pricePerCarat || 0);
-      const groupName = item.group || 'N/A';
-      const grade = item.lustreGrade || 'N/A';
-      const origins = (item.origins || []).join(', ');
+    Object.keys(groups).forEach(groupName => {
+      const items = groups[groupName];
+      
+      // Calculate group totals
+      let groupPieces = 0;
+      let groupWeight = 0;
+      let groupValue = 0;
 
-      grandTotalWeight += weight;
-      grandTotalValue += val;
-      grandTotalPieces += pieces;
+      // Ensure space for group header and at least one item row
+      checkPageBreak(15);
 
+      // Print Group Header Banner
       doc.setFont("helvetica", "bold");
-      doc.text(`#${item.color || 'N/A'}`, 14, y);
-      doc.setFont("helvetica", "normal");
-      doc.text(groupName.substring(0, 16), 28, y);
-      doc.text(grade.substring(0, 16), 58, y);
-      doc.text(origins.substring(0, 18), 88, y);
-      doc.text(pieces.toString(), 124, y);
-      doc.text(`${weight.toFixed(2)}ct`, 138, y);
-      doc.text(`Rs ${(item.pricePerCarat || 0).toLocaleString()}`, 156, y);
-      doc.text(`Rs ${val.toLocaleString()}`, 174, y);
+      doc.setFontSize(9);
+      doc.setFillColor(245, 245, 245);
+      doc.rect(14, y - 4, 182, 6, "F");
+      doc.text(`GROUP: ${groupName.toUpperCase()}`, 16, y);
+      y += 8;
 
-      y += 7;
+      items.forEach(item => {
+        checkPageBreak(8);
+
+        const weight = this.getEmeraldWeight(item);
+        const pieces = this.getEmeraldPieces(item);
+        const val = weight * (item.pricePerCarat || 0);
+        const grade = item.lustreGrade || 'N/A';
+        const origins = (item.origins || []).join(', ');
+
+        groupPieces += pieces;
+        groupWeight += weight;
+        groupValue += val;
+
+        grandTotalPieces += pieces;
+        grandTotalWeight += weight;
+        grandTotalValue += val;
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
+        doc.text(`#${item.color || 'N/A'}`, 14, y);
+        doc.setFont("helvetica", "normal");
+        doc.text(grade.substring(0, 24), 28, y);
+        doc.text(origins.substring(0, 30), 70, y);
+        doc.text(pieces.toString(), 124, y);
+        doc.text(`${weight.toFixed(2)}ct`, 138, y);
+        doc.text(`Rs ${(item.pricePerCarat || 0).toLocaleString()}`, 156, y);
+        doc.text(`Rs ${val.toLocaleString()}`, 174, y);
+
+        y += 7;
+      });
+
+      // Group Subtotal Row
+      checkPageBreak(10);
+      doc.line(28, y - 4, 196, y - 4);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Subtotal (${groupName})`, 28, y);
+      doc.text(groupPieces.toString(), 124, y);
+      doc.text(`${groupWeight.toFixed(2)}ct`, 138, y);
+      doc.text(`Rs ${groupValue.toLocaleString()}`, 174, y);
+      y += 12; // Extra spacing after group section
     });
 
     // Draw final summary line
-    doc.line(14, y, 196, y);
-    y += 6;
-
+    checkPageBreak(12);
+    doc.line(14, y - 4, 196, y - 4);
     doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
     doc.text("Grand Total", 14, y);
     doc.text(grandTotalPieces.toString(), 124, y);
     doc.text(`${grandTotalWeight.toFixed(2)}ct`, 138, y);
