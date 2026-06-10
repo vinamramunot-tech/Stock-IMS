@@ -31,6 +31,11 @@ const Catalog = {
       btnNavAddItem.addEventListener('click', openAddModal);
     }
 
+    const btnAddJewelryPieceMain = document.getElementById('btn-add-jewelry-piece-main');
+    if (btnAddJewelryPieceMain) {
+      btnAddJewelryPieceMain.addEventListener('click', openAddModal);
+    }
+
     // View toggle listeners
     this.viewType = localStorage.getItem('catalogViewType') || 'grid';
     this.updateViewToggleUI();

@@ -44,6 +44,11 @@ const EmeraldController = {
       btnEmptyAddEmerald.addEventListener('click', () => this.openAddModal());
     }
 
+    const btnCreateEmeraldMain = document.getElementById('btn-create-emerald-main');
+    if (btnCreateEmeraldMain) {
+      btnCreateEmeraldMain.addEventListener('click', () => this.openAddModal());
+    }
+
     const btnSaveEmerald = document.getElementById('btn-save-emerald');
     if (btnSaveEmerald) {
       btnSaveEmerald.addEventListener('click', () => this.handleSaveEmerald());

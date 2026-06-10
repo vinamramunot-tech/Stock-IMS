@@ -46,6 +46,11 @@ const StoneController = {
       btnEmptyAddStone.addEventListener('click', () => this.openAddModal());
     }
 
+    const btnCreateStoneMain = document.getElementById('btn-create-stone-main');
+    if (btnCreateStoneMain) {
+      btnCreateStoneMain.addEventListener('click', () => this.openAddModal());
+    }
+
     const btnSaveStone = document.getElementById('btn-save-stone');
     if (btnSaveStone) {
       btnSaveStone.addEventListener('click', () => this.handleSaveStone());
