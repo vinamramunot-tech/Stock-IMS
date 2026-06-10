@@ -1,6 +1,6 @@
 {
   "name": "mava-gems-stock",
-  "version": "4.3.1",
+  "version": "5.0.0",
   "description": "Premium, secure desktop stock management for jewelry inventory.",
   "scripts": {
     "dev": "tauri dev",
