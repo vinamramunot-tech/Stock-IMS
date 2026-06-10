@@ -172,10 +172,10 @@ const Calc = {
       commissionPercentage: isManual ? Number(((finalCommValue / subtotal) * 100 || 0).toFixed(1)) : autoComm.percentage,
       isManualCommission: isManual,
       grandTotal: grandTotal,
-      marketCostPrice: grandTotal,
-      homeCostPrice: Number((grandTotal - (emeraldTotal * 0.5)).toFixed(2)),
+      marketCostPrice: Number((grandTotal / 5).toFixed(2)),
+      homeCostPrice: Number(((grandTotal - (emeraldTotal * 0.5)) / 5).toFixed(2)),
       emeraldTotal: emeraldTotal,
-      sellingPrice: Number((((grandTotal - emeraldTotal) * (1 + profitPct / 100)) + emeraldTotal).toFixed(2)),
+      sellingPrice: Number(((((grandTotal - emeraldTotal) * (1 + profitPct / 100)) + emeraldTotal) / 5).toFixed(2)),
       hasEmerald: emeraldTotal > 0,
       totalGrossWeight: Number(netMetals.reduce((sum, m) => sum + m.grossWeight, 0).toFixed(3)),
       totalNetMetalWeight: Number(netMetals.reduce((sum, m) => sum + m.netWeight, 0).toFixed(3))
