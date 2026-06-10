@@ -1,4 +1,4 @@
-# Mava Gems - Jewelry Stock Management
+# Mava Gems - Stock Management System
 
 A premium, highly secure, and fully self-contained offline-first native desktop application engineered using **Tauri** and **Rust** for macOS and Windows to manage jewelry inventory stock, evaluate real-time gold component valuations, track multi-stone gem components, and log precise audit trails.
 
