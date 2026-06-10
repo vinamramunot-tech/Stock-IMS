@@ -25,6 +25,7 @@
     "preios:build": "node scripts/sync-version.js",
     "ios:build": "tauri ios build",
     "release": "bash scripts/release.sh",
+    "version": "node scripts/sync-version.js && git add src-tauri/tauri.conf.json src-tauri/Cargo.toml",
     "tauri": "tauri"
   },
   "keywords": [
