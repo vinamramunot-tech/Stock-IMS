@@ -6,26 +6,27 @@ echo "  📱 iOS Dev - Select a device"
 echo "  ─────────────────────────────"
 
 # Gather simulators
-mapfile -t SIM_NAMES < <(xcrun simctl list devices available -j | python3 -c "
+SIM_NAMES=()
+SIM_UDIDS=()
+while IFS='|' read -r name udid; do
+  if [ -n "$name" ] && [ -n "$udid" ]; then
+    SIM_NAMES+=("$name")
+    SIM_UDIDS+=("$udid")
+  fi
+done < <(xcrun simctl list devices available -j | python3 -c "
 import json, sys
 data = json.load(sys.stdin)
 for runtime, devices in data['devices'].items():
     for d in devices:
         if d['isAvailable']:
-            print(d['name'] + ' (' + runtime.split('.')[-1].replace('-', ' ') + ')')
+            print(d['name'] + ' (' + runtime.split('.')[-1].replace('-', ' ') + ')|' + d['udid'])
 " 2>/dev/null | sort -u)
 
-mapfile -t SIM_UDIDS < <(xcrun simctl list devices available -j | python3 -c "
-import json, sys
-data = json.load(sys.stdin)
-for runtime, devices in data['devices'].items():
-    for d in devices:
-        if d['isAvailable']:
-            print(d['udid'])
-" 2>/dev/null)
-
 # Gather physical devices
-mapfile -t PHYS_NAMES < <(xcrun devicectl list devices 2>/dev/null | awk '/iPhone|iPad/{print $1}' || echo "")
+PHYS_NAMES=()
+while IFS= read -r line; do
+  [ -n "$line" ] && PHYS_NAMES+=("$line")
+done < <(xcrun devicectl list devices 2>/dev/null | awk '/iPhone|iPad/{print $1}' || echo "")
 
 # Build combined list
 DEVICES=()
