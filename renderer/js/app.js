@@ -11,6 +11,7 @@ const App = {
     Startup.init();
     Catalog.init();
     Settings.init();
+    this.initTheme();
     if (window.EmeraldController) {
       EmeraldController.init();
     }
@@ -298,6 +299,112 @@ const App = {
 
       tbody.appendChild(row);
     });
+  },
+
+  /**
+   * Theme toggling, persistence, and system synchronization logic
+   */
+  initTheme() {
+    // Wire up header toggle button
+    const toggleBtn = document.getElementById('btn-toggle-theme');
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', () => this.toggleTheme());
+    }
+
+    // Wire up Settings tab theme preference buttons
+    const btnLight = document.getElementById('btn-theme-light');
+    const btnDark = document.getElementById('btn-theme-dark');
+    const btnReset = document.getElementById('btn-theme-reset');
+
+    if (btnLight) btnLight.addEventListener('click', () => this.applyTheme('light'));
+    if (btnDark) btnDark.addEventListener('click', () => this.applyTheme('dark'));
+    if (btnReset) btnReset.addEventListener('click', () => this.applyTheme(null));
+
+    // Listen to system preference changes at runtime
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      // Only react if there is no explicit override in localStorage
+      if (!localStorage.getItem('color-scheme')) {
+        this.updateThemeAttributes(null);
+      }
+    });
+
+    // Initial load sync highlight on settings page buttons
+    this.highlightActiveThemeButton();
+  },
+
+  toggleTheme() {
+    const currentTheme = localStorage.getItem('color-scheme');
+    let targetTheme;
+
+    if (currentTheme === 'dark') {
+      targetTheme = 'light';
+    } else if (currentTheme === 'light') {
+      targetTheme = 'dark';
+    } else {
+      // If no override, check the current system state
+      const isSystemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      targetTheme = isSystemDark ? 'light' : 'dark';
+    }
+
+    this.applyTheme(targetTheme);
+  },
+
+  applyTheme(theme) {
+    if (theme) {
+      localStorage.setItem('color-scheme', theme);
+    } else {
+      localStorage.removeItem('color-scheme');
+    }
+    this.updateThemeAttributes(theme);
+    this.highlightActiveThemeButton();
+  },
+
+  updateThemeAttributes(theme) {
+    const metaColorScheme = document.querySelector('meta[name="color-scheme"]');
+    
+    if (theme === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      if (metaColorScheme) metaColorScheme.content = 'dark';
+    } else if (theme === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+      if (metaColorScheme) metaColorScheme.content = 'light';
+    } else {
+      // System default
+      document.documentElement.removeAttribute('data-theme');
+      if (metaColorScheme) metaColorScheme.content = 'light dark';
+    }
+  },
+
+  highlightActiveThemeButton() {
+    const theme = localStorage.getItem('color-scheme');
+    const btnLight = document.getElementById('btn-theme-light');
+    const btnDark = document.getElementById('btn-theme-dark');
+    const btnReset = document.getElementById('btn-theme-reset');
+
+    if (!btnLight || !btnDark || !btnReset) return;
+
+    // Reset styles
+    btnLight.style.borderColor = 'var(--border-light)';
+    btnLight.style.backgroundColor = 'transparent';
+    btnLight.style.color = 'var(--text-main)';
+    btnDark.style.borderColor = 'var(--border-light)';
+    btnDark.style.backgroundColor = 'transparent';
+    btnDark.style.color = 'var(--text-main)';
+    btnReset.style.borderColor = 'var(--border-light)';
+    btnReset.style.backgroundColor = 'transparent';
+    btnReset.style.color = 'var(--text-main)';
+
+    // Set active style
+    let activeBtn;
+    if (theme === 'light') activeBtn = btnLight;
+    else if (theme === 'dark') activeBtn = btnDark;
+    else activeBtn = btnReset;
+
+    if (activeBtn) {
+      activeBtn.style.borderColor = 'var(--border-dark)';
+      activeBtn.style.backgroundColor = 'var(--text-main)';
+      activeBtn.style.color = 'var(--bg-card)';
+    }
   }
 };
 

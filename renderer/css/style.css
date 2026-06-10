@@ -26,6 +26,136 @@
   --shadow-modal: 0 10px 50px rgba(0, 0, 0, 0.08);
   
   --transition-fast: 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  
+  color-scheme: light dark;
+}
+
+/* Premium Dark Mode Variables (Default to system-preference) */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg-base: #121214;          /* Deep rich dark charcoal */
+    --bg-card: #1C1C1F;          /* Slightly lighter card background */
+    --bg-sidebar: #18181A;       /* Distinct dark sidebar background */
+    
+    --text-main: #F3F3F3;        /* Soft off-white for main text */
+    --text-muted: #8E8E93;       /* Muted grey text */
+    --text-gold: #D4AF37;        /* Elegant Gold accent text */
+    --text-gold-dark: #E6C653;   /* Lighter Gold highlight */
+    
+    --border-dark: #F3F3F3;      /* Stark light outlines */
+    --border-light: #2C2C2E;     /* Darker grey outlines */
+    --border-gold: #D4AF37;      /* Gold borders */
+    
+    --gold-accent: #D4AF37;      /* Gold accents */
+    --gold-hover: #D8B73C;       /* Warm Gold hover */
+    --danger-red: #FF453A;       /* High-contrast danger red */
+    --danger-hover: #FF6961;     /* Lighter red on hover */
+    --success-green: #30D158;    /* Vibrant success green */
+    
+    --shadow-subtle: 0 4px 20px rgba(0, 0, 0, 0.5);
+    --shadow-modal: 0 10px 50px rgba(0, 0, 0, 0.6);
+  }
+}
+
+/* Explicit Pinned Dark Theme */
+[data-theme="dark"] {
+  --bg-base: #121214;
+  --bg-card: #1C1C1F;
+  --bg-sidebar: #18181A;
+  
+  --text-main: #F3F3F3;
+  --text-muted: #8E8E93;
+  --text-gold: #D4AF37;
+  --text-gold-dark: #E6C653;
+  
+  --border-dark: #F3F3F3;
+  --border-light: #2C2C2E;
+  --border-gold: #D4AF37;
+  
+  --gold-accent: #D4AF37;
+  --gold-hover: #D8B73C;
+  --danger-red: #FF453A;
+  --danger-hover: #FF6961;
+  --success-green: #30D158;
+  
+  --shadow-subtle: 0 4px 20px rgba(0, 0, 0, 0.5);
+  --shadow-modal: 0 10px 50px rgba(0, 0, 0, 0.6);
+}
+
+/* Explicit Pinned Light Theme override if system is dark but user selected light */
+[data-theme="light"] {
+  --bg-base: #F9F9F9;
+  --bg-card: #FFFFFF;
+  --bg-sidebar: #FFFFFF;
+  
+  --text-main: #000000;
+  --text-muted: #666666;
+  --text-gold: #000000;
+  --text-gold-dark: #000000;
+  
+  --border-dark: #000000;
+  --border-light: #E0E0E0;
+  --border-gold: #CCCCCC;
+  
+  --gold-accent: #000000;
+  --gold-hover: #444444;
+  --danger-red: #000000;
+  --danger-hover: #444444;
+  --success-green: #000000;
+  
+  --shadow-subtle: 0 4px 20px rgba(26, 26, 29, 0.03);
+  --shadow-modal: 0 10px 50px rgba(0, 0, 0, 0.08);
+}
+
+/* Smooth Transition for Theme Switcher */
+body, header, aside, main, .product-card, .metric-card, .btn, input, select, textarea, .modal-card, .settings-card, .vault-info, .stone-group-card {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Theme Toggle Button icon states */
+#btn-toggle-theme .sun-icon {
+  display: none;
+}
+#btn-toggle-theme .moon-icon {
+  display: block;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) #btn-toggle-theme .sun-icon {
+    display: block;
+  }
+  :root:not([data-theme="light"]) #btn-toggle-theme .moon-icon {
+    display: none;
+  }
+}
+[data-theme="dark"] #btn-toggle-theme .sun-icon {
+  display: block;
+}
+[data-theme="dark"] #btn-toggle-theme .moon-icon {
+  display: none;
+}
+[data-theme="light"] #btn-toggle-theme .sun-icon {
+  display: none;
+}
+[data-theme="light"] #btn-toggle-theme .moon-icon {
+  display: block;
+}
+
+/* Explicit style for theme toggle button */
+.theme-toggle-btn {
+  background-color: var(--bg-base) !important;
+  border: 1px solid var(--border-light) !important;
+  padding: 8px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  color: var(--text-main) !important;
+}
+.theme-toggle-btn:hover {
+  border-color: var(--border-dark) !important;
+  background-color: var(--border-light) !important;
+  color: var(--text-main) !important;
 }
 
 /* ==================== GENERAL RESET ==================== */
@@ -130,8 +260,8 @@ label {
 }
 
 option, datalist option {
-  color: #000000 !important;
-  background-color: #ffffff !important;
+  color: var(--text-main) !important;
+  background-color: var(--bg-card) !important;
 }
 
 /* BUTTONS */
