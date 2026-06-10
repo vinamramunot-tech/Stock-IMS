@@ -208,6 +208,13 @@
             </svg>
             Jewelry Catalog
           </button>
+          <button type="button" class="nav-item" data-target="tab-jewelry-photos">
+            <svg viewBox="0 0 24 24" width="18" height="18">
+              <path fill="currentColor"
+                d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />
+            </svg>
+            Jewelry Photos
+          </button>
           <button type="button" class="nav-item" data-target="tab-emerald-catalog">
             <svg viewBox="0 0 24 24" width="18" height="18">
               <path fill="currentColor"
@@ -784,6 +791,33 @@
           </div>
         </div>
 
+        <!-- ==================== TAB: JEWELRY PHOTOS ==================== -->
+        <div id="tab-jewelry-photos" class="tab-content hidden">
+          <div class="tab-header-row">
+            <h2 class="section-title">Jewelry Photos & Gallery</h2>
+            <div class="filters-group">
+              <div class="search-box" style="margin-right: 0;">
+                <input type="text" id="photo-search-input" placeholder="Search by SKU or Name...">
+                <svg viewBox="0 0 24 24" width="18" height="18" class="search-icon">
+                  <path fill="currentColor"
+                    d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- PHOTO GALLERY GRID -->
+          <div id="jewelry-photos-grid" class="photo-gallery-grid-container">
+            <!-- Dynamic photo cards will render here -->
+          </div>
+
+          <!-- EMPTY STATE -->
+          <div id="jewelry-photos-empty-state" class="empty-state-card hidden">
+            <h2 class="empty-title">No Photos Found</h2>
+            <p class="empty-description">Jewelry items with attached photos will appear in this gallery.</p>
+          </div>
+        </div>
+
         <!-- ==================== TAB: LOGS ==================== -->
         <div id="tab-logs" class="tab-content hidden">
           <div class="tab-header-row">
@@ -920,6 +954,99 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary modal-close-trigger">Cancel</button>
         <button type="button" id="btn-save-usd-rate" class="btn btn-primary">Update Exchange Rate</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: JEWELRY DETAIL VIEW ==================== -->
+  <div id="modal-jewelry-detail" class="modal-overlay hidden">
+    <div class="modal-card large">
+      <div class="modal-header">
+        <h3 id="jewelry-detail-title" style="margin: 0;">Jewelry Details</h3>
+        <button type="button" class="btn-close modal-close-trigger-detail">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 20px;">
+        <div style="display: flex; gap: 30px; flex-wrap: wrap;">
+          
+          <!-- Image Box Column -->
+          <div style="flex: 1 1 300px; max-width: 400px; display: flex; flex-direction: column; gap: 15px;">
+            <div style="width: 100%; height: 350px; background-color: var(--bg-base); border: 1px solid var(--border-light); border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+              <img id="detail-jewelry-image" src="" alt="Jewelry Photo" style="width: 100%; height: 100%; object-fit: cover;">
+            </div>
+            <div id="detail-jewelry-notes-box" style="background-color: var(--bg-base); padding: 15px; border-radius: 6px; border: 1px solid var(--border-light);">
+              <strong style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 6px;">Notes / Description</strong>
+              <div id="detail-jewelry-description" style="font-size: 13px; line-height: 1.5;"></div>
+            </div>
+          </div>
+
+          <!-- Specs and Valuations Column -->
+          <div style="flex: 2 2 400px; display: flex; flex-direction: column; gap: 20px;">
+            
+            <!-- Header Row -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border-light); padding-bottom: 15px;">
+              <div>
+                <h2 id="detail-jewelry-name" style="margin: 0; font-size: 22px; color: var(--text-main);"></h2>
+                <div style="display: flex; gap: 10px; align-items: center; margin-top: 6px;">
+                  <span id="detail-jewelry-sku" style="font-family: var(--font-mono); font-weight: 700; font-size: 14px;"></span>
+                  <span id="detail-jewelry-category" style="font-size: 11px; text-transform: uppercase; background-color: var(--bg-base); border: 1px solid var(--border-light); padding: 2px 8px; border-radius: 4px; font-weight: 600; letter-spacing: 0.05em;"></span>
+                </div>
+              </div>
+              <span id="detail-jewelry-status" class="badge-status"></span>
+            </div>
+
+            <!-- Specs Section -->
+            <div class="settings-grid" style="grid-template-columns: 1fr 1fr; gap: 15px; margin: 0;">
+              <div class="settings-card" style="padding: 15px; margin: 0;">
+                <h4 style="margin: 0 0 10px 0; font-size: 12px; text-transform: uppercase; color: var(--text-muted);">Metal Composition</h4>
+                <div id="detail-jewelry-metals-list" style="font-size: 13px; display: flex; flex-direction: column; gap: 6px;"></div>
+              </div>
+              <div class="settings-card" style="padding: 15px; margin: 0;">
+                <h4 style="margin: 0 0 10px 0; font-size: 12px; text-transform: uppercase; color: var(--text-muted);">Stones & Weight Summary</h4>
+                <div style="font-size: 13px; display: flex; flex-direction: column; gap: 6px;">
+                  <div><strong>Gross Weight:</strong> <span id="detail-jewelry-gross-wt"></span> g</div>
+                  <div><strong>Net Metal Weight:</strong> <span id="detail-jewelry-net-wt"></span> g</div>
+                  <div><strong>Gemstones Weight:</strong> <span id="detail-jewelry-gem-wt"></span> cts</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Detailed Breakdowns -->
+            <div id="detail-jewelry-breakdowns-box" style="display: flex; flex-direction: column; gap: 15px;">
+              <!-- Gemstones Detail -->
+              <div id="detail-jewelry-gemstones-card" class="settings-card" style="padding: 15px; margin: 0; display: none;">
+                <h4 style="margin: 0 0 8px 0; font-size: 12px; text-transform: uppercase; color: var(--text-muted);">Loose Gemstones Breakdown</h4>
+                <div id="detail-jewelry-gemstones-list" style="font-size: 12px; display: flex; flex-direction: column; gap: 4px;"></div>
+              </div>
+              <!-- Diamonds/Polki Detail -->
+              <div id="detail-jewelry-diamonds-card" class="settings-card" style="padding: 15px; margin: 0; display: none;">
+                <h4 style="margin: 0 0 8px 0; font-size: 12px; text-transform: uppercase; color: var(--text-muted);">Diamonds & Polki Breakdown</h4>
+                <div id="detail-jewelry-diamonds-list" style="font-size: 12px; display: flex; flex-direction: column; gap: 4px;"></div>
+              </div>
+            </div>
+
+            <!-- Valuations Section -->
+            <div style="background-color: var(--bg-base); padding: 20px; border-radius: 8px; border: 1px solid var(--border-dark); display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 15px; align-items: center;">
+              <div>
+                <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Market Cost Price</span>
+                <span id="detail-jewelry-market-price" style="font-size: 18px; font-weight: 700; color: var(--text-main);"></span>
+              </div>
+              <div id="detail-jewelry-home-cost-wrapper">
+                <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Home Cost Price</span>
+                <span id="detail-jewelry-home-price" style="font-size: 18px; font-weight: 700; color: var(--text-main);"></span>
+              </div>
+              <div>
+                <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Selling Price</span>
+                <span id="detail-jewelry-selling-price" style="font-size: 20px; font-weight: 800; color: var(--text-gold);"></span>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button type="button" class="btn btn-secondary modal-close-trigger-detail">Close</button>
+        <button type="button" id="btn-detail-edit-item" class="btn btn-primary">Edit Item</button>
       </div>
     </div>
   </div>
@@ -2511,6 +2638,13 @@
               d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z" />
           </svg>
           Jewelry Catalog
+        </button>
+        <button type="button" class="mobile-menu-item" data-action="tab-jewelry-photos">
+          <svg viewBox="0 0 24 24" width="18" height="18">
+            <path fill="currentColor"
+              d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />
+          </svg>
+          Jewelry Photos
         </button>
         <button type="button" class="mobile-menu-item" data-action="tab-emerald-catalog">
           <svg viewBox="0 0 24 24" width="18" height="18">

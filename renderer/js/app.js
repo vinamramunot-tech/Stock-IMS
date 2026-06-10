@@ -49,6 +49,13 @@ const App = {
       });
     });
 
+    const detailCloseTriggers = document.querySelectorAll('.modal-close-trigger-detail');
+    detailCloseTriggers.forEach(btn => {
+      btn.addEventListener('click', () => {
+        UI.closeModal('modal-jewelry-detail');
+      });
+    });
+
     // Item modal tab controllers initialization
     UI.initModalTabs();
     UI.initImageUploader();
@@ -102,6 +109,11 @@ const App = {
     // Listen for external database changes to support instant hot-reloading
     window.electronAPI.onDatabaseChanged((filePath) => this.handleExternalDbChange(filePath));
 
+    const photoSearchInput = document.getElementById('photo-search-input');
+    if (photoSearchInput) {
+      photoSearchInput.addEventListener('input', () => this.renderJewelryPhotos());
+    }
+
     // Mobile Menu Wire up
     const btnMobileMenu = document.getElementById('btn-mobile-menu');
     const mobileMenuOverlay = document.getElementById('mobile-menu-overlay');
@@ -132,7 +144,7 @@ const App = {
         const action = item.getAttribute('data-action');
         mobileMenuOverlay.classList.add('hidden');
 
-        if (action === 'tab-catalog' || action === 'tab-emerald-catalog' || action === 'tab-memos' || action === 'tab-logs' || action === 'tab-settings' || action === 'tab-stone-catalog' || action === 'tab-jewel-stone-memos' || action === 'tab-jewelry-memos') {
+        if (action === 'tab-catalog' || action === 'tab-emerald-catalog' || action === 'tab-memos' || action === 'tab-logs' || action === 'tab-settings' || action === 'tab-stone-catalog' || action === 'tab-jewel-stone-memos' || action === 'tab-jewelry-memos' || action === 'tab-jewelry-photos') {
           this.switchTab(action);
         } else if (action === 'add-jewelry') {
           const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
@@ -204,6 +216,7 @@ const App = {
       JewelryMemoController.renderMemoList();
     }
     this.renderActivityLogs();
+    this.renderJewelryPhotos();
     
     // Update settings tab path display
     document.getElementById('settings-vault-path').textContent = DBManager.activePath || '';
@@ -411,6 +424,194 @@ const App = {
       activeBtn.style.backgroundColor = 'var(--text-main)';
       activeBtn.style.color = 'var(--bg-card)';
     }
+  },
+
+  renderJewelryPhotos() {
+    const gridContainer = document.getElementById('jewelry-photos-grid');
+    const emptyState = document.getElementById('jewelry-photos-empty-state');
+    if (!gridContainer || !emptyState) return;
+
+    const queryInput = document.getElementById('photo-search-input');
+    const query = queryInput ? queryInput.value.toLowerCase().trim() : '';
+
+    // Retrieve all items
+    const allItems = DBManager.getItems();
+
+    // Filter items: must have an image, and must match query (SKU or Name)
+    let filtered = allItems.filter(item => {
+      if (!item.image) return false;
+      const matchSku = (item.sku || '').toLowerCase().includes(query);
+      const matchName = (item.name || '').toLowerCase().includes(query);
+      return matchSku || matchName;
+    });
+
+    gridContainer.innerHTML = '';
+
+    if (filtered.length === 0) {
+      gridContainer.classList.add('hidden');
+      emptyState.classList.remove('hidden');
+      return;
+    }
+
+    gridContainer.classList.remove('hidden');
+    emptyState.classList.add('hidden');
+
+    filtered.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'photo-card';
+      
+      card.innerHTML = `
+        <div class="photo-card-img-box">
+          <img src="${item.image}" alt="${item.name || 'Jewelry Photo'}" class="photo-card-img">
+        </div>
+        <div class="photo-card-body">
+          <div class="photo-card-sku">${item.sku || 'SKU-NONE'}</div>
+          <div class="photo-card-name">${item.name || 'Unnamed Piece'}</div>
+        </div>
+      `;
+
+      // Allow clicking the photo card to view details (by triggering view modal)
+      card.addEventListener('click', () => {
+        this.openJewelryDetailModal(item);
+      });
+
+      gridContainer.appendChild(card);
+    });
+  },
+
+  openJewelryDetailModal(item) {
+    if (!item) return;
+
+    // 1. Populate image and notes
+    const imgEl = document.getElementById('detail-jewelry-image');
+    if (imgEl) {
+      imgEl.src = item.image || '';
+      imgEl.style.display = item.image ? 'block' : 'none';
+    }
+
+    const descEl = document.getElementById('detail-jewelry-description');
+    if (descEl) {
+      descEl.textContent = item.description || 'No description / notes recorded for this piece.';
+    }
+
+    // 2. Populate basic meta
+    document.getElementById('detail-jewelry-name').textContent = item.name || 'Unnamed Piece';
+    document.getElementById('detail-jewelry-sku').textContent = item.sku || 'SKU-NONE';
+    document.getElementById('detail-jewelry-category').textContent = item.category || 'Jewelry';
+
+    // 3. Status Badge
+    const statusBadge = document.getElementById('detail-jewelry-status');
+    if (statusBadge) {
+      statusBadge.className = 'badge-status';
+      let statusClass = 'stock';
+      let statusLabel = 'In Stock';
+      if (item.memoId) {
+        statusClass = 'memo';
+        statusLabel = 'On Memo';
+      } else if (item.sold) {
+        statusClass = 'sold';
+        statusLabel = 'Sold';
+      }
+      statusBadge.classList.add(statusClass);
+      statusBadge.textContent = statusLabel;
+    }
+
+    // 4. Metals List
+    const metalsList = document.getElementById('detail-jewelry-metals-list');
+    if (metalsList) {
+      metalsList.innerHTML = '';
+      const netMetals = Calc.getNetMetals(item);
+      if (netMetals.length === 0) {
+        metalsList.innerHTML = '<div style="color: var(--text-muted);">No metal components added.</div>';
+      } else {
+        netMetals.forEach(m => {
+          const div = document.createElement('div');
+          div.innerHTML = `<strong>${m.karat}KT Gold:</strong> Gross: ${Number(m.weight || 0).toFixed(3)}g (Net: ${m.netWeight.toFixed(3)}g)`;
+          metalsList.appendChild(div);
+        });
+      }
+    }
+
+    // 5. Weight summary
+    let totalGrossWeight = 0;
+    (item.metals || []).forEach(m => totalGrossWeight += Number(m.weight || 0));
+    
+    let totalGemWeight = 0;
+    (item.stones || []).forEach(s => totalGemWeight += Number(s.weight || 0));
+    (item.diamondsPolki || []).forEach(d => totalGemWeight += Number(d.weight || 0));
+    
+    const netMetalWeight = Math.max(0, totalGrossWeight - (totalGemWeight * 0.2));
+
+    document.getElementById('detail-jewelry-gross-wt').textContent = totalGrossWeight.toFixed(3);
+    document.getElementById('detail-jewelry-net-wt').textContent = netMetalWeight.toFixed(3);
+    document.getElementById('detail-jewelry-gem-wt').textContent = totalGemWeight.toFixed(2);
+
+    // 6. Gemstones Breakdown
+    const gemCard = document.getElementById('detail-jewelry-gemstones-card');
+    const gemList = document.getElementById('detail-jewelry-gemstones-list');
+    if (gemCard && gemList) {
+      gemList.innerHTML = '';
+      const stones = item.stones || [];
+      if (stones.length > 0) {
+        gemCard.style.display = 'block';
+        stones.forEach(s => {
+          const div = document.createElement('div');
+          div.innerHTML = `• <strong>${s.type || 'Stone'} (${s.shape || 'Any'}):</strong> ${Number(s.weight || 0).toFixed(2)} cts @ ₹${Number(s.ratePerCarat || 0).toLocaleString()}/ct (Total: ₹${Number(s.totalValue || 0).toLocaleString()})`;
+          gemList.appendChild(div);
+        });
+      } else {
+        gemCard.style.display = 'none';
+      }
+    }
+
+    // 7. Diamonds Breakdown
+    const diaCard = document.getElementById('detail-jewelry-diamonds-card');
+    const diaList = document.getElementById('detail-jewelry-diamonds-list');
+    if (diaCard && diaList) {
+      diaList.innerHTML = '';
+      const diamonds = item.diamondsPolki || [];
+      if (diamonds.length > 0) {
+        diaCard.style.display = 'block';
+        diamonds.forEach(d => {
+          const div = document.createElement('div');
+          div.innerHTML = `• <strong>${d.type || 'Diamond'} (${d.shape || 'Any'}):</strong> ${Number(d.weight || 0).toFixed(2)} cts @ ₹${Number(d.ratePerCarat || 0).toLocaleString()}/ct (Total: ₹${Number(d.totalValue || 0).toLocaleString()})`;
+          diaList.appendChild(div);
+        });
+      } else {
+        diaCard.style.display = 'none';
+      }
+    }
+
+    // 8. Valuations
+    const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
+    const evaluation = Calc.evaluateItem(item, goldRate);
+    
+    document.getElementById('detail-jewelry-market-price').textContent = `₹${evaluation.marketCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    
+    const homeCostWrapper = document.getElementById('detail-jewelry-home-cost-wrapper');
+    if (evaluation.hasEmerald) {
+      if (homeCostWrapper) homeCostWrapper.style.display = 'block';
+      document.getElementById('detail-jewelry-home-price').textContent = `₹${evaluation.homeCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    } else {
+      if (homeCostWrapper) homeCostWrapper.style.display = 'none';
+    }
+    
+    document.getElementById('detail-jewelry-selling-price').textContent = `₹${evaluation.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+
+    // 9. Edit button wire up
+    const btnEdit = document.getElementById('btn-detail-edit-item');
+    if (btnEdit) {
+      const newBtn = btnEdit.cloneNode(true);
+      btnEdit.parentNode.replaceChild(newBtn, btnEdit);
+      newBtn.addEventListener('click', () => {
+        UI.closeModal('modal-jewelry-detail');
+        document.getElementById('jewelry-modal-title').textContent = "Edit Jewelry Piece";
+        UI.loadItemIntoForm(item);
+        UI.openModal('modal-jewelry-item');
+      });
+    }
+
+    UI.openModal('modal-jewelry-detail');
   }
 };
 

@@ -351,10 +351,6 @@ const Catalog = {
       const grossWeight = totalMetalWeight;
       const netMetalWeight = Math.max(0, totalMetalWeight - (stonesSum * 0.2));
 
-      const imageHtml = item.image 
-        ? `<img src="${item.image}" alt="${item.name}" class="product-img">`
-        : `<svg viewBox="0 0 24 24" width="60" height="60" class="product-fallback-svg"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H7c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.04-.42 1.99-1.07 2.75z"/></svg>`;
-
       const homeCostHtml = item.evaluation.hasEmerald
         ? `<div class="price-lbl">HOME COST PRICE</div>
            <div class="price-val" style="font-size: 15px; color: var(--text-muted); margin-bottom: 8px;">₹${item.evaluation.homeCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>`
@@ -364,14 +360,13 @@ const Catalog = {
 
       card.innerHTML = `
         ${badgeStatusHtml}
-        <div class="product-img-box">
-          ${imageHtml}
-          <div class="product-cat-badge">${item.category || 'Jewelry'}</div>
-        </div>
         <div class="product-body">
           <div class="product-meta">
-            <div class="product-sku">${item.sku || 'SKU-NONE'}</div>
-            <h3 class="product-title">${item.name || 'Unnamed Piece'}</h3>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+              <div class="product-sku">${item.sku || 'SKU-NONE'}</div>
+              <span style="font-size: 9px; font-weight: 700; text-transform: uppercase; background-color: var(--bg-base); border: 1px solid var(--border-light); padding: 2px 6px; border-radius: 4px; letter-spacing: 0.05em; color: var(--text-muted);">${item.category || 'Jewelry'}</span>
+            </div>
+            <h3 class="product-title" style="margin-top: 4px;">${item.name || 'Unnamed Piece'}</h3>
           </div>
           
           <div class="product-specs">
