@@ -1,89 +1,89 @@
 /**
- * Manufacturer Stone Memos Controller Module
+ * Manufacturer Jewel Stone Memos Controller Module
  * Manages loose stone memo issuance to manufacturers: create, view, return, and mount.
  * Tracks "with manufacturer" vs "in stock" carats for each stone packet.
  */
 
-const StoneMemoController = {
+const JewelStoneMemoController = {
   selectedItems: [],
   activeCreateSelectedId: null,
   activeActionContext: null,
 
   init() {
     // Nav triggers
-    const btnNavCreate = document.getElementById('btn-nav-create-stone-memo');
+    const btnNavCreate = document.getElementById('btn-nav-create-jewel-stone-memo');
     if (btnNavCreate) {
       btnNavCreate.addEventListener('click', () => this.openCreateMemoModal());
     }
-    const btnCreate = document.getElementById('btn-create-stone-memo');
+    const btnCreate = document.getElementById('btn-create-jewel-stone-memo');
     if (btnCreate) {
       btnCreate.addEventListener('click', () => this.openCreateMemoModal());
     }
 
-    const btnSave = document.getElementById('btn-save-stone-memo');
+    const btnSave = document.getElementById('btn-save-jewel-stone-memo');
     if (btnSave) {
       btnSave.addEventListener('click', () => this.handleSaveMemo());
     }
 
     // Modal close triggers
-    document.querySelectorAll('.modal-close-trigger-stone-memo').forEach(btn => {
-      btn.addEventListener('click', () => UI.closeModal('modal-create-stone-memo'));
+    document.querySelectorAll('.modal-close-trigger-jewel-stone-memo').forEach(btn => {
+      btn.addEventListener('click', () => UI.closeModal('modal-create-jewel-stone-memo'));
     });
-    document.querySelectorAll('.modal-close-trigger-stone-memo-detail').forEach(btn => {
-      btn.addEventListener('click', () => UI.closeModal('modal-stone-memo-detail'));
+    document.querySelectorAll('.modal-close-trigger-jewel-stone-memo-detail').forEach(btn => {
+      btn.addEventListener('click', () => UI.closeModal('modal-jewel-stone-memo-detail'));
     });
-    document.querySelectorAll('.modal-close-trigger-stone-memo-action').forEach(btn => {
-      btn.addEventListener('click', () => UI.closeModal('modal-stone-memo-action-input'));
+    document.querySelectorAll('.modal-close-trigger-jewel-stone-memo-action').forEach(btn => {
+      btn.addEventListener('click', () => UI.closeModal('modal-jewel-stone-memo-action-input'));
     });
 
-    const btnSaveAction = document.getElementById('btn-save-stone-memo-action');
+    const btnSaveAction = document.getElementById('btn-save-jewel-stone-memo-action');
     if (btnSaveAction) {
       btnSaveAction.addEventListener('click', () => this.handleSaveMemoAction());
     }
 
     // Selection changes
-    const typeSelect = document.getElementById('stone-memo-create-type');
+    const typeSelect = document.getElementById('jewel-stone-memo-create-type');
     if (typeSelect) {
       typeSelect.addEventListener('change', () => this.handleCreateTypeChange());
     }
-    const groupSelect = document.getElementById('stone-memo-create-group');
+    const groupSelect = document.getElementById('jewel-stone-memo-create-group');
     if (groupSelect) {
       groupSelect.addEventListener('change', () => this.handleCreateGroupChange());
     }
-    const searchInp = document.getElementById('stone-memo-create-search');
+    const searchInp = document.getElementById('jewel-stone-memo-create-search');
     if (searchInp) {
       searchInp.addEventListener('input', () => this.handleCreateSearchInput());
     }
 
-    const btnAddItem = document.getElementById('btn-stone-memo-add-item');
+    const btnAddItem = document.getElementById('btn-jewel-stone-memo-add-item');
     if (btnAddItem) {
       btnAddItem.addEventListener('click', () => this.handleAddItemToSelected());
     }
 
     // Filters on Memos list tab
-    const statusFilter = document.getElementById('stone-memo-filter-status');
+    const statusFilter = document.getElementById('jewel-stone-memo-filter-status');
     if (statusFilter) {
       statusFilter.addEventListener('change', () => this.renderMemoList());
     }
-    const searchInput = document.getElementById('stone-memo-search-input');
+    const searchInput = document.getElementById('jewel-stone-memo-search-input');
     if (searchInput) {
       searchInput.addEventListener('input', () => this.renderMemoList());
     }
   },
 
   getNextMemoNumber() {
-    const memos = DBManager.getStoneMemos();
-    if (memos.length === 0) return 'SM-001';
+    const memos = DBManager.getJewelStoneMemos();
+    if (memos.length === 0) return 'JSM-001';
     const nums = memos.map(m => {
-      const match = (m.memoNumber || '').match(/SM-(\d+)/);
+      const match = (m.memoNumber || '').match(/(?:SM|JSM)-(\d+)/);
       return match ? parseInt(match[1], 10) : 0;
     });
     const next = Math.max(...nums) + 1;
-    return `SM-${String(next).padStart(3, '0')}`;
+    return `JSM-${String(next).padStart(3, '0')}`;
   },
 
   getOpenMemoCaratsForStone(stoneId) {
-    const memos = DBManager.getStoneMemos();
+    const memos = DBManager.getJewelStoneMemos();
     let total = 0;
     memos.forEach(memo => {
       if (memo.status === 'open') {
@@ -100,7 +100,7 @@ const StoneMemoController = {
 
   buildMemoCaratsMap() {
     const map = {};
-    DBManager.getStoneMemos().filter(m => m.status === 'open').forEach(memo => {
+    DBManager.getJewelStoneMemos().filter(m => m.status === 'open').forEach(memo => {
       (memo.items || []).forEach(item => {
         if (!map[item.stoneId]) map[item.stoneId] = 0;
         const rem = (item.carats || 0) - (item.returnedCarats || 0) - (item.mountedCarats || 0);
@@ -112,7 +112,7 @@ const StoneMemoController = {
 
   getAllPastManufacturers() {
     const manufacturers = new Set();
-    DBManager.getStoneMemos().forEach(m => {
+    DBManager.getJewelStoneMemos().forEach(m => {
       if (m.manufacturerName) manufacturers.add(m.manufacturerName);
     });
     return Array.from(manufacturers).sort();
@@ -122,25 +122,25 @@ const StoneMemoController = {
     this.selectedItems = [];
     this.activeCreateSelectedId = null;
     this.resetCreateMemoForm();
-    UI.openModal('modal-create-stone-memo');
+    UI.openModal('modal-create-jewel-stone-memo');
   },
 
   resetCreateMemoForm() {
-    const manufInput = document.getElementById('stone-memo-manufacturer-name');
+    const manufInput = document.getElementById('jewel-stone-memo-manufacturer-name');
     if (manufInput) manufInput.value = '';
-    const dateInput = document.getElementById('stone-memo-date');
+    const dateInput = document.getElementById('jewel-stone-memo-date');
     if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
-    const notesInput = document.getElementById('stone-memo-notes');
+    const notesInput = document.getElementById('jewel-stone-memo-notes');
     if (notesInput) notesInput.value = '';
 
-    const searchInp = document.getElementById('stone-memo-create-search');
+    const searchInp = document.getElementById('jewel-stone-memo-create-search');
     if (searchInp) searchInp.value = '';
-    const caratsInp = document.getElementById('stone-memo-create-carats');
+    const caratsInp = document.getElementById('jewel-stone-memo-create-carats');
     if (caratsInp) caratsInp.value = '';
-    const piecesInp = document.getElementById('stone-memo-create-pieces');
+    const piecesInp = document.getElementById('jewel-stone-memo-create-pieces');
     if (piecesInp) piecesInp.value = '';
 
-    const availLabel = document.getElementById('stone-memo-create-avail-carats-lbl');
+    const availLabel = document.getElementById('jewel-stone-memo-create-avail-carats-lbl');
     if (availLabel) availLabel.textContent = '(Available: —)';
 
     this.activeCreateSelectedId = null;
@@ -153,7 +153,7 @@ const StoneMemoController = {
   },
 
   populateManufacturerDatalist() {
-    const list = document.getElementById('stone-memo-manufacturers-list');
+    const list = document.getElementById('jewel-stone-memo-manufacturers-list');
     if (!list) return;
     list.innerHTML = '';
     this.getAllPastManufacturers().forEach(m => {
@@ -164,7 +164,7 @@ const StoneMemoController = {
   },
 
   populateTypeSelect() {
-    const select = document.getElementById('stone-memo-create-type');
+    const select = document.getElementById('jewel-stone-memo-create-type');
     if (!select) return;
     select.innerHTML = '<option value="">-- All Types --</option>';
     const types = new Set();
@@ -176,7 +176,7 @@ const StoneMemoController = {
   },
 
   populateGroupSelect() {
-    const select = document.getElementById('stone-memo-create-group');
+    const select = document.getElementById('jewel-stone-memo-create-group');
     if (!select) return;
     select.innerHTML = '<option value="">-- All Groups --</option>';
     const groups = new Set();
@@ -188,33 +188,33 @@ const StoneMemoController = {
   },
 
   handleCreateTypeChange() {
-    const searchInp = document.getElementById('stone-memo-create-search');
+    const searchInp = document.getElementById('jewel-stone-memo-create-search');
     if (searchInp) searchInp.value = '';
     this.filterCreatePackets();
   },
 
   handleCreateGroupChange() {
-    const searchInp = document.getElementById('stone-memo-create-search');
+    const searchInp = document.getElementById('jewel-stone-memo-create-search');
     if (searchInp) searchInp.value = '';
     this.filterCreatePackets();
   },
 
   handleCreateSearchInput() {
-    const typeSelect = document.getElementById('stone-memo-create-type');
+    const typeSelect = document.getElementById('jewel-stone-memo-create-type');
     if (typeSelect) typeSelect.value = '';
-    const groupSelect = document.getElementById('stone-memo-create-group');
+    const groupSelect = document.getElementById('jewel-stone-memo-create-group');
     if (groupSelect) groupSelect.value = '';
     this.filterCreatePackets();
   },
 
   filterCreatePackets() {
-    const listContainer = document.getElementById('stone-memo-create-packet-list');
+    const listContainer = document.getElementById('jewel-stone-memo-create-packet-list');
     if (!listContainer) return;
     listContainer.innerHTML = '';
 
-    const query = (document.getElementById('stone-memo-create-search').value || '').toLowerCase().trim();
-    const typeVal = document.getElementById('stone-memo-create-type').value;
-    const groupVal = document.getElementById('stone-memo-create-group').value;
+    const query = (document.getElementById('jewel-stone-memo-create-search').value || '').toLowerCase().trim();
+    const typeVal = document.getElementById('jewel-stone-memo-create-type').value;
+    const groupVal = document.getElementById('jewel-stone-memo-create-group').value;
 
     if (!query && !typeVal && !groupVal) {
       listContainer.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-muted);font-size:12px;font-style:italic;">Type search or choose filters to view Packets</div>';
@@ -280,9 +280,9 @@ const StoneMemoController = {
 
         this.activeCreateSelectedId = st.id;
 
-        const lbl = document.getElementById('stone-memo-create-avail-carats-lbl');
-        const caratsInp = document.getElementById('stone-memo-create-carats');
-        const piecesInp = document.getElementById('stone-memo-create-pieces');
+        const lbl = document.getElementById('jewel-stone-memo-create-avail-carats-lbl');
+        const caratsInp = document.getElementById('jewel-stone-memo-create-carats');
+        const piecesInp = document.getElementById('jewel-stone-memo-create-pieces');
 
         if (lbl) lbl.textContent = `(Available: ${availCts.toFixed(3)} cts)`;
         caratsInp.max = availCts;
@@ -295,8 +295,8 @@ const StoneMemoController = {
   },
 
   handleAddItemToSelected() {
-    const caratsInp = document.getElementById('stone-memo-create-carats');
-    const piecesInp = document.getElementById('stone-memo-create-pieces');
+    const caratsInp = document.getElementById('jewel-stone-memo-create-carats');
+    const piecesInp = document.getElementById('jewel-stone-memo-create-pieces');
     if (!caratsInp) return;
 
     const stoneId = this.activeCreateSelectedId;
@@ -346,7 +346,7 @@ const StoneMemoController = {
     this.activeCreateSelectedId = null;
     caratsInp.value = '';
     piecesInp.value = '';
-    const lbl = document.getElementById('stone-memo-create-avail-carats-lbl');
+    const lbl = document.getElementById('jewel-stone-memo-create-avail-carats-lbl');
     if (lbl) lbl.textContent = '(Available: —)';
 
     this.filterCreatePackets();
@@ -354,7 +354,7 @@ const StoneMemoController = {
   },
 
   renderSelectedItemsTable() {
-    const tbody = document.getElementById('stone-memo-selected-tbody');
+    const tbody = document.getElementById('jewel-stone-memo-selected-tbody');
     if (!tbody) return;
     tbody.innerHTML = '';
 
@@ -392,16 +392,16 @@ const StoneMemoController = {
 
   updateSelectedTotals() {
     const totalCts = this.selectedItems.reduce((sum, item) => sum + item.carats, 0);
-    const totalEl = document.getElementById('stone-memo-total-carats');
-    const countEl = document.getElementById('stone-memo-item-count');
+    const totalEl = document.getElementById('jewel-stone-memo-total-carats');
+    const countEl = document.getElementById('jewel-stone-memo-item-count');
     if (totalEl) totalEl.textContent = totalCts.toFixed(3);
     if (countEl) countEl.textContent = this.selectedItems.length;
   },
 
   async handleSaveMemo() {
-    const manufacturerName = (document.getElementById('stone-memo-manufacturer-name').value || '').trim();
-    const date = document.getElementById('stone-memo-date').value;
-    const notes = (document.getElementById('stone-memo-notes').value || '').trim();
+    const manufacturerName = (document.getElementById('jewel-stone-memo-manufacturer-name').value || '').trim();
+    const date = document.getElementById('jewel-stone-memo-date').value;
+    const notes = (document.getElementById('jewel-stone-memo-notes').value || '').trim();
 
     if (!manufacturerName) { UI.showToast('Please enter a manufacturer name.', true); return; }
     if (!date) { UI.showToast('Please select a memo date.', true); return; }
@@ -414,7 +414,7 @@ const StoneMemoController = {
     const memoNumber = this.getNextMemoNumber();
 
     const memo = {
-      id: 'stone_memo_' + Date.now(),
+      id: 'jewel_stone_memo_' + Date.now(),
       memoNumber,
       manufacturerName,
       date,
@@ -426,19 +426,19 @@ const StoneMemoController = {
       totalCarats
     };
 
-    if (!DBManager.database.stoneMemos) DBManager.database.stoneMemos = [];
-    DBManager.database.stoneMemos.push(memo);
+    if (!DBManager.database.jewelStoneMemos) DBManager.database.jewelStoneMemos = [];
+    DBManager.database.jewelStoneMemos.push(memo);
 
     DBManager.addLog(
-      'ADD', memo.id, `Stone Memo ${memoNumber}`,
-      `Issued stone memo ${memoNumber} to manufacturer ${manufacturerName}: ${totalCarats.toFixed(3)} cts (${this.selectedItems.length} items)`,
+      'ADD', memo.id, `Jewel Stone Memo ${memoNumber}`,
+      `Issued jewel stone memo ${memoNumber} to manufacturer ${manufacturerName}: ${totalCarats.toFixed(3)} cts (${this.selectedItems.length} items)`,
       []
     );
 
     try {
       await DBManager.saveVault();
-      UI.closeModal('modal-create-stone-memo');
-      UI.showToast(`Stone Memo ${memoNumber} issued to ${manufacturerName}`);
+      UI.closeModal('modal-create-jewel-stone-memo');
+      UI.showToast(`Jewel Stone Memo ${memoNumber} issued to ${manufacturerName}`);
       App.refreshAllDisplays();
     } catch (err) {
       UI.showToast(err.message, true);
@@ -446,17 +446,23 @@ const StoneMemoController = {
   },
 
   renderMemoList() {
-    const memos = DBManager.getStoneMemos();
+    const memos = DBManager.getJewelStoneMemos();
     const openMemos = memos.filter(m => m.status === 'open');
     const totalOnMemo = openMemos.reduce((s, m) => s + (m.totalCarats || 0), 0);
 
-    const elCount = document.getElementById('metric-stone-memo-open-count');
-    const elCts = document.getElementById('metric-stone-memo-carats');
+    const elCount = document.getElementById('metric-jewel-stone-open-count');
+    const elCts = document.getElementById('metric-jewel-stone-carats');
+    // Also update index.html metrics if names changed
+    const legacyElCount = document.getElementById('metric-stone-memo-open-count');
+    const legacyElCts = document.getElementById('metric-stone-memo-carats');
+
     if (elCount) elCount.textContent = openMemos.length;
     if (elCts) elCts.textContent = totalOnMemo.toFixed(3) + ' cts';
+    if (legacyElCount) legacyElCount.textContent = openMemos.length;
+    if (legacyElCts) legacyElCts.textContent = totalOnMemo.toFixed(3) + ' cts';
 
-    const statusFilter = document.getElementById('stone-memo-filter-status');
-    const searchInput = document.getElementById('stone-memo-search-input');
+    const statusFilter = document.getElementById('jewel-stone-memo-filter-status');
+    const searchInput = document.getElementById('jewel-stone-memo-search-input');
     const filterVal = statusFilter ? statusFilter.value : '';
     const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
 
@@ -470,8 +476,8 @@ const StoneMemoController = {
 
     filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-    const tbody = document.getElementById('stone-memo-list-tbody');
-    const emptyEl = document.getElementById('stone-memo-empty-state');
+    const tbody = document.getElementById('jewel-stone-memo-list-tbody');
+    const emptyEl = document.getElementById('jewel-stone-memo-empty-state');
     if (!tbody) return;
     tbody.innerHTML = '';
 
@@ -530,30 +536,30 @@ const StoneMemoController = {
   },
 
   openMemoDetail(memoId) {
-    const memo = DBManager.getStoneMemos().find(m => m.id === memoId);
+    const memo = DBManager.getJewelStoneMemos().find(m => m.id === memoId);
     if (!memo) return;
 
     const dateFmt = new Date(memo.date + 'T00:00:00').toLocaleDateString('en-IN', {
       day: '2-digit', month: 'short', year: 'numeric'
     });
 
-    document.getElementById('stone-memo-detail-number').textContent = memo.memoNumber;
-    document.getElementById('stone-memo-detail-manufacturer').textContent = memo.manufacturerName;
-    document.getElementById('stone-memo-detail-date').textContent = dateFmt;
-    document.getElementById('stone-memo-detail-status').textContent = memo.status.toUpperCase();
-    document.getElementById('stone-memo-detail-notes').textContent = memo.notes || '—';
-    document.getElementById('stone-memo-detail-total-carats').textContent = (memo.totalCarats || 0).toFixed(3) + ' cts';
+    document.getElementById('jewel-stone-memo-detail-number').textContent = memo.memoNumber;
+    document.getElementById('jewel-stone-memo-detail-manufacturer').textContent = memo.manufacturerName;
+    document.getElementById('jewel-stone-memo-detail-date').textContent = dateFmt;
+    document.getElementById('jewel-stone-memo-detail-status').textContent = memo.status.toUpperCase();
+    document.getElementById('jewel-stone-memo-detail-notes').textContent = memo.notes || '—';
+    document.getElementById('jewel-stone-memo-detail-total-carats').textContent = (memo.totalCarats || 0).toFixed(3) + ' cts';
 
-    const closedRow = document.getElementById('stone-memo-detail-closed-row');
+    const closedRow = document.getElementById('jewel-stone-memo-detail-closed-row');
     if (memo.closedAt && closedRow) {
-      document.getElementById('stone-memo-detail-closed-at').textContent =
+      document.getElementById('jewel-stone-memo-detail-closed-at').textContent =
         new Date(memo.closedAt).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
       closedRow.classList.remove('hidden');
     } else if (closedRow) {
       closedRow.classList.add('hidden');
     }
 
-    const tbody = document.getElementById('stone-memo-detail-items-tbody');
+    const tbody = document.getElementById('jewel-stone-memo-detail-items-tbody');
     tbody.innerHTML = '';
 
     (memo.items || []).forEach((item, index) => {
@@ -593,19 +599,19 @@ const StoneMemoController = {
       tbody.appendChild(tr);
     });
 
-    const actionsEl = document.getElementById('stone-memo-detail-actions');
+    const actionsEl = document.getElementById('jewel-stone-memo-detail-actions');
     if (actionsEl) {
       if (memo.status === 'open') {
         actionsEl.innerHTML = `
-          <button type="button" class="btn btn-secondary" id="btn-stone-detail-return">Return All Remaining</button>
-          <button type="button" class="btn btn-primary" id="btn-stone-detail-mount">Mount All Remaining</button>
+          <button type="button" class="btn btn-secondary" id="btn-jewel-stone-detail-return">Return All Remaining</button>
+          <button type="button" class="btn btn-primary" id="btn-jewel-stone-detail-mount">Mount All Remaining</button>
         `;
-        document.getElementById('btn-stone-detail-return').addEventListener('click', () => {
-          UI.closeModal('modal-stone-memo-detail');
+        document.getElementById('btn-jewel-stone-detail-return').addEventListener('click', () => {
+          UI.closeModal('modal-jewel-stone-memo-detail');
           this.handleCloseMemo(memo.id, 'returned');
         });
-        document.getElementById('btn-stone-detail-mount').addEventListener('click', () => {
-          UI.closeModal('modal-stone-memo-detail');
+        document.getElementById('btn-jewel-stone-detail-mount').addEventListener('click', () => {
+          UI.closeModal('modal-jewel-stone-memo-detail');
           this.handleCloseMemo(memo.id, 'mounted');
         });
       } else {
@@ -613,21 +619,21 @@ const StoneMemoController = {
       }
     }
 
-    UI.openModal('modal-stone-memo-detail');
+    UI.openModal('modal-jewel-stone-memo-detail');
   },
 
   openMemoActionInputModal(memoId, itemIndex, actionType) {
-    const memo = DBManager.getStoneMemos().find(m => m.id === memoId);
+    const memo = DBManager.getJewelStoneMemos().find(m => m.id === memoId);
     if (!memo) return;
 
     this.activeActionContext = { memoId, itemIndex, actionType };
 
-    const titleEl = document.getElementById('stone-memo-action-title');
-    const subtitleEl = document.getElementById('stone-memo-action-subtitle');
-    const selectorGroup = document.getElementById('stone-memo-action-item-selector-group');
-    const itemSelect = document.getElementById('stone-memo-action-item-select');
-    const caratsInp = document.getElementById('stone-memo-action-carats');
-    const piecesInp = document.getElementById('stone-memo-action-pieces');
+    const titleEl = document.getElementById('jewel-stone-memo-action-title');
+    const subtitleEl = document.getElementById('jewel-stone-memo-action-subtitle');
+    const selectorGroup = document.getElementById('jewel-stone-memo-action-item-selector-group');
+    const itemSelect = document.getElementById('jewel-stone-memo-action-item-select');
+    const caratsInp = document.getElementById('jewel-stone-memo-action-carats');
+    const piecesInp = document.getElementById('jewel-stone-memo-action-pieces');
 
     titleEl.textContent = actionType === 'mounted' ? 'Mark Stones as Mounted' : 'Return Stones to Stock';
 
@@ -665,8 +671,8 @@ const StoneMemoController = {
           piecesInp.value = totalRemPieces;
           piecesInp.max = totalRemPieces;
           piecesInp.disabled = true;
-          document.getElementById('stone-memo-action-carats-max-label').textContent = `Total remaining: ${totalRemCarats.toFixed(3)} cts`;
-          document.getElementById('stone-memo-action-pieces-max-label').textContent = `Total remaining: ${totalRemPieces} pcs`;
+          document.getElementById('jewel-stone-memo-action-carats-max-label').textContent = `Total remaining: ${totalRemCarats.toFixed(3)} cts`;
+          document.getElementById('jewel-stone-memo-action-pieces-max-label').textContent = `Total remaining: ${totalRemPieces} pcs`;
         } else {
           const idx = parseInt(selectedVal, 10);
           const item = memo.items[idx];
@@ -680,38 +686,38 @@ const StoneMemoController = {
       updateSelection();
     }
 
-    UI.openModal('modal-stone-memo-action-input');
+    UI.openModal('modal-jewel-stone-memo-action-input');
   },
 
   setupActionInputRanges(item) {
-    const caratsInp = document.getElementById('stone-memo-action-carats');
-    const piecesInp = document.getElementById('stone-memo-action-pieces');
+    const caratsInp = document.getElementById('jewel-stone-memo-action-carats');
+    const piecesInp = document.getElementById('jewel-stone-memo-action-pieces');
     const remCarats = Math.max(0, Number((item.carats - (item.returnedCarats || 0) - (item.mountedCarats || 0)).toFixed(3)));
     const remPieces = Math.max(0, (item.pieces || 0) - (item.returnedPieces || 0) - (item.mountedPieces || 0));
 
     caratsInp.value = remCarats;
     caratsInp.max = remCarats;
-    document.getElementById('stone-memo-action-carats-max-label').textContent = `Max: ${remCarats.toFixed(3)} cts`;
+    document.getElementById('jewel-stone-memo-action-carats-max-label').textContent = `Max: ${remCarats.toFixed(3)} cts`;
 
     piecesInp.value = remPieces;
     piecesInp.max = remPieces;
-    document.getElementById('stone-memo-action-pieces-max-label').textContent = `Max: ${remPieces} pcs`;
+    document.getElementById('jewel-stone-memo-action-pieces-max-label').textContent = `Max: ${remPieces} pcs`;
   },
 
   async handleSaveMemoAction() {
     if (!this.activeActionContext) return;
     const { memoId, itemIndex, actionType } = this.activeActionContext;
 
-    const memo = DBManager.getStoneMemos().find(m => m.id === memoId);
+    const memo = DBManager.getJewelStoneMemos().find(m => m.id === memoId);
     if (!memo) return;
 
-    const itemSelect = document.getElementById('stone-memo-action-item-select');
+    const itemSelect = document.getElementById('jewel-stone-memo-action-item-select');
     const selectedVal = (itemIndex !== null && itemIndex !== undefined) ? String(itemIndex) : itemSelect.value;
 
     if (selectedVal === 'all') {
-      UI.closeModal('modal-stone-memo-action-input');
-      document.getElementById('stone-memo-action-carats').disabled = false;
-      document.getElementById('stone-memo-action-pieces').disabled = false;
+      UI.closeModal('modal-jewel-stone-memo-action-input');
+      document.getElementById('jewel-stone-memo-action-carats').disabled = false;
+      document.getElementById('jewel-stone-memo-action-pieces').disabled = false;
       this.handleCloseMemo(memoId, actionType);
       return;
     }
@@ -720,8 +726,8 @@ const StoneMemoController = {
     const item = memo.items[idx];
     if (!item) return;
 
-    const inputCarats = Number(document.getElementById('stone-memo-action-carats').value || 0);
-    const inputPieces = Number(document.getElementById('stone-memo-action-pieces').value || 0);
+    const inputCarats = Number(document.getElementById('jewel-stone-memo-action-carats').value || 0);
+    const inputPieces = Number(document.getElementById('jewel-stone-memo-action-pieces').value || 0);
 
     const remCarats = Math.max(0, Number((item.carats - (item.returnedCarats || 0) - (item.mountedCarats || 0)).toFixed(3)));
     const remPieces = Math.max(0, (item.pieces || 0) - (item.returnedPieces || 0) - (item.mountedPieces || 0));
@@ -730,8 +736,8 @@ const StoneMemoController = {
     if (inputCarats > remCarats + 0.001) { UI.showToast(`Cannot exceed remaining carats (${remCarats.toFixed(3)} cts).`, true); return; }
     if (inputPieces > remPieces) { UI.showToast(`Cannot exceed remaining pieces (${remPieces} pcs).`, true); return; }
 
-    document.getElementById('stone-memo-action-carats').disabled = false;
-    document.getElementById('stone-memo-action-pieces').disabled = false;
+    document.getElementById('jewel-stone-memo-action-carats').disabled = false;
+    document.getElementById('jewel-stone-memo-action-pieces').disabled = false;
 
     // Apply change
     if (actionType === 'returned') {
@@ -751,7 +757,6 @@ const StoneMemoController = {
           const ratio = newW / curW;
           stone.sizes.forEach(s => {
             s.weight = Number((Number(s.weight || 0) * ratio).toFixed(3));
-            // proportionally scale pieces too if they are being mounted
             if (s.pieces > 0 && item.pieces > 0) {
               const pRatio = Math.max(0, (StoneController.getStonePieces(stone) - inputPieces) / StoneController.getStonePieces(stone));
               s.pieces = Math.round(s.pieces * pRatio);
@@ -772,7 +777,7 @@ const StoneMemoController = {
     if (totalRemaining <= 0.001) {
       const totalMounted = memo.items.reduce((sum, it) => sum + (it.mountedCarats || 0), 0);
       if (totalMounted <= 0.001) {
-        DBManager.database.stoneMemos = DBManager.database.stoneMemos.filter(m => m.id !== memo.id);
+        DBManager.database.jewelStoneMemos = DBManager.database.jewelStoneMemos.filter(m => m.id !== memo.id);
         isDeleted = true;
       } else {
         memo.status = 'closed';
@@ -783,18 +788,18 @@ const StoneMemoController = {
     DBManager.addLog(
       actionType === 'mounted' ? 'DELETE' : 'EDIT',
       memo.id,
-      `Stone Memo ${memo.memoNumber}`,
-      `Processed partial ${actionType} on Memo ${memo.memoNumber}: ${inputCarats.toFixed(3)} cts of ${item.stoneSnapshot.type} #${item.stoneSnapshot.color || 'N/A'}.`,
+      `Jewel Stone Memo ${memo.memoNumber}`,
+      `Processed partial ${actionType} on Jewel Stone Memo ${memo.memoNumber}: ${inputCarats.toFixed(3)} cts of ${item.stoneSnapshot.type} #${item.stoneSnapshot.color || 'N/A'}.`,
       []
     );
 
     try {
       await DBManager.saveVault();
-      UI.closeModal('modal-stone-memo-action-input');
+      UI.closeModal('modal-jewel-stone-memo-action-input');
 
       if (isDeleted) {
-        UI.closeModal('modal-stone-memo-detail');
-        UI.showToast(`Memo ${memo.memoNumber} has been fully returned and deleted.`);
+        UI.closeModal('modal-jewel-stone-memo-detail');
+        UI.showToast(`Jewel Stone Memo ${memo.memoNumber} has been fully returned and deleted.`);
       } else {
         UI.showToast(`Processed partial ${actionType} — ${inputCarats.toFixed(3)} cts`);
       }
@@ -810,7 +815,7 @@ const StoneMemoController = {
   },
 
   handleCloseMemo(memoId, action) {
-    const memos = DBManager.getStoneMemos();
+    const memos = DBManager.getJewelStoneMemos();
     const memo = memos.find(m => m.id === memoId);
     if (!memo || memo.status !== 'open') return;
 
@@ -821,7 +826,7 @@ const StoneMemoController = {
     UI.confirm(
       `Are you sure you want to ${actionLabel}?\n\nMemo: ${memo.memoNumber} | Manufacturer: ${memo.manufacturerName}`,
       async () => {
-        memo.status = action === 'returned' ? 'closed' : 'closed'; // both fully returned or mounted result in memo closure
+        memo.status = 'closed';
         memo.closedAt = new Date().toISOString();
 
         (memo.items || []).forEach(item => {
@@ -861,7 +866,7 @@ const StoneMemoController = {
         let isDeleted = false;
 
         if (totalMounted <= 0.001) {
-          DBManager.database.stoneMemos = DBManager.database.stoneMemos.filter(m => m.id !== memo.id);
+          DBManager.database.jewelStoneMemos = DBManager.database.jewelStoneMemos.filter(m => m.id !== memo.id);
           isDeleted = true;
         } else {
           memo.status = 'closed';
@@ -870,20 +875,20 @@ const StoneMemoController = {
         DBManager.addLog(
           isDeleted || action === 'mounted' ? 'DELETE' : 'EDIT',
           memo.id,
-          `Stone Memo ${memo.memoNumber}`,
+          `Jewel Stone Memo ${memo.memoNumber}`,
           isDeleted
-            ? `Stone Memo ${memo.memoNumber} fully returned & deleted.`
-            : `Stone Memo ${memo.memoNumber} fully closed (marked ${action}).`,
+            ? `Jewel Stone Memo ${memo.memoNumber} fully returned & deleted.`
+            : `Jewel Stone Memo ${memo.memoNumber} fully closed (marked ${action}).`,
           []
         );
 
         try {
           await DBManager.saveVault();
           if (isDeleted) {
-            UI.closeModal('modal-stone-memo-detail');
-            UI.showToast(`Memo ${memo.memoNumber} fully returned and deleted.`);
+            UI.closeModal('modal-jewel-stone-memo-detail');
+            UI.showToast(`Jewel Stone Memo ${memo.memoNumber} fully returned and deleted.`);
           } else {
-            UI.showToast(`Memo ${memo.memoNumber} closed successfully.`);
+            UI.showToast(`Jewel Stone Memo ${memo.memoNumber} closed successfully.`);
           }
           App.refreshAllDisplays();
         } catch (err) {
@@ -894,4 +899,4 @@ const StoneMemoController = {
   }
 };
 
-window.StoneMemoController = StoneMemoController;
+window.JewelStoneMemoController = JewelStoneMemoController;

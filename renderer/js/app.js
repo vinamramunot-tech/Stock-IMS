@@ -20,8 +20,8 @@ const App = {
     if (window.StoneController) {
       StoneController.init();
     }
-    if (window.StoneMemoController) {
-      StoneMemoController.init();
+    if (window.JewelStoneMemoController) {
+      JewelStoneMemoController.init();
     }
     if (window.JewelryMemoController) {
       JewelryMemoController.init();
@@ -131,7 +131,7 @@ const App = {
         const action = item.getAttribute('data-action');
         mobileMenuOverlay.classList.add('hidden');
 
-        if (action === 'tab-catalog' || action === 'tab-emerald-catalog' || action === 'tab-memos' || action === 'tab-logs' || action === 'tab-settings' || action === 'tab-stone-catalog' || action === 'tab-stone-memos' || action === 'tab-jewelry-memos') {
+        if (action === 'tab-catalog' || action === 'tab-emerald-catalog' || action === 'tab-memos' || action === 'tab-logs' || action === 'tab-settings' || action === 'tab-stone-catalog' || action === 'tab-jewel-stone-memos' || action === 'tab-jewelry-memos') {
           this.switchTab(action);
         } else if (action === 'add-jewelry') {
           const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
@@ -153,9 +153,9 @@ const App = {
           if (window.StoneController) {
             window.StoneController.openAddModal();
           }
-        } else if (action === 'add-stone-memo') {
-          if (window.StoneMemoController) {
-            window.StoneMemoController.openCreateMemoModal();
+        } else if (action === 'add-jewel-stone-memo') {
+          if (window.JewelStoneMemoController) {
+            window.JewelStoneMemoController.openCreateMemoModal();
           }
         } else if (action === 'add-jewelry-memo') {
           if (window.JewelryMemoController) {
@@ -196,8 +196,8 @@ const App = {
     if (window.StoneController) {
       StoneController.renderStoneGrid();
     }
-    if (window.StoneMemoController) {
-      StoneMemoController.renderMemoList();
+    if (window.JewelStoneMemoController) {
+      JewelStoneMemoController.renderMemoList();
     }
     if (window.JewelryMemoController) {
       JewelryMemoController.renderMemoList();

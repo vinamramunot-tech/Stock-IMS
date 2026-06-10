@@ -506,6 +506,7 @@ option, datalist option {
   justify-content: space-between;
   padding: 30px 0;
   flex-shrink: 0;
+  overflow-y: auto;
 }
 
 .sidebar-nav {

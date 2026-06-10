@@ -29,6 +29,7 @@ const DBManager = {
       memos: [],
       stones: [],
       stoneMemos: [],
+      jewelStoneMemos: [],
       jewelryMemos: [],
       logs: []
     };
@@ -88,6 +89,12 @@ const DBManager = {
       }
       if (!db.stoneMemos) {
         db.stoneMemos = [];
+      }
+      if (db.stoneMemos && !db.jewelStoneMemos) {
+        db.jewelStoneMemos = db.stoneMemos;
+      }
+      if (!db.jewelStoneMemos) {
+        db.jewelStoneMemos = [];
       }
       if (!db.jewelryMemos) {
         db.jewelryMemos = [];
@@ -197,10 +204,17 @@ const DBManager = {
   },
 
   /**
-   * Retrieve all stone memo records
+   * Retrieve all jewel stone memo records
+   */
+  getJewelStoneMemos() {
+    return this.database ? this.database.jewelStoneMemos || [] : [];
+  },
+
+  /**
+   * Retrieve all stone memo records (fallback)
    */
   getStoneMemos() {
-    return this.database ? this.database.stoneMemos || [] : [];
+    return this.getJewelStoneMemos();
   },
 
   /**
