@@ -528,6 +528,9 @@ const UI = {
     this.resetModalTabs();
     this.updateFormCalculations();
     this.updateSkuSuggestion();
+
+    const badgeEl = document.getElementById('jewelry-modal-status-badge');
+    if (badgeEl) badgeEl.innerHTML = '';
   },
 
   /**
@@ -538,6 +541,21 @@ const UI = {
     
     // De-reference values to prevent direct mutation of state before save
     this.activeItemState = JSON.parse(JSON.stringify(item));
+
+    const badgeEl = document.getElementById('jewelry-modal-status-badge');
+    if (badgeEl) {
+      const status = item.status || 'In Stock';
+      let statusClass = 'stock';
+      let statusLabel = 'In Stock';
+      if (status === 'On Memo') {
+        statusClass = 'memo';
+        statusLabel = 'On Memo';
+      } else if (status === 'Sold') {
+        statusClass = 'sold';
+        statusLabel = 'Sold';
+      }
+      badgeEl.innerHTML = `<span class="badge-status ${statusClass}">${statusLabel}</span>`;
+    }
 
     document.getElementById('item-name').value = item.name || '';
     document.getElementById('item-sku').value = item.sku || '';

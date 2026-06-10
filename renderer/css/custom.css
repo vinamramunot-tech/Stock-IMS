@@ -1,0 +1,163 @@
+/* Custom Premium Styles for Mava Gems extension modules */
+
+:root {
+  --success-color: #50c878;
+  --info-color: #4a90e2;
+  --warning-color: #f5a623;
+  --danger-color: #d0021b;
+}
+
+/* Tab Content Transitions */
+.tab-content {
+  opacity: 1;
+  transition: opacity var(--transition-normal);
+}
+.tab-content.hidden {
+  display: none !important;
+  opacity: 0;
+}
+
+/* Badge Styles */
+.badge-status {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.badge-status.stock {
+  background-color: rgba(80, 200, 120, 0.15);
+  color: var(--success-color);
+}
+
+.badge-status.memo {
+  background-color: rgba(74, 144, 226, 0.15);
+  color: var(--info-color);
+}
+
+.badge-status.sold {
+  background-color: rgba(212, 175, 55, 0.15);
+  color: var(--text-gold-dark);
+}
+
+/* Product Card Status Overrides */
+.product-card {
+  position: relative;
+}
+
+.product-card-badge-status {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.product-card.on-memo {
+  border-color: var(--info-color);
+  opacity: 0.9;
+}
+
+.product-card.sold {
+  border-color: var(--text-gold-dark);
+  opacity: 0.75;
+}
+
+/* Stone Grid Layout */
+.stone-group-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 15px;
+  transition: border-color var(--transition-fast);
+}
+
+.stone-group-card:hover {
+  border-color: var(--text-gold-light);
+}
+
+/* Stone details layout */
+.stone-sizes-table {
+  width: 100%;
+  font-size: 12px;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.stone-sizes-table th {
+  color: var(--text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border-light);
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.stone-sizes-table td {
+  border-bottom: 1px solid rgba(0,0,0,0.03);
+  padding: 6px 8px;
+}
+
+.stone-sizes-table tr.total-row {
+  font-weight: 700;
+  border-top: 1px solid var(--border-light);
+}
+
+/* Stone Form Breakdown Rows */
+.stone-size-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 80px 100px auto;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.stone-size-row input {
+  height: 38px;
+  padding: 6px 12px;
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  background-color: var(--bg-base);
+  color: var(--text-main);
+}
+
+.btn-remove-size {
+  background: none;
+  border: none;
+  color: var(--danger-color);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 5px;
+  line-height: 1;
+}
+
+.btn-remove-size:hover {
+  color: #ff3b30;
+}
+
+/* Custom layout helpers */
+.mt-10 { margin-top: 10px; }
+.mt-15 { margin-top: 15px; }
+.mt-20 { margin-top: 20px; }
+.mb-10 { margin-bottom: 10px; }
+.mb-20 { margin-bottom: 20px; }
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .stone-size-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .stone-size-row .btn-remove-size {
+    grid-column: span 2;
+    text-align: center;
+    border: 1px solid var(--border-light);
+    border-radius: 4px;
+    padding: 6px;
+    font-size: 14px;
+  }
+}

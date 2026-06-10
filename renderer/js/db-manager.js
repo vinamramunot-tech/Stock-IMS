@@ -27,6 +27,9 @@ const DBManager = {
       items: [],
       emeralds: [],
       memos: [],
+      stones: [],
+      stoneMemos: [],
+      jewelryMemos: [],
       logs: []
     };
   },
@@ -79,6 +82,15 @@ const DBManager = {
       }
       if (!db.memos) {
         db.memos = [];
+      }
+      if (!db.stones) {
+        db.stones = [];
+      }
+      if (!db.stoneMemos) {
+        db.stoneMemos = [];
+      }
+      if (!db.jewelryMemos) {
+        db.jewelryMemos = [];
       }
 
       // Successful load
@@ -175,6 +187,27 @@ const DBManager = {
    */
   getMemos() {
     return this.database ? this.database.memos || [] : [];
+  },
+
+  /**
+   * Retrieve active database stone items
+   */
+  getStones() {
+    return this.database ? this.database.stones || [] : [];
+  },
+
+  /**
+   * Retrieve all stone memo records
+   */
+  getStoneMemos() {
+    return this.database ? this.database.stoneMemos || [] : [];
+  },
+
+  /**
+   * Retrieve all jewelry memo records
+   */
+  getJewelryMemos() {
+    return this.database ? this.database.jewelryMemos || [] : [];
   }
 };
 

@@ -17,6 +17,15 @@ const App = {
     if (window.MemoController) {
       MemoController.init();
     }
+    if (window.StoneController) {
+      StoneController.init();
+    }
+    if (window.StoneMemoController) {
+      StoneMemoController.init();
+    }
+    if (window.JewelryMemoController) {
+      JewelryMemoController.init();
+    }
 
     // 2. Tab switching navigation listeners
     const navItems = document.querySelectorAll('.nav-item[data-target]');
@@ -122,7 +131,7 @@ const App = {
         const action = item.getAttribute('data-action');
         mobileMenuOverlay.classList.add('hidden');
 
-        if (action === 'tab-catalog' || action === 'tab-emerald-catalog' || action === 'tab-memos' || action === 'tab-logs' || action === 'tab-settings') {
+        if (action === 'tab-catalog' || action === 'tab-emerald-catalog' || action === 'tab-memos' || action === 'tab-logs' || action === 'tab-settings' || action === 'tab-stone-catalog' || action === 'tab-stone-memos' || action === 'tab-jewelry-memos') {
           this.switchTab(action);
         } else if (action === 'add-jewelry') {
           const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
@@ -139,6 +148,18 @@ const App = {
         } else if (action === 'add-memo') {
           if (window.MemoController) {
             window.MemoController.openCreateMemoModal();
+          }
+        } else if (action === 'add-stone') {
+          if (window.StoneController) {
+            window.StoneController.openAddModal();
+          }
+        } else if (action === 'add-stone-memo') {
+          if (window.StoneMemoController) {
+            window.StoneMemoController.openCreateMemoModal();
+          }
+        } else if (action === 'add-jewelry-memo') {
+          if (window.JewelryMemoController) {
+            window.JewelryMemoController.openCreateMemoModal();
           }
         }
       });
@@ -171,6 +192,15 @@ const App = {
     }
     if (window.MemoController) {
       MemoController.renderMemoList();
+    }
+    if (window.StoneController) {
+      StoneController.renderStoneGrid();
+    }
+    if (window.StoneMemoController) {
+      StoneMemoController.renderMemoList();
+    }
+    if (window.JewelryMemoController) {
+      JewelryMemoController.renderMemoList();
     }
     this.renderActivityLogs();
     

@@ -186,6 +186,27 @@ const Catalog = {
     document.getElementById('metric-gem-weight').textContent = `${totalJewelryGemWeight.toFixed(2)} cts`;
     document.getElementById('metric-emerald-weight').textContent = `${totalLooseEmeraldWeight.toFixed(2)} cts`;
 
+    // Sum loose stones weight & valuation
+    let totalLooseStoneWeight = 0;
+    let totalLooseStoneValuationINR = 0;
+    const looseStones = DBManager.getStones();
+    looseStones.forEach(st => {
+      const w = st.sizes && st.sizes.length > 0
+        ? st.sizes.reduce((sum, s) => sum + Number(s.weight || 0), 0)
+        : Number(st.weight || 0);
+      totalLooseStoneWeight += w;
+      totalLooseStoneValuationINR += w * Number(st.pricePerCarat || 0);
+    });
+
+    const looseWtEl = document.getElementById('metric-loose-stone-weight');
+    const looseValEl = document.getElementById('metric-loose-stone-valuation');
+    if (looseWtEl) {
+      looseWtEl.textContent = `${totalLooseStoneWeight.toFixed(3)} cts`;
+    }
+    if (looseValEl) {
+      looseValEl.textContent = `₹${totalLooseStoneValuationINR.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    }
+
     const valInrEl = document.getElementById('metric-emerald-valuation-inr');
     const valUsdEl = document.getElementById('metric-emerald-valuation-usd');
     if (valInrEl) {
@@ -291,7 +312,22 @@ const Catalog = {
 
     filtered.forEach(item => {
       const card = document.createElement('div');
-      card.className = 'product-card';
+      
+      const status = item.status || 'In Stock';
+      let statusClass = 'stock';
+      let statusLabel = 'In Stock';
+      let cardStatusClass = '';
+      if (status === 'On Memo') {
+        statusClass = 'memo';
+        statusLabel = 'On Memo';
+        cardStatusClass = 'on-memo';
+      } else if (status === 'Sold') {
+        statusClass = 'sold';
+        statusLabel = 'Sold';
+        cardStatusClass = 'sold';
+      }
+      
+      card.className = 'product-card' + (cardStatusClass ? ' ' + cardStatusClass : '');
 
       // Build specs preview string
       const netMetals = Calc.getNetMetals(item);
@@ -316,7 +352,10 @@ const Catalog = {
            <div class="price-val" style="font-size: 15px; color: var(--text-muted); margin-bottom: 8px;">₹${item.evaluation.homeCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>`
         : '';
 
+      const badgeStatusHtml = `<span class="badge-status product-card-badge-status ${statusClass}">${statusLabel}</span>`;
+
       card.innerHTML = `
+        ${badgeStatusHtml}
         <div class="product-img-box">
           ${imageHtml}
           <div class="product-cat-badge">${item.category || 'Jewelry'}</div>
