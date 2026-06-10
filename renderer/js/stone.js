@@ -734,11 +734,13 @@ const StoneController = {
 
     try {
       if (isEdit) {
+        const changes = Logs.diffItem(this.activeStoneState, savedStone);
+        const summary = Logs.buildSummary(changes, `Updated ${savedStone.type} #${savedStone.color}`);
         const index = DBManager.database.stones.findIndex(st => st.id === savedStone.id);
         if (index !== -1) {
           DBManager.database.stones[index] = savedStone;
         }
-        DBManager.addLog("EDIT", savedStone.id, `${savedStone.type} #${savedStone.color}`, `Updated stone stock details`, []);
+        DBManager.addLog("EDIT", savedStone.id, `${savedStone.type} #${savedStone.color}`, summary, changes);
         UI.showToast("Stone details updated successfully!");
       } else {
         DBManager.database.stones.push(savedStone);

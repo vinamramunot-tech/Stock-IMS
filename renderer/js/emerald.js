@@ -1154,6 +1154,8 @@ const EmeraldController = {
 
     const doc = this.generatePDF(filtered);
     this.activePdfDocument = doc;
+    // Clear jewelry catalog's active PDF so the shared save button picks this one
+    if (window.Catalog) window.Catalog.activePdfDocument = null;
 
     const iframe = document.getElementById('print-preview-iframe');
     if (iframe) {
@@ -1302,16 +1304,22 @@ const EmeraldController = {
   },
 
   async handleSavePdfClick() {
-    if (!this.activePdfDocument) return;
+    // Use the most recently generated PDF document — could be emerald's or jewelry catalog's
+    const doc = this.activePdfDocument || (window.Catalog && window.Catalog.activePdfDocument ? window.Catalog.activePdfDocument : null);
+    if (!doc) return;
+
+    const isJewelry = !this.activePdfDocument && window.Catalog && window.Catalog.activePdfDocument;
 
     try {
-      const defaultName = `emerald_stock_report_${new Date().toISOString().split('T')[0]}.pdf`;
+      const defaultName = isJewelry
+        ? `jewelry_catalog_report_${new Date().toISOString().split('T')[0]}.pdf`
+        : `emerald_stock_report_${new Date().toISOString().split('T')[0]}.pdf`;
       const savePath = await window.electronAPI.saveFileDialog(defaultName);
       
       if (!savePath) return; // user cancelled/closed dialog
 
       // Get pdf raw string and convert to base64
-      const pdfBase64 = this.activePdfDocument.output('datauristring').split(',')[1];
+      const pdfBase64 = doc.output('datauristring').split(',')[1];
       
       await window.electronAPI.savePdfFile(pdfBase64, savePath);
       UI.showToast("PDF saved successfully!");

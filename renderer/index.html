@@ -762,6 +762,13 @@
                   </svg>
                 </button>
               </div>
+              <button type="button" id="btn-print-jewelry-catalog" class="btn btn-secondary" style="height: 42px;">
+                <svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align: middle; margin-right: 6px;">
+                  <path fill="currentColor"
+                    d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z" />
+                </svg>
+                Print
+              </button>
             </div>
           </div>
 
@@ -2347,6 +2354,61 @@
           <button type="button" class="btn btn-secondary modal-close-trigger-emerald">Close Form</button>
           <button type="button" id="btn-save-emerald" class="btn btn-primary">Save Emerald Stock</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: JEWELRY CATALOG PRINT SELECTION ==================== -->
+  <div id="modal-print-jewelry-catalog" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Print Jewelry Catalog Report</h3>
+        <button type="button" class="btn-close modal-close-trigger-print-jewelry-catalog">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-instructions">Filter and select the specific jewelry pieces you want to print.</p>
+
+        <div class="form-grid-row">
+          <div class="form-col-6">
+            <div class="input-group">
+              <label for="jewelry-print-select-category">Filter by Category</label>
+              <select id="jewelry-print-select-category">
+                <option value="">All Categories</option>
+                <option value="Ring">Rings</option>
+                <option value="Necklace">Necklaces</option>
+                <option value="Earrings">Earrings</option>
+                <option value="Bracelet">Bracelets</option>
+                <option value="Pendant">Pendants</option>
+                <option value="Other">Others</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-col-6">
+            <div class="input-group">
+              <label for="jewelry-print-select-karat">Filter by Karat</label>
+              <select id="jewelry-print-select-karat">
+                <option value="">All Karats</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="input-group" style="margin-top: 10px;">
+          <label style="display: flex; align-items: center; justify-content: space-between;">
+            <span>Select Jewelry Pieces</span>
+            <span style="font-size: 10px; text-transform: none; letter-spacing: normal;">
+              <button type="button" id="btn-jewelry-print-select-all" class="btn-text" style="margin-right: 8px;">Select All</button>
+              <button type="button" id="btn-jewelry-print-select-none" class="btn-text">Deselect All</button>
+            </span>
+          </label>
+          <div id="jewelry-print-items-container" class="print-pudias-checklist-container">
+            <!-- Checkbox list of jewelry pieces populated dynamically -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary modal-close-trigger-print-jewelry-catalog">Cancel</button>
+        <button type="button" id="btn-submit-print-jewelry-catalog" class="btn btn-primary">Print Report</button>
       </div>
     </div>
   </div>

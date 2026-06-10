@@ -16,6 +16,10 @@ const Logs = {
       return this.diffEmerald(oldItem, newItem);
     }
 
+    if (oldItem && oldItem.id && oldItem.id.startsWith('stone_')) {
+      return this.diffStone(oldItem, newItem);
+    }
+
     const changes = [];
 
     if (!oldItem) return changes; // For creations, no diff needed
@@ -151,6 +155,67 @@ const Logs = {
     const oldOrigins = oldItem.origins || [];
     const newOrigins = newItem.origins || [];
     if (JSON.stringify(oldOrigins.sort()) !== JSON.stringify(newOrigins.sort())) {
+      changes.push({
+        field: 'Origins',
+        old: oldOrigins.join(', ') || 'None',
+        new: newOrigins.join(', ') || 'None'
+      });
+    }
+
+    // Sizes Breakdown
+    const oldSizes = oldItem.sizes || [];
+    const newSizes = newItem.sizes || [];
+    if (JSON.stringify(oldSizes) !== JSON.stringify(newSizes)) {
+      const formatSizes = (arr) => {
+        if (arr.length === 0) return 'None';
+        return arr.map(s => `${s.shape || 'Unknown'} (${s.mm || 'N/A'}, ${s.pieces || 0} pcs, ${s.weight || 0} cts)`).join(' | ');
+      };
+      changes.push({
+        field: 'Sizes Breakdown',
+        old: formatSizes(oldSizes),
+        new: formatSizes(newSizes)
+      });
+    }
+
+    return changes;
+  },
+
+  /**
+   * Compare two loose stone stock items and return the differences.
+   * @param {Object} oldItem - Original stone object
+   * @param {Object} newItem - Updated stone object
+   * @returns {Array} List of changes: { field: string, old: any, new: any }
+   */
+  diffStone(oldItem, newItem) {
+    const changes = [];
+
+    if (!oldItem) return changes;
+
+    const basicFields = [
+      { key: 'type',         label: 'Stone Type' },
+      { key: 'color',        label: 'Packet Number' },
+      { key: 'lustreGrade',  label: 'Grade / Clarity' },
+      { key: 'pricePerCarat', label: 'Price per Carat', isCurrency: true },
+      { key: 'pair',         label: 'Is Pair' },
+      { key: 'group',        label: 'Group / Lot' }
+    ];
+
+    basicFields.forEach(field => {
+      const oldVal = oldItem[field.key] !== undefined ? oldItem[field.key] : '';
+      const newVal = newItem[field.key] !== undefined ? newItem[field.key] : '';
+      if (oldVal !== newVal) {
+        changes.push({
+          field: field.label,
+          old: field.isCurrency ? `₹${Number(oldVal).toLocaleString()}` : oldVal,
+          new: field.isCurrency ? `₹${Number(newVal).toLocaleString()}` : newVal
+        });
+      }
+    });
+
+    // Origins
+    const oldOrigins = oldItem.origins || [];
+    const newOrigins = newItem.origins || [];
+    if (JSON.stringify([...oldOrigins].sort()) !== JSON.stringify([...newOrigins].sort())) {
       changes.push({
         field: 'Origins',
         old: oldOrigins.join(', ') || 'None',
