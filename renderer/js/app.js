@@ -311,6 +311,12 @@ const App = {
       toggleBtn.addEventListener('click', () => this.toggleTheme());
     }
 
+    // Wire up mobile header toggle button
+    const mobileToggleBtn = document.getElementById('btn-mobile-toggle-theme');
+    if (mobileToggleBtn) {
+      mobileToggleBtn.addEventListener('click', () => this.toggleTheme());
+    }
+
     // Wire up Settings tab theme preference buttons
     const btnLight = document.getElementById('btn-theme-light');
     const btnDark = document.getElementById('btn-theme-dark');
