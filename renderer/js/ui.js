@@ -229,6 +229,7 @@ const UI = {
   createMetalPartRow(part = { name: '', karat: 18, weight: '' }) {
     const container = document.getElementById('metals-list-container');
     const partId = 'metal_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+    const safePartName = this.escapeHtml(part.name || '');
 
     const row = document.createElement('div');
     row.className = 'metal-part-entry-card';
@@ -237,7 +238,7 @@ const UI = {
     row.innerHTML = `
       <div class="input-group" style="margin-bottom:0;">
         <label>Part Name</label>
-        <input type="text" class="metal-part-name" placeholder="e.g. Main Ring Shank" value="${part.name || ''}">
+        <input type="text" class="metal-part-name" placeholder="e.g. Main Ring Shank" value="${safePartName}">
       </div>
       <div class="input-group" style="margin-bottom:0;">
         <label>Karat (KT)</label>
