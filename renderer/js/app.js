@@ -56,6 +56,13 @@ const App = {
       });
     });
 
+    const shareCloseTriggers = document.querySelectorAll('.modal-close-trigger-share-emerald');
+    shareCloseTriggers.forEach(btn => {
+      btn.addEventListener('click', () => {
+        UI.closeModal('modal-share-emerald');
+      });
+    });
+
     // Item modal tab controllers initialization
     UI.initModalTabs();
     UI.initImageUploader();

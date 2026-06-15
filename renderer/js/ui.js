@@ -136,43 +136,13 @@ const UI = {
   },
 
   /**
-   * Resizes and compresses an uploaded image to keep database size tiny.
-   * Compresses to max 400px width/height and saves as a high-quality JPEG.
+   * Reads an uploaded image as a completely uncompressed, original quality base64 Data URL.
    */
   processImageUpload(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = function(event) {
-        const img = new Image();
-        img.onload = function() {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-          
-          // Max dimension limit: 400px
-          const maxDim = 400;
-          if (width > maxDim || height > maxDim) {
-            if (width > height) {
-              height = Math.round((height * maxDim) / width);
-              width = maxDim;
-            } else {
-              width = Math.round((width * maxDim) / height);
-              height = maxDim;
-            }
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-
-          // Get compressed data url (quality 0.85)
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-          resolve(dataUrl);
-        };
-        img.onerror = () => reject(new Error("Failed to load image file."));
-        img.src = event.target.result;
+        resolve(event.target.result);
       };
       reader.onerror = () => reject(new Error("Failed to read image file."));
       reader.readAsDataURL(file);

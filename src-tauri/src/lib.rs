@@ -436,9 +436,17 @@ fn save_file_dialog(handle: AppHandle, default_name: String) -> Option<String> {
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     {
         let doc_dir = handle.path().document_dir().ok();
-        let mut dialog = FileDialog::new()
-            .set_title("Save PDF Report")
-            .add_filter("PDF Document", &["pdf"]);
+        let ext = std::path::Path::new(&default_name)
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("pdf");
+
+        let mut dialog = FileDialog::new();
+        if ext == "png" {
+            dialog = dialog.set_title("Save Image").add_filter("PNG Image", &["png"]);
+        } else {
+            dialog = dialog.set_title("Save PDF Report").add_filter("PDF Document", &["pdf"]);
+        }
             
         if let Some(path) = doc_dir {
             dialog = dialog.set_directory(path);

@@ -1291,12 +1291,12 @@ option, datalist option {
   font-weight: 600;
   text-decoration: underline;
 }
-#uploader-preview {
+#uploader-preview, #emerald-uploader-preview {
   width: 100%;
   height: 100%;
   position: relative;
 }
-#uploader-preview img {
+#uploader-preview img, #emerald-uploader-preview img {
   width: 100%;
   height: 100%;
   object-fit: contain;

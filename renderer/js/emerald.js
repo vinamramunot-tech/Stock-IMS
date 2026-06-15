@@ -115,6 +115,110 @@ const EmeraldController = {
     if (btnSavePdf) {
       btnSavePdf.addEventListener('click', () => this.handleSavePdfClick());
     }
+
+    // Share Card Modal listeners
+    const incPrice = document.getElementById('share-include-price');
+    if (incPrice) {
+      incPrice.addEventListener('change', () => {
+        if (this.sharingEmerald) this.generateShareCard(this.sharingEmerald);
+      });
+    }
+    const incBrand = document.getElementById('share-include-brand');
+    if (incBrand) {
+      incBrand.addEventListener('change', () => {
+        if (this.sharingEmerald) this.generateShareCard(this.sharingEmerald);
+      });
+    }
+    const bgTheme = document.getElementById('share-bg-theme');
+    if (bgTheme) {
+      bgTheme.addEventListener('change', () => {
+        if (this.sharingEmerald) this.generateShareCard(this.sharingEmerald);
+      });
+    }
+    const btnExport = document.getElementById('btn-export-share-card');
+    if (btnExport) {
+      btnExport.addEventListener('click', () => {
+        if (this.sharingEmerald) this.exportShareCard(this.sharingEmerald);
+      });
+    }
+
+    this.initImageUploader();
+  },
+
+  initImageUploader() {
+    const dropzone = document.getElementById('emerald-image-dropzone');
+    const fileInput = document.getElementById('emerald-image-file');
+    const previewContainer = document.getElementById('emerald-uploader-preview');
+    const previewImg = document.getElementById('emerald-uploaded-img-el');
+    const promptContainer = document.getElementById('emerald-uploader-prompt');
+    const removeBtn = document.getElementById('btn-remove-emerald-image');
+
+    if (!dropzone || !fileInput || !previewContainer || !previewImg || !promptContainer || !removeBtn) return;
+
+    // Open file dialog when clicking dropzone, except when clicking remove button
+    dropzone.addEventListener('click', (e) => {
+      if (e.target !== removeBtn) {
+        fileInput.click();
+      }
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+      }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+      }, false);
+    });
+
+    dropzone.addEventListener('drop', async (e) => {
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        await handleImageFile(files[0]);
+      }
+    });
+
+    fileInput.addEventListener('change', async () => {
+      if (fileInput.files.length > 0) {
+        await handleImageFile(fileInput.files[0]);
+      }
+    });
+
+    removeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      fileInput.value = '';
+      previewImg.src = '';
+      previewContainer.classList.add('hidden');
+      promptContainer.classList.remove('hidden');
+      if (this.activeEmeraldState) {
+        this.activeEmeraldState.image = null;
+      }
+    });
+
+    const self = this;
+    async function handleImageFile(file) {
+      if (!file.type.startsWith('image/')) {
+        UI.showToast("Only image files are supported.", true);
+        return;
+      }
+      try {
+        const compressedBase64 = await UI.processImageUpload(file);
+        previewImg.src = compressedBase64;
+        promptContainer.classList.add('hidden');
+        previewContainer.classList.remove('hidden');
+        if (!self.activeEmeraldState) {
+          self.activeEmeraldState = { image: null };
+        }
+        self.activeEmeraldState.image = compressedBase64;
+      } catch (err) {
+        UI.showToast(err.message, true);
+      }
+    }
   },
 
   openAddModal() {
@@ -125,9 +229,19 @@ const EmeraldController = {
   },
 
   resetForm() {
-    this.activeEmeraldState = null;
+    this.activeEmeraldState = { image: null };
     document.getElementById('emerald-form').reset();
     document.getElementById('emerald-item-id').value = '';
+
+    // Clear image elements
+    const fileInput = document.getElementById('emerald-image-file');
+    if (fileInput) fileInput.value = '';
+    const previewImg = document.getElementById('emerald-uploaded-img-el');
+    if (previewImg) previewImg.src = '';
+    const previewContainer = document.getElementById('emerald-uploader-preview');
+    if (previewContainer) previewContainer.classList.add('hidden');
+    const promptContainer = document.getElementById('emerald-uploader-prompt');
+    if (promptContainer) promptContainer.classList.remove('hidden');
     
     // Clear all checked origins & price
     const checkBoxes = document.querySelectorAll('input[name="emerald-origin"]');
@@ -257,6 +371,13 @@ const EmeraldController = {
     document.getElementById('emerald-pair').value = emerald.pair || 'No';
     document.getElementById('emerald-group').value = emerald.group || '';
     document.getElementById('emerald-price').value = emerald.pricePerCarat || '';
+
+    // Load Image
+    if (emerald.image) {
+      document.getElementById('emerald-uploaded-img-el').src = emerald.image;
+      document.getElementById('emerald-uploader-prompt').classList.add('hidden');
+      document.getElementById('emerald-uploader-preview').classList.remove('hidden');
+    }
 
     // Load size breakdown rows
     if (emerald.sizes && emerald.sizes.length > 0) {
@@ -667,8 +788,37 @@ const EmeraldController = {
             </div>
           ` : '';
           
+          let imageColHtml = '';
+          if (item.image) {
+            imageColHtml = `
+              <div style="display: flex; flex-direction: column; gap: 8px; align-items: center; max-width: 150px; width: 100%;">
+                <img src="${item.image}" alt="Pudia #${item.color}" style="max-width: 150px; max-height: 120px; border-radius: 4px; border: 1px solid var(--border-light); object-fit: cover; cursor: pointer;" class="pudia-image-preview">
+                <button type="button" class="btn btn-secondary btn-small btn-share-image" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 5px 8px; font-size: 11px;" title="Share Image with overlay details">
+                  <svg viewBox="0 0 24 24" width="12" height="12">
+                    <path fill="currentColor" d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92c0-1.61-1.31-2.92-2.92-2.92z"/>
+                  </svg>
+                  Share Card
+                </button>
+              </div>
+            `;
+          } else {
+            imageColHtml = `
+              <div style="display: flex; flex-direction: column; gap: 8px; align-items: center; max-width: 150px; width: 100%;">
+                <div style="width: 150px; height: 100px; border-radius: 4px; border: 1px dashed var(--border-light); background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 11px; text-align: center; padding: 10px;">
+                  No Photo
+                </div>
+                <button type="button" class="btn btn-secondary btn-small btn-share-image" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 5px 8px; font-size: 11px;" title="Create share card with details">
+                  <svg viewBox="0 0 24 24" width="12" height="12">
+                    <path fill="currentColor" d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92c0-1.61-1.31-2.92-2.92-2.92z"/>
+                  </svg>
+                  Share Card
+                </button>
+              </div>
+            `;
+          }
+
           pudiaBody.innerHTML = `
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 20px; align-items: center;">
               <div>
                 <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Specifications</div>
                 <div style="font-size: 13px; line-height: 1.6;">
@@ -683,9 +833,12 @@ const EmeraldController = {
                 <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Sizes Breakdown</div>
                 ${sizesHtml || `<div style="font-size: 13px;"><strong>Weight:</strong> ${totalWeight} carats</div>`}
               </div>
+              <div style="display: flex; justify-content: center; align-items: center;">
+                ${imageColHtml}
+              </div>
             </div>
             <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px; border-top: 1px solid var(--border-light); padding-top: 12px;">
-              <button type="button" class="btn btn-secondary btn-small btn-edit" title="Edit details">Edit</button>
+              <button type="button" class="btn btn-secondary btn-small btn-edit" title="Edit details">Edit Details</button>
               <button type="button" class="btn btn-danger btn-small btn-delete" title="Delete emerald">Delete</button>
             </div>
           `;
@@ -701,6 +854,22 @@ const EmeraldController = {
             ev.stopPropagation();
             this.handleDeleteEmerald(item);
           });
+
+          const btnShare = pudiaBody.querySelector('.btn-share-image');
+          if (btnShare) {
+            btnShare.addEventListener('click', (ev) => {
+              ev.stopPropagation();
+              this.openShareModal(item);
+            });
+          }
+
+          const imgPreview = pudiaBody.querySelector('.pudia-image-preview');
+          if (imgPreview) {
+            imgPreview.addEventListener('click', (ev) => {
+              ev.stopPropagation();
+              this.openShareModal(item);
+            });
+          }
           
           pudiaBlock.appendChild(pudiaBody);
           
@@ -784,6 +953,8 @@ const EmeraldController = {
     // Derive shapes list from sizes for backward-compat searches
     const shapes = this.getShapesFromSizes(sizes);
 
+    const image = this.activeEmeraldState ? this.activeEmeraldState.image : null;
+
     const savedEmerald = {
       id,
       sizes,
@@ -795,6 +966,7 @@ const EmeraldController = {
       pair,
       group,
       origins,
+      image,
       createdAt: isEdit ? this.activeEmeraldState.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -1331,6 +1503,398 @@ const EmeraldController = {
       UI.closeModal('modal-print-preview');
     } catch (err) {
       UI.showToast("Failed to save PDF: " + err.message, true);
+    }
+  },
+
+  sharingEmerald: null,
+  activeShareCanvas: null,
+
+  openShareModal(emerald) {
+    this.sharingEmerald = emerald;
+    this.shareCoords = { brandX: null, brandY: null, boxX: null, boxY: null };
+    this.dragState = { target: null, offsetX: 0, offsetY: 0 };
+    
+    // Clear / setup bg theme options based on whether image is available
+    const bgThemeGroup = document.getElementById('share-bg-theme-group');
+    if (bgThemeGroup) {
+      if (emerald.image) {
+        bgThemeGroup.classList.add('hidden');
+      } else {
+        bgThemeGroup.classList.remove('hidden');
+      }
+    }
+    
+    // Set default checkbox check states
+    document.getElementById('share-include-price').checked = true;
+    document.getElementById('share-include-brand').checked = true;
+    
+    UI.openModal('modal-share-emerald');
+    this.generateShareCard(emerald);
+  },
+
+  generateShareCard(emerald) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 800;
+    canvas.height = 800;
+
+    const includePrice = document.getElementById('share-include-price').checked;
+    const includeBrand = document.getElementById('share-include-brand').checked;
+    const theme = document.getElementById('share-bg-theme').value;
+
+    const self = this;
+    
+    // Initialize coordinate states if null
+    if (!this.shareCoords) {
+      this.shareCoords = { brandX: null, brandY: null, boxX: null, boxY: null };
+    }
+    if (!this.dragState) {
+      this.dragState = { target: null, offsetX: 0, offsetY: 0 };
+    }
+
+    // Load image if present
+    const renderPromise = new Promise((resolve) => {
+      if (emerald.image) {
+        if (self.sharingImageObj) {
+          canvas.width = self.sharingImageObj.width;
+          canvas.height = self.sharingImageObj.height;
+          resolve();
+        } else {
+          const img = new Image();
+          img.onload = () => {
+            self.sharingImageObj = img;
+            canvas.width = img.width;
+            canvas.height = img.height;
+            resolve();
+          };
+          img.src = emerald.image;
+        }
+      } else {
+        resolve();
+      }
+    });
+
+    renderPromise.then(() => {
+      const scale = emerald.image ? canvas.width / 800 : 1;
+      const boxWidth = 160 * scale;
+      const boxHeight = (includePrice ? 80 : 55) * scale;
+
+      const drawAll = () => {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 1. Draw Background
+        if (emerald.image && self.sharingImageObj) {
+          ctx.drawImage(self.sharingImageObj, 0, 0);
+        } else {
+          // Draw solid premium background gradient
+          let grad = ctx.createLinearGradient(0, 0, 800, 800);
+          if (theme === 'emerald') {
+            grad.addColorStop(0, '#042b14');
+            grad.addColorStop(1, '#011208');
+          } else if (theme === 'darkgold') {
+            grad.addColorStop(0, '#2d1f0a');
+            grad.addColorStop(1, '#0e0a03');
+          } else if (theme === 'navy') {
+            grad.addColorStop(0, '#0a1e36');
+            grad.addColorStop(1, '#020b14');
+          } else {
+            grad.addColorStop(0, '#1f1f1f');
+            grad.addColorStop(1, '#080808');
+          }
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, 800, 800);
+          
+          // Draw dual-border gold frame
+          ctx.strokeStyle = 'rgba(212, 175, 55, 0.45)';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(30, 30, 740, 740);
+          ctx.strokeStyle = 'rgba(212, 175, 55, 0.18)';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(40, 40, 720, 720);
+        }
+
+        // 2. Initialize default coordinates if null
+        if (self.shareCoords.brandX === null) {
+          self.shareCoords.brandX = canvas.width - 40 * scale;
+          self.shareCoords.brandY = 48 * scale;
+        }
+        if (self.shareCoords.boxX === null) {
+          self.shareCoords.boxX = canvas.width - 30 * scale - boxWidth;
+          self.shareCoords.boxY = canvas.height - 30 * scale - boxHeight;
+        }
+
+        // Collect detail fields
+        const totalWeight = self.getEmeraldWeight(emerald);
+        const totalPieces = self.getEmeraldPieces(emerald);
+        const shapes = self.getEmeraldShapes(emerald);
+        const shapesDisplay = shapes.length > 0 ? shapes.join(', ') : 'Unknown';
+        const originsStr = (emerald.origins || []).join(', ');
+        const pricePerCaratInr = emerald.pricePerCarat || 0;
+        const totalValueInr = totalWeight * pricePerCaratInr;
+
+        // 3. Draw Overlays
+        if (emerald.image) {
+          // --- PHOTO OVERLAY RENDER ---
+          // Brand Header
+          if (includeBrand) {
+            ctx.fillStyle = '#000000';
+            ctx.font = `bold ${Math.round(26 * scale)}px Georgia, serif`;
+            ctx.textAlign = 'right';
+            ctx.fillText('MAVA GEMS', self.shareCoords.brandX, self.shareCoords.brandY);
+          }
+
+          // Draw white sharp box with a thin black border
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(self.shareCoords.boxX, self.shareCoords.boxY, boxWidth, boxHeight);
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = Math.max(1, Math.round(1 * scale));
+          ctx.strokeRect(self.shareCoords.boxX, self.shareCoords.boxY, boxWidth, boxHeight);
+
+          // Write labels and values in sharp black text
+          ctx.fillStyle = '#000000';
+          ctx.font = `bold ${Math.round(12 * scale)}px system-ui, -apple-system, sans-serif`;
+          ctx.textAlign = 'left';
+          
+          ctx.fillText(`Weight: ${totalWeight.toFixed(2)} cts`, self.shareCoords.boxX + 10 * scale, self.shareCoords.boxY + 22 * scale);
+          ctx.fillText(`Pcs: ${totalPieces}`, self.shareCoords.boxX + 10 * scale, self.shareCoords.boxY + 40 * scale);
+
+          if (includePrice) {
+            ctx.fillText(`Price: ₹${pricePerCaratInr.toLocaleString()}/ct`, self.shareCoords.boxX + 10 * scale, self.shareCoords.boxY + 58 * scale);
+          }
+        } else {
+          // --- GRADIENT LAYOUT RENDER (NO PHOTO) ---
+          // Header Branding
+          if (includeBrand) {
+            ctx.fillStyle = '#D4AF37';
+            ctx.font = 'bold 44px Georgia, serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('MAVA GEMS', 400, 130);
+          } else {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold 26px Georgia, serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('EMERALD STOCK CARD', 400, 130);
+          }
+          
+          // Pudia Number Badge
+          ctx.fillStyle = '#D4AF37';
+          ctx.font = 'bold 28px Georgia, serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(`Pudia Number: #${emerald.color || 'N/A'}`, 400, 230);
+          
+          // Decorative divider lines
+          ctx.strokeStyle = 'rgba(212, 175, 55, 0.2)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(150, 270);
+          ctx.lineTo(650, 270);
+          ctx.stroke();
+          
+          // Detail Lines
+          ctx.textAlign = 'left';
+          const startY = 320;
+          const spacingY = 50;
+          
+          const specs = [
+            { label: 'Shape / Cut:', value: shapesDisplay },
+            { label: 'Lustre Grade:', value: emerald.lustreGrade || 'N/A' },
+            { label: 'Origin Source:', value: originsStr || 'None' },
+            { label: 'Group / Lot:', value: emerald.group || 'None' },
+            { label: 'Total Weight:', value: `${totalWeight.toFixed(2)} carats` },
+            { label: 'Total Pieces:', value: `${totalPieces} Pcs` }
+          ];
+          
+          specs.forEach((s, idx) => {
+            const y = startY + idx * spacingY;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.font = '16px sans-serif';
+            ctx.fillText(s.label, 180, y);
+            
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold 18px sans-serif';
+            ctx.fillText(s.value, 330, y);
+          });
+          
+          // Draw Valuation
+          if (includePrice) {
+            ctx.strokeStyle = 'rgba(212, 175, 55, 0.3)';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
+            ctx.lineWidth = 1;
+            
+            ctx.fillRect(150, 620, 500, 100);
+            ctx.strokeRect(150, 620, 500, 100);
+            
+            ctx.textAlign = 'center';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.font = '12px sans-serif';
+            ctx.fillText(`VALUED AT ₹${pricePerCaratInr.toLocaleString()}/CT`, 400, 650);
+            
+            ctx.fillStyle = '#D4AF37';
+            ctx.font = 'bold 32px Georgia, serif';
+            ctx.fillText(`₹${totalValueInr.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 400, 695);
+          }
+        }
+      };
+
+      // Initial draw
+      drawAll();
+
+      // Drag and drop event handling
+      const getEventCoords = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        let clientX, clientY;
+        if (e.touches && e.touches.length > 0) {
+          clientX = e.touches[0].clientX;
+          clientY = e.touches[0].clientY;
+        } else {
+          clientX = e.clientX;
+          clientY = e.clientY;
+        }
+        return {
+          screenX: clientX - rect.left,
+          screenY: clientY - rect.top
+        };
+      };
+
+      const handleStart = (e) => {
+        const { screenX, screenY } = getEventCoords(e);
+        const scaleX = canvas.width / canvas.clientWidth;
+        const scaleY = canvas.height / canvas.clientHeight;
+        const x = screenX * scaleX;
+        const y = screenY * scaleY;
+
+        // Check Brand Header
+        if (includeBrand && self.shareCoords.brandX !== null) {
+          const ctx2d = canvas.getContext('2d');
+          ctx2d.font = `bold ${Math.round(26 * scale)}px Georgia, serif`;
+          const brandWidth = ctx2d.measureText('MAVA GEMS').width;
+          const brandHeight = 26 * scale;
+
+          if (x >= self.shareCoords.brandX - brandWidth && x <= self.shareCoords.brandX &&
+              y >= self.shareCoords.brandY - brandHeight && y <= self.shareCoords.brandY + 10 * scale) {
+            self.dragState = {
+              target: 'brand',
+              offsetX: x - self.shareCoords.brandX,
+              offsetY: y - self.shareCoords.brandY
+            };
+            e.preventDefault();
+            return;
+          }
+        }
+
+        // Check Details Box
+        if (self.shareCoords.boxX !== null) {
+          if (x >= self.shareCoords.boxX && x <= self.shareCoords.boxX + boxWidth &&
+              y >= self.shareCoords.boxY && y <= self.shareCoords.boxY + boxHeight) {
+            self.dragState = {
+              target: 'box',
+              offsetX: x - self.shareCoords.boxX,
+              offsetY: y - self.shareCoords.boxY
+            };
+            e.preventDefault();
+            return;
+          }
+        }
+      };
+
+      const handleMove = (e) => {
+        const { screenX, screenY } = getEventCoords(e);
+        const scaleX = canvas.width / canvas.clientWidth;
+        const scaleY = canvas.height / canvas.clientHeight;
+        const x = screenX * scaleX;
+        const y = screenY * scaleY;
+
+        if (self.dragState && self.dragState.target) {
+          if (self.dragState.target === 'brand') {
+            self.shareCoords.brandX = Math.max(120 * scale, Math.min(canvas.width, x - self.dragState.offsetX));
+            self.shareCoords.brandY = Math.max(30 * scale, Math.min(canvas.height - 10 * scale, y - self.dragState.offsetY));
+          } else if (self.dragState.target === 'box') {
+            self.shareCoords.boxX = Math.max(0, Math.min(canvas.width - boxWidth, x - self.dragState.offsetX));
+            self.shareCoords.boxY = Math.max(0, Math.min(canvas.height - boxHeight, y - self.dragState.offsetY));
+          }
+          drawAll();
+          e.preventDefault();
+        } else {
+          // Hover state styling
+          let hover = false;
+          if (includeBrand && self.shareCoords.brandX !== null) {
+            const ctx2d = canvas.getContext('2d');
+            ctx2d.font = `bold ${Math.round(26 * scale)}px Georgia, serif`;
+            const brandWidth = ctx2d.measureText('MAVA GEMS').width;
+            const brandHeight = 26 * scale;
+            if (x >= self.shareCoords.brandX - brandWidth && x <= self.shareCoords.brandX &&
+                y >= self.shareCoords.brandY - brandHeight && y <= self.shareCoords.brandY + 10 * scale) {
+              hover = true;
+            }
+          }
+          if (!hover && self.shareCoords.boxX !== null) {
+            if (x >= self.shareCoords.boxX && x <= self.shareCoords.boxX + boxWidth &&
+                y >= self.shareCoords.boxY && y <= self.shareCoords.boxY + boxHeight) {
+              hover = true;
+            }
+          }
+          canvas.style.cursor = hover ? 'move' : 'default';
+        }
+      };
+
+      const handleEnd = () => {
+        if (self.dragState) {
+          self.dragState.target = null;
+        }
+      };
+
+      canvas.addEventListener('mousedown', handleStart);
+      canvas.addEventListener('mousemove', handleMove);
+      canvas.addEventListener('mouseup', handleEnd);
+      canvas.addEventListener('mouseleave', handleEnd);
+
+      canvas.addEventListener('touchstart', handleStart, { passive: false });
+      canvas.addEventListener('touchmove', handleMove, { passive: false });
+      canvas.addEventListener('touchend', handleEnd);
+
+      const canvasContainer = document.getElementById('share-card-canvas-container');
+      if (canvasContainer) {
+        canvasContainer.innerHTML = '';
+        canvas.style.cssText = 'max-width: 100%; display: block; height: auto; border-radius: 4px; user-select: none;';
+        canvasContainer.appendChild(canvas);
+      }
+      
+      self.activeShareCanvas = canvas;
+    });
+  },
+
+  async exportShareCard(emerald) {
+    if (!this.activeShareCanvas) {
+      UI.showToast("No active share card preview found.", true);
+      return;
+    }
+    
+    try {
+      const gradePart = String(emerald.lustreGrade || 'Grade').trim().replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
+      const pudiaPart = String(emerald.color || 'Pudia').trim().replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
+      const defaultName = `${gradePart}_${pudiaPart}.png`;
+      const base64Data = this.activeShareCanvas.toDataURL('image/png').split(',')[1];
+      
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile) {
+        // Fallback for mobile browser: standard anchor trigger
+        const link = document.createElement('a');
+        link.download = defaultName;
+        link.href = this.activeShareCanvas.toDataURL('image/png');
+        link.click();
+        UI.showToast("Export trigger complete!");
+      } else {
+        // Desktop native save dialog
+        const chosenPath = await window.electronAPI.saveFileDialog(defaultName);
+        if (!chosenPath) return; // User cancelled
+        
+        await window.electronAPI.savePdfFile(base64Data, chosenPath);
+        UI.showToast("Share card exported successfully!");
+        UI.closeModal('modal-share-emerald');
+      }
+    } catch (err) {
+      console.error(err);
+      UI.showToast("Export failed: " + err.message, true);
     }
   }
 };

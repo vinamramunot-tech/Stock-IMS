@@ -1,0 +1,20 @@
+[[permission]]
+identifier = "allow-db-commands"
+description = "Allows all custom database and file dialog operations for Mava Gems"
+
+[permission.commands]
+allow = [
+  "get_last_db_path",
+  "set_last_db_path",
+  "create_db_dialog",
+  "open_db_dialog",
+  "select_directory",
+  "export_backup_dialog",
+  "import_backup_dialog",
+  "read_vault",
+  "write_vault",
+  "copy_file",
+  "import_db_file",
+  "save_file_dialog",
+  "save_pdf_file"
+]
