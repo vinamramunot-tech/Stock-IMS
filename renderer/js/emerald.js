@@ -1479,34 +1479,84 @@ const EmeraldController = {
     UI.closeModal('modal-print-emerald');
     UI.openModal('modal-print-preview');
   },
-
   activePdfDocument: null,
 
   generatePDF(filtered) {
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-    // Helper to draw headers on any page
-    const drawHeader = () => {
-      // Title
-      doc.setFont("georgia", "bold");
-      doc.setFontSize(18);
-      doc.text("MAVA GEMS - EMERALD STOCK REPORT", 14, 20);
+    const PAGE_W = 210;
+    const MARGIN = 12;
+    const TABLE_W = PAGE_W - MARGIN * 2;
+    const PAGE_H = 297;
+    const FOOTER_H = 18;
+    const SAFE_BOTTOM = PAGE_H - FOOTER_H;
 
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 27);
-      doc.text(`Total Pudias: ${filtered.length}`, 14, 32);
+    // Column layout (matches screenshot: # | Shape | MM | Pcs | cts | @/Ct | Grade)
+    const COL = {
+      num:   { x: MARGIN,      w: 14 },
+      shape: { x: MARGIN + 14, w: 30 },
+      mm:    { x: MARGIN + 44, w: 28 },
+      pcs:   { x: MARGIN + 72, w: 18 },
+      cts:   { x: MARGIN + 90, w: 22 },
+      rate:  { x: MARGIN + 112, w: 30 },
+      grade: { x: MARGIN + 142, w: TABLE_W - 142 },
+    };
 
-      // Separator line
-      doc.setDrawColor(0);
-      doc.setLineWidth(0.3);
-      doc.line(14, 35, 196, 35);
+    const ROW_H  = 6.5;
+    const HEAD_H = 6;
 
-      // Table Header (excluding Group as it is now a grouping header)
-      doc.setFont("helvetica", "bold");
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    const drawPageHeader = () => {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.text('MAVA GEMS \u2014 EMERALD STOCK REPORT', MARGIN, 14);
+      doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
-      doc.text("Pudia #", 14, 41);
+      doc.text(`Generated: ${new Date().toLocaleString()}   |   Total Pudias: ${filtered.length}`, MARGIN, 20);
+      doc.setDrawColor(0);
+      doc.setLineWidth(0.4);
+      doc.line(MARGIN, 22, PAGE_W - MARGIN, 22);
+    };
+
+    const drawColHeaders = (y) => {
+      doc.setFillColor(230, 230, 230);
+      doc.rect(MARGIN, y, TABLE_W, HEAD_H, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(0);
+      const cy = y + HEAD_H - 1.8;
+      doc.text('#',     COL.num.x + 1,   cy);
+      doc.text('Shape', COL.shape.x + 1, cy);
+      doc.text('MM',    COL.mm.x + 1,    cy);
+      doc.text('Pcs',   COL.pcs.x + COL.pcs.w - 2,   cy, { align: 'right' });
+      doc.text('cts',   COL.cts.x + COL.cts.w - 2,   cy, { align: 'right' });
+      doc.text('@/Ct',  COL.rate.x + COL.rate.w - 2,  cy, { align: 'right' });
+      doc.text('Grade', COL.grade.x + 1, cy);
+    };
+
+    const drawDataRow = (y, rowData, shade) => {
+      if (shade) {
+        doc.setFillColor(248, 248, 248);
+        doc.rect(MARGIN, y, TABLE_W, ROW_H, 'F');
+      }
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(0);
+      const ty = y + ROW_H - 2;
+      if (rowData.pudiaNum !== null) doc.text(String(rowData.pudiaNum), COL.num.x + 1, ty);
+      if (rowData.shape   !== null) doc.text(String(rowData.shape || ''), COL.shape.x + 1, ty);
+      if (rowData.mm      !== null) doc.text(String(rowData.mm || ''), COL.mm.x + 1, ty);
+      if (rowData.pcs     !== null) doc.text(String(rowData.pcs), COL.pcs.x + COL.pcs.w - 2, ty, { align: 'right' });
+      if (rowData.cts     !== null) doc.text(rowData.cts, COL.cts.x + COL.cts.w - 2, ty, { align: 'right' });
+      if (rowData.rate    !== null) doc.text(rowData.rate, COL.rate.x + COL.rate.w - 2, ty, { align: 'right' });
+      if (rowData.grade   !== null) doc.text(String(rowData.grade || ''), COL.grade.x + 1, ty);
+    };
+
+    const drawTableBorder = (startY, endY) => {
+      doc.setDrawColor(100);
+      doc.setLineWidth(0.3);
       doc.text("Grade", 28, 41);
       doc.text("Origin", 70, 41);
       doc.text("Pcs", 124, 41);
