@@ -1,6 +1,6 @@
 {
   "name": "mava-gems-stock",
-  "version": "7.1.0",
+  "version": "7.1.1",
   "description": "Premium, secure desktop stock management for jewelry inventory.",
   "scripts": {
     "predev": "node scripts/sync-version.js",
