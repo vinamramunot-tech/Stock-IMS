@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Mava Gems",
-  "version": "6.1.2",
+  "version": "7.0.0",
   "identifier": "com.mavagems.stock",
   "build": {
     "frontendDist": "../renderer",
