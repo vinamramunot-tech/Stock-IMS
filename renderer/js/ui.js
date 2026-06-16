@@ -484,8 +484,8 @@ const UI = {
     document.getElementById('jewelry-form').reset();
     document.getElementById('item-wastage').value = '15.00';
     document.getElementById('item-profit-pct').value = '40.0';
-    document.getElementById('metals-list-container').innerHTML = '';
-    document.getElementById('stones-list-container').innerHTML = '';
+    document.getElementById('metals-list-container').replaceChildren();
+    document.getElementById('stones-list-container').replaceChildren();
     
     // Reset image uploader display
     document.getElementById('item-image-file').value = '';
@@ -501,7 +501,7 @@ const UI = {
     this.updateSkuSuggestion();
 
     const badgeEl = document.getElementById('jewelry-modal-status-badge');
-    if (badgeEl) badgeEl.innerHTML = '';
+    if (badgeEl) badgeEl.replaceChildren();
   },
 
   /**
@@ -525,7 +525,10 @@ const UI = {
         statusClass = 'sold';
         statusLabel = 'Sold';
       }
-      badgeEl.innerHTML = `<span class="badge-status ${statusClass}">${statusLabel}</span>`;
+      const span = document.createElement('span');
+      span.className = `badge-status ${statusClass}`;
+      span.textContent = statusLabel;
+      badgeEl.replaceChildren(span);
     }
 
     document.getElementById('item-name').value = item.name || '';
@@ -613,18 +616,34 @@ const UI = {
 
     const skuInput = document.getElementById('item-sku');
     if (skuInput) {
+      helperEl.replaceChildren();
       if (isEdit) {
-        helperEl.innerHTML = `Next suggestion for new ${category}s: <span style="color: var(--text-gold); font-weight: 600;">${suggestedSku}</span> (<span>${count} ${category}${count === 1 ? '' : 's'} exist</span>)`;
+        helperEl.appendChild(document.createTextNode(`Next suggestion for new ${category}s: `));
+        const skuSpan = document.createElement('span');
+        skuSpan.style.color = 'var(--text-gold)';
+        skuSpan.style.fontWeight = '600';
+        skuSpan.textContent = suggestedSku;
+        helperEl.appendChild(skuSpan);
+        const countText = ` (${count} ${category}${count === 1 ? '' : 's'} exist)`;
+        helperEl.appendChild(document.createTextNode(countText));
       } else {
-        helperEl.innerHTML = `Suggested next SKU: <span id="sku-suggestion-value" style="color: var(--text-gold); font-weight: 600; cursor: pointer; text-decoration: underline;" title="Click to auto-fill">${suggestedSku}</span> (<span>${count} ${category}${count === 1 ? '' : 's'} exist</span>) — Click to apply`;
+        helperEl.appendChild(document.createTextNode('Suggested next SKU: '));
+        const skuSpan = document.createElement('span');
+        skuSpan.id = 'sku-suggestion-value';
+        skuSpan.style.color = 'var(--text-gold)';
+        skuSpan.style.fontWeight = '600';
+        skuSpan.style.cursor = 'pointer';
+        skuSpan.style.textDecoration = 'underline';
+        skuSpan.title = 'Click to auto-fill';
+        skuSpan.textContent = suggestedSku;
+        helperEl.appendChild(skuSpan);
+        const countText = ` (${count} ${category}${count === 1 ? '' : 's'} exist) — Click to apply`;
+        helperEl.appendChild(document.createTextNode(countText));
         
-        const suggestionValueEl = document.getElementById('sku-suggestion-value');
-        if (suggestionValueEl) {
-          suggestionValueEl.addEventListener('click', () => {
-            skuInput.value = suggestedSku;
-            this.showToast(`Applied SKU: ${suggestedSku}`);
-          });
-        }
+        skuSpan.addEventListener('click', () => {
+          skuInput.value = suggestedSku;
+          this.showToast(`Applied SKU: ${suggestedSku}`);
+        });
       }
     }
   }
