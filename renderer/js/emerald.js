@@ -1506,68 +1506,73 @@ const EmeraldController = {
     const ROW_H  = 6.5;
     const HEAD_H = 6;
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    let pageNum = 1;
 
     const drawPageHeader = () => {
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
+      doc.setFontSize(13);
+      doc.setTextColor(0);
       doc.text('MAVA GEMS \u2014 EMERALD STOCK REPORT', MARGIN, 14);
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.text(`Generated: ${new Date().toLocaleString()}   |   Total Pudias: ${filtered.length}`, MARGIN, 20);
-      doc.setDrawColor(0);
-      doc.setLineWidth(0.4);
-      doc.line(MARGIN, 22, PAGE_W - MARGIN, 22);
-    };
-
-    const drawColHeaders = (y) => {
-      doc.setFillColor(230, 230, 230);
-      doc.rect(MARGIN, y, TABLE_W, HEAD_H, 'F');
-      doc.setFont('helvetica', 'bold');
       doc.setFontSize(7.5);
-      doc.setTextColor(0);
-      const cy = y + HEAD_H - 1.8;
-      doc.text('#',     COL.num.x + 1,   cy);
-      doc.text('Shape', COL.shape.x + 1, cy);
-      doc.text('MM',    COL.mm.x + 1,    cy);
-      doc.text('Pcs',   COL.pcs.x + COL.pcs.w - 2,   cy, { align: 'right' });
-      doc.text('cts',   COL.cts.x + COL.cts.w - 2,   cy, { align: 'right' });
-      doc.text('@/Ct',  COL.rate.x + COL.rate.w - 2,  cy, { align: 'right' });
-      doc.text('Grade', COL.grade.x + 1, cy);
+      doc.setTextColor(100);
+      doc.text(`Generated: ${new Date().toLocaleString()}   |   Total Pudias: ${filtered.length}`, MARGIN, 19);
+      doc.text(`Page ${pageNum}`, PAGE_W - MARGIN, 19, { align: 'right' });
+      doc.setDrawColor(180);
+      doc.setLineWidth(0.3);
+      doc.line(MARGIN, 21, PAGE_W - MARGIN, 21);
     };
 
-    const drawDataRow = (y, rowData, shade) => {
-      if (shade) {
-        doc.setFillColor(248, 248, 248);
-        doc.rect(MARGIN, y, TABLE_W, ROW_H, 'F');
-      }
-      doc.setFont('helvetica', 'normal');
+    const drawColHeaders = (headerY) => {
+      doc.setFillColor(235, 235, 235);
+      doc.rect(MARGIN, headerY, TABLE_W, HEAD_H, 'F');
+      
+      // Draw header borders
+      doc.setDrawColor(120);
+      doc.setLineWidth(0.3);
+      doc.line(MARGIN, headerY, PAGE_W - MARGIN, headerY);
+      doc.line(MARGIN, headerY + HEAD_H, PAGE_W - MARGIN, headerY + HEAD_H);
+      
+      // Vertical borders inside header
+      doc.line(COL.num.x, headerY, COL.num.x, headerY + HEAD_H);
+      doc.line(COL.shape.x, headerY, COL.shape.x, headerY + HEAD_H);
+      doc.line(COL.mm.x, headerY, COL.mm.x, headerY + HEAD_H);
+      doc.line(COL.pcs.x, headerY, COL.pcs.x, headerY + HEAD_H);
+      doc.line(COL.cts.x, headerY, COL.cts.x, headerY + HEAD_H);
+      doc.line(COL.rate.x, headerY, COL.rate.x, headerY + HEAD_H);
+      doc.line(COL.grade.x, headerY, COL.grade.x, headerY + HEAD_H);
+      doc.line(PAGE_W - MARGIN, headerY, PAGE_W - MARGIN, headerY + HEAD_H);
+
+      doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
       doc.setTextColor(0);
-      const ty = y + ROW_H - 2;
-      if (rowData.pudiaNum !== null) doc.text(String(rowData.pudiaNum), COL.num.x + 1, ty);
-      if (rowData.shape   !== null) doc.text(String(rowData.shape || ''), COL.shape.x + 1, ty);
-      if (rowData.mm      !== null) doc.text(String(rowData.mm || ''), COL.mm.x + 1, ty);
-      if (rowData.pcs     !== null) doc.text(String(rowData.pcs), COL.pcs.x + COL.pcs.w - 2, ty, { align: 'right' });
-      if (rowData.cts     !== null) doc.text(rowData.cts, COL.cts.x + COL.cts.w - 2, ty, { align: 'right' });
-      if (rowData.rate    !== null) doc.text(rowData.rate, COL.rate.x + COL.rate.w - 2, ty, { align: 'right' });
-      if (rowData.grade   !== null) doc.text(String(rowData.grade || ''), COL.grade.x + 1, ty);
+      const textY = headerY + HEAD_H - 1.8;
+      
+      // Column texts
+      doc.text('#', COL.num.x + COL.num.w/2, textY, { align: 'center' });
+      doc.text('Shape', COL.shape.x + 2, textY);
+      doc.text('MM', COL.mm.x + 2, textY);
+      doc.text('Pcs', COL.pcs.x + COL.pcs.w - 2, textY, { align: 'right' });
+      doc.text('cts', COL.cts.x + COL.cts.w - 2, textY, { align: 'right' });
+      doc.text('@/Ct', COL.rate.x + COL.rate.w/2, textY, { align: 'center' });
+      doc.text('Grade', COL.grade.x + COL.grade.w/2, textY, { align: 'center' });
     };
 
-    const drawTableBorder = (startY, endY) => {
-      doc.setDrawColor(100);
-      doc.setLineWidth(0.3);
-      doc.text("Grade", 28, 41);
-      doc.text("Origin", 70, 41);
-      doc.text("Pcs", 124, 41);
-      doc.text("Weight", 138, 41);
-      doc.text("Rate/ct", 156, 41);
-      doc.text("Total Value (INR)", 174, 41);
+    drawPageHeader();
+    drawColHeaders(23);
+    let y = 23 + HEAD_H; // 29
 
-      doc.line(14, 44, 196, 44);
+    const checkPageBreak = (neededHeight) => {
+      if (y + neededHeight > SAFE_BOTTOM) {
+        doc.addPage();
+        pageNum++;
+        drawPageHeader();
+        drawColHeaders(23);
+        y = 23 + HEAD_H;
+        return true;
+      }
+      return false;
     };
-
-    drawHeader();
 
     // Group the items by group name
     const groups = {};
@@ -1579,91 +1584,253 @@ const EmeraldController = {
       groups[g].push(item);
     });
 
-    let y = 50;
     let grandTotalWeight = 0;
     let grandTotalValue = 0;
     let grandTotalPieces = 0;
 
-    // Helper to check page break and handle headers
-    const checkPageBreak = (neededHeight) => {
-      if (y + neededHeight > 280) {
-        doc.addPage();
-        y = 50;
-        drawHeader();
-        doc.setFont("helvetica", "normal");
-      }
-    };
-
     Object.keys(groups).forEach(groupName => {
       const items = groups[groupName];
       
-      // Calculate group totals
       let groupPieces = 0;
       let groupWeight = 0;
       let groupValue = 0;
 
-      // Ensure space for group header and at least one item row
+      // Group header banner
       checkPageBreak(15);
-
-      // Print Group Header Banner
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
       doc.setFillColor(245, 245, 245);
-      doc.rect(14, y - 4, 182, 6, "F");
-      doc.text(`GROUP: ${groupName.toUpperCase()}`, 16, y);
+      doc.rect(MARGIN, y, TABLE_W, 6, 'F');
+      doc.setDrawColor(180);
+      doc.setLineWidth(0.3);
+      doc.rect(MARGIN, y, TABLE_W, 6);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(50);
+      doc.text(`GROUP: ${groupName.toUpperCase()}`, MARGIN + 2, y + 4.2);
       y += 8;
 
       items.forEach(item => {
-        checkPageBreak(8);
+        // Build flat sizes list for this pudia
+        const sizes = [];
+        if (item.sizes && item.sizes.length > 0) {
+          const shapesOrder = [];
+          const shapeGroups = {};
+          item.sizes.forEach(s => {
+            const sh = s.shape || 'N/A';
+            if (!shapeGroups[sh]) {
+              shapeGroups[sh] = [];
+              shapesOrder.push(sh);
+            }
+            shapeGroups[sh].push(s);
+          });
 
-        const weight = this.getEmeraldWeight(item);
-        const pieces = this.getEmeraldPieces(item);
-        const val = weight * (item.pricePerCarat || 0);
-        const grade = item.lustreGrade || 'N/A';
-        const origins = (item.origins || []).join(', ');
+          shapesOrder.forEach(sh => {
+            shapeGroups[sh].forEach(s => {
+              sizes.push({
+                shape: sh,
+                mm: s.mm || 'N/A',
+                pieces: Number(s.pieces || 0),
+                weight: Number(s.weight || 0)
+              });
+            });
+          });
+        } else {
+          sizes.push({
+            shape: 'N/A',
+            mm: 'N/A',
+            pieces: this.getEmeraldPieces(item),
+            weight: this.getEmeraldWeight(item)
+          });
+        }
 
-        groupPieces += pieces;
-        groupWeight += weight;
-        groupValue += val;
+        const numRows = sizes.length;
+        const neededHeight = (numRows + 1) * ROW_H + 2; // Rows + Total Row + spacing
 
-        grandTotalPieces += pieces;
-        grandTotalWeight += weight;
-        grandTotalValue += val;
+        checkPageBreak(neededHeight);
 
-        doc.setFont("helvetica", "bold");
+        if (y > 23 + HEAD_H + 0.1) {
+          y += 2;
+        }
+
+        const startY = y;
+        const totalRowY = startY + numRows * ROW_H;
+
+        // Draw horizontal grid lines inside breakdown rows
+        for (let i = 0; i < numRows; i++) {
+          const s = sizes[i];
+          const rowY = startY + i * ROW_H;
+
+          // Inside lines
+          if (i > 0) {
+            doc.setDrawColor(200);
+            doc.setLineWidth(0.2);
+            const prevS = sizes[i - 1];
+            if (s.shape !== prevS.shape) {
+              // Line across Shape, MM, Pcs, cts
+              doc.line(COL.shape.x, rowY, COL.cts.x + COL.cts.w, rowY);
+            } else {
+              // Line across MM, Pcs, cts only
+              doc.line(COL.mm.x, rowY, COL.cts.x + COL.cts.w, rowY);
+            }
+          }
+
+          // Draw text for MM, Pcs, cts
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8);
+          doc.setTextColor(0);
+          const textY = rowY + ROW_H - 2.2;
+
+          doc.text(String(s.mm), COL.mm.x + 2, textY);
+          doc.text(String(s.pieces), COL.pcs.x + COL.pcs.w - 2, textY, { align: 'right' });
+          doc.text(Number(s.weight).toFixed(2), COL.cts.x + COL.cts.w - 2, textY, { align: 'right' });
+        }
+
+        // Draw spanned Pudia Number (Column 1)
+        const pudiaLabel = `#${item.color || 'N/A'}`;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.text(pudiaLabel, COL.num.x + COL.num.w / 2, startY + (numRows * ROW_H) / 2 + 1, { align: 'center' });
+
+        // Group shape segments for Column 2 spans
+        const shapeSegments = [];
+        let currentShape = null;
+        let segmentStart = 0;
+        for (let r = 0; r <= numRows; r++) {
+          const sh = r < numRows ? sizes[r].shape : null;
+          if (sh !== currentShape) {
+            if (currentShape !== null) {
+              shapeSegments.push({
+                shape: currentShape,
+                startRow: segmentStart,
+                rowCount: r - segmentStart
+              });
+            }
+            currentShape = sh;
+            segmentStart = r;
+          }
+        }
+
+        shapeSegments.forEach(seg => {
+          const segStartY = startY + seg.startRow * ROW_H;
+          const segHeight = seg.rowCount * ROW_H;
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8);
+          doc.text(seg.shape, COL.shape.x + COL.shape.w / 2, segStartY + segHeight / 2 + 1, { align: 'center' });
+        });
+
+        // Draw spanned Rate (Column 6)
+        const rateVal = item.pricePerCarat || 0;
+        const rateLabel = rateVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.text(rateLabel, COL.rate.x + COL.rate.w / 2, startY + (numRows * ROW_H) / 2 + 1, { align: 'center' });
+
+        // Draw spanned Grade (Column 7)
+        const gradeLabel = item.lustreGrade || 'N/A';
+        doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
-        doc.text(`#${item.color || 'N/A'}`, 14, y);
-        doc.setFont("helvetica", "normal");
-        doc.text(grade.substring(0, 24), 28, y);
-        doc.text(origins.substring(0, 30), 70, y);
-        doc.text(pieces.toString(), 124, y);
-        doc.text(`${weight.toFixed(2)}ct`, 138, y);
-        doc.text(`Rs ${(item.pricePerCarat || 0).toLocaleString()}`, 156, y);
-        doc.text(`Rs ${val.toLocaleString()}`, 174, y);
+        doc.text(gradeLabel, COL.grade.x + COL.grade.w / 2, startY + (numRows * ROW_H) / 2 + 1, { align: 'center' });
 
-        y += 7;
+        // Calculate Totals for this pudia
+        const totalPcs = sizes.reduce((sum, s) => sum + s.pieces, 0);
+        const totalWeight = sizes.reduce((sum, s) => sum + s.weight, 0);
+        const totalValue = totalWeight * rateVal;
+
+        // Draw horizontal line above Total Row
+        doc.setDrawColor(120);
+        doc.setLineWidth(0.3);
+        doc.line(MARGIN, totalRowY, PAGE_W - MARGIN, totalRowY);
+
+        // Draw Total row text
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(0);
+        const totalTextY = totalRowY + ROW_H - 2.2;
+
+        doc.text('Total', COL.mm.x + COL.mm.w - 2, totalTextY, { align: 'right' });
+        doc.text(String(totalPcs), COL.pcs.x + COL.pcs.w - 2, totalTextY, { align: 'right' });
+        doc.text(totalWeight.toFixed(2), COL.cts.x + COL.cts.w - 2, totalTextY, { align: 'right' });
+
+        const valLabel = totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        doc.text(valLabel, COL.rate.x + COL.rate.w - 2, totalTextY, { align: 'right' });
+
+        // Draw the bottom border line of the pudia table
+        doc.line(MARGIN, totalRowY + ROW_H, PAGE_W - MARGIN, totalRowY + ROW_H);
+
+        // Draw grid vertical lines
+        doc.line(MARGIN, startY, MARGIN, totalRowY + ROW_H);
+        doc.line(PAGE_W - MARGIN, startY, PAGE_W - MARGIN, totalRowY + ROW_H);
+        doc.line(COL.shape.x, startY, COL.shape.x, totalRowY);
+        doc.line(COL.mm.x, startY, COL.mm.x, totalRowY);
+        doc.line(COL.pcs.x, startY, COL.pcs.x, totalRowY + ROW_H);
+        doc.line(COL.cts.x, startY, COL.cts.x, totalRowY + ROW_H);
+        doc.line(COL.rate.x, startY, COL.rate.x, totalRowY + ROW_H);
+        doc.line(COL.grade.x, startY, COL.grade.x, totalRowY + ROW_H);
+
+        // Update group totals
+        groupPieces += totalPcs;
+        groupWeight += totalWeight;
+        groupValue += totalValue;
+
+        grandTotalPieces += totalPcs;
+        grandTotalWeight += totalWeight;
+        grandTotalValue += totalValue;
+
+        // Draw top border line of the pudia table
+        doc.line(MARGIN, startY, PAGE_W - MARGIN, startY);
+
+        y = totalRowY + ROW_H;
       });
 
       // Group Subtotal Row
-      checkPageBreak(10);
-      doc.line(28, y - 4, 196, y - 4);
-      doc.setFont("helvetica", "bold");
-      doc.text(`Subtotal (${groupName})`, 28, y);
-      doc.text(groupPieces.toString(), 124, y);
-      doc.text(`${groupWeight.toFixed(2)}ct`, 138, y);
-      doc.text(`Rs ${groupValue.toLocaleString()}`, 174, y);
-      y += 12; // Extra spacing after group section
+      checkPageBreak(ROW_H + 4);
+
+      // Draw background
+      doc.setFillColor(242, 245, 248);
+      doc.rect(MARGIN, y, TABLE_W, ROW_H, 'F');
+
+      // Draw borders
+      doc.setDrawColor(120);
+      doc.setLineWidth(0.35);
+      doc.rect(MARGIN, y, TABLE_W, ROW_H);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(0);
+      const subTextY = y + ROW_H - 2.2;
+
+      doc.text(`Subtotal (${groupName})`, COL.shape.x, subTextY);
+      doc.text(String(groupPieces), COL.pcs.x + COL.pcs.w - 2, subTextY, { align: 'right' });
+      doc.text(groupWeight.toFixed(2), COL.cts.x + COL.cts.w - 2, subTextY, { align: 'right' });
+      
+      const subValLabel = groupValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      doc.text(subValLabel, COL.rate.x + COL.rate.w - 2, subTextY, { align: 'right' });
+
+      y += ROW_H + 4; // Advance y
     });
 
-    // Draw final summary line
-    checkPageBreak(12);
-    doc.line(14, y - 4, 196, y - 4);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text("Grand Total", 14, y);
-    doc.text(grandTotalPieces.toString(), 124, y);
-    doc.text(`${grandTotalWeight.toFixed(2)}ct`, 138, y);
-    doc.text(`Rs ${grandTotalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 174, y);
+    // Grand Total Row
+    checkPageBreak(ROW_H + 2);
+
+    // Draw background
+    doc.setFillColor(230, 235, 240);
+    doc.rect(MARGIN, y, TABLE_W, ROW_H, 'F');
+
+    // Draw borders
+    doc.setDrawColor(100);
+    doc.setLineWidth(0.4);
+    doc.rect(MARGIN, y, TABLE_W, ROW_H);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(0);
+    const grandTextY = y + ROW_H - 2.2;
+
+    doc.text('Grand Total', COL.shape.x, grandTextY);
+    doc.text(String(grandTotalPieces), COL.pcs.x + COL.pcs.w - 2, grandTextY, { align: 'right' });
+    doc.text(grandTotalWeight.toFixed(2), COL.cts.x + COL.cts.w - 2, grandTextY, { align: 'right' });
+    
+    const grandValLabel = grandTotalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    doc.text(grandValLabel, COL.rate.x + COL.rate.w - 2, grandTextY, { align: 'right' });
 
     return doc;
   },

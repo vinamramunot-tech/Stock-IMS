@@ -124,8 +124,8 @@ const DBManager = {
     }
 
     try {
-      // Pretty print JSON (2 spaces indentation) for excellent readability
-      const plainText = JSON.stringify(this.database, null, 2);
+      // Compress JSON (no indentation) to improve save performance and minimize memory/disk I/O overhead.
+      const plainText = JSON.stringify(this.database);
       await window.electronAPI.writeVault(plainText, this.activePath);
       return true;
     } catch (error) {
