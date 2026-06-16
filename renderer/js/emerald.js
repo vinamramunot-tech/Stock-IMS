@@ -142,6 +142,11 @@ const EmeraldController = {
       });
     }
 
+    const groupInput = document.getElementById('emerald-group');
+    if (groupInput) {
+      groupInput.addEventListener('input', () => this.populateGroupAutocomplete());
+    }
+
     this.initImageUploader();
   },
 
@@ -261,6 +266,112 @@ const EmeraldController = {
   },
 
   /**
+   * Build a combobox widget: an editable text input that shows a filtered
+   * dropdown of known options as the user types, while still accepting any
+   * custom value.
+   *
+   * @param {string}   fieldClass  – CSS class for the input ('size-shape' | 'size-mm')
+   * @param {Function} getOptions  – called fresh on each open; returns string[]
+   * @param {string}   currentVal  – initial value
+   * @param {string}   placeholder – input placeholder text
+   */
+  _buildComboWidget(fieldClass, getOptions, currentVal, placeholder) {
+    const wrap = document.createElement('div');
+    wrap.className = 'size-combo-wrap';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = fieldClass + ' size-combo-input';
+    input.placeholder = placeholder;
+    input.value = currentVal;
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+
+    const dropdown = document.createElement('div');
+    dropdown.className = 'combo-dropdown';
+
+    let isOpen = false;
+
+    const openDropdown = (filter) => {
+      const opts = getOptions();
+      const q = (filter || '').toLowerCase().trim();
+      const matches = q ? opts.filter(o => o.toLowerCase().includes(q)) : opts;
+
+      dropdown.innerHTML = '';
+      if (matches.length === 0) { closeDropdown(); return; }
+
+      matches.forEach(o => {
+        const item = document.createElement('div');
+        item.className = 'combo-option';
+        // Highlight matching segment
+        if (q) {
+          const idx = o.toLowerCase().indexOf(q);
+          item.innerHTML =
+            UI.escapeHtml(o.slice(0, idx)) +
+            '<mark>' + UI.escapeHtml(o.slice(idx, idx + q.length)) + '</mark>' +
+            UI.escapeHtml(o.slice(idx + q.length));
+        } else {
+          item.textContent = o;
+        }
+        // mousedown fires before blur so we can set the value before the dropdown closes
+        item.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          input.value = o;
+          closeDropdown();
+        });
+        dropdown.appendChild(item);
+      });
+
+      if (!isOpen) {
+        wrap.appendChild(dropdown);
+        isOpen = true;
+      }
+    };
+
+    const closeDropdown = () => {
+      if (isOpen) {
+        dropdown.remove();
+        isOpen = false;
+      }
+    };
+
+    input.addEventListener('focus', () => openDropdown(input.value));
+    input.addEventListener('input', () => openDropdown(input.value));
+    input.addEventListener('blur',  () => setTimeout(closeDropdown, 120));
+
+    // Allow keyboard navigation
+    input.addEventListener('keydown', (e) => {
+      if (!isOpen) return;
+      const items = dropdown.querySelectorAll('.combo-option');
+      const active = dropdown.querySelector('.combo-option.active');
+      let idx = active ? Array.from(items).indexOf(active) : -1;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (active) active.classList.remove('active');
+        idx = Math.min(idx + 1, items.length - 1);
+        items[idx].classList.add('active');
+        items[idx].scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (active) active.classList.remove('active');
+        idx = Math.max(idx - 1, 0);
+        items[idx].classList.add('active');
+        items[idx].scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter' && active) {
+        e.preventDefault();
+        input.value = active.textContent;
+        closeDropdown();
+      } else if (e.key === 'Escape') {
+        closeDropdown();
+      }
+    });
+
+    wrap.appendChild(input);
+    return wrap;
+  },
+
+  /**
    * Create a dynamic size row (Shape + MM + Pcs + cts + remove button)
    */
   createSizeRow(data = { shape: '', mm: '', pieces: '', weight: '' }) {
@@ -270,30 +381,51 @@ const EmeraldController = {
     const row = document.createElement('div');
     row.className = 'emerald-size-row';
 
-    const safeShape = UI.escapeHtml(data.shape || '');
-    const safeMM = UI.escapeHtml(data.mm || '');
-    const safePieces = data.pieces || '';
-    const safeWeight = data.weight || '';
+    const shapeWidget = this._buildComboWidget(
+      'size-shape',
+      () => this._getKnownShapes(),
+      data.shape || '',
+      'e.g. Oval'
+    );
+    const mmWidget = this._buildComboWidget(
+      'size-mm',
+      () => this._getKnownMMs(),
+      data.mm || '',
+      'e.g. 7x5'
+    );
 
-    row.innerHTML = `
-      <input type="text" class="size-shape" list="emerald-shapes-list" placeholder="e.g. Oval" value="${safeShape}">
-      <input type="text" class="size-mm" list="emerald-mm-list" placeholder="e.g. 7x5" value="${safeMM}">
-      <input type="number" class="size-pieces" min="0" step="1" placeholder="0" value="${safePieces}">
-      <input type="number" class="size-weight" min="0" step="0.01" placeholder="0.00" value="${safeWeight}">
-      <button type="button" class="btn-remove-size" title="Remove this size row">&times;</button>
-    `;
+    const piecesInput = document.createElement('input');
+    piecesInput.type = 'number';
+    piecesInput.className = 'size-pieces';
+    piecesInput.min = '0'; piecesInput.step = '1';
+    piecesInput.placeholder = '0';
+    piecesInput.value = data.pieces || '';
 
-    // Wire up recalculation on input changes
-    const piecesInput = row.querySelector('.size-pieces');
-    const weightInput = row.querySelector('.size-weight');
+    const weightInput = document.createElement('input');
+    weightInput.type = 'number';
+    weightInput.className = 'size-weight';
+    weightInput.min = '0'; weightInput.step = '0.01';
+    weightInput.placeholder = '0.00';
+    weightInput.value = data.weight || '';
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'btn-remove-size';
+    removeBtn.title = 'Remove this size row';
+    removeBtn.innerHTML = '&times;';
+
     piecesInput.addEventListener('input', () => this.updateSizeTotals());
     weightInput.addEventListener('input', () => this.updateSizeTotals());
-
-    // Wire up remove
-    row.querySelector('.btn-remove-size').addEventListener('click', () => {
+    removeBtn.addEventListener('click', () => {
       row.remove();
       this.updateSizeTotals();
     });
+
+    row.appendChild(shapeWidget);
+    row.appendChild(mmWidget);
+    row.appendChild(piecesInput);
+    row.appendChild(weightInput);
+    row.appendChild(removeBtn);
 
     container.appendChild(row);
     this.updateSizeTotals();
@@ -325,8 +457,11 @@ const EmeraldController = {
     const rows = document.querySelectorAll('.emerald-size-row');
     const sizes = [];
     rows.forEach(row => {
-      const shape = row.querySelector('.size-shape').value.trim();
-      const mm = row.querySelector('.size-mm').value.trim();
+      // Read directly from the combobox text inputs
+      const shapeInput = row.querySelector('.size-shape.size-combo-input');
+      const mmInput    = row.querySelector('.size-mm.size-combo-input');
+      const shape  = shapeInput ? shapeInput.value.trim() : '';
+      const mm     = mmInput    ? mmInput.value.trim()    : '';
       const pieces = Number(row.querySelector('.size-pieces').value || 0);
       const weight = Number(row.querySelector('.size-weight').value || 0);
       if (shape || mm || pieces > 0 || weight > 0) {
@@ -392,6 +527,11 @@ const EmeraldController = {
       });
     }
 
+    // Re-populate autocomplete datalists now that this entry's rows are in the DOM,
+    // so its own shape/mm values appear as suggestions in the dropdowns.
+    this.populateShapeAutocomplete();
+    this.populateMmAutocomplete();
+
     // Check origins
     const origins = emerald.origins || [];
     const checkBoxes = document.querySelectorAll('input[name="emerald-origin"]');
@@ -404,64 +544,55 @@ const EmeraldController = {
     document.getElementById('emerald-modal-title').textContent = "Edit Emerald Stock";
   },
 
-  /**
-   * Refresh the shape datalist with all unique shapes from saved emerald entries,
-   * merged with the built-in seed defaults so neither is ever lost.
-   */
-  populateShapeAutocomplete() {
-    const list = document.getElementById('emerald-shapes-list');
-    if (!list) return;
-
-    // Seed defaults — always present
-    const SEED_SHAPES = ['Octagon', 'Ovals', 'Pears', 'Marquise', 'Rounds', 'Fancy', 'Maniya', 'Beads'];
-    const allShapes = new Set(SEED_SHAPES);
-
-    // Collect shapes from every saved emerald
-    const emeralds = DBManager.getEmeralds();
-    emeralds.forEach(e => {
-      (e.sizes || []).forEach(s => {
-        if (s.shape && s.shape.trim()) allShapes.add(s.shape.trim());
-      });
-      // Backward-compat: old single-shape field
-      if (e.shape && e.shape.trim()) {
-        e.shape.split(',').forEach(sh => {
-          const trimmed = sh.trim();
-          if (trimmed) allShapes.add(trimmed);
-        });
-      }
+  /** Collect all known unique shapes from DB + current form */
+  _getKnownShapes() {
+    const SEEDS = ['Octagon', 'Ovals', 'Pears', 'Marquise', 'Rounds', 'Fancy', 'Maniya', 'Beads'];
+    const all = new Set(SEEDS);
+    DBManager.getEmeralds().forEach(e => {
+      (e.sizes || []).forEach(s => { if (s.shape) all.add(s.shape.trim()); });
+      if (e.shape) e.shape.split(',').forEach(sh => { const t = sh.trim(); if (t) all.add(t); });
     });
-
-    list.innerHTML = '';
-    Array.from(allShapes).sort().forEach(shape => {
-      const opt = document.createElement('option');
-      opt.value = shape;
-      list.appendChild(opt);
+    DBManager.getStones().forEach(st => {
+      (st.sizes || []).forEach(s => { if (s.shape) all.add(s.shape.trim()); });
+      if (st.shape) st.shape.split(',').forEach(sh => { const t = sh.trim(); if (t) all.add(t); });
     });
+    DBManager.getItems().forEach(item => {
+      (item.stones || []).forEach(s => { if (s.shape) all.add(s.shape.trim()); });
+      (item.diamondsPolki || []).forEach(d => { if (d.shape) all.add(d.shape.trim()); });
+    });
+    // include values currently in the form (custom-typed)
+    document.querySelectorAll('.emerald-size-row .size-shape-value').forEach(h => {
+      const v = h.value.trim(); if (v && v !== '__other__') all.add(v);
+    });
+    return Array.from(all).sort();
+  },
+
+  /** Collect all known unique MM values from DB + current form */
+  _getKnownMMs() {
+    const all = new Set();
+    DBManager.getEmeralds().forEach(e => {
+      (e.sizes || []).forEach(s => { if (s.mm) all.add(s.mm.trim()); });
+    });
+    DBManager.getStones().forEach(st => {
+      (st.sizes || []).forEach(s => { if (s.mm) all.add(s.mm.trim()); });
+    });
+    document.querySelectorAll('.emerald-size-row .size-mm-value').forEach(h => {
+      const v = h.value.trim(); if (v && v !== '__other__') all.add(v);
+    });
+    return Array.from(all).sort();
   },
 
   /**
-   * Refresh the MM datalist with all unique MM values from saved emerald entries.
+   * No-op kept for call-site compatibility.
+   * The combobox widgets fetch fresh options on every open via _getKnownShapes().
    */
-  populateMmAutocomplete() {
-    const list = document.getElementById('emerald-mm-list');
-    if (!list) return;
+  populateShapeAutocomplete() {},
 
-    const allMm = new Set();
-
-    const emeralds = DBManager.getEmeralds();
-    emeralds.forEach(e => {
-      (e.sizes || []).forEach(s => {
-        if (s.mm && s.mm.trim()) allMm.add(s.mm.trim());
-      });
-    });
-
-    list.innerHTML = '';
-    Array.from(allMm).sort().forEach(mm => {
-      const opt = document.createElement('option');
-      opt.value = mm;
-      list.appendChild(opt);
-    });
-  },
+  /**
+   * No-op kept for call-site compatibility.
+   * The combobox widgets fetch fresh options on every open via _getKnownMMs().
+   */
+  populateMmAutocomplete() {},
 
   populateGroupAutocomplete() {
     const list = document.getElementById('emerald-groups-list');
@@ -474,6 +605,13 @@ const EmeraldController = {
         groups.add(e.group.trim());
       }
     });
+
+    // Collect group currently typed in the active form
+    const activeGroupInput = document.getElementById('emerald-group');
+    if (activeGroupInput) {
+      const val = activeGroupInput.value.trim();
+      if (val) groups.add(val);
+    }
 
     list.innerHTML = '';
     groups.forEach(g => {

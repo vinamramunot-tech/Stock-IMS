@@ -1388,12 +1388,76 @@ option, datalist option {
 .emerald-size-row:last-child {
   border-bottom: 1px solid var(--border-light);
 }
-.emerald-size-row input {
+.stone-size-row {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 0.8fr 1fr auto;
+  gap: 10px;
+  padding: 10px 12px;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-bottom: none;
+  align-items: center;
+}
+.stone-size-row:last-child {
+  border-bottom: 1px solid var(--border-light);
+}
+/* Shared wrapper for the combobox widget */
+.size-combo-wrap {
+  position: relative;
+  min-width: 0;
+}
+.size-combo-wrap .size-combo-input {
+  height: 34px;
+  font-size: 13px;
+  padding: 4px 28px 4px 8px;
+  width: 100%;
+  box-sizing: border-box;
+  /* Subtle chevron hint */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+.size-combo-wrap .size-combo-input:focus {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M9 5L5 1 1 5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+.combo-dropdown {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-dark);
+  box-shadow: 0 6px 20px rgba(26,26,29,0.15);
+  z-index: 9999;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.combo-option {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-main);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: background-color 0.1s;
+}
+.combo-option:hover,
+.combo-option.active {
+  background-color: var(--bg-base);
+  color: var(--text-gold-dark);
+}
+.combo-option mark {
+  background: transparent;
+  color: var(--text-gold-dark);
+  font-weight: 700;
+}
+.emerald-size-row input,
+.stone-size-row input {
   height: 34px;
   font-size: 13px;
   padding: 4px 8px;
 }
-.emerald-size-row .btn-remove-size {
+.emerald-size-row .btn-remove-size,
+.stone-size-row .btn-remove-size {
   background: none;
   border: 1px solid var(--border-light);
   color: var(--text-muted);
@@ -1407,7 +1471,8 @@ option, datalist option {
   transition: all var(--transition-fast);
   line-height: 1;
 }
-.emerald-size-row .btn-remove-size:hover {
+.emerald-size-row .btn-remove-size:hover,
+.stone-size-row .btn-remove-size:hover {
   border-color: var(--danger-red);
   color: var(--danger-red);
 }

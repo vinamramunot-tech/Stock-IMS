@@ -1745,17 +1745,12 @@
             </div>
 
             <button type="button" class="btn-add-size-row" id="btn-add-stone-size">+ Add Size Row</button>
-
-            <!-- Datalists -->
-            <datalist id="stone-shapes-list"></datalist>
-            <datalist id="stone-mm-list"></datalist>
           </div>
 
           <div class="input-group">
             <label for="stone-grade">Clarity / Grade <span class="required">*</span></label>
             <input type="text" id="stone-grade" list="stone-grades-list" placeholder="Select or type Clarity/Grade..."
               required>
-            <datalist id="stone-grades-list"></datalist>
           </div>
 
           <div class="input-group">
@@ -1780,7 +1775,6 @@
           <div class="input-group">
             <label for="stone-group">Group / Lot Name</label>
             <input type="text" id="stone-group" list="stone-groups-list" placeholder="e.g. Lot-Diamonds">
-            <datalist id="stone-groups-list"></datalist>
           </div>
 
           <div class="input-group">
@@ -2448,34 +2442,12 @@
             </div>
 
             <button type="button" class="btn-add-size-row" id="btn-add-emerald-size">+ Add Size Row</button>
-
-            <!-- Datalist for shape suggestions — seeded with defaults, extended dynamically from saved entries -->
-            <datalist id="emerald-shapes-list">
-              <option value="Octagon">
-              <option value="Ovals">
-              <option value="Pears">
-              <option value="Marquise">
-              <option value="Rounds">
-              <option value="Fancy">
-              <option value="Maniya">
-              <option value="Beads">
-            </datalist>
-            <!-- Datalist for MM suggestions — fully dynamic, populated from saved entries -->
-            <datalist id="emerald-mm-list"></datalist>
           </div>
 
           <div class="input-group">
             <label for="emerald-lustre">Lustre Grade <span class="required">*</span></label>
             <input type="text" id="emerald-lustre" list="emerald-lustres-list"
               placeholder="Select or type lustre grade..." required>
-            <datalist id="emerald-lustres-list">
-              <option value="Lustre">
-              <option value="Mota pani">
-              <option value="Tas paani">
-              <option value="Tas tas pani">
-              <option value="P.K">
-              <option value="Bluish Green (BG)">
-            </datalist>
           </div>
 
           <div class="input-group">
@@ -2499,7 +2471,6 @@
           <div class="input-group">
             <label for="emerald-group">Group / Lot Name</label>
             <input type="text" id="emerald-group" list="emerald-groups-list" placeholder="e.g. A-1 Lot or Custom Group">
-            <datalist id="emerald-groups-list"></datalist>
           </div>
 
           <div class="input-group">
@@ -2799,6 +2770,32 @@
       </div>
     </div>
   </div>
+  <!-- Global Datalists for Autocomplete Options -->
+  <datalist id="emerald-shapes-list">
+    <option value="Octagon">
+    <option value="Ovals">
+    <option value="Pears">
+    <option value="Marquise">
+    <option value="Rounds">
+    <option value="Fancy">
+    <option value="Maniya">
+    <option value="Beads">
+  </datalist>
+  <datalist id="emerald-mm-list"></datalist>
+  <datalist id="emerald-lustres-list">
+    <option value="Lustre">
+    <option value="Mota pani">
+    <option value="Tas paani">
+    <option value="Tas tas pani">
+    <option value="P.K">
+    <option value="Bluish Green (BG)">
+  </datalist>
+  <datalist id="emerald-groups-list"></datalist>
+
+  <datalist id="stone-shapes-list"></datalist>
+  <datalist id="stone-mm-list"></datalist>
+  <datalist id="stone-grades-list"></datalist>
+  <datalist id="stone-groups-list"></datalist>
 
   <div id="print-section"></div>
   <!-- Load Scripts -->

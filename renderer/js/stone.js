@@ -138,6 +138,89 @@ const StoneController = {
     this.populateGradeAutocomplete();
   },
 
+  /** Build a combobox widget (mirrors emerald.js pattern) */
+  _buildComboWidget(fieldClass, getOptions, currentVal, placeholder) {
+    const wrap = document.createElement('div');
+    wrap.className = 'size-combo-wrap';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = fieldClass + ' size-combo-input';
+    input.placeholder = placeholder;
+    input.value = currentVal;
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+
+    const dropdown = document.createElement('div');
+    dropdown.className = 'combo-dropdown';
+    let isOpen = false;
+
+    const openDropdown = (filter) => {
+      const opts = getOptions();
+      const q = (filter || '').toLowerCase().trim();
+      const matches = q ? opts.filter(o => o.toLowerCase().includes(q)) : opts;
+      dropdown.innerHTML = '';
+      if (matches.length === 0) { closeDropdown(); return; }
+      matches.forEach(o => {
+        const item = document.createElement('div');
+        item.className = 'combo-option';
+        if (q) {
+          const idx = o.toLowerCase().indexOf(q);
+          item.innerHTML =
+            UI.escapeHtml(o.slice(0, idx)) +
+            '<mark>' + UI.escapeHtml(o.slice(idx, idx + q.length)) + '</mark>' +
+            UI.escapeHtml(o.slice(idx + q.length));
+        } else {
+          item.textContent = o;
+        }
+        item.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          input.value = o;
+          closeDropdown();
+        });
+        dropdown.appendChild(item);
+      });
+      if (!isOpen) { wrap.appendChild(dropdown); isOpen = true; }
+    };
+
+    const closeDropdown = () => {
+      if (isOpen) { dropdown.remove(); isOpen = false; }
+    };
+
+    input.addEventListener('focus', () => openDropdown(input.value));
+    input.addEventListener('input', () => openDropdown(input.value));
+    input.addEventListener('blur',  () => setTimeout(closeDropdown, 120));
+
+    input.addEventListener('keydown', (e) => {
+      if (!isOpen) return;
+      const items = dropdown.querySelectorAll('.combo-option');
+      const active = dropdown.querySelector('.combo-option.active');
+      let idx = active ? Array.from(items).indexOf(active) : -1;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (active) active.classList.remove('active');
+        idx = Math.min(idx + 1, items.length - 1);
+        items[idx].classList.add('active');
+        items[idx].scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (active) active.classList.remove('active');
+        idx = Math.max(idx - 1, 0);
+        items[idx].classList.add('active');
+        items[idx].scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter' && active) {
+        e.preventDefault();
+        input.value = active.textContent;
+        closeDropdown();
+      } else if (e.key === 'Escape') {
+        closeDropdown();
+      }
+    });
+
+    wrap.appendChild(input);
+    return wrap;
+  },
+
   createSizeRow(data = { shape: '', mm: '', pieces: '', weight: '' }) {
     const container = document.getElementById('stone-sizes-container');
     if (!container) return;
@@ -145,29 +228,45 @@ const StoneController = {
     const row = document.createElement('div');
     row.className = 'stone-size-row';
 
-    const safeShape = UI.escapeHtml(data.shape || '');
-    const safeMM = UI.escapeHtml(data.mm || '');
-    const safePieces = data.pieces || '';
-    const safeWeight = data.weight || '';
+    const shapeWidget = this._buildComboWidget(
+      'size-shape',
+      () => this._getKnownShapes(),
+      data.shape || '',
+      'e.g. Round Brilliant'
+    );
+    const mmWidget = this._buildComboWidget(
+      'size-mm',
+      () => this._getKnownMMs(),
+      data.mm || '',
+      'e.g. 2.1mm'
+    );
 
-    row.innerHTML = `
-      <input type="text" class="size-shape" list="stone-shapes-list" placeholder="e.g. Round Brilliant" value="${safeShape}">
-      <input type="text" class="size-mm" list="stone-mm-list" placeholder="e.g. 2.1mm" value="${safeMM}">
-      <input type="number" class="size-pieces" min="0" step="1" placeholder="0" value="${safePieces}">
-      <input type="number" class="size-weight" min="0" step="0.001" placeholder="0.000" value="${safeWeight}">
-      <button type="button" class="btn-remove-size" title="Remove row">&times;</button>
-    `;
+    const piecesInput = document.createElement('input');
+    piecesInput.type = 'number'; piecesInput.className = 'size-pieces';
+    piecesInput.min = '0'; piecesInput.step = '1'; piecesInput.placeholder = '0';
+    piecesInput.value = data.pieces || '';
 
-    // Recalculations
-    const piecesInput = row.querySelector('.size-pieces');
-    const weightInput = row.querySelector('.size-weight');
+    const weightInput = document.createElement('input');
+    weightInput.type = 'number'; weightInput.className = 'size-weight';
+    weightInput.min = '0'; weightInput.step = '0.001'; weightInput.placeholder = '0.000';
+    weightInput.value = data.weight || '';
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button'; removeBtn.className = 'btn-remove-size';
+    removeBtn.title = 'Remove row'; removeBtn.innerHTML = '&times;';
+
     piecesInput.addEventListener('input', () => this.updateSizeTotals());
     weightInput.addEventListener('input', () => this.updateSizeTotals());
-
-    row.querySelector('.btn-remove-size').addEventListener('click', () => {
+    removeBtn.addEventListener('click', () => {
       row.remove();
       this.updateSizeTotals();
     });
+
+    row.appendChild(shapeWidget);
+    row.appendChild(mmWidget);
+    row.appendChild(piecesInput);
+    row.appendChild(weightInput);
+    row.appendChild(removeBtn);
 
     container.appendChild(row);
     this.updateSizeTotals();
@@ -193,8 +292,10 @@ const StoneController = {
     const rows = document.querySelectorAll('.stone-size-row');
     const sizes = [];
     rows.forEach(row => {
-      const shape = row.querySelector('.size-shape').value.trim();
-      const mm = row.querySelector('.size-mm').value.trim();
+      const shapeInput = row.querySelector('.size-shape.size-combo-input');
+      const mmInput    = row.querySelector('.size-mm.size-combo-input');
+      const shape  = shapeInput ? shapeInput.value.trim() : '';
+      const mm     = mmInput    ? mmInput.value.trim()    : '';
       const pieces = Number(row.querySelector('.size-pieces').value || 0);
       const weight = Number(row.querySelector('.size-weight').value || 0);
       if (shape || mm || pieces > 0 || weight > 0) {
@@ -237,6 +338,11 @@ const StoneController = {
       });
     }
 
+    // Re-populate autocomplete datalists now that this entry's rows are in the DOM,
+    // so its own shape/mm values appear as suggestions in the dropdowns.
+    this.populateShapeAutocomplete();
+    this.populateMmAutocomplete();
+
     const origins = stone.origins || [];
     const checkBoxes = document.querySelectorAll('input[name="stone-origin"]');
     checkBoxes.forEach(cb => {
@@ -248,36 +354,42 @@ const StoneController = {
     document.getElementById('stone-modal-title').textContent = "Edit Stone Stock";
   },
 
-  populateShapeAutocomplete() {
-    const list = document.getElementById('stone-shapes-list');
-    if (!list) return;
-    const defaults = ['Round Brilliant', 'Emerald Cut', 'Oval Cut', 'Pear Shape', 'Marquise', 'Cushion Cut', 'Princess Cut', 'Rose Cut', 'Fancy Cut'];
-    const all = new Set(defaults);
+  /** Collect all known unique shapes from DB */
+  _getKnownShapes() {
+    const SEEDS = ['Round Brilliant', 'Emerald Cut', 'Oval Cut', 'Pear Shape', 'Marquise', 'Cushion Cut', 'Princess Cut', 'Rose Cut', 'Fancy Cut'];
+    const all = new Set(SEEDS);
     DBManager.getStones().forEach(st => {
       (st.sizes || []).forEach(s => { if (s.shape) all.add(s.shape.trim()); });
+      if (st.shape) st.shape.split(',').forEach(sh => { const t = sh.trim(); if (t) all.add(t); });
     });
-    list.innerHTML = '';
-    Array.from(all).sort().forEach(sh => {
-      const opt = document.createElement('option');
-      opt.value = sh;
-      list.appendChild(opt);
+    DBManager.getEmeralds().forEach(e => {
+      (e.sizes || []).forEach(s => { if (s.shape) all.add(s.shape.trim()); });
+      if (e.shape) e.shape.split(',').forEach(sh => { const t = sh.trim(); if (t) all.add(t); });
     });
+    DBManager.getItems().forEach(item => {
+      (item.stones || []).forEach(s => { if (s.shape) all.add(s.shape.trim()); });
+      (item.diamondsPolki || []).forEach(d => { if (d.shape) all.add(d.shape.trim()); });
+    });
+    return Array.from(all).sort();
   },
 
-  populateMmAutocomplete() {
-    const list = document.getElementById('stone-mm-list');
-    if (!list) return;
+  /** Collect all known unique MM values from DB */
+  _getKnownMMs() {
     const all = new Set();
     DBManager.getStones().forEach(st => {
       (st.sizes || []).forEach(s => { if (s.mm) all.add(s.mm.trim()); });
     });
-    list.innerHTML = '';
-    Array.from(all).sort().forEach(mm => {
-      const opt = document.createElement('option');
-      opt.value = mm;
-      list.appendChild(opt);
+    DBManager.getEmeralds().forEach(e => {
+      (e.sizes || []).forEach(s => { if (s.mm) all.add(s.mm.trim()); });
     });
+    return Array.from(all).sort();
   },
+
+  /** No-op — combobox widgets fetch fresh options on every open. */
+  populateShapeAutocomplete() {},
+
+  /** No-op — combobox widgets fetch fresh options on every open. */
+  populateMmAutocomplete() {},
 
   populateGroupAutocomplete() {
     const list = document.getElementById('stone-groups-list');

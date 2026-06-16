@@ -209,12 +209,19 @@ const App = {
     Catalog.renderCatalogGrid();
     if (window.EmeraldController) {
       EmeraldController.renderEmeraldGrid();
+      EmeraldController.populateGroupAutocomplete();
+      EmeraldController.populateShapeAutocomplete();
+      EmeraldController.populateMmAutocomplete();
     }
     if (window.MemoController) {
       MemoController.renderMemoList();
     }
     if (window.StoneController) {
       StoneController.renderStoneGrid();
+      StoneController.populateGroupAutocomplete();
+      StoneController.populateShapeAutocomplete();
+      StoneController.populateMmAutocomplete();
+      StoneController.populateGradeAutocomplete();
     }
     if (window.JewelStoneMemoController) {
       JewelStoneMemoController.renderMemoList();
