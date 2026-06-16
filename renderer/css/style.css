@@ -1450,6 +1450,20 @@ option, datalist option {
   color: var(--text-gold-dark);
   font-weight: 700;
 }
+/* Form field combobox overrides to match standard input styling */
+.form-combo-wrap {
+  position: relative;
+  width: 100%;
+}
+.form-combo-wrap .size-combo-input {
+  height: 38px !important;
+  font-size: 14px !important;
+  padding: 6px 28px 6px 12px !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: 4px !important;
+  background-color: var(--bg-base) !important;
+  color: var(--text-main) !important;
+}
 .emerald-size-row input,
 .stone-size-row input {
   height: 34px;

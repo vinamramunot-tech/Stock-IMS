@@ -10,6 +10,11 @@ const StoneController = {
   activePdfDocument: null,
 
   init() {
+    // Convert clarity/grade, packet number, and group inputs to comboboxes
+    this._replaceWithComboWidget('stone-grade', 'form-grade', () => this._getKnownGrades(), 'Select or type Clarity/Grade...');
+    this._replaceWithComboWidget('stone-packet-no', 'form-packet-no', () => this._getKnownPacketNumbers(), 'e.g. D-12');
+    this._replaceWithComboWidget('stone-group', 'form-group', () => this._getKnownGroups(), 'e.g. Lot-Diamonds');
+
     // Event listeners for filters and search
     const searchInput = document.getElementById('stone-search-input');
     if (searchInput) {
@@ -221,6 +226,112 @@ const StoneController = {
     return wrap;
   },
 
+  /**
+   * Replaces an existing static input field in the main form with an editable
+   * combobox dropdown widget, retaining the original HTML ID so form loading
+   * and saving logic works seamlessly.
+   */
+  _replaceWithComboWidget(inputId, fieldClass, getOptions, placeholder) {
+    const originalInput = document.getElementById(inputId);
+    if (!originalInput) return;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'form-combo-wrap';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.id = inputId;
+    input.className = fieldClass + ' size-combo-input';
+    input.placeholder = placeholder;
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    input.required = originalInput.required;
+
+    const dropdown = document.createElement('div');
+    dropdown.className = 'combo-dropdown';
+
+    let isOpen = false;
+
+    const openDropdown = (filter) => {
+      const opts = getOptions();
+      const q = (filter || '').toLowerCase().trim();
+      const matches = q ? opts.filter(o => String(o).toLowerCase().includes(q)) : opts;
+
+      dropdown.innerHTML = '';
+      if (matches.length === 0) { closeDropdown(); return; }
+
+      matches.forEach(o => {
+        const item = document.createElement('div');
+        item.className = 'combo-option';
+        if (q) {
+          const idx = String(o).toLowerCase().indexOf(q);
+          item.innerHTML =
+            UI.escapeHtml(String(o).slice(0, idx)) +
+            '<mark>' + UI.escapeHtml(String(o).slice(idx, idx + q.length)) + '</mark>' +
+            UI.escapeHtml(String(o).slice(idx + q.length));
+        } else {
+          item.textContent = String(o);
+        }
+        item.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          input.value = String(o);
+          closeDropdown();
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        dropdown.appendChild(item);
+      });
+
+      if (!isOpen) {
+        wrap.appendChild(dropdown);
+        isOpen = true;
+      }
+    };
+
+    const closeDropdown = () => {
+      if (isOpen) {
+        dropdown.remove();
+        isOpen = false;
+      }
+    };
+
+    input.addEventListener('focus', () => openDropdown(input.value));
+    input.addEventListener('input', () => openDropdown(input.value));
+    input.addEventListener('blur',  () => setTimeout(closeDropdown, 120));
+
+    input.addEventListener('keydown', (e) => {
+      if (!isOpen) return;
+      const items = dropdown.querySelectorAll('.combo-option');
+      const active = dropdown.querySelector('.combo-option.active');
+      let idx = active ? Array.from(items).indexOf(active) : -1;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (active) active.classList.remove('active');
+        idx = Math.min(idx + 1, items.length - 1);
+        items[idx].classList.add('active');
+        items[idx].scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (active) active.classList.remove('active');
+        idx = Math.max(idx - 1, 0);
+        items[idx].classList.add('active');
+        items[idx].scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter' && active) {
+        e.preventDefault();
+        input.value = active.textContent;
+        closeDropdown();
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      } else if (e.key === 'Escape') {
+        closeDropdown();
+      }
+    });
+
+    wrap.appendChild(input);
+    originalInput.parentNode.replaceChild(wrap, originalInput);
+  },
+
   createSizeRow(data = { shape: '', mm: '', pieces: '', weight: '' }) {
     const container = document.getElementById('stone-sizes-container');
     if (!container) return;
@@ -385,42 +496,49 @@ const StoneController = {
     return Array.from(all).sort();
   },
 
+  /** Collect all known unique clarity/grades from DB */
+  _getKnownGrades() {
+    const SEEDS = ['FL/IF', 'VVS1', 'VVS2', 'VS1', 'VS2', 'SI1', 'SI2', 'I1', 'Lustre', 'Commercial'];
+    const all = new Set(SEEDS);
+    DBManager.getStones().forEach(st => {
+      if (st.lustreGrade && st.lustreGrade.trim()) all.add(st.lustreGrade.trim());
+    });
+    return Array.from(all).sort();
+  },
+
+  /** Collect all known unique packet numbers from DB */
+  _getKnownPacketNumbers() {
+    const all = new Set();
+    DBManager.getStones().forEach(st => {
+      if (st.color !== undefined && st.color !== null && String(st.color).trim() !== '') {
+        all.add(String(st.color).trim());
+      }
+    });
+    return Array.from(all).sort((a, b) => {
+      const na = Number(a), nb = Number(b);
+      if (isNaN(na) || isNaN(nb)) return a.localeCompare(b);
+      return na - nb;
+    });
+  },
+
+  /** Collect all known unique groups from DB */
+  _getKnownGroups() {
+    const all = new Set();
+    DBManager.getStones().forEach(st => {
+      if (st.group && st.group.trim()) all.add(st.group.trim());
+    });
+    return Array.from(all).sort();
+  },
+
   /** No-op — combobox widgets fetch fresh options on every open. */
   populateShapeAutocomplete() {},
 
   /** No-op — combobox widgets fetch fresh options on every open. */
   populateMmAutocomplete() {},
 
-  populateGroupAutocomplete() {
-    const list = document.getElementById('stone-groups-list');
-    if (!list) return;
-    const all = new Set();
-    DBManager.getStones().forEach(st => {
-      if (st.group) all.add(st.group.trim());
-    });
-    list.innerHTML = '';
-    Array.from(all).sort().forEach(g => {
-      const opt = document.createElement('option');
-      opt.value = g;
-      list.appendChild(opt);
-    });
-  },
+  populateGroupAutocomplete() {},
 
-  populateGradeAutocomplete() {
-    const list = document.getElementById('stone-grades-list');
-    if (!list) return;
-    const defaults = ['FL/IF', 'VVS1', 'VVS2', 'VS1', 'VS2', 'SI1', 'SI2', 'I1', 'Lustre', 'Commercial'];
-    const all = new Set(defaults);
-    DBManager.getStones().forEach(st => {
-      if (st.lustreGrade) all.add(st.lustreGrade.trim());
-    });
-    list.innerHTML = '';
-    Array.from(all).sort().forEach(gr => {
-      const opt = document.createElement('option');
-      opt.value = gr;
-      list.appendChild(opt);
-    });
-  },
+  populateGradeAutocomplete() {},
 
   populateGroupFilterOptions() {
     const filterSelect = document.getElementById('stone-filter-group');
