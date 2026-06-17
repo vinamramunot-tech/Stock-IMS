@@ -247,4 +247,34 @@
   .metric-value-usd {
     font-size: 12px;
   }
+
+  /* Compact wrapping filter bar on mobile */
+  .filters-group {
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    width: 100% !important;
+    gap: 6px !important;
+  }
+
+  .filter-select {
+    flex: 1 1 calc(50% - 6px) !important;
+    width: auto !important;
+    min-width: 110px !important;
+    height: 36px !important;
+    font-size: 11px !important;
+    padding: 0 18px 0 8px !important;
+    background-position: right 4px center !important;
+    background-size: 14px !important;
+  }
+
+  .filters-group .btn {
+    flex: 1 1 auto !important;
+    height: 36px !important;
+    font-size: 11px !important;
+    padding: 6px 12px !important;
+    margin-left: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
 }
