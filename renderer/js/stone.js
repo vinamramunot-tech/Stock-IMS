@@ -742,17 +742,17 @@ const StoneController = {
       groupCard.style.cssText = 'background-color: var(--bg-card); border: 1px solid var(--border-light); border-radius: 4px; overflow: hidden; margin-bottom: 15px;';
 
       const groupHeader = document.createElement('div');
-      groupHeader.style.cssText = 'display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 12px 16px; background-color: var(--bg-card);';
+      groupHeader.style.cssText = 'cursor: pointer; padding: 12px 16px; background-color: var(--bg-card);';
       
       groupHeader.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
-          <span class="group-expand-icon" style="font-family: monospace; font-size: 12px; width: 12px; color: var(--text-muted);">▶</span>
-          <span style="font-weight: 700; font-size: 15px; color: var(--text-main); font-family: var(--font-serif); white-space: nowrap;">${UI.escapeHtml(group.name)}</span>
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+          <span class="group-expand-icon" style="font-family: monospace; font-size: 12px; width: 12px; color: var(--text-muted); flex-shrink: 0;">▶</span>
+          <span style="font-weight: 700; font-size: 15px; color: var(--text-main); font-family: var(--font-serif);">${UI.escapeHtml(group.name)}</span>
         </div>
-        <div style="display: flex; align-items: center; gap: 15px; font-size: 12px; color: var(--text-muted);">
-          <span>Weight: <strong style="color: var(--text-main);">${group.totalWeight.toFixed(3)} cts</strong></span>
-          <span>Value: <strong style="color: var(--text-gold-dark);">₹${group.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
-          <span style="background-color: var(--bg-base); padding: 1px 6px; border-radius: 10px; font-size: 10px; font-weight: 600; color: var(--text-main);">${group.itemCount} Packets</span>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-left: 22px;">
+          <span style="background-color: var(--bg-base); padding: 2px 8px; border-radius: 10px; font-size: 11px; color: var(--text-muted);">Weight: <strong style="color: var(--text-main);">${group.totalWeight.toFixed(3)} cts</strong></span>
+          <span style="background-color: var(--bg-base); padding: 2px 8px; border-radius: 10px; font-size: 11px; color: var(--text-muted);">Value: <strong style="color: var(--text-gold-dark);">₹${group.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
+          <span style="background-color: var(--bg-base); padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; color: var(--text-main);">${group.itemCount} Packets</span>
         </div>
       `;
       groupCard.appendChild(groupHeader);

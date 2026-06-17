@@ -929,21 +929,21 @@ const EmeraldController = {
       
       const groupHeader = document.createElement('div');
       groupHeader.className = 'emerald-group-header';
-      groupHeader.style.cssText = 'display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 15px 20px; user-select: none; background-color: var(--bg-card);';
-      
-      const groupTitleCol = `<div style="display: flex; align-items: center; gap: 15px; flex-shrink: 0;">
-        <span class="group-expand-icon" style="font-family: monospace; font-size: 14px; width: 15px; color: var(--text-muted);">▶</span>
-        <span style="font-weight: 700; font-size: 16px; color: var(--text-main); font-family: var(--font-serif); white-space: nowrap;">${UI.escapeHtml(group.name)}</span>
-      </div>`;
-      
-      const groupStatsCol = `<div style="display: flex; align-items: center; gap: 20px; font-size: 13px; color: var(--text-muted); flex-wrap: wrap;">
-        <span>Weight: <strong style="color: var(--text-main);">${group.totalWeight.toFixed(2)} cts</strong></span>
-        <span>Value: <strong style="color: var(--text-gold-dark);">₹${group.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
-        <span style="background-color: var(--bg-base); padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; color: var(--text-main);">${group.items.length} Pudias</span>
-        <button type="button" class="btn btn-danger btn-small btn-delete-group" style="padding: 2px 6px; font-size: 11px;" title="Delete Entire Group">Delete</button>
-      </div>`;
-      
-      groupHeader.innerHTML = groupTitleCol + groupStatsCol;
+      groupHeader.style.cssText = 'cursor: pointer; padding: 12px 16px; user-select: none; background-color: var(--bg-card);';
+
+      const groupHeaderHtml = `
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+          <span class="group-expand-icon" style="font-family: monospace; font-size: 13px; width: 14px; color: var(--text-muted); flex-shrink: 0;">▶</span>
+          <span style="font-weight: 700; font-size: 15px; color: var(--text-main); font-family: var(--font-serif);">${UI.escapeHtml(group.name)}</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-left: 24px;">
+          <span style="background-color: var(--bg-base); padding: 2px 8px; border-radius: 10px; font-size: 11px; color: var(--text-muted);">Weight: <strong style="color: var(--text-main);">${group.totalWeight.toFixed(2)} cts</strong></span>
+          <span style="background-color: var(--bg-base); padding: 2px 8px; border-radius: 10px; font-size: 11px; color: var(--text-muted);">Value: <strong style="color: var(--text-gold-dark);">₹${group.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
+          <span style="background-color: var(--bg-base); padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; color: var(--text-main);">${group.items.length} Pudias</span>
+          <button type="button" class="btn btn-danger btn-small btn-delete-group" style="padding: 2px 8px; font-size: 11px; margin-left: auto;" title="Delete Entire Group">Delete</button>
+        </div>`;
+
+      groupHeader.innerHTML = groupHeaderHtml;
       groupCard.appendChild(groupHeader);
       
       const groupBody = document.createElement('div');
