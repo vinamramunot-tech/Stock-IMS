@@ -129,8 +129,63 @@
       copyFile: (sourcePath, destPath) => window.__TAURI__.core.invoke('copy_file', { sourcePath, destPath }),
       
       // PDF saving dialog and file writing
-      saveFileDialog: (defaultName) => window.__TAURI__.core.invoke('save_file_dialog', { defaultName }),
-      savePdfFile: (base64Data, path) => window.__TAURI__.core.invoke('save_pdf_file', { base64Data: base64Data, path }),
+      saveFileDialog: async (defaultName) => {
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        if (isMobile) {
+          return "MOBILE_SHARE_PATH:" + defaultName;
+        } else {
+          return window.__TAURI__.core.invoke('save_file_dialog', { defaultName });
+        }
+      },
+      savePdfFile: async (base64Data, path) => {
+        if (path && path.startsWith("MOBILE_SHARE_PATH:")) {
+          const filename = path.substring("MOBILE_SHARE_PATH:".length);
+          try {
+            const byteCharacters = atob(base64Data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            let mimeType = 'application/pdf';
+            if (filename.toLowerCase().endsWith('.png')) {
+              mimeType = 'image/png';
+            } else if (filename.toLowerCase().endsWith('.jpg') || filename.toLowerCase().endsWith('.jpeg')) {
+              mimeType = 'image/jpeg';
+            }
+            const blob = new Blob([byteArray], { type: mimeType });
+            
+            if (navigator.canShare && navigator.share) {
+              const file = new File([blob], filename, { type: mimeType });
+              if (navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                  files: [file],
+                  title: filename,
+                  text: 'Exported from Mava Gems'
+                });
+                return true;
+              }
+            }
+            
+            // Fallback: blob download
+            const blobUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+            return true;
+          } catch (e) {
+            console.error("Mobile share/save PDF failed:", e);
+            alert("Failed to share PDF: " + e.message);
+            return false;
+          }
+        } else {
+          return window.__TAURI__.core.invoke('save_pdf_file', { base64Data: base64Data, path });
+        }
+      },
 
       // Real-time Database File Change Hook (Tauri Events)
       onDatabaseChanged: (callback) => {
