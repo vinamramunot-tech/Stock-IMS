@@ -745,9 +745,9 @@ const StoneController = {
       groupHeader.style.cssText = 'display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 12px 16px; background-color: var(--bg-card);';
       
       groupHeader.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
           <span class="group-expand-icon" style="font-family: monospace; font-size: 12px; width: 12px; color: var(--text-muted);">▶</span>
-          <span style="font-weight: 700; font-size: 15px; color: var(--text-main); font-family: var(--font-serif);">${UI.escapeHtml(group.name)}</span>
+          <span style="font-weight: 700; font-size: 15px; color: var(--text-main); font-family: var(--font-serif); white-space: nowrap;">${UI.escapeHtml(group.name)}</span>
         </div>
         <div style="display: flex; align-items: center; gap: 15px; font-size: 12px; color: var(--text-muted);">
           <span>Weight: <strong style="color: var(--text-main);">${group.totalWeight.toFixed(3)} cts</strong></span>

@@ -931,9 +931,9 @@ const EmeraldController = {
       groupHeader.className = 'emerald-group-header';
       groupHeader.style.cssText = 'display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 15px 20px; user-select: none; background-color: var(--bg-card);';
       
-      const groupTitleCol = `<div style="display: flex; align-items: center; gap: 15px;">
+      const groupTitleCol = `<div style="display: flex; align-items: center; gap: 15px; flex-shrink: 0;">
         <span class="group-expand-icon" style="font-family: monospace; font-size: 14px; width: 15px; color: var(--text-muted);">▶</span>
-        <span style="font-weight: 700; font-size: 16px; color: var(--text-main); font-family: var(--font-serif);">${UI.escapeHtml(group.name)}</span>
+        <span style="font-weight: 700; font-size: 16px; color: var(--text-main); font-family: var(--font-serif); white-space: nowrap;">${UI.escapeHtml(group.name)}</span>
       </div>`;
       
       const groupStatsCol = `<div style="display: flex; align-items: center; gap: 20px; font-size: 13px; color: var(--text-muted); flex-wrap: wrap;">

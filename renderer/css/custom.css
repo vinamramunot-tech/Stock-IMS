@@ -203,4 +203,19 @@
     padding: 6px;
     font-size: 14px;
   }
+
+  /* Mobile menu section headers */
+  .mobile-menu-section-header {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+    padding: 10px 16px 2px 16px;
+    margin-top: 10px;
+  }
+  /* First category header doesn't need top margin */
+  .mobile-menu-section-header:first-of-type {
+    margin-top: 0;
+  }
 }
