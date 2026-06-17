@@ -190,6 +190,21 @@
 .mb-10 { margin-bottom: 10px; }
 .mb-20 { margin-bottom: 20px; }
 
+.metric-valuation-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.metric-value-usd {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 0;
+  font-weight: 500;
+  font-family: var(--font-serif);
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .stone-size-row {
@@ -217,5 +232,19 @@
   /* First category header doesn't need top margin */
   .mobile-menu-section-header:first-of-type {
     margin-top: 0;
+  }
+
+  .metric-valuation-container {
+    align-items: center;
+    text-align: center;
+    width: 100%;
+  }
+
+  #metric-emerald-valuation-inr {
+    font-size: 18px !important;
+  }
+
+  .metric-value-usd {
+    font-size: 12px;
   }
 }

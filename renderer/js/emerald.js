@@ -1035,7 +1035,7 @@ const EmeraldController = {
           const totalValueUsd = usdRate > 0 ? totalValueInr / usdRate : 0;
           
           const dollarPriceHtml = usdRate > 0 ? `
-            <div style="display: flex; gap: 15px; margin-top: 10px; padding: 8px; border: 1px dashed var(--border-light); background-color: var(--bg-card); font-size: 11px;">
+            <div style="display: flex; flex-wrap: wrap; gap: 8px 15px; margin-top: 10px; padding: 8px; border: 1px dashed var(--border-light); background-color: var(--bg-card); font-size: 11px;">
               <div><strong>Price/ct (USD):</strong> $${pricePerCaratUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
               <div><strong>Value (USD):</strong> $${totalValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             </div>
