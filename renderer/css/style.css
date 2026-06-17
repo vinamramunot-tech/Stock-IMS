@@ -172,6 +172,35 @@ html[data-theme="light"] #btn-mobile-toggle-theme .moon-icon {
   display: block;
 }
 
+/* Startup Screen Theme Toggle Button icon states */
+#btn-startup-toggle-theme .sun-icon {
+  display: none;
+}
+#btn-startup-toggle-theme .moon-icon {
+  display: block;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) #btn-startup-toggle-theme .sun-icon {
+    display: block;
+  }
+  :root:not([data-theme="light"]) #btn-startup-toggle-theme .moon-icon {
+    display: none;
+  }
+}
+html[data-theme="dark"] #btn-startup-toggle-theme .sun-icon {
+  display: block;
+}
+html[data-theme="dark"] #btn-startup-toggle-theme .moon-icon {
+  display: none;
+}
+html[data-theme="light"] #btn-startup-toggle-theme .sun-icon {
+  display: none;
+}
+html[data-theme="light"] #btn-startup-toggle-theme .moon-icon {
+  display: block;
+}
+
 /* Explicit style for theme toggle button */
 .theme-toggle-btn {
   background-color: var(--bg-base) !important;

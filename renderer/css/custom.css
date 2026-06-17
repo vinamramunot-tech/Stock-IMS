@@ -7,44 +7,48 @@
   --danger-color: #d0021b;
 }
 
-/* Startup Theme Toggle Styles */
-.startup-card {
-  position: relative;
+/* Startup Screen Header Row — brand + theme toggle side by side */
+.startup-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  gap: 12px;
 }
 
+/* On desktop the brand row was centered; with the new layout keep it left-aligned */
+.startup-header-row .startup-brand-row {
+  margin-bottom: 0;
+  justify-content: flex-start;
+}
+
+/* Remove old absolute-position container styles */
 .startup-theme-toggle-container {
-  position: absolute;
-  top: 20px;
-  right: 20px;
+  display: none;
 }
 
-#btn-startup-toggle-theme .sun-icon {
-  display: none;
-}
-#btn-startup-toggle-theme .moon-icon {
-  display: block;
+/* Theme toggle button on startup screen */
+.startup-theme-btn {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-light) !important;
+  background-color: var(--bg-base) !important;
+  color: var(--text-main) !important;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) #btn-startup-toggle-theme .sun-icon {
-    display: block;
-  }
-  :root:not([data-theme="light"]) #btn-startup-toggle-theme .moon-icon {
-    display: none;
-  }
+.startup-theme-btn:hover,
+.startup-theme-btn:active {
+  border-color: var(--border-dark) !important;
+  background-color: var(--border-light) !important;
 }
-html[data-theme="dark"] #btn-startup-toggle-theme .sun-icon {
-  display: block;
-}
-html[data-theme="dark"] #btn-startup-toggle-theme .moon-icon {
-  display: none;
-}
-html[data-theme="light"] #btn-startup-toggle-theme .sun-icon {
-  display: none;
-}
-html[data-theme="light"] #btn-startup-toggle-theme .moon-icon {
-  display: block;
-}
+
 
 /* Tab Content Transitions */
 .tab-content {
