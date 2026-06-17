@@ -1,6 +1,6 @@
 [package]
 name = "mava-gems-stock"
-version = "7.1.2"
+version = "7.2.0"
 description = "Premium, secure desktop stock management for jewelry inventory."
 authors = ["Antigravity"]
 license = "ISC"
