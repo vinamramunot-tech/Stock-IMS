@@ -328,9 +328,6 @@ const App = {
     });
   },
 
-  /**
-   * Theme toggling, persistence, and system synchronization logic
-   */
   initTheme() {
     // Wire up header toggle button
     const toggleBtn = document.getElementById('btn-toggle-theme');
@@ -342,6 +339,12 @@ const App = {
     const mobileToggleBtn = document.getElementById('btn-mobile-toggle-theme');
     if (mobileToggleBtn) {
       mobileToggleBtn.addEventListener('click', () => this.toggleTheme());
+    }
+
+    // Wire up startup screen toggle button
+    const startupToggleBtn = document.getElementById('btn-startup-toggle-theme');
+    if (startupToggleBtn) {
+      startupToggleBtn.addEventListener('click', () => this.toggleTheme());
     }
 
     // Wire up Settings tab theme preference buttons

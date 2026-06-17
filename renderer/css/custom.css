@@ -7,6 +7,45 @@
   --danger-color: #d0021b;
 }
 
+/* Startup Theme Toggle Styles */
+.startup-card {
+  position: relative;
+}
+
+.startup-theme-toggle-container {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+}
+
+#btn-startup-toggle-theme .sun-icon {
+  display: none;
+}
+#btn-startup-toggle-theme .moon-icon {
+  display: block;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) #btn-startup-toggle-theme .sun-icon {
+    display: block;
+  }
+  :root:not([data-theme="light"]) #btn-startup-toggle-theme .moon-icon {
+    display: none;
+  }
+}
+html[data-theme="dark"] #btn-startup-toggle-theme .sun-icon {
+  display: block;
+}
+html[data-theme="dark"] #btn-startup-toggle-theme .moon-icon {
+  display: none;
+}
+html[data-theme="light"] #btn-startup-toggle-theme .sun-icon {
+  display: none;
+}
+html[data-theme="light"] #btn-startup-toggle-theme .moon-icon {
+  display: block;
+}
+
 /* Tab Content Transitions */
 .tab-content {
   opacity: 1;
