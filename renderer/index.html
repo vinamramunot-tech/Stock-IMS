@@ -591,6 +591,12 @@
                 </svg>
                 Print
               </button>
+              <button type="button" id="btn-bulk-share-emerald" class="btn btn-secondary" style="height: 42px; margin-left: 8px;">
+                <svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align: middle; margin-right: 6px;">
+                  <path fill="currentColor" d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92c0-1.61-1.31-2.92-2.92-2.92z"/>
+                </svg>
+                Bulk Share
+              </button>
               <button type="button" id="btn-create-emerald-main" class="btn btn-primary"
                 style="height: 42px; margin-left: 8px;">
                 + Add Stock
@@ -2574,6 +2580,22 @@
               <option value="obsidian">Minimalist Obsidian</option>
             </select>
           </div>
+          <div style="display: flex; flex-direction: column; gap: 5px; width: 100%; margin-top: 5px; border-top: 1px solid var(--border-light); padding-top: 10px;">
+            <label style="font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Price Multiplier Discount</label>
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <select id="share-price-multiplier" class="filter-select" style="flex: 1; height: 36px; padding: 2px 6px;">
+                <option value="1.0" selected>1.0x (Original Price)</option>
+                <option value="0.9">0.9x (10% Off)</option>
+                <option value="0.8">0.8x (20% Off)</option>
+                <option value="0.7">0.7x (30% Off)</option>
+                <option value="0.6">0.6x (40% Off)</option>
+              </select>
+              <div style="display: flex; flex-direction: column; font-size: 11px; min-width: 140px; text-align: right; color: var(--text-muted); justify-content: center; gap: 2px;">
+                <div>Orig: <strong id="share-orig-price-display" style="color: var(--text-main);">₹0/ct</strong></div>
+                <div>New: <strong id="share-new-price-display" style="color: var(--text-gold-dark); font-weight: 700;">₹0/ct</strong></div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="modal-footer">
@@ -2689,6 +2711,74 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary modal-close-trigger-print-emerald">Cancel</button>
         <button type="button" id="btn-submit-print-emerald" class="btn btn-primary">Print Report</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: EMERALD BULK SHARE CARD SELECTION ==================== -->
+  <div id="modal-bulk-share-emerald" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Bulk Share Emerald Cards</h3>
+        <button type="button" class="btn-close modal-close-trigger-bulk-share-emerald">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-instructions">Filter and select the specific stock items you want to generate share cards for.</p>
+
+        <div class="form-grid-row">
+          <div class="form-col-6">
+            <div class="input-group">
+              <label for="bulk-share-select-group">Select Group</label>
+              <select id="bulk-share-select-group">
+                <option value="">All Groups</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-col-6">
+            <div class="input-group">
+              <label for="bulk-share-select-grade">Select Grade</label>
+              <select id="bulk-share-select-grade">
+                <option value="">All Grades</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="input-group" style="margin-top: 10px;">
+          <label style="display: flex; align-items: center; justify-content: space-between;">
+            <span>Select Pudia Numbers</span>
+            <span style="font-size: 10px; text-transform: none; letter-spacing: normal;">
+              <button type="button" id="btn-bulk-share-select-all-pudias" class="btn-text" style="margin-right: 8px;">Select All</button>
+              <button type="button" id="btn-bulk-share-select-none-pudias" class="btn-text">Deselect All</button>
+            </span>
+          </label>
+          <div id="bulk-share-pudias-list-container" style="max-height: 220px; overflow-y: auto; border: 1px solid var(--border-light); background-color: var(--bg-base); padding: 10px 15px; display: flex; flex-direction: column;">
+            <!-- Checkbox list of pudias will populate dynamically here -->
+          </div>
+        </div>
+
+        <!-- Bulk Share Card Style Options -->
+        <div style="width: 100%; display: flex; flex-direction: column; gap: 10px; padding: 15px 0 5px 0; border-top: 1px solid var(--border-light); margin-top: 15px;">
+          <label style="display: inline-flex; align-items: center; gap: 8px; font-weight: normal; text-transform: none; font-size: 14px; cursor: pointer; user-select: none;">
+            <input type="checkbox" id="bulk-share-include-price" checked style="width: auto; margin: 0;"> Include Price & Valuation
+          </label>
+          <label style="display: inline-flex; align-items: center; gap: 8px; font-weight: normal; text-transform: none; font-size: 14px; cursor: pointer; user-select: none;">
+            <input type="checkbox" id="bulk-share-include-brand" checked style="width: auto; margin: 0;"> Include "Mava Gems" Branding
+          </label>
+          <div style="display: flex; flex-direction: column; gap: 5px; width: 100%; margin-top: 5px;">
+            <label style="font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Card Background Theme (For items without photos)</label>
+            <select id="bulk-share-bg-theme" class="filter-select" style="width: 100%; height: 40px;">
+              <option value="emerald">Luxury Emerald Green</option>
+              <option value="darkgold">Sleek Dark Gold</option>
+              <option value="navy">Classic Royal Navy</option>
+              <option value="obsidian">Minimalist Obsidian</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary modal-close-trigger-bulk-share-emerald">Cancel</button>
+        <button type="button" id="btn-submit-bulk-share-emerald" class="btn btn-primary">Export All Selected</button>
       </div>
     </div>
   </div>

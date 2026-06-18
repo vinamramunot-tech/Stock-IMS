@@ -116,6 +116,42 @@ const EmeraldController = {
       btnSubmitPrint.addEventListener('click', () => this.printFromSelection());
     }
 
+    // Bulk Share Selection Modal listeners
+    const btnBulkShareEmerald = document.getElementById('btn-bulk-share-emerald');
+    if (btnBulkShareEmerald) {
+      btnBulkShareEmerald.addEventListener('click', () => this.openBulkShareModal());
+    }
+
+    const bulkShareCloseTriggers = document.querySelectorAll('.modal-close-trigger-bulk-share-emerald');
+    bulkShareCloseTriggers.forEach(btn => {
+      btn.addEventListener('click', () => UI.closeModal('modal-bulk-share-emerald'));
+    });
+
+    const bulkShareGroupSel = document.getElementById('bulk-share-select-group');
+    if (bulkShareGroupSel) {
+      bulkShareGroupSel.addEventListener('change', () => this.handleBulkShareGroupChange());
+    }
+
+    const bulkShareGradeSel = document.getElementById('bulk-share-select-grade');
+    if (bulkShareGradeSel) {
+      bulkShareGradeSel.addEventListener('change', () => this.handleBulkShareGradeChange());
+    }
+
+    const btnSelectAllBulkPudias = document.getElementById('btn-bulk-share-select-all-pudias');
+    if (btnSelectAllBulkPudias) {
+      btnSelectAllBulkPudias.addEventListener('click', () => this.toggleAllBulkSharePudias(true));
+    }
+
+    const btnSelectNoneBulkPudias = document.getElementById('btn-bulk-share-select-none-pudias');
+    if (btnSelectNoneBulkPudias) {
+      btnSelectNoneBulkPudias.addEventListener('click', () => this.toggleAllBulkSharePudias(false));
+    }
+
+    const btnSubmitBulkShare = document.getElementById('btn-submit-bulk-share-emerald');
+    if (btnSubmitBulkShare) {
+      btnSubmitBulkShare.addEventListener('click', () => this.exportBulkShareCards());
+    }
+
     // Print Preview Modal listeners
     const previewCloseTriggers = document.querySelectorAll('.modal-close-trigger-print-preview');
     previewCloseTriggers.forEach(btn => {
@@ -146,6 +182,22 @@ const EmeraldController = {
         if (this.sharingEmerald) this.generateShareCard(this.sharingEmerald);
       });
     }
+    const priceMultiplier = document.getElementById('share-price-multiplier');
+    if (priceMultiplier) {
+      priceMultiplier.addEventListener('change', (evt) => {
+        const mult = parseFloat(evt.target.value);
+        const origPrice = this.sharingEmerald ? (this.sharingEmerald.pricePerCarat || 0) : 0;
+        const newPrice = Math.round(origPrice * mult);
+        const newDisplay = document.getElementById('share-new-price-display');
+        if (newDisplay) {
+          newDisplay.textContent = `₹${newPrice.toLocaleString()}/ct`;
+        }
+        if (this.sharingEmerald) {
+          this.generateShareCard(this.sharingEmerald);
+        }
+      });
+    }
+
     const btnExport = document.getElementById('btn-export-share-card');
     if (btnExport) {
       btnExport.addEventListener('click', () => {
@@ -2021,11 +2073,390 @@ const EmeraldController = {
     }
   },
 
+  openBulkShareModal() {
+    this.populateBulkShareGroupsAndGrades();
+    this.populateBulkSharePudiasChecklist();
+    UI.openModal('modal-bulk-share-emerald');
+  },
+
+  populateBulkShareGroupsAndGrades() {
+    const groupSelect = document.getElementById('bulk-share-select-group');
+    const gradeSelect = document.getElementById('bulk-share-select-grade');
+    if (!groupSelect || !gradeSelect) return;
+
+    const allEmeralds = DBManager.getEmeralds();
+    const groups = new Set();
+    const grades = new Set();
+
+    allEmeralds.forEach(e => {
+      if (e.group && e.group.trim()) groups.add(e.group.trim());
+      if (e.lustreGrade && e.lustreGrade.trim()) grades.add(e.lustreGrade.trim());
+    });
+
+    groupSelect.innerHTML = '<option value="">All Groups</option>';
+    Array.from(groups).sort().forEach(g => {
+      groupSelect.innerHTML += `<option value="${g}">${UI.escapeHtml(g)}</option>`;
+    });
+
+    gradeSelect.innerHTML = '<option value="">All Grades</option>';
+    Array.from(grades).sort().forEach(g => {
+      gradeSelect.innerHTML += `<option value="${g}">${UI.escapeHtml(g)}</option>`;
+    });
+  },
+
+  populateBulkSharePudiasChecklist() {
+    const container = document.getElementById('bulk-share-pudias-list-container');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const selectedGroup = document.getElementById('bulk-share-select-group').value;
+    const selectedGrade = document.getElementById('bulk-share-select-grade').value;
+
+    const allEmeralds = DBManager.getEmeralds();
+    const filtered = allEmeralds.filter(e => {
+      const groupName = e.group || '';
+      const gradeName = e.lustreGrade || '';
+      const matchesGroup = !selectedGroup || groupName === selectedGroup;
+      const matchesGrade = !selectedGrade || gradeName === selectedGrade;
+      return matchesGroup && matchesGrade;
+    });
+
+    // Sort by Pudia number
+    filtered.sort((a, b) => Number(a.color || 0) - Number(b.color || 0));
+
+    if (filtered.length === 0) {
+      container.innerHTML = '<div style="font-size:12px; color:var(--text-muted); grid-column: 1/-1;">No Pudias found for these criteria.</div>';
+      return;
+    }
+
+    filtered.forEach(e => {
+      const weight = this.getEmeraldWeight(e);
+      const pricePerCaratInr = e.pricePerCarat || 0;
+
+      const row = document.createElement('div');
+      row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-light); padding: 8px 0; gap: 10px;';
+      row.innerHTML = `
+        <label class="print-pudia-checkbox-label" style="flex: 1; display: flex; align-items: center; gap: 8px; margin-bottom: 0;">
+          <input type="checkbox" class="bulk-share-pudia-checkbox" value="${e.id}" checked>
+          #${e.color || 'N/A'} (${weight.toFixed(2)}ct)
+        </label>
+        <div style="display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--text-muted);">
+          <span>Orig: <strong style="color: var(--text-main);">₹${pricePerCaratInr.toLocaleString()}</strong></span>
+          <span>
+            <select class="bulk-share-multiplier-select" data-id="${e.id}" style="height: 26px; padding: 1px 4px; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 4px; color: var(--text-main); font-size: 11px;">
+              <option value="1.0" selected>1.0x</option>
+              <option value="0.9">0.9x</option>
+              <option value="0.8">0.8x</option>
+              <option value="0.7">0.7x</option>
+              <option value="0.6">0.6x</option>
+            </select>
+          </span>
+          <span style="min-width: 85px; text-align: right;">New: <strong class="bulk-share-new-price-val" data-id="${e.id}" style="color: var(--text-gold-dark);">₹${pricePerCaratInr.toLocaleString()}</strong></span>
+        </div>
+      `;
+
+      // Wire up multiplier change event for this row
+      const select = row.querySelector('.bulk-share-multiplier-select');
+      const newValEl = row.querySelector('.bulk-share-new-price-val');
+      select.addEventListener('change', (evt) => {
+        const mult = parseFloat(evt.target.value);
+        const newPrice = Math.round(pricePerCaratInr * mult);
+        newValEl.textContent = `₹${newPrice.toLocaleString()}`;
+      });
+
+      container.appendChild(row);
+    });
+  },
+
+  handleBulkShareGroupChange() {
+    const groupSelect = document.getElementById('bulk-share-select-group');
+    const gradeSelect = document.getElementById('bulk-share-select-grade');
+    if (!groupSelect || !gradeSelect) return;
+
+    const selectedGroup = groupSelect.value;
+    const allEmeralds = DBManager.getEmeralds();
+    const grades = new Set();
+
+    allEmeralds.forEach(e => {
+      const groupName = e.group || '';
+      if (!selectedGroup || groupName === selectedGroup) {
+        if (e.lustreGrade && e.lustreGrade.trim()) {
+          grades.add(e.lustreGrade.trim());
+        }
+      }
+    });
+
+    const currentGrade = gradeSelect.value;
+    gradeSelect.innerHTML = '<option value="">All Grades</option>';
+    Array.from(grades).sort().forEach(g => {
+      gradeSelect.innerHTML += `<option value="${g}">${UI.escapeHtml(g)}</option>`;
+    });
+
+    if (grades.has(currentGrade)) {
+      gradeSelect.value = currentGrade;
+    }
+
+    this.populateBulkSharePudiasChecklist();
+  },
+
+  handleBulkShareGradeChange() {
+    this.populateBulkSharePudiasChecklist();
+  },
+
+  toggleAllBulkSharePudias(checked) {
+    const checkBoxes = document.querySelectorAll('.bulk-share-pudia-checkbox');
+    checkBoxes.forEach(cb => cb.checked = checked);
+  },
+
+  createShareCardCanvas(emerald, includePrice, includeBrand, theme, multiplier = 1.0) {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 800;
+      canvas.height = 800;
+
+      const renderCanvas = (imgObj) => {
+        const scale = emerald.image ? canvas.width / 800 : 1;
+        const boxWidth = 160 * scale;
+        const boxHeight = (includePrice ? 80 : 55) * scale;
+
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 1. Draw Background
+        if (emerald.image && imgObj) {
+          ctx.drawImage(imgObj, 0, 0);
+        } else {
+          // Draw solid premium background gradient
+          let grad = ctx.createLinearGradient(0, 0, 800, 800);
+          if (theme === 'emerald') {
+            grad.addColorStop(0, '#042b14');
+            grad.addColorStop(1, '#011208');
+          } else if (theme === 'darkgold') {
+            grad.addColorStop(0, '#2d1f0a');
+            grad.addColorStop(1, '#0e0a03');
+          } else if (theme === 'navy') {
+            grad.addColorStop(0, '#0a1e36');
+            grad.addColorStop(1, '#020b14');
+          } else {
+            grad.addColorStop(0, '#1f1f1f');
+            grad.addColorStop(1, '#080808');
+          }
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, 800, 800);
+
+          // Draw dual-border gold frame
+          ctx.strokeStyle = 'rgba(212, 175, 55, 0.45)';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(30, 30, 740, 740);
+          ctx.strokeStyle = 'rgba(212, 175, 55, 0.18)';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(40, 40, 720, 720);
+        }
+
+        // Draw Overlays using default positions
+        const brandX = canvas.width - 40 * scale;
+        const brandY = 48 * scale;
+        const boxX = canvas.width - 30 * scale - boxWidth;
+        const boxY = canvas.height - 30 * scale - boxHeight;
+
+        // Collect detail fields
+        const totalWeight = this.getEmeraldWeight(emerald);
+        const totalPieces = this.getEmeraldPieces(emerald);
+        const shapes = this.getEmeraldShapes(emerald);
+        const shapesDisplay = shapes.length > 0 ? shapes.join(', ') : 'Unknown';
+        const originsStr = (emerald.origins || []).join(', ');
+        const pricePerCaratInr = Math.round((emerald.pricePerCarat || 0) * multiplier);
+        const totalValueInr = totalWeight * pricePerCaratInr;
+
+        if (emerald.image) {
+          if (includeBrand) {
+            ctx.fillStyle = '#000000';
+            ctx.font = `bold ${Math.round(26 * scale)}px Georgia, serif`;
+            ctx.textAlign = 'right';
+            ctx.fillText('MAVA GEMS', brandX, brandY);
+          }
+
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = Math.max(1, Math.round(1 * scale));
+          ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+
+          ctx.fillStyle = '#000000';
+          ctx.font = `bold ${Math.round(12 * scale)}px system-ui, -apple-system, sans-serif`;
+          ctx.textAlign = 'left';
+
+          ctx.fillText(`Weight: ${totalWeight.toFixed(2)} cts`, boxX + 10 * scale, boxY + 22 * scale);
+          ctx.fillText(`Pcs: ${totalPieces}`, boxX + 10 * scale, boxY + 40 * scale);
+
+          if (includePrice) {
+            ctx.fillText(`Price: ₹${pricePerCaratInr.toLocaleString()}/ct`, boxX + 10 * scale, boxY + 58 * scale);
+          }
+        } else {
+          // Gradient layout draw
+          if (includeBrand) {
+            ctx.fillStyle = '#D4AF37';
+            ctx.font = 'bold 44px Georgia, serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('MAVA GEMS', 400, 130);
+          } else {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold 26px Georgia, serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('EMERALD STOCK CARD', 400, 130);
+          }
+
+          ctx.fillStyle = '#D4AF37';
+          ctx.font = 'bold 28px Georgia, serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(`Pudia Number: #${emerald.color || 'N/A'}`, 400, 230);
+
+          ctx.strokeStyle = 'rgba(212, 175, 55, 0.2)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(150, 270);
+          ctx.lineTo(650, 270);
+          ctx.stroke();
+
+          ctx.textAlign = 'left';
+          const specs = [
+            { label: 'Stock Type:', value: emerald.stockType || 'Calibrated Series' },
+            { label: 'Shape / Cut:', value: shapesDisplay }
+          ];
+          if (emerald.stockType !== 'Single Pieces') {
+            specs.push({ label: 'Lustre Grade:', value: emerald.lustreGrade || 'N/A' });
+          }
+          specs.push(
+            { label: 'Origin Source:', value: originsStr || 'None' },
+            { label: 'Group / Lot:', value: emerald.group || 'None' },
+            { label: 'Total Weight:', value: `${totalWeight.toFixed(2)} carats` },
+            { label: 'Total Pieces:', value: `${totalPieces} Pcs` }
+          );
+
+          const startY = specs.length > 6 ? 300 : 320;
+          const spacingY = specs.length > 6 ? 45 : 50;
+
+          specs.forEach((s, idx) => {
+            const y = startY + idx * spacingY;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.font = '16px sans-serif';
+            ctx.fillText(s.label, 180, y);
+
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold 18px sans-serif';
+            ctx.fillText(s.value, 330, y);
+          });
+
+          if (includePrice) {
+            ctx.strokeStyle = 'rgba(212, 175, 55, 0.3)';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
+            ctx.lineWidth = 1;
+
+            ctx.fillRect(150, 620, 500, 100);
+            ctx.strokeRect(150, 620, 500, 100);
+
+            ctx.textAlign = 'center';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.font = '12px sans-serif';
+            ctx.fillText(`VALUED AT ₹${pricePerCaratInr.toLocaleString()}/CT`, 400, 650);
+
+            ctx.fillStyle = '#D4AF37';
+            ctx.font = 'bold 32px Georgia, serif';
+            ctx.fillText(`₹${totalValueInr.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 400, 695);
+          }
+        }
+
+        resolve(canvas);
+      };
+
+      if (emerald.image) {
+        const img = new Image();
+        img.onload = () => {
+          canvas.width = img.width;
+          canvas.height = img.height;
+          renderCanvas(img);
+        };
+        img.onerror = () => {
+          renderCanvas(null);
+        };
+        img.src = emerald.image;
+      } else {
+        renderCanvas(null);
+      }
+    });
+  },
+
+  async exportBulkShareCards() {
+    const checkedBoxes = document.querySelectorAll('.bulk-share-pudia-checkbox:checked');
+    if (checkedBoxes.length === 0) {
+      UI.showToast("Please select at least one Pudia to export.", true);
+      return;
+    }
+
+    const selectedIds = Array.from(checkedBoxes).map(cb => cb.value);
+    const allEmeralds = DBManager.getEmeralds();
+    const selectedEmeralds = allEmeralds.filter(e => selectedIds.includes(e.id));
+
+    const includePrice = document.getElementById('bulk-share-include-price').checked;
+    const includeBrand = document.getElementById('bulk-share-include-brand').checked;
+    const theme = document.getElementById('bulk-share-bg-theme').value;
+
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+    try {
+      let chosenDir = "";
+      if (!isMobile) {
+        // Desktop directory select dialog
+        chosenDir = await window.electronAPI.selectDirectory();
+        if (!chosenDir) return; // User cancelled
+      }
+
+      UI.showToast("Exporting bulk cards...", false);
+      let successCount = 0;
+
+      for (const e of selectedEmeralds) {
+        const selectEl = document.querySelector(`.bulk-share-multiplier-select[data-id="${e.id}"]`);
+        const multiplier = selectEl ? parseFloat(selectEl.value) : 1.0;
+        const canvas = await this.createShareCardCanvas(e, includePrice, includeBrand, theme, multiplier);
+        const dataUrl = canvas.toDataURL('image/png');
+        const base64Data = dataUrl.split(',')[1];
+
+        const gradePart = String(e.lustreGrade || 'Grade').trim().replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
+        const pudiaPart = String(e.color || 'Pudia').trim().replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
+        const filename = `${gradePart}_${pudiaPart}.png`;
+
+        if (isMobile) {
+          // Sequential mobile download triggers
+          const link = document.createElement('a');
+          link.download = filename;
+          link.href = dataUrl;
+          link.click();
+          // Small delay between trigger events to allow sequential mobile downloads
+          await new Promise(r => setTimeout(r, 300));
+        } else {
+          // Save using Native Electron/Tauri bridge
+          const separator = chosenDir.includes('\\') ? '\\' : '/';
+          const filePath = chosenDir.endsWith(separator) ? `${chosenDir}${filename}` : `${chosenDir}${separator}${filename}`;
+          await window.electronAPI.savePdfFile(base64Data, filePath);
+        }
+        successCount++;
+      }
+
+      UI.showToast(`Successfully exported ${successCount} share cards!`);
+      UI.closeModal('modal-bulk-share-emerald');
+    } catch (err) {
+      console.error(err);
+      UI.showToast("Export failed: " + err.message, true);
+    }
+  },
+
   sharingEmerald: null,
+  sharingImageObj: null,
   activeShareCanvas: null,
 
   openShareModal(emerald) {
     this.sharingEmerald = emerald;
+    this.sharingImageObj = null;
     this.shareCoords = { brandX: null, brandY: null, boxX: null, boxY: null };
     this.dragState = { target: null, offsetX: 0, offsetY: 0 };
 
@@ -2043,6 +2474,18 @@ const EmeraldController = {
     document.getElementById('share-include-price').checked = true;
     document.getElementById('share-include-brand').checked = true;
 
+    const multiplierEl = document.getElementById('share-price-multiplier');
+    if (multiplierEl) {
+      multiplierEl.value = '1.0';
+    }
+    const origDisplay = document.getElementById('share-orig-price-display');
+    const newDisplay = document.getElementById('share-new-price-display');
+    if (origDisplay && newDisplay) {
+      const origPrice = emerald.pricePerCarat || 0;
+      origDisplay.textContent = `₹${origPrice.toLocaleString()}/ct`;
+      newDisplay.textContent = `₹${origPrice.toLocaleString()}/ct`;
+    }
+
     UI.openModal('modal-share-emerald');
     this.generateShareCard(emerald);
   },
@@ -2055,6 +2498,8 @@ const EmeraldController = {
     const includePrice = document.getElementById('share-include-price').checked;
     const includeBrand = document.getElementById('share-include-brand').checked;
     const theme = document.getElementById('share-bg-theme').value;
+    const multiplierEl = document.getElementById('share-price-multiplier');
+    const multiplier = multiplierEl ? parseFloat(multiplierEl.value) : 1.0;
 
     const self = this;
 
@@ -2144,7 +2589,7 @@ const EmeraldController = {
         const shapes = self.getEmeraldShapes(emerald);
         const shapesDisplay = shapes.length > 0 ? shapes.join(', ') : 'Unknown';
         const originsStr = (emerald.origins || []).join(', ');
-        const pricePerCaratInr = emerald.pricePerCarat || 0;
+        const pricePerCaratInr = Math.round((emerald.pricePerCarat || 0) * multiplier);
         const totalValueInr = totalWeight * pricePerCaratInr;
 
         // 3. Draw Overlays
