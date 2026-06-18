@@ -39,6 +39,40 @@ const EmeraldController = {
       sortItems.addEventListener('change', () => this.renderEmeraldGrid());
     }
 
+    // Global Catalog price multiplier listeners
+    const catalogApplyMultiplier = document.getElementById('catalog-apply-multiplier');
+    const catalogMultiplierSelect = document.getElementById('catalog-multiplier-select');
+    const catalogMultiplierCustom = document.getElementById('catalog-multiplier-custom');
+
+    if (catalogApplyMultiplier && catalogMultiplierSelect && catalogMultiplierCustom) {
+      catalogApplyMultiplier.addEventListener('change', () => {
+        if (catalogApplyMultiplier.checked) {
+          catalogMultiplierSelect.style.display = 'inline-block';
+          if (catalogMultiplierSelect.value === 'custom') {
+            catalogMultiplierCustom.style.display = 'inline-block';
+          }
+        } else {
+          catalogMultiplierSelect.style.display = 'none';
+          catalogMultiplierCustom.style.display = 'none';
+        }
+        this.renderEmeraldGrid();
+      });
+
+      catalogMultiplierSelect.addEventListener('change', () => {
+        if (catalogMultiplierSelect.value === 'custom') {
+          catalogMultiplierCustom.style.display = 'inline-block';
+          catalogMultiplierCustom.value = '1.0';
+        } else {
+          catalogMultiplierCustom.style.display = 'none';
+        }
+        this.renderEmeraldGrid();
+      });
+
+      catalogMultiplierCustom.addEventListener('input', () => {
+        this.renderEmeraldGrid();
+      });
+    }
+
     // Modal triggers
     const btnNavAddEmerald = document.getElementById('btn-nav-add-emerald');
     if (btnNavAddEmerald) {
@@ -183,9 +217,16 @@ const EmeraldController = {
       });
     }
     const priceMultiplier = document.getElementById('share-price-multiplier');
-    if (priceMultiplier) {
-      priceMultiplier.addEventListener('change', (evt) => {
-        const mult = parseFloat(evt.target.value);
+    const priceMultiplierCustom = document.getElementById('share-price-multiplier-custom');
+    if (priceMultiplier && priceMultiplierCustom) {
+      const updateSingleSharePrice = () => {
+        let mult = 1.0;
+        if (priceMultiplier.value === 'custom') {
+          mult = parseFloat(priceMultiplierCustom.value);
+          if (isNaN(mult)) mult = 1.0;
+        } else {
+          mult = parseFloat(priceMultiplier.value) || 1.0;
+        }
         const origPrice = this.sharingEmerald ? (this.sharingEmerald.pricePerCarat || 0) : 0;
         const newPrice = Math.round(origPrice * mult);
         const newDisplay = document.getElementById('share-new-price-display');
@@ -195,7 +236,19 @@ const EmeraldController = {
         if (this.sharingEmerald) {
           this.generateShareCard(this.sharingEmerald);
         }
+      };
+
+      priceMultiplier.addEventListener('change', () => {
+        if (priceMultiplier.value === 'custom') {
+          priceMultiplierCustom.style.display = 'inline-block';
+          priceMultiplierCustom.value = '1.0';
+        } else {
+          priceMultiplierCustom.style.display = 'none';
+        }
+        updateSingleSharePrice();
       });
+
+      priceMultiplierCustom.addEventListener('input', updateSingleSharePrice);
     }
 
     const btnExport = document.getElementById('btn-export-share-card');
@@ -930,6 +983,23 @@ const EmeraldController = {
     const emptyState = document.getElementById('emerald-empty-state');
     if (!gridContainer || !emptyState) return;
 
+    const catalogApplyMultiplier = document.getElementById('catalog-apply-multiplier');
+    const catalogMultiplierSelect = document.getElementById('catalog-multiplier-select');
+    const catalogMultiplierCustom = document.getElementById('catalog-multiplier-custom');
+
+    let globalMultiplier = 1.0;
+    let isMultiplierEnabled = false;
+
+    if (catalogApplyMultiplier && catalogApplyMultiplier.checked) {
+      isMultiplierEnabled = true;
+      if (catalogMultiplierSelect.value === 'custom') {
+        globalMultiplier = parseFloat(catalogMultiplierCustom.value);
+        if (isNaN(globalMultiplier)) globalMultiplier = 1.0;
+      } else {
+        globalMultiplier = parseFloat(catalogMultiplierSelect.value) || 1.0;
+      }
+    }
+
     // Dynamically populate group filter options
     this.populateGroupFilterOptions();
 
@@ -1098,11 +1168,21 @@ const EmeraldController = {
           const pricePerCaratInr = item.pricePerCarat || 0;
           const totalValueInr = totalWeight * pricePerCaratInr;
 
+          let rateHtml = `₹${pricePerCaratInr.toLocaleString()}/ct`;
+          let valueHtml = `₹${totalValueInr.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+
+          if (isMultiplierEnabled) {
+            const discountedRate = Math.round(pricePerCaratInr * globalMultiplier);
+            const discountedValue = totalWeight * discountedRate;
+            rateHtml = `<span style="text-decoration: line-through; opacity: 0.6;">₹${pricePerCaratInr.toLocaleString()}</span> → <strong style="color: var(--text-gold-dark); font-weight: 700;">₹${discountedRate.toLocaleString()}</strong>/ct`;
+            valueHtml = `<span style="text-decoration: line-through; opacity: 0.6;">₹${totalValueInr.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span> → <strong style="color: var(--text-gold-dark); font-weight: 700;">₹${discountedValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>`;
+          }
+
           const pudiaStatsCol = `<div style="display: flex; align-items: center; gap: 15px; font-size: 12px; color: var(--text-muted); flex-wrap: wrap;">
             <span>Weight: <strong style="color: var(--text-main);">${totalWeight.toFixed(2)} cts</strong></span>
             <span>Pcs: <strong style="color: var(--text-main);">${totalPieces}</strong></span>
-            <span>Rate: <strong style="color: var(--text-main);">₹${pricePerCaratInr.toLocaleString()}/ct</strong></span>
-            <span>Value: <strong style="color: var(--text-gold-dark);">₹${totalValueInr.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
+            <span>Rate: <strong style="color: var(--text-main);">${rateHtml}</strong></span>
+            <span>Value: <strong style="color: var(--text-gold-dark);">${valueHtml}</strong></span>
           </div>`;
 
           pudiaHeader.innerHTML = pudiaTitleCol + pudiaStatsCol;
@@ -1128,10 +1208,23 @@ const EmeraldController = {
           const pricePerCaratUsd = usdRate > 0 ? pricePerCaratInr / usdRate : 0;
           const totalValueUsd = usdRate > 0 ? totalValueInr / usdRate : 0;
 
+          let usdPriceDisplay = `$${pricePerCaratUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+          let usdValueDisplay = `$${totalValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+          if (isMultiplierEnabled) {
+            const discountedRate = Math.round(pricePerCaratInr * globalMultiplier);
+            const discountedValue = totalWeight * discountedRate;
+            const discountedPriceUsd = usdRate > 0 ? discountedRate / usdRate : 0;
+            const discountedValueUsd = usdRate > 0 ? discountedValue / usdRate : 0;
+
+            usdPriceDisplay = `<span style="text-decoration: line-through; opacity: 0.6;">$${pricePerCaratUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> → <strong style="color: var(--text-gold-dark); font-weight: 700;">$${discountedPriceUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>`;
+            usdValueDisplay = `<span style="text-decoration: line-through; opacity: 0.6;">$${totalValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> → <strong style="color: var(--text-gold-dark); font-weight: 700;">$${discountedValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>`;
+          }
+
           const dollarPriceHtml = usdRate > 0 ? `
             <div style="display: flex; flex-wrap: wrap; gap: 8px 15px; margin-top: 10px; padding: 8px; border: 1px dashed var(--border-light); background-color: var(--bg-card); font-size: 11px;">
-              <div><strong>Price/ct (USD):</strong> $${pricePerCaratUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-              <div><strong>Value (USD):</strong> $${totalValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+              <div><strong>Price/ct (USD):</strong> ${usdPriceDisplay}</div>
+              <div><strong>Value (USD):</strong> ${usdValueDisplay}</div>
             </div>
           ` : '';
 
@@ -2142,14 +2235,16 @@ const EmeraldController = {
         </label>
         <div style="display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--text-muted);">
           <span>Orig: <strong style="color: var(--text-main);">₹${pricePerCaratInr.toLocaleString()}</strong></span>
-          <span>
+          <span style="display: flex; align-items: center;">
             <select class="bulk-share-multiplier-select" data-id="${e.id}" style="height: 26px; padding: 1px 4px; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 4px; color: var(--text-main); font-size: 11px;">
               <option value="1.0" selected>1.0x</option>
               <option value="0.9">0.9x</option>
               <option value="0.8">0.8x</option>
               <option value="0.7">0.7x</option>
               <option value="0.6">0.6x</option>
+              <option value="custom">Custom...</option>
             </select>
+            <input type="number" step="0.01" class="bulk-share-custom-multiplier-input" data-id="${e.id}" style="display: none; width: 55px; height: 26px; padding: 1px 4px; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 4px; color: var(--text-main); font-size: 11px; margin-left: 4px;" placeholder="1.0">
           </span>
           <span style="min-width: 85px; text-align: right;">New: <strong class="bulk-share-new-price-val" data-id="${e.id}" style="color: var(--text-gold-dark);">₹${pricePerCaratInr.toLocaleString()}</strong></span>
         </div>
@@ -2157,12 +2252,32 @@ const EmeraldController = {
 
       // Wire up multiplier change event for this row
       const select = row.querySelector('.bulk-share-multiplier-select');
+      const customInput = row.querySelector('.bulk-share-custom-multiplier-input');
       const newValEl = row.querySelector('.bulk-share-new-price-val');
-      select.addEventListener('change', (evt) => {
-        const mult = parseFloat(evt.target.value);
+
+      const updateNewPrice = () => {
+        let mult = 1.0;
+        if (select.value === 'custom') {
+          mult = parseFloat(customInput.value);
+          if (isNaN(mult)) mult = 1.0;
+        } else {
+          mult = parseFloat(select.value) || 1.0;
+        }
         const newPrice = Math.round(pricePerCaratInr * mult);
         newValEl.textContent = `₹${newPrice.toLocaleString()}`;
+      };
+
+      select.addEventListener('change', () => {
+        if (select.value === 'custom') {
+          customInput.style.display = 'inline-block';
+          customInput.value = '1.0';
+        } else {
+          customInput.style.display = 'none';
+        }
+        updateNewPrice();
       });
+
+      customInput.addEventListener('input', updateNewPrice);
 
       container.appendChild(row);
     });
@@ -2416,7 +2531,16 @@ const EmeraldController = {
 
       for (const e of selectedEmeralds) {
         const selectEl = document.querySelector(`.bulk-share-multiplier-select[data-id="${e.id}"]`);
-        const multiplier = selectEl ? parseFloat(selectEl.value) : 1.0;
+        let multiplier = 1.0;
+        if (selectEl) {
+          if (selectEl.value === 'custom') {
+            const customInputEl = document.querySelector(`.bulk-share-custom-multiplier-input[data-id="${e.id}"]`);
+            multiplier = customInputEl ? parseFloat(customInputEl.value) : 1.0;
+            if (isNaN(multiplier)) multiplier = 1.0;
+          } else {
+            multiplier = parseFloat(selectEl.value) || 1.0;
+          }
+        }
         const canvas = await this.createShareCardCanvas(e, includePrice, includeBrand, theme, multiplier);
         const dataUrl = canvas.toDataURL('image/png');
         const base64Data = dataUrl.split(',')[1];
@@ -2475,8 +2599,12 @@ const EmeraldController = {
     document.getElementById('share-include-brand').checked = true;
 
     const multiplierEl = document.getElementById('share-price-multiplier');
+    const multiplierCustom = document.getElementById('share-price-multiplier-custom');
     if (multiplierEl) {
       multiplierEl.value = '1.0';
+    }
+    if (multiplierCustom) {
+      multiplierCustom.style.display = 'none';
     }
     const origDisplay = document.getElementById('share-orig-price-display');
     const newDisplay = document.getElementById('share-new-price-display');
@@ -2499,7 +2627,16 @@ const EmeraldController = {
     const includeBrand = document.getElementById('share-include-brand').checked;
     const theme = document.getElementById('share-bg-theme').value;
     const multiplierEl = document.getElementById('share-price-multiplier');
-    const multiplier = multiplierEl ? parseFloat(multiplierEl.value) : 1.0;
+    const multiplierCustom = document.getElementById('share-price-multiplier-custom');
+    let multiplier = 1.0;
+    if (multiplierEl) {
+      if (multiplierEl.value === 'custom') {
+        multiplier = parseFloat(multiplierCustom.value);
+        if (isNaN(multiplier)) multiplier = 1.0;
+      } else {
+        multiplier = parseFloat(multiplierEl.value) || 1.0;
+      }
+    }
 
     const self = this;
 

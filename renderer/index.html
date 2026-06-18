@@ -584,6 +584,20 @@
                 <option value="color-high">Pudia Number (High to Low)</option>
                 <option value="color-low">Pudia Number (Low to High)</option>
               </select>
+              <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; border-left: 1px solid var(--border-light); padding-left: 12px; margin-left: 4px; flex-wrap: wrap;">
+                <label style="display: inline-flex; align-items: center; gap: 6px; font-weight: normal; text-transform: none; margin: 0; cursor: pointer; user-select: none;">
+                  <input type="checkbox" id="catalog-apply-multiplier" style="width: auto; margin: 0;"> Apply Multiplier
+                </label>
+                <select id="catalog-multiplier-select" class="filter-select" style="height: 38px; width: 110px; display: none; padding: 2px 6px;">
+                  <option value="1.0" selected>1.0x</option>
+                  <option value="0.9">0.9x (10% Off)</option>
+                  <option value="0.8">0.8x (20% Off)</option>
+                  <option value="0.7">0.7x (30% Off)</option>
+                  <option value="0.6">0.6x (40% Off)</option>
+                  <option value="custom">Custom...</option>
+                </select>
+                <input type="number" id="catalog-multiplier-custom" step="0.01" min="0" placeholder="e.g. 0.85" style="width: 75px; height: 38px; display: none; padding: 6px 8px; border: 1px solid var(--border-light); border-radius: 4px; background: var(--bg-base); color: var(--text-main);">
+              </div>
               <button type="button" id="btn-print-emerald" class="btn btn-secondary" style="height: 42px;">
                 <svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align: middle; margin-right: 6px;">
                   <path fill="currentColor"
@@ -2589,7 +2603,9 @@
                 <option value="0.8">0.8x (20% Off)</option>
                 <option value="0.7">0.7x (30% Off)</option>
                 <option value="0.6">0.6x (40% Off)</option>
+                <option value="custom">Custom...</option>
               </select>
+              <input type="number" id="share-price-multiplier-custom" step="0.01" min="0" placeholder="e.g. 0.85" style="display: none; flex: 1; height: 36px; padding: 6px 8px; border: 1px solid var(--border-light); border-radius: 4px; background: var(--bg-base); color: var(--text-main); margin-left: 5px;">
               <div style="display: flex; flex-direction: column; font-size: 11px; min-width: 140px; text-align: right; color: var(--text-muted); justify-content: center; gap: 2px;">
                 <div>Orig: <strong id="share-orig-price-display" style="color: var(--text-main);">₹0/ct</strong></div>
                 <div>New: <strong id="share-new-price-display" style="color: var(--text-gold-dark); font-weight: 700;">₹0/ct</strong></div>
