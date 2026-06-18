@@ -228,10 +228,10 @@ const EmeraldController = {
           mult = parseFloat(priceMultiplier.value) || 1.0;
         }
         const origPrice = this.sharingEmerald ? (this.sharingEmerald.pricePerCarat || 0) : 0;
-        const newPrice = Math.round(origPrice * mult);
+        const newPrice = Number((origPrice * mult).toFixed(2));
         const newDisplay = document.getElementById('share-new-price-display');
         if (newDisplay) {
-          newDisplay.textContent = `₹${newPrice.toLocaleString()}/ct`;
+          newDisplay.textContent = `₹${newPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/ct`;
         }
         if (this.sharingEmerald) {
           this.generateShareCard(this.sharingEmerald);
@@ -1166,16 +1166,16 @@ const EmeraldController = {
           </div>`;
 
           const pricePerCaratInr = item.pricePerCarat || 0;
-          const totalValueInr = totalWeight * pricePerCaratInr;
+          const totalValueInr = Number((totalWeight * pricePerCaratInr).toFixed(2));
 
-          let rateHtml = `₹${pricePerCaratInr.toLocaleString()}/ct`;
-          let valueHtml = `₹${totalValueInr.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+          let rateHtml = `₹${pricePerCaratInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/ct`;
+          let valueHtml = `₹${totalValueInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
           if (isMultiplierEnabled) {
-            const discountedRate = Math.round(pricePerCaratInr * globalMultiplier);
-            const discountedValue = totalWeight * discountedRate;
-            rateHtml = `<span style="text-decoration: line-through; opacity: 0.6;">₹${pricePerCaratInr.toLocaleString()}</span> → <strong style="color: var(--text-gold-dark); font-weight: 700;">₹${discountedRate.toLocaleString()}</strong>/ct`;
-            valueHtml = `<span style="text-decoration: line-through; opacity: 0.6;">₹${totalValueInr.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span> → <strong style="color: var(--text-gold-dark); font-weight: 700;">₹${discountedValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>`;
+            const discountedRate = Number((pricePerCaratInr * globalMultiplier).toFixed(2));
+            const discountedValue = Number((totalWeight * discountedRate).toFixed(2));
+            rateHtml = `<span style="text-decoration: line-through; opacity: 0.6;">₹${pricePerCaratInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> → <strong style="color: var(--text-gold-dark); font-weight: 700;">₹${discountedRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>/ct`;
+            valueHtml = `<span style="text-decoration: line-through; opacity: 0.6;">₹${totalValueInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> → <strong style="color: var(--text-gold-dark); font-weight: 700;">₹${discountedValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>`;
           }
 
           const pudiaStatsCol = `<div style="display: flex; align-items: center; gap: 15px; font-size: 12px; color: var(--text-muted); flex-wrap: wrap;">
@@ -1205,17 +1205,17 @@ const EmeraldController = {
           }
 
           const usdRate = DBManager.getSettings().usdToInr ? DBManager.getSettings().usdToInr.rate : 0;
-          const pricePerCaratUsd = usdRate > 0 ? pricePerCaratInr / usdRate : 0;
-          const totalValueUsd = usdRate > 0 ? totalValueInr / usdRate : 0;
+          const pricePerCaratUsd = Number((usdRate > 0 ? pricePerCaratInr / usdRate : 0).toFixed(2));
+          const totalValueUsd = Number((usdRate > 0 ? totalValueInr / usdRate : 0).toFixed(2));
 
           let usdPriceDisplay = `$${pricePerCaratUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
           let usdValueDisplay = `$${totalValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
           if (isMultiplierEnabled) {
-            const discountedRate = Math.round(pricePerCaratInr * globalMultiplier);
-            const discountedValue = totalWeight * discountedRate;
-            const discountedPriceUsd = usdRate > 0 ? discountedRate / usdRate : 0;
-            const discountedValueUsd = usdRate > 0 ? discountedValue / usdRate : 0;
+            const discountedRate = Number((pricePerCaratInr * globalMultiplier).toFixed(2));
+            const discountedValue = Number((totalWeight * discountedRate).toFixed(2));
+            const discountedPriceUsd = Number((usdRate > 0 ? discountedRate / usdRate : 0).toFixed(2));
+            const discountedValueUsd = Number((usdRate > 0 ? discountedValue / usdRate : 0).toFixed(2));
 
             usdPriceDisplay = `<span style="text-decoration: line-through; opacity: 0.6;">$${pricePerCaratUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> → <strong style="color: var(--text-gold-dark); font-weight: 700;">$${discountedPriceUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>`;
             usdValueDisplay = `<span style="text-decoration: line-through; opacity: 0.6;">$${totalValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> → <strong style="color: var(--text-gold-dark); font-weight: 700;">$${discountedValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>`;
@@ -1360,7 +1360,7 @@ const EmeraldController = {
     const stockType = document.getElementById('emerald-stock-type').value;
     const lustreGrade = stockType === 'Single Pieces' ? '' : document.getElementById('emerald-lustre').value.trim();
     const color = Number(document.getElementById('emerald-color').value || 0);
-    const pricePerCarat = Number(document.getElementById('emerald-price').value || 0);
+    const pricePerCarat = Number(Number(document.getElementById('emerald-price').value || 0).toFixed(2));
     const pair = document.getElementById('emerald-pair').value;
     const group = document.getElementById('emerald-group').value.trim();
 
@@ -1760,7 +1760,7 @@ const EmeraldController = {
             <td>${sizesList}</td>
             <td style="text-align: right;">${pieces}</td>
             <td style="text-align: right;">${weight.toFixed(2)}</td>
-            <td style="text-align: right;">₹${(item.pricePerCarat || 0).toLocaleString()}</td>
+            <td style="text-align: right;">₹${(item.pricePerCarat || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
             <td style="text-align: right;"><strong>₹${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
           </tr>
         `;
@@ -2234,7 +2234,7 @@ const EmeraldController = {
           #${e.color || 'N/A'} (${weight.toFixed(2)}ct)
         </label>
         <div style="display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--text-muted);">
-          <span>Orig: <strong style="color: var(--text-main);">₹${pricePerCaratInr.toLocaleString()}</strong></span>
+          <span>Orig: <strong style="color: var(--text-main);">₹${pricePerCaratInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
           <span style="display: flex; align-items: center;">
             <select class="bulk-share-multiplier-select" data-id="${e.id}" style="height: 26px; padding: 1px 4px; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 4px; color: var(--text-main); font-size: 11px;">
               <option value="1.0" selected>1.0x</option>
@@ -2246,7 +2246,7 @@ const EmeraldController = {
             </select>
             <input type="number" step="0.01" class="bulk-share-custom-multiplier-input" data-id="${e.id}" style="display: none; width: 55px; height: 26px; padding: 1px 4px; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 4px; color: var(--text-main); font-size: 11px; margin-left: 4px;" placeholder="1.0">
           </span>
-          <span style="min-width: 85px; text-align: right;">New: <strong class="bulk-share-new-price-val" data-id="${e.id}" style="color: var(--text-gold-dark);">₹${pricePerCaratInr.toLocaleString()}</strong></span>
+          <span style="min-width: 85px; text-align: right;">New: <strong class="bulk-share-new-price-val" data-id="${e.id}" style="color: var(--text-gold-dark);">₹${pricePerCaratInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
         </div>
       `;
 
@@ -2263,8 +2263,8 @@ const EmeraldController = {
         } else {
           mult = parseFloat(select.value) || 1.0;
         }
-        const newPrice = Math.round(pricePerCaratInr * mult);
-        newValEl.textContent = `₹${newPrice.toLocaleString()}`;
+        const newPrice = Number((pricePerCaratInr * mult).toFixed(2));
+        newValEl.textContent = `₹${newPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       };
 
       select.addEventListener('change', () => {
@@ -2380,8 +2380,8 @@ const EmeraldController = {
         const shapes = this.getEmeraldShapes(emerald);
         const shapesDisplay = shapes.length > 0 ? shapes.join(', ') : 'Unknown';
         const originsStr = (emerald.origins || []).join(', ');
-        const pricePerCaratInr = Math.round((emerald.pricePerCarat || 0) * multiplier);
-        const totalValueInr = totalWeight * pricePerCaratInr;
+        const pricePerCaratInr = Number(((emerald.pricePerCarat || 0) * multiplier).toFixed(2));
+        const totalValueInr = Number((totalWeight * pricePerCaratInr).toFixed(2));
 
         if (emerald.image) {
           if (includeBrand) {
@@ -2405,7 +2405,7 @@ const EmeraldController = {
           ctx.fillText(`Pcs: ${totalPieces}`, boxX + 10 * scale, boxY + 40 * scale);
 
           if (includePrice) {
-            ctx.fillText(`Price: ₹${pricePerCaratInr.toLocaleString()}/ct`, boxX + 10 * scale, boxY + 58 * scale);
+            ctx.fillText(`Price: ₹${pricePerCaratInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/ct`, boxX + 10 * scale, boxY + 58 * scale);
           }
         } else {
           // Gradient layout draw
@@ -2473,11 +2473,11 @@ const EmeraldController = {
             ctx.textAlign = 'center';
             ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
             ctx.font = '12px sans-serif';
-            ctx.fillText(`VALUED AT ₹${pricePerCaratInr.toLocaleString()}/CT`, 400, 650);
+            ctx.fillText(`VALUED AT ₹${pricePerCaratInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/CT`, 400, 650);
 
             ctx.fillStyle = '#D4AF37';
             ctx.font = 'bold 32px Georgia, serif';
-            ctx.fillText(`₹${totalValueInr.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 400, 695);
+            ctx.fillText(`₹${totalValueInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 400, 695);
           }
         }
 
@@ -2610,8 +2610,8 @@ const EmeraldController = {
     const newDisplay = document.getElementById('share-new-price-display');
     if (origDisplay && newDisplay) {
       const origPrice = emerald.pricePerCarat || 0;
-      origDisplay.textContent = `₹${origPrice.toLocaleString()}/ct`;
-      newDisplay.textContent = `₹${origPrice.toLocaleString()}/ct`;
+      origDisplay.textContent = `₹${origPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/ct`;
+      newDisplay.textContent = `₹${origPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/ct`;
     }
 
     UI.openModal('modal-share-emerald');
@@ -2726,8 +2726,8 @@ const EmeraldController = {
         const shapes = self.getEmeraldShapes(emerald);
         const shapesDisplay = shapes.length > 0 ? shapes.join(', ') : 'Unknown';
         const originsStr = (emerald.origins || []).join(', ');
-        const pricePerCaratInr = Math.round((emerald.pricePerCarat || 0) * multiplier);
-        const totalValueInr = totalWeight * pricePerCaratInr;
+        const pricePerCaratInr = Number(((emerald.pricePerCarat || 0) * multiplier).toFixed(2));
+        const totalValueInr = Number((totalWeight * pricePerCaratInr).toFixed(2));
 
         // 3. Draw Overlays
         if (emerald.image) {
@@ -2756,7 +2756,7 @@ const EmeraldController = {
           ctx.fillText(`Pcs: ${totalPieces}`, self.shareCoords.boxX + 10 * scale, self.shareCoords.boxY + 40 * scale);
 
           if (includePrice) {
-            ctx.fillText(`Price: ₹${pricePerCaratInr.toLocaleString()}/ct`, self.shareCoords.boxX + 10 * scale, self.shareCoords.boxY + 58 * scale);
+            ctx.fillText(`Price: ₹${pricePerCaratInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/ct`, self.shareCoords.boxX + 10 * scale, self.shareCoords.boxY + 58 * scale);
           }
         } else {
           // --- GRADIENT LAYOUT RENDER (NO PHOTO) ---
@@ -2828,11 +2828,11 @@ const EmeraldController = {
             ctx.textAlign = 'center';
             ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
             ctx.font = '12px sans-serif';
-            ctx.fillText(`VALUED AT ₹${pricePerCaratInr.toLocaleString()}/CT`, 400, 650);
+            ctx.fillText(`VALUED AT ₹${pricePerCaratInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/CT`, 400, 650);
 
             ctx.fillStyle = '#D4AF37';
             ctx.font = 'bold 32px Georgia, serif';
-            ctx.fillText(`₹${totalValueInr.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 400, 695);
+            ctx.fillText(`₹${totalValueInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 400, 695);
           }
         }
       };
