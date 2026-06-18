@@ -2432,10 +2432,19 @@
         <form id="emerald-form" onsubmit="return false;">
           <input type="hidden" id="emerald-item-id">
 
+          <div class="input-group">
+            <label for="emerald-stock-type">Stock Type <span class="required">*</span></label>
+            <select id="emerald-stock-type" required>
+              <option value="Single Pieces">Single Pieces</option>
+              <option value="Calibrated Series" selected>Calibrated Series (Assorted Mix)</option>
+            </select>
+          </div>
+
           <div class="emerald-sizes-section">
             <span class="section-label">SIZE BREAKDOWN <span class="required">*</span></span>
 
             <div class="emerald-sizes-header">
+              <span>#</span>
               <span>Shape</span>
               <span>MM</span>
               <span>Pcs</span>
@@ -2457,7 +2466,7 @@
             <button type="button" class="btn-add-size-row" id="btn-add-emerald-size">+ Add Size Row</button>
           </div>
 
-          <div class="input-group">
+          <div class="input-group" id="emerald-lustre-group">
             <label for="emerald-lustre">Lustre Grade <span class="required">*</span></label>
             <input type="text" id="emerald-lustre" list="emerald-lustres-list"
               placeholder="Select or type lustre grade..." required>

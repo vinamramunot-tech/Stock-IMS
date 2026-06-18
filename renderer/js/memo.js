@@ -307,8 +307,9 @@ const MemoController = {
       div.className = 'pudia-picker-row';
       div.dataset.id = e.id;
       div.style = 'padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border-light);display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--text-main);transition:background var(--transition-fast);';
+      const lustreDisplay = e.stockType === 'Single Pieces' ? 'Single Pieces' : (e.lustreGrade || '—');
       div.innerHTML = `
-        <span><strong>#${e.color || 'N/A'}</strong> - ${UI.escapeHtml(e.group || '—')} (${UI.escapeHtml(e.shape || '—')}, ${UI.escapeHtml(e.lustreGrade || '—')})</span>
+        <span><strong>#${e.color || 'N/A'}</strong> - ${UI.escapeHtml(e.group || '—')} (${UI.escapeHtml(e.shape || '—')}, ${UI.escapeHtml(lustreDisplay)})</span>
         <span style="font-weight:700;color:var(--text-gold-dark);">${availCts.toFixed(2)} cts</span>
       `;
 
@@ -384,7 +385,8 @@ const MemoController = {
         group: emerald.group || '',
         lustreGrade: emerald.lustreGrade || '',
         color: emerald.color || '',
-        shape: emerald.shape || ''
+        shape: emerald.shape || '',
+        stockType: emerald.stockType || ''
       },
       carats: Number(inputCarats.toFixed(3)),
       pieces: inputPieces,
@@ -421,7 +423,7 @@ const MemoController = {
       tr.innerHTML = `
         <td style="padding:10px 12px;font-weight:600;">${UI.escapeHtml(snap.group || '—')}</td>
         <td style="padding:10px 12px;text-align:center;font-weight:700;color:var(--text-gold-dark);">#${snap.color || 'N/A'}</td>
-        <td style="padding:10px 12px;">${UI.escapeHtml(snap.shape || '—')} / ${UI.escapeHtml(snap.lustreGrade || '—')}</td>
+        <td style="padding:10px 12px;">${UI.escapeHtml(snap.shape || '—')}${snap.stockType === 'Single Pieces' ? '' : ` / ${UI.escapeHtml(snap.lustreGrade || '—')}`}</td>
         <td style="padding:10px 12px;text-align:right;font-weight:700;">${item.carats.toFixed(2)} cts</td>
         <td style="padding:10px 12px;text-align:right;">${item.pieces || '—'}</td>
         <td style="padding:10px 12px;text-align:center;">
@@ -631,7 +633,7 @@ const MemoController = {
       tr.innerHTML = `
         <td style="padding:10px 12px;">${UI.escapeHtml(snap.group || '—')}</td>
         <td style="padding:10px 12px;text-align:center;font-weight:700;color:var(--text-gold-dark);">#${snap.color || 'N/A'}</td>
-        <td style="padding:10px 12px;">${UI.escapeHtml(snap.shape || '—')} / ${UI.escapeHtml(snap.lustreGrade || '—')}</td>
+        <td style="padding:10px 12px;">${UI.escapeHtml(snap.shape || '—')}${snap.stockType === 'Single Pieces' ? '' : ` / ${UI.escapeHtml(snap.lustreGrade || '—')}`}</td>
         <td style="padding:10px 12px;text-align:right;">${(item.carats || 0).toFixed(2)} cts<br><span style="font-size:10px;color:var(--text-muted);">${item.pieces || '—'} pcs</span></td>
         <td style="padding:10px 12px;text-align:right;color:var(--text-muted);">${rCarats > 0 ? `${rCarats.toFixed(2)} cts<br><span style="font-size:10px;">${rPieces} pcs</span>` : '—'}</td>
         <td style="padding:10px 12px;text-align:right;color:var(--text-gold-dark);">${sCarats > 0 ? `${sCarats.toFixed(2)} cts<br><span style="font-size:10px;">${sPieces} pcs</span>` : '—'}</td>
@@ -702,7 +704,8 @@ const MemoController = {
       // Direct item-level action (from details modal)
       selectorGroup.classList.add('hidden');
       const item = memo.items[itemIndex];
-      subtitleEl.innerHTML = `<strong>Pudia:</strong> #${item.emeraldSnapshot.color || 'N/A'} (${item.emeraldSnapshot.group || '—'})<br><strong>Grade:</strong> ${item.emeraldSnapshot.lustreGrade || '—'}`;
+      const gradeHtml = item.emeraldSnapshot.stockType === 'Single Pieces' ? '' : `<br><strong>Grade:</strong> ${item.emeraldSnapshot.lustreGrade || '—'}`;
+      subtitleEl.innerHTML = `<strong>Pudia:</strong> #${item.emeraldSnapshot.color || 'N/A'} (${item.emeraldSnapshot.group || '—'})${gradeHtml}`;
       this.setupActionInputRanges(item);
     } else {
       // Memo-level action (from main list view)

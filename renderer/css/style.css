@@ -1,116 +1,159 @@
 /* ==================== MAVA GEMS DESIGN TOKENS ==================== */
 :root {
-  --bg-base: #F9F9F9;          /* Very Light Grey Base */
-  --bg-card: #FFFFFF;          /* Pure White Cards */
-  --bg-sidebar: #FFFFFF;       /* Pure White Sidebar */
-  
-  --text-main: #000000;        /* Pure Black Main Text */
-  --text-muted: #666666;       /* Medium Grey for Help Text */
-  --text-gold: #000000;        /* Black for Accent Text */
-  --text-gold-dark: #000000;   /* Black for Highlight Text */
-  
-  --border-dark: #000000;      /* Stark Black Outlines */
-  --border-light: #E0E0E0;     /* Crisp Light Grey Outlines */
-  --border-gold: #CCCCCC;      /* Medium Grey Accent Lines */
-  
-  --gold-accent: #000000;      /* Black Accents */
-  --gold-hover: #444444;       /* Charcoal Hover Actions */
-  --danger-red: #000000;       /* Black for Danger Actions (minimalist) */
+  --bg-base: #F9F9F9;
+  /* Very Light Grey Base */
+  --bg-card: #FFFFFF;
+  /* Pure White Cards */
+  --bg-sidebar: #FFFFFF;
+  /* Pure White Sidebar */
+
+  --text-main: #000000;
+  /* Pure Black Main Text */
+  --text-muted: #666666;
+  /* Medium Grey for Help Text */
+  --text-gold: #000000;
+  /* Black for Accent Text */
+  --text-gold-dark: #000000;
+  /* Black for Highlight Text */
+
+  --border-dark: #000000;
+  /* Stark Black Outlines */
+  --border-light: #E0E0E0;
+  /* Crisp Light Grey Outlines */
+  --border-gold: #CCCCCC;
+  /* Medium Grey Accent Lines */
+
+  --gold-accent: #000000;
+  /* Black Accents */
+  --gold-hover: #444444;
+  /* Charcoal Hover Actions */
+  --danger-red: #000000;
+  /* Black for Danger Actions (minimalist) */
   --danger-hover: #444444;
   --success-green: #000000;
-  
+
   --font-serif: Georgia, serif;
   --font-sans: system-ui, -apple-system, sans-serif;
-  
+
   --shadow-subtle: 0 4px 20px rgba(26, 26, 29, 0.03);
   --shadow-modal: 0 10px 50px rgba(0, 0, 0, 0.08);
-  
+
   --transition-fast: 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  
+
   color-scheme: light dark;
 }
 
 /* Premium Dark Mode Variables (Default to system-preference) */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg-base: #121214;          /* Deep rich dark charcoal */
-    --bg-card: #1C1C1F;          /* Slightly lighter card background */
-    --bg-sidebar: #18181A;       /* Distinct dark sidebar background */
-    
-    --text-main: #F3F3F3;        /* Soft off-white for main text */
-    --text-muted: #8E8E93;       /* Muted grey text */
-    --text-gold: #D4AF37;        /* Elegant Gold accent text */
-    --text-gold-dark: #E6C653;   /* Lighter Gold highlight */
-    
-    --border-dark: #F3F3F3;      /* Stark light outlines */
-    --border-light: #2C2C2E;     /* Darker grey outlines */
-    --border-gold: #D4AF37;      /* Gold borders */
-    
-    --gold-accent: #D4AF37;      /* Gold accents */
-    --gold-hover: #D8B73C;       /* Warm Gold hover */
-    --danger-red: #FF453A;       /* High-contrast danger red */
-    --danger-hover: #FF6961;     /* Lighter red on hover */
-    --success-green: #30D158;    /* Vibrant success green */
-    
+    --bg-base: #121214;
+    /* Deep rich dark charcoal */
+    --bg-card: #1C1C1F;
+    /* Slightly lighter card background */
+    --bg-sidebar: #18181A;
+    /* Distinct dark sidebar background */
+
+    --text-main: #F3F3F3;
+    /* Soft off-white for main text */
+    --text-muted: #8E8E93;
+    /* Muted grey text */
+    --text-gold: #D4AF37;
+    /* Elegant Gold accent text */
+    --text-gold-dark: #E6C653;
+    /* Lighter Gold highlight */
+
+    --border-dark: #F3F3F3;
+    /* Stark light outlines */
+    --border-light: #2C2C2E;
+    /* Darker grey outlines */
+    --border-gold: #D4AF37;
+    /* Gold borders */
+
+    --gold-accent: #D4AF37;
+    /* Gold accents */
+    --gold-hover: #D8B73C;
+    /* Warm Gold hover */
+    --danger-red: #FF453A;
+    /* High-contrast danger red */
+    --danger-hover: #FF6961;
+    /* Lighter red on hover */
+    --success-green: #30D158;
+    /* Vibrant success green */
+
     --shadow-subtle: 0 4px 20px rgba(0, 0, 0, 0.5);
     --shadow-modal: 0 10px 50px rgba(0, 0, 0, 0.6);
   }
 }
 
 /* Explicit Pinned Dark Theme */
-:root[data-theme="dark"], html[data-theme="dark"] {
+:root[data-theme="dark"],
+html[data-theme="dark"] {
   color-scheme: dark;
   --bg-base: #121214;
   --bg-card: #1C1C1F;
   --bg-sidebar: #18181A;
-  
+
   --text-main: #F3F3F3;
   --text-muted: #8E8E93;
   --text-gold: #D4AF37;
   --text-gold-dark: #E6C653;
-  
+
   --border-dark: #F3F3F3;
   --border-light: #2C2C2E;
   --border-gold: #D4AF37;
-  
+
   --gold-accent: #D4AF37;
   --gold-hover: #D8B73C;
   --danger-red: #FF453A;
   --danger-hover: #FF6961;
   --success-green: #30D158;
-  
+
   --shadow-subtle: 0 4px 20px rgba(0, 0, 0, 0.5);
   --shadow-modal: 0 10px 50px rgba(0, 0, 0, 0.6);
 }
 
 /* Explicit Pinned Light Theme override if system is dark but user selected light */
-:root[data-theme="light"], html[data-theme="light"] {
+:root[data-theme="light"],
+html[data-theme="light"] {
   color-scheme: light;
   --bg-base: #F9F9F9;
   --bg-card: #FFFFFF;
   --bg-sidebar: #FFFFFF;
-  
+
   --text-main: #000000;
   --text-muted: #666666;
   --text-gold: #000000;
   --text-gold-dark: #000000;
-  
+
   --border-dark: #000000;
   --border-light: #E0E0E0;
   --border-gold: #CCCCCC;
-  
+
   --gold-accent: #000000;
   --gold-hover: #444444;
   --danger-red: #000000;
   --danger-hover: #444444;
   --success-green: #000000;
-  
+
   --shadow-subtle: 0 4px 20px rgba(26, 26, 29, 0.03);
   --shadow-modal: 0 10px 50px rgba(0, 0, 0, 0.08);
 }
 
 /* Smooth Transition for Theme Switcher */
-body, header, aside, main, .product-card, .metric-card, .btn, input, select, textarea, .modal-card, .settings-card, .vault-info, .stone-group-card {
+body,
+header,
+aside,
+main,
+.product-card,
+.metric-card,
+.btn,
+input,
+select,
+textarea,
+.modal-card,
+.settings-card,
+.vault-info,
+.stone-group-card {
   transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
@@ -118,6 +161,7 @@ body, header, aside, main, .product-card, .metric-card, .btn, input, select, tex
 #btn-toggle-theme .sun-icon {
   display: none;
 }
+
 #btn-toggle-theme .moon-icon {
   display: block;
 }
@@ -126,19 +170,24 @@ body, header, aside, main, .product-card, .metric-card, .btn, input, select, tex
   :root:not([data-theme="light"]) #btn-toggle-theme .sun-icon {
     display: block;
   }
+
   :root:not([data-theme="light"]) #btn-toggle-theme .moon-icon {
     display: none;
   }
 }
+
 html[data-theme="dark"] #btn-toggle-theme .sun-icon {
   display: block;
 }
+
 html[data-theme="dark"] #btn-toggle-theme .moon-icon {
   display: none;
 }
+
 html[data-theme="light"] #btn-toggle-theme .sun-icon {
   display: none;
 }
+
 html[data-theme="light"] #btn-toggle-theme .moon-icon {
   display: block;
 }
@@ -147,6 +196,7 @@ html[data-theme="light"] #btn-toggle-theme .moon-icon {
 #btn-mobile-toggle-theme .sun-icon {
   display: none;
 }
+
 #btn-mobile-toggle-theme .moon-icon {
   display: block;
 }
@@ -155,19 +205,24 @@ html[data-theme="light"] #btn-toggle-theme .moon-icon {
   :root:not([data-theme="light"]) #btn-mobile-toggle-theme .sun-icon {
     display: block;
   }
+
   :root:not([data-theme="light"]) #btn-mobile-toggle-theme .moon-icon {
     display: none;
   }
 }
+
 html[data-theme="dark"] #btn-mobile-toggle-theme .sun-icon {
   display: block;
 }
+
 html[data-theme="dark"] #btn-mobile-toggle-theme .moon-icon {
   display: none;
 }
+
 html[data-theme="light"] #btn-mobile-toggle-theme .sun-icon {
   display: none;
 }
+
 html[data-theme="light"] #btn-mobile-toggle-theme .moon-icon {
   display: block;
 }
@@ -176,6 +231,7 @@ html[data-theme="light"] #btn-mobile-toggle-theme .moon-icon {
 #btn-startup-toggle-theme .sun-icon {
   display: none;
 }
+
 #btn-startup-toggle-theme .moon-icon {
   display: block;
 }
@@ -184,19 +240,24 @@ html[data-theme="light"] #btn-mobile-toggle-theme .moon-icon {
   :root:not([data-theme="light"]) #btn-startup-toggle-theme .sun-icon {
     display: block;
   }
+
   :root:not([data-theme="light"]) #btn-startup-toggle-theme .moon-icon {
     display: none;
   }
 }
+
 html[data-theme="dark"] #btn-startup-toggle-theme .sun-icon {
   display: block;
 }
+
 html[data-theme="dark"] #btn-startup-toggle-theme .moon-icon {
   display: none;
 }
+
 html[data-theme="light"] #btn-startup-toggle-theme .sun-icon {
   display: none;
 }
+
 html[data-theme="light"] #btn-startup-toggle-theme .moon-icon {
   display: block;
 }
@@ -212,6 +273,7 @@ html[data-theme="light"] #btn-startup-toggle-theme .moon-icon {
   transition: all var(--transition-fast);
   color: var(--text-main) !important;
 }
+
 .theme-toggle-btn:hover {
   border-color: var(--border-dark) !important;
   background-color: var(--border-light) !important;
@@ -223,7 +285,8 @@ html[data-theme="light"] #btn-startup-toggle-theme .moon-icon {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  border-radius: 0 !important; /* ABSOLUTELY NO CURVES, STRAIGHT EDGES GLOBALLY */
+  border-radius: 0 !important;
+  /* ABSOLUTELY NO CURVES, STRAIGHT EDGES GLOBALLY */
 }
 
 body {
@@ -237,7 +300,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-h1, h2, h3, h4, .brand-title, .logo-serif {
+h1,
+h2,
+h3,
+h4,
+.brand-title,
+.logo-serif {
   font-family: var(--font-serif);
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -248,12 +316,15 @@ h1, h2, h3, h4, .brand-title, .logo-serif {
   width: 6px;
   height: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: var(--bg-base);
 }
+
 ::-webkit-scrollbar-thumb {
   background: var(--border-light);
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
@@ -285,6 +356,7 @@ textarea:focus {
 input[type="number"] {
   -moz-appearance: textfield;
 }
+
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: none;
@@ -311,6 +383,7 @@ label {
   color: var(--text-muted);
   margin-top: 4px;
 }
+
 .block-help {
   margin-top: 6px;
 }
@@ -319,7 +392,8 @@ label {
   color: var(--danger-red);
 }
 
-option, datalist option {
+option,
+datalist option {
   color: var(--text-main) !important;
   background-color: var(--bg-card) !important;
 }
@@ -346,6 +420,7 @@ option, datalist option {
   color: var(--bg-card);
   border-color: var(--text-main);
 }
+
 .btn-primary:hover {
   background-color: #2A2A2D;
   border-color: #2A2A2D;
@@ -356,6 +431,7 @@ option, datalist option {
   color: var(--text-main);
   border-color: var(--border-dark);
 }
+
 .btn-secondary:hover {
   background-color: var(--border-dark);
   color: var(--bg-card);
@@ -366,6 +442,7 @@ option, datalist option {
   color: var(--danger-red);
   border-color: var(--danger-red);
 }
+
 .btn-danger:hover {
   background-color: var(--danger-red);
   color: var(--bg-card);
@@ -395,6 +472,7 @@ option, datalist option {
   padding: 0;
   transition: color var(--transition-fast);
 }
+
 .btn-text:hover {
   color: var(--text-gold-dark);
   text-decoration: underline;
@@ -411,6 +489,7 @@ option, datalist option {
   padding: 4px;
   transition: color var(--transition-fast);
 }
+
 .btn-icon:hover {
   color: var(--text-gold-dark);
 }
@@ -418,12 +497,30 @@ option, datalist option {
 .full-width {
   width: 100%;
 }
-.mt-10 { margin-top: 10px; }
-.mt-15 { margin-top: 15px; }
-.mt-20 { margin-top: 20px; }
-.font-bold { font-weight: 600; }
-.text-gold { color: var(--text-gold-dark) !important; }
-.hidden { display: none !important; }
+
+.mt-10 {
+  margin-top: 10px;
+}
+
+.mt-15 {
+  margin-top: 15px;
+}
+
+.mt-20 {
+  margin-top: 20px;
+}
+
+.font-bold {
+  font-weight: 600;
+}
+
+.text-gold {
+  color: var(--text-gold-dark) !important;
+}
+
+.hidden {
+  display: none !important;
+}
 
 /* ==================== LOCK SCREEN SCREEN ==================== */
 .full-screen-container {
@@ -451,12 +548,14 @@ option, datalist option {
   text-align: center;
   margin-bottom: 35px;
 }
+
 .brand-title {
   font-size: 46px;
   color: var(--text-main);
   letter-spacing: 0.1em;
   font-weight: 500;
 }
+
 .brand-subtitle {
   font-size: 10px;
   font-weight: 700;
@@ -479,6 +578,7 @@ option, datalist option {
   margin-top: 6px;
   width: 100%;
 }
+
 #strength-bar {
   height: 100%;
   width: 0;
@@ -496,6 +596,7 @@ option, datalist option {
   text-align: center;
   font-weight: 500;
 }
+
 .success-box {
   background-color: #E8F5E9;
   border: 1px solid #C8E6C9;
@@ -538,17 +639,20 @@ option, datalist option {
   display: flex;
   align-items: center;
 }
+
 .logo-serif {
   font-size: 26px;
   font-weight: 700;
   letter-spacing: 0.08em;
   color: var(--text-main);
 }
+
 .app-header .divider {
   margin: 0 15px;
   color: var(--border-light);
   font-weight: 300;
 }
+
 .app-mode {
   font-size: 10px;
   font-weight: 700;
@@ -563,6 +667,7 @@ option, datalist option {
   flex-wrap: wrap;
   gap: 8px;
 }
+
 .gold-rate-display {
   display: inline-flex;
   align-items: center;
@@ -572,6 +677,7 @@ option, datalist option {
   font-size: 11px;
   white-space: nowrap;
 }
+
 .rate-label {
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -579,11 +685,13 @@ option, datalist option {
   margin-right: 6px;
   font-size: 10px;
 }
+
 .rate-value {
   font-weight: 700;
   color: var(--text-gold-dark);
   margin-right: 8px;
 }
+
 .rate-date {
   font-size: 10px;
   color: var(--text-muted);
@@ -597,6 +705,7 @@ option, datalist option {
   align-items: center;
   gap: 20px;
 }
+
 .vault-info {
   display: flex;
   align-items: center;
@@ -607,9 +716,11 @@ option, datalist option {
   background-color: var(--bg-base);
   transition: border-color var(--transition-fast);
 }
+
 .vault-info:focus-within {
   border-color: var(--border-dark);
 }
+
 .vault-status-indicator {
   display: inline-block;
   width: 8px;
@@ -618,6 +729,7 @@ option, datalist option {
   margin-right: 8px;
   flex-shrink: 0;
 }
+
 .vault-path-input {
   background: transparent !important;
   border: none !important;
@@ -632,6 +744,7 @@ option, datalist option {
   overflow: hidden;
   transition: all var(--transition-fast);
 }
+
 .vault-path-input:focus {
   background-color: transparent !important;
 }
@@ -662,10 +775,12 @@ option, datalist option {
   flex-direction: column;
   justify-content: center;
 }
+
 .metric-card.gold-border {
   border-color: var(--border-dark);
   background-color: rgba(184, 144, 71, 0.02);
 }
+
 .metric-label {
   font-size: 10px;
   font-weight: 700;
@@ -673,6 +788,7 @@ option, datalist option {
   color: var(--text-muted);
   margin-bottom: 6px;
 }
+
 .metric-value {
   font-size: 24px;
   font-weight: 600;
@@ -721,20 +837,24 @@ option, datalist option {
   text-align: left;
   transition: all var(--transition-fast);
 }
+
 .nav-item svg {
   margin-right: 12px;
   color: var(--text-muted);
   transition: color var(--transition-fast);
 }
+
 .nav-item:hover {
   background-color: var(--bg-base);
   border-color: var(--border-light);
 }
+
 .nav-item.active {
   background-color: var(--text-main);
   color: var(--bg-card);
   border-color: var(--text-main);
 }
+
 .nav-item.active svg {
   color: var(--text-gold);
 }
@@ -744,19 +864,22 @@ option, datalist option {
   font-size: 11px;
   color: var(--text-muted);
 }
+
 .sidebar-footer .copyright {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   margin-bottom: 4px;
 }
+
 .sidebar-footer .offline-tag {
   color: var(--text-gold-dark);
 }
 
 /* Mobile action bar — hidden on desktop, shown as a strip on mobile */
 .mobile-action-bar {
-  display: none; /* hidden by default on desktop */
+  display: none;
+  /* hidden by default on desktop */
 }
 
 /* MAIN WORKAREA CONTENT */
@@ -776,12 +899,14 @@ option, datalist option {
   margin-bottom: 25px;
   color: var(--text-main);
 }
+
 .tab-header-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 25px;
 }
+
 .tab-header-row .section-title {
   margin-bottom: 0;
 }
@@ -802,10 +927,12 @@ option, datalist option {
   max-width: 400px;
   min-width: 200px;
 }
+
 .search-box input {
   padding-left: 45px;
   height: 42px;
 }
+
 .search-icon {
   position: absolute;
   left: 15px;
@@ -818,6 +945,7 @@ option, datalist option {
   gap: 12px;
   flex-wrap: wrap;
 }
+
 .filter-select {
   height: 42px;
   width: 160px;
@@ -846,6 +974,7 @@ option, datalist option {
   flex-direction: column;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
+
 .product-card:hover {
   border-color: var(--border-dark);
   box-shadow: var(--shadow-subtle);
@@ -861,11 +990,13 @@ option, datalist option {
   justify-content: center;
   overflow: hidden;
 }
+
 .product-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
+
 .product-fallback-svg {
   color: var(--border-light);
 }
@@ -894,6 +1025,7 @@ option, datalist option {
 .product-meta {
   margin-bottom: 12px;
 }
+
 .product-sku {
   font-size: 10px;
   font-weight: 700;
@@ -901,6 +1033,7 @@ option, datalist option {
   color: var(--text-gold-dark);
   margin-bottom: 4px;
 }
+
 .product-title {
   font-size: 18px;
   font-weight: 600;
@@ -916,12 +1049,14 @@ option, datalist option {
   border-top: 1px solid var(--bg-base);
   padding-top: 12px;
 }
+
 .specs-line {
   margin-bottom: 4px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 .specs-line strong {
   color: var(--text-main);
 }
@@ -933,6 +1068,7 @@ option, datalist option {
   border-top: 1px dashed var(--border-light);
   padding-top: 15px;
 }
+
 .price-lbl {
   font-size: 9px;
   font-weight: 700;
@@ -940,6 +1076,7 @@ option, datalist option {
   color: var(--text-muted);
   margin-bottom: 2px;
 }
+
 .price-val {
   font-size: 20px;
   font-weight: 600;
@@ -967,10 +1104,12 @@ option, datalist option {
   max-width: 500px;
   margin: 50px auto;
 }
+
 .empty-title {
   margin-bottom: 10px;
   font-size: 22px;
 }
+
 .empty-description {
   font-size: 14px;
   color: var(--text-muted);
@@ -989,12 +1128,15 @@ option, datalist option {
   border-collapse: collapse;
   text-align: left;
 }
-.logs-table th, .logs-table td {
+
+.logs-table th,
+.logs-table td {
   padding: 15px 20px;
   border-bottom: 1px solid var(--border-light);
   font-size: 13px;
   vertical-align: top;
 }
+
 .logs-table th {
   background-color: var(--bg-base);
   font-size: 11px;
@@ -1018,15 +1160,36 @@ option, datalist option {
   padding: 3px 8px;
   text-transform: uppercase;
 }
-.badge-action.add { background-color: #E8F5E9; color: var(--success-green); border: 1px solid #C8E6C9; }
-.badge-action.edit { background-color: #FFF3E0; color: #EF6C00; border: 1px solid #FFE0B2; }
-.badge-action.delete { background-color: #FFEBEE; color: var(--danger-red); border: 1px solid #FFCDD2; }
-.badge-action.gold { background-color: #ECEFF1; color: #37474F; border: 1px solid #CFD8DC; }
+
+.badge-action.add {
+  background-color: #E8F5E9;
+  color: var(--success-green);
+  border: 1px solid #C8E6C9;
+}
+
+.badge-action.edit {
+  background-color: #FFF3E0;
+  color: #EF6C00;
+  border: 1px solid #FFE0B2;
+}
+
+.badge-action.delete {
+  background-color: #FFEBEE;
+  color: var(--danger-red);
+  border: 1px solid #FFCDD2;
+}
+
+.badge-action.gold {
+  background-color: #ECEFF1;
+  color: #37474F;
+  border: 1px solid #CFD8DC;
+}
 
 .log-target {
   font-weight: 600;
   color: var(--text-main);
 }
+
 .log-summary {
   line-height: 1.5;
 }
@@ -1038,13 +1201,16 @@ option, datalist option {
   padding: 10px 15px;
   font-size: 12px;
 }
+
 .log-diff-item {
   margin-bottom: 6px;
   line-height: 1.4;
 }
+
 .log-diff-item:last-child {
   margin-bottom: 0;
 }
+
 .diff-field {
   font-weight: 600;
   text-transform: uppercase;
@@ -1052,14 +1218,17 @@ option, datalist option {
   color: var(--text-muted);
   margin-right: 6px;
 }
+
 .diff-old {
   color: var(--danger-red);
   text-decoration: line-through;
 }
+
 .diff-arrow {
   margin: 0 6px;
   color: var(--text-muted);
 }
+
 .diff-new {
   color: var(--success-green);
   font-weight: 500;
@@ -1078,11 +1247,13 @@ option, datalist option {
   border: 1px solid var(--border-light);
   padding: 30px;
 }
+
 .settings-card h3 {
   font-size: 18px;
   margin-bottom: 8px;
   color: var(--text-main);
 }
+
 .settings-card-desc {
   font-size: 13px;
   color: var(--text-muted);
@@ -1096,6 +1267,7 @@ option, datalist option {
   margin-bottom: 20px;
   font-size: 13px;
 }
+
 .settings-info-box .label {
   font-weight: 700;
   font-size: 10px;
@@ -1103,6 +1275,7 @@ option, datalist option {
   color: var(--text-muted);
   margin-right: 10px;
 }
+
 .settings-info-box .value.code {
   font-family: var(--font-sans);
   color: var(--text-main);
@@ -1122,6 +1295,7 @@ option, datalist option {
 .settings-card.dangerous {
   border-color: var(--danger-red);
 }
+
 .settings-card.dangerous h3 {
   color: var(--danger-red);
 }
@@ -1149,9 +1323,11 @@ option, datalist option {
   flex-direction: column;
   max-height: 90%;
 }
+
 .modal-card.mini {
   width: 480px;
 }
+
 .modal-card.large {
   width: 80%;
   max-width: 1050px;
@@ -1165,6 +1341,7 @@ option, datalist option {
   align-items: center;
   justify-content: space-between;
 }
+
 .modal-header h3 {
   font-size: 20px;
 }
@@ -1177,6 +1354,7 @@ option, datalist option {
   cursor: pointer;
   line-height: 1;
 }
+
 .btn-close:hover {
   color: var(--text-main);
 }
@@ -1203,10 +1381,12 @@ option, datalist option {
   align-items: center;
   background-color: var(--bg-base);
 }
+
 .modal-footer-left {
   font-size: 11px;
   color: var(--text-muted);
 }
+
 .modal-footer-right {
   display: flex;
   gap: 12px;
@@ -1234,19 +1414,23 @@ option, datalist option {
   transition: all var(--transition-fast);
   text-align: center;
 }
+
 .modal-tab-btn:last-child {
   border-right: none;
 }
+
 .modal-tab-btn:hover {
   background-color: rgba(26, 26, 29, 0.02);
   color: var(--text-main);
 }
+
 .modal-tab-btn.active {
   background-color: var(--bg-card);
   color: var(--text-gold-dark);
   border-bottom: 1px solid var(--bg-card);
   position: relative;
 }
+
 .modal-tab-btn.active::after {
   content: '';
   position: absolute;
@@ -1269,6 +1453,7 @@ option, datalist option {
   display: flex;
   gap: 40px;
 }
+
 .form-col-6 {
   flex: 1;
 }
@@ -1278,10 +1463,12 @@ option, datalist option {
   border-bottom: 1px dashed var(--border-light);
   padding-bottom: 15px;
 }
+
 .tab-section-intro h4 {
   font-size: 16px;
   margin-bottom: 6px;
 }
+
 .tab-section-intro p {
   font-size: 12px;
   color: var(--text-muted);
@@ -1301,36 +1488,47 @@ option, datalist option {
   cursor: pointer;
   transition: border-color var(--transition-fast);
 }
-.image-uploader-box:hover, .image-uploader-box.dragover {
+
+.image-uploader-box:hover,
+.image-uploader-box.dragover {
   border-color: var(--border-dark);
 }
+
 #uploader-prompt {
   padding: 20px;
 }
+
 .upload-icon {
   color: var(--text-gold);
   margin-bottom: 10px;
 }
+
 #uploader-prompt p {
   font-size: 13px;
   margin-bottom: 4px;
 }
+
 #uploader-prompt p span {
   color: var(--text-gold);
   font-weight: 600;
   text-decoration: underline;
 }
-#uploader-preview, #emerald-uploader-preview {
+
+#uploader-preview,
+#emerald-uploader-preview {
   width: 100%;
   height: 100%;
   position: relative;
 }
-#uploader-preview img, #emerald-uploader-preview img {
+
+#uploader-preview img,
+#emerald-uploader-preview img {
   width: 100%;
   height: 100%;
   object-fit: contain;
   padding: 10px;
 }
+
 .btn-remove {
   position: absolute;
   top: 10px;
@@ -1347,12 +1545,15 @@ option, datalist option {
   align-items: center;
   justify-content: center;
 }
+
 .btn-remove:hover {
   background-color: var(--danger-red);
 }
 
 /* DYNAMIC PARTS BUILDERS CSS */
-.metal-part-entry-card, .stone-entry-card, .dp-entry-card {
+.metal-part-entry-card,
+.stone-entry-card,
+.dp-entry-card {
   background-color: var(--bg-card);
   border: 1px solid var(--border-light);
   padding: 20px;
@@ -1362,10 +1563,13 @@ option, datalist option {
   gap: 15px;
   align-items: flex-end;
 }
+
 .metal-part-entry-card {
   grid-template-columns: 2fr 1fr 1fr auto;
 }
-.stone-entry-card, .dp-entry-card {
+
+.stone-entry-card,
+.dp-entry-card {
   grid-template-columns: 1.5fr 0.8fr 1fr 1fr 1.5fr auto;
 }
 
@@ -1379,6 +1583,7 @@ option, datalist option {
 .emerald-sizes-section {
   margin-bottom: 20px;
 }
+
 .emerald-sizes-section .section-label {
   font-size: 11px;
   font-weight: 700;
@@ -1387,9 +1592,10 @@ option, datalist option {
   margin-bottom: 12px;
   display: block;
 }
+
 .emerald-sizes-header {
   display: grid;
-  grid-template-columns: 1.5fr 1fr 0.8fr 1fr auto;
+  grid-template-columns: 0.4fr 1.5fr 1fr 0.8fr 1fr auto;
   gap: 10px;
   padding: 8px 12px;
   background-color: var(--bg-base);
@@ -1401,12 +1607,14 @@ option, datalist option {
   color: var(--text-muted);
   text-transform: uppercase;
 }
+
 .emerald-sizes-header span:last-child {
   width: 28px;
 }
+
 .emerald-size-row {
   display: grid;
-  grid-template-columns: 1.5fr 1fr 0.8fr 1fr auto;
+  grid-template-columns: 0.4fr 1.5fr 1fr 0.8fr 1fr auto;
   gap: 10px;
   padding: 10px 12px;
   background-color: var(--bg-card);
@@ -1414,9 +1622,11 @@ option, datalist option {
   border-bottom: none;
   align-items: center;
 }
+
 .emerald-size-row:last-child {
   border-bottom: 1px solid var(--border-light);
 }
+
 .stone-size-row {
   display: grid;
   grid-template-columns: 1.5fr 1fr 0.8fr 1fr auto;
@@ -1427,14 +1637,17 @@ option, datalist option {
   border-bottom: none;
   align-items: center;
 }
+
 .stone-size-row:last-child {
   border-bottom: 1px solid var(--border-light);
 }
+
 /* Shared wrapper for the combobox widget */
 .size-combo-wrap {
   position: relative;
   min-width: 0;
 }
+
 .size-combo-wrap .size-combo-input {
   height: 34px;
   font-size: 13px;
@@ -1446,9 +1659,11 @@ option, datalist option {
   background-repeat: no-repeat;
   background-position: right 8px center;
 }
+
 .size-combo-wrap .size-combo-input:focus {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M9 5L5 1 1 5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
 }
+
 .combo-dropdown {
   position: absolute;
   top: calc(100% + 2px);
@@ -1456,11 +1671,12 @@ option, datalist option {
   right: 0;
   background-color: var(--bg-card);
   border: 1px solid var(--border-dark);
-  box-shadow: 0 6px 20px rgba(26,26,29,0.15);
+  box-shadow: 0 6px 20px rgba(26, 26, 29, 0.15);
   z-index: 9999;
   max-height: 200px;
   overflow-y: auto;
 }
+
 .combo-option {
   padding: 8px 12px;
   font-size: 13px;
@@ -1469,21 +1685,25 @@ option, datalist option {
   font-family: var(--font-sans);
   transition: background-color 0.1s;
 }
+
 .combo-option:hover,
 .combo-option.active {
   background-color: var(--bg-base);
   color: var(--text-gold-dark);
 }
+
 .combo-option mark {
   background: transparent;
   color: var(--text-gold-dark);
   font-weight: 700;
 }
+
 /* Form field combobox overrides to match standard input styling */
 .form-combo-wrap {
   position: relative;
   width: 100%;
 }
+
 .form-combo-wrap .size-combo-input {
   height: 38px !important;
   font-size: 14px !important;
@@ -1493,12 +1713,14 @@ option, datalist option {
   background-color: var(--bg-base) !important;
   color: var(--text-main) !important;
 }
+
 .emerald-size-row input,
 .stone-size-row input {
   height: 34px;
   font-size: 13px;
   padding: 4px 8px;
 }
+
 .emerald-size-row .btn-remove-size,
 .stone-size-row .btn-remove-size {
   background: none;
@@ -1514,14 +1736,16 @@ option, datalist option {
   transition: all var(--transition-fast);
   line-height: 1;
 }
+
 .emerald-size-row .btn-remove-size:hover,
 .stone-size-row .btn-remove-size:hover {
   border-color: var(--danger-red);
   color: var(--danger-red);
 }
+
 .emerald-sizes-totals {
   display: grid;
-  grid-template-columns: 1.5fr 1fr 0.8fr 1fr auto;
+  grid-template-columns: 0.4fr 1.5fr 1fr 0.8fr 1fr auto;
   gap: 10px;
   padding: 10px 12px;
   background-color: var(--bg-base);
@@ -1530,16 +1754,19 @@ option, datalist option {
   font-size: 13px;
   color: var(--text-main);
 }
+
 .emerald-sizes-totals span:last-child {
   width: 28px;
 }
+
 .emerald-sizes-totals .totals-label {
-  grid-column: span 2;
+  grid-column: span 3;
   text-align: right;
   font-size: 11px;
   letter-spacing: 0.06em;
   color: var(--text-muted);
 }
+
 .btn-add-size-row {
   margin-top: 10px;
   background: none;
@@ -1553,6 +1780,7 @@ option, datalist option {
   transition: all var(--transition-fast);
   font-family: var(--font-sans);
 }
+
 .btn-add-size-row:hover {
   border-color: var(--border-dark);
   color: var(--text-main);
@@ -1580,16 +1808,19 @@ option, datalist option {
   align-items: center;
   gap: 20px;
 }
+
 .selector-title {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
   color: var(--text-muted);
 }
+
 .preset-checkboxes {
   display: flex;
   gap: 25px;
 }
+
 .preset-buttons {
   display: flex;
   gap: 12px;
@@ -1609,6 +1840,7 @@ option, datalist option {
   letter-spacing: 0;
   margin-bottom: 0;
 }
+
 .custom-checkbox input {
   position: absolute;
   opacity: 0;
@@ -1616,6 +1848,7 @@ option, datalist option {
   height: 0;
   width: 0;
 }
+
 .checkmark {
   position: absolute;
   left: 0;
@@ -1624,21 +1857,26 @@ option, datalist option {
   background-color: var(--bg-card);
   border: 1px solid var(--border-light);
 }
-.custom-checkbox:hover input ~ .checkmark {
+
+.custom-checkbox:hover input~.checkmark {
   border-color: var(--border-dark);
 }
-.custom-checkbox input:checked ~ .checkmark {
+
+.custom-checkbox input:checked~.checkmark {
   background-color: var(--text-main);
   border-color: var(--text-main);
 }
+
 .checkmark:after {
   content: "";
   position: absolute;
   display: none;
 }
-.custom-checkbox input:checked ~ .checkmark:after {
+
+.custom-checkbox input:checked~.checkmark:after {
   display: block;
 }
+
 .custom-checkbox .checkmark:after {
   left: 5px;
   top: 2px;
@@ -1654,11 +1892,13 @@ option, datalist option {
   display: flex;
   gap: 40px;
 }
+
 .summary-subtotals-col {
   flex: 1.2;
   border-right: 1px dashed var(--border-light);
   padding-right: 40px;
 }
+
 .summary-commission-col {
   flex: 0.8;
   display: flex;
@@ -1674,13 +1914,16 @@ option, datalist option {
   border-bottom: 1px dashed var(--bg-base);
   font-size: 14px;
 }
+
 .subtotal-lbl {
   color: var(--text-muted);
 }
+
 .subtotal-val {
   font-weight: 500;
   color: var(--text-main);
 }
+
 .grand-subtotal-row {
   border-top: 1px solid var(--border-dark);
   border-bottom: 1px solid var(--border-dark);
@@ -1688,6 +1931,7 @@ option, datalist option {
   margin-top: 10px;
   font-size: 16px;
 }
+
 .grand-subtotal-row .subtotal-val {
   color: var(--text-main);
 }
@@ -1709,24 +1953,29 @@ option, datalist option {
   padding: 20px;
   margin-bottom: 25px;
 }
+
 .comm-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 8px;
 }
+
 .comm-header label {
   margin-bottom: 0;
 }
+
 .commission-input-row {
   display: flex;
   position: relative;
 }
+
 .commission-input-row input {
   padding-right: 65px;
   height: 42px;
   font-weight: 600;
 }
+
 .percentage-badge {
   position: absolute;
   right: 12px;
@@ -1744,6 +1993,7 @@ option, datalist option {
   padding: 25px;
   text-align: center;
 }
+
 .grand-total-lbl {
   font-size: 11px;
   font-weight: 700;
@@ -1752,6 +2002,7 @@ option, datalist option {
   margin-bottom: 8px;
   display: block;
 }
+
 .grand-total-val {
   font-size: 32px;
   font-weight: 700;
@@ -1779,6 +2030,7 @@ option, datalist option {
   transition: opacity 0.3s, transform 0.3s;
   transform: translateY(0);
 }
+
 .toast.hidden {
   opacity: 0;
   transform: translateY(20px);
@@ -1986,31 +2238,39 @@ option, datalist option {
   .startup-overlay-container {
     padding: 20px;
   }
+
   .startup-card {
     padding: 35px 40px;
     max-width: 700px;
   }
+
   .startup-desc {
     margin-bottom: 25px;
   }
+
   .db-path-display-card {
     padding: 15px 20px;
     margin-bottom: 20px;
   }
+
   .confirm-continue-btn {
     height: 44px;
     margin-bottom: 15px;
   }
+
   .alternative-title {
     margin: 25px 0 18px 0;
   }
+
   .startup-options-grid.mini {
     gap: 15px;
   }
+
   .mini-box {
     min-height: 100px;
     padding: 15px;
   }
+
   .startup-option-box {
     min-height: 180px;
     padding: 22px 20px;
@@ -2021,69 +2281,87 @@ option, datalist option {
   .startup-overlay-container {
     padding: 15px;
   }
+
   .startup-card {
     padding: 20px 30px;
     max-width: 620px;
   }
+
   .startup-brand-row {
     margin-bottom: 12px;
   }
+
   .startup-logo {
     font-size: 26px;
   }
+
   .startup-desc {
     font-size: 13px;
     margin-bottom: 15px;
   }
+
   .db-path-display-card {
     padding: 10px 15px;
     margin-bottom: 15px;
   }
+
   .db-path-card-value {
     font-size: 11px;
   }
+
   .confirm-continue-btn {
     height: 38px;
     font-size: 13px;
     margin-bottom: 12px;
   }
+
   .alternative-title {
     margin: 15px 0 10px 0;
   }
+
   .startup-options-grid {
     gap: 15px;
   }
+
   .startup-options-grid.mini {
     gap: 10px;
   }
+
   .mini-box {
     height: auto;
     min-height: 72px;
     padding: 10px 12px;
   }
+
   .mini-box h3 {
     font-size: 13px;
     margin-bottom: 4px;
   }
+
   .mini-box p {
     font-size: 11px;
     line-height: 1.3;
   }
+
   .mini-box .option-action-indicator {
     display: none;
   }
+
   .startup-option-box {
     min-height: 130px;
     padding: 15px;
   }
+
   .startup-option-box h3 {
     font-size: 14px;
     margin-bottom: 5px;
   }
+
   .startup-option-box p {
     font-size: 11px;
     line-height: 1.3;
   }
+
   .startup-option-box .option-action-indicator {
     margin-top: 10px;
   }
@@ -2094,62 +2372,79 @@ option, datalist option {
     padding: 12px 24px;
     max-width: 580px;
   }
+
   .startup-brand-row {
     margin-bottom: 8px;
   }
+
   .startup-logo {
     font-size: 22px;
   }
+
   .startup-desc {
     font-size: 12px;
     margin-bottom: 8px;
   }
+
   .db-path-display-card {
     padding: 8px 12px;
     margin-bottom: 10px;
   }
+
   .db-path-card-header {
     margin-bottom: 4px;
   }
+
   .db-path-card-value {
     font-size: 10px;
   }
+
   .confirm-continue-btn {
     height: 34px;
     font-size: 12px;
     margin-bottom: 8px;
   }
+
   .alternative-title {
     margin: 8px 0 8px 0;
   }
+
   .startup-options-grid {
     gap: 10px;
   }
+
   .startup-options-grid.mini {
     gap: 8px;
   }
+
   .mini-box {
     min-height: 60px;
     padding: 8px 10px;
   }
+
   .mini-box h3 {
     font-size: 12px;
     margin-bottom: 2px;
   }
+
   .mini-box p {
     font-size: 10px;
   }
+
   .startup-option-box {
     min-height: 100px;
     padding: 10px;
   }
+
   .startup-option-box h3 {
     font-size: 13px;
     margin-bottom: 4px;
   }
+
   .startup-option-box p {
     font-size: 10px;
   }
+
   .startup-option-box .option-action-indicator {
     display: none;
   }
@@ -2252,7 +2547,7 @@ option, datalist option {
   gap: 15px;
 }
 
-.catalog-grid-container.list-view .product-price-row > div:first-child {
+.catalog-grid-container.list-view .product-price-row>div:first-child {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -2293,36 +2588,36 @@ option, datalist option {
     gap: 12px;
     padding: 8px 12px;
   }
-  
+
   .catalog-grid-container.list-view .product-img-box {
     width: 65px;
     height: 65px;
   }
-  
+
   .catalog-grid-container.list-view .product-body {
     gap: 12px;
   }
-  
+
   .catalog-grid-container.list-view .product-meta {
     flex: 1 1 100px;
     min-width: 80px;
   }
-  
+
   .catalog-grid-container.list-view .product-specs {
     flex: 1.2 1 140px;
     min-width: 120px;
     font-size: 11px;
   }
-  
+
   .catalog-grid-container.list-view .product-price-row {
     flex: 0 0 240px;
     gap: 10px;
   }
-  
+
   .catalog-grid-container.list-view .price-val {
     font-size: 12px;
   }
-  
+
   .catalog-grid-container.list-view .product-actions {
     gap: 4px;
   }
@@ -2338,29 +2633,29 @@ option, datalist option {
     gap: 15px;
     padding: 15px;
   }
-  
+
   .catalog-grid-container.list-view .product-img-box {
     width: 100%;
     height: 180px;
   }
-  
+
   .catalog-grid-container.list-view .product-body {
     flex-direction: column;
     align-items: stretch;
     gap: 15px;
   }
-  
+
   .catalog-grid-container.list-view .product-meta {
     flex: none;
     min-width: 0;
   }
-  
+
   .catalog-grid-container.list-view .product-specs {
     flex: none;
     min-width: 0;
     font-size: 12px;
   }
-  
+
   .catalog-grid-container.list-view .product-price-row {
     flex: none;
     min-width: 0;
@@ -2372,17 +2667,22 @@ option, datalist option {
   }
 
   /* ── 1. ROOT: let document be exactly the viewport ── */
-  html, body {
+  html,
+  body {
     height: 100%;
-    overflow: hidden; /* prevent double-scroll; content scrolls inside .workspace-main */
+    overflow: hidden;
+    /* prevent double-scroll; content scrolls inside .workspace-main */
   }
 
   /* ── 2. STARTUP / ONBOARDING: fixed overlay, card scrolls ── */
   .startup-overlay-container {
     position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    overflow: hidden;              /* overlay does NOT scroll */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    /* overlay does NOT scroll */
     align-items: flex-start;
     justify-content: flex-start;
     padding: 0;
@@ -2395,10 +2695,10 @@ option, datalist option {
     height: 100%;
     max-height: 100%;
     margin: 0;
-    overflow-y: auto;              /* THIS scrolls on iOS */
+    overflow-y: auto;
+    /* THIS scrolls on iOS */
     -webkit-overflow-scrolling: touch;
-    padding: env(safe-area-inset-top, 30px) 20px
-             calc(env(safe-area-inset-bottom, 20px) + 30px);
+    padding: env(safe-area-inset-top, 30px) 20px calc(env(safe-area-inset-bottom, 20px) + 30px);
     box-sizing: border-box;
     border: none;
     box-shadow: none;
@@ -2424,9 +2724,12 @@ option, datalist option {
   /* ── 3. MODALS: fixed overlay, card scrolls ── */
   .modal-overlay {
     position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    overflow: hidden;              /* overlay does NOT scroll */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    /* overlay does NOT scroll */
     align-items: flex-start;
     justify-content: flex-start;
     padding: 0;
@@ -2439,7 +2742,8 @@ option, datalist option {
     height: 100% !important;
     max-height: 100% !important;
     margin: 0;
-    overflow-y: auto;              /* card scrolls */
+    overflow-y: auto;
+    /* card scrolls */
     -webkit-overflow-scrolling: touch;
     border: none;
   }
@@ -2455,7 +2759,8 @@ option, datalist option {
   }
 
   .modal-body {
-    overflow-y: visible;           /* card is the scroll container */
+    overflow-y: visible;
+    /* card is the scroll container */
     -webkit-overflow-scrolling: touch;
   }
 
@@ -2465,7 +2770,8 @@ option, datalist option {
     height: 100dvh;
     display: flex;
     flex-direction: column;
-    overflow: hidden; /* clipping box — children handle their own scroll */
+    overflow: hidden;
+    /* clipping box — children handle their own scroll */
   }
 
   /* Compact header */
@@ -2477,14 +2783,17 @@ option, datalist option {
     align-items: center;
     gap: 6px;
   }
+
   .header-left {
     justify-content: center;
   }
+
   .header-middle {
     width: 100%;
     display: flex;
     justify-content: center;
   }
+
   .header-right {
     display: none !important;
   }
@@ -2498,6 +2807,7 @@ option, datalist option {
     margin-bottom: 20px;
     gap: 8px;
   }
+
   .metrics-line-1,
   .metrics-line-2,
   .metrics-line-3 {
@@ -2505,11 +2815,13 @@ option, datalist option {
     grid-template-columns: 1fr;
     gap: 8px;
   }
+
   .metric-card {
     padding: 8px 10px;
     align-items: center;
     text-align: center;
   }
+
   .metric-value {
     font-size: 16px;
   }
@@ -2517,7 +2829,8 @@ option, datalist option {
   /* Workspace body: column, fills remaining height */
   .workspace-body {
     flex: 1 1 0;
-    min-height: 0;           /* critical: allows flex child to shrink below content size */
+    min-height: 0;
+    /* critical: allows flex child to shrink below content size */
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -2527,6 +2840,7 @@ option, datalist option {
   .workspace-sidebar {
     display: none !important;
   }
+
   .sidebar-nav {
     flex-direction: row;
     overflow-x: auto;
@@ -2537,7 +2851,11 @@ option, datalist option {
     /* hide scrollbar */
     scrollbar-width: none;
   }
-  .sidebar-nav::-webkit-scrollbar { display: none; }
+
+  .sidebar-nav::-webkit-scrollbar {
+    display: none;
+  }
+
   .nav-item {
     padding: 8px 12px;
     font-size: 12px;
@@ -2545,9 +2863,11 @@ option, datalist option {
     justify-content: center;
     flex-shrink: 0;
   }
+
   .nav-item svg {
     margin-right: 6px;
   }
+
   .sidebar-footer {
     display: none !important;
   }
@@ -2593,8 +2913,10 @@ option, datalist option {
   /* THE KEY FIX: workspace-main is the ONE element that scrolls */
   .workspace-main {
     flex: 1 1 0;
-    min-height: 0;           /* allows it to shrink in the flex column */
-    overflow-y: auto;        /* this element scrolls */
+    min-height: 0;
+    /* allows it to shrink in the flex column */
+    overflow-y: auto;
+    /* this element scrolls */
     -webkit-overflow-scrolling: touch;
     padding: 15px;
     /* add bottom safe-area padding so last items clear the home indicator */
@@ -2618,13 +2940,21 @@ option, datalist option {
     gap: 10px;
     margin-bottom: 15px;
   }
-  .search-box { width: 100%; }
+
+  .search-box {
+    width: 100%;
+  }
+
   .filters-group {
     flex-direction: column;
     width: 100%;
     gap: 8px;
   }
-  .filter-select { width: 100%; }
+
+  .filter-select {
+    width: 100%;
+  }
+
   .view-toggle-group {
     display: none !important;
   }
@@ -2719,7 +3049,8 @@ option, datalist option {
     box-sizing: border-box;
   }
 
-  .mobile-menu-item:hover, .mobile-menu-item:active {
+  .mobile-menu-item:hover,
+  .mobile-menu-item:active {
     background-color: var(--bg-hover);
     color: var(--accent-emerald);
   }
@@ -2730,7 +3061,8 @@ option, datalist option {
     transition: color 0.2s;
   }
 
-  .mobile-menu-item:hover svg, .mobile-menu-item:active svg {
+  .mobile-menu-item:hover svg,
+  .mobile-menu-item:active svg {
     color: var(--accent-emerald);
   }
 
@@ -2752,6 +3084,7 @@ option, datalist option {
   grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   gap: 10px;
 }
+
 .print-pudia-checkbox-label {
   display: flex;
   align-items: center;
@@ -2763,6 +3096,7 @@ option, datalist option {
   margin-bottom: 0;
   user-select: none;
 }
+
 .print-pudia-checkbox-label input {
   width: auto;
 }
@@ -2950,4 +3284,3 @@ option, datalist option {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-

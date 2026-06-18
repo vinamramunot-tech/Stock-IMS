@@ -131,6 +131,7 @@ const Logs = {
     if (!oldItem) return changes;
 
     const basicFields = [
+      { key: 'stockType', label: 'Stock Type' },
       { key: 'lustreGrade', label: 'Lustre Grade' },
       { key: 'color', label: 'Pudia Number' },
       { key: 'pricePerCarat', label: 'Price per Carat', isCurrency: true },
