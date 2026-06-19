@@ -253,6 +253,13 @@
             </svg>
             Jewelry Photos
           </button>
+          <button type="button" class="nav-item" data-target="tab-emerald-photos">
+            <svg viewBox="0 0 24 24" width="18" height="18">
+              <path fill="currentColor"
+                d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />
+            </svg>
+            Emerald Photos
+          </button>
 
           <div
             style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin:15px 0 8px 0; padding-left:12px; letter-spacing:0.05em;">
@@ -870,6 +877,33 @@
           </div>
         </div>
 
+        <!-- ==================== TAB: EMERALD PHOTOS ==================== -->
+        <div id="tab-emerald-photos" class="tab-content hidden">
+          <div class="tab-header-row">
+            <h2 class="section-title">Emerald Photos & Gallery</h2>
+            <div class="filters-group">
+              <div class="search-box" style="margin-right: 0;">
+                <input type="text" id="emerald-photo-search-input" placeholder="Search by Group or Shape...">
+                <svg viewBox="0 0 24 24" width="18" height="18" class="search-icon">
+                  <path fill="currentColor"
+                    d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- PHOTO GALLERY GRID -->
+          <div id="emerald-photos-grid" class="photo-gallery-grid-container">
+            <!-- Dynamic photo cards will render here -->
+          </div>
+
+          <!-- EMPTY STATE -->
+          <div id="emerald-photos-empty-state" class="empty-state-card hidden">
+            <h2 class="empty-title">No Photos Found</h2>
+            <p class="empty-description">Emerald pudias with attached photos will appear in this gallery.</p>
+          </div>
+        </div>
+
         <!-- ==================== TAB: LOGS ==================== -->
         <div id="tab-logs" class="tab-content hidden">
           <div class="tab-header-row">
@@ -1202,6 +1236,9 @@
                     </div>
                     <div id="uploader-preview" class="hidden">
                       <img src="" id="uploaded-img-el" alt="Jewelry Preview">
+                      <button type="button" id="btn-edit-jewelry-image" class="btn-edit-img" title="Crop/Edit Image">
+                        <svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align: middle;"><path fill="currentColor" d="M17 15h2V7c0-1.1-.9-2-2-2H9v2h8v8zM7 17V1H5v4H1v2h4v10c0 1.1.9 2 2 2h10v4h2v-4h4v-2H7z"/></svg>
+                      </button>
                       <button type="button" id="btn-remove-image" class="btn-remove">&times;</button>
                     </div>
                   </div>
@@ -2449,7 +2486,7 @@
   </div>
 
   <div id="modal-emerald-item" class="modal-overlay hidden">
-    <div class="modal-card normal" style="max-width: 600px;">
+    <div class="modal-card normal" style="max-width: 800px;">
       <div class="modal-header">
         <h3 id="emerald-modal-title">Add New Emerald Stock</h3>
         <button type="button" class="btn-close modal-close-trigger-emerald">&times;</button>
@@ -2459,71 +2496,27 @@
         <form id="emerald-form" onsubmit="return false;">
           <input type="hidden" id="emerald-item-id">
 
-          <div class="input-group">
-            <label for="emerald-stock-type">Stock Type <span class="required">*</span></label>
-            <select id="emerald-stock-type" required>
-              <option value="Single Pieces">Single Pieces</option>
-              <option value="Calibrated Series" selected>Calibrated Series (Assorted Mix)</option>
-            </select>
-          </div>
-
-          <div class="emerald-sizes-section">
-            <span class="section-label">SIZE BREAKDOWN <span class="required">*</span></span>
-
-            <div class="emerald-sizes-header">
-              <span>#</span>
-              <span>Shape</span>
-              <span>MM</span>
-              <span>Pcs</span>
-              <span>cts (Weight)</span>
-              <span></span>
+          <!-- Shared Lot Fields (Top Row) -->
+          <div class="form-grid-row" style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 15px;">
+            <div class="form-col-6" style="flex: 1; min-width: 200px;">
+              <div class="input-group">
+                <label for="emerald-stock-type">Stock Type <span class="required">*</span></label>
+                <select id="emerald-stock-type" required>
+                  <option value="Single Pieces">Single Pieces</option>
+                  <option value="Calibrated Series" selected>Calibrated Series (Assorted Mix)</option>
+                </select>
+              </div>
             </div>
-
-            <div id="emerald-sizes-container">
-              <!-- Dynamic size rows will be appended here -->
+            <div class="form-col-6" style="flex: 1; min-width: 200px;">
+              <div class="input-group">
+                <label for="emerald-group">Group / Lot Name <span class="required">*</span></label>
+                <input type="text" id="emerald-group" list="emerald-groups-list" placeholder="e.g. A-1 Lot" required>
+              </div>
             </div>
-
-            <div class="emerald-sizes-totals" id="emerald-sizes-totals">
-              <span class="totals-label">Total</span>
-              <span id="emerald-total-pcs">0</span>
-              <span id="emerald-total-cts">0.00</span>
-              <span></span>
-            </div>
-
-            <button type="button" class="btn-add-size-row" id="btn-add-emerald-size">+ Add Size Row</button>
           </div>
 
-          <div class="input-group" id="emerald-lustre-group">
-            <label for="emerald-lustre">Lustre Grade <span class="required">*</span></label>
-            <input type="text" id="emerald-lustre" list="emerald-lustres-list"
-              placeholder="Select or type lustre grade..." required>
-          </div>
-
-          <div class="input-group">
-            <label for="emerald-color">Pudia Number <span class="required">*</span></label>
-            <input type="number" id="emerald-color" placeholder="e.g. 7" required>
-          </div>
-
-          <div class="input-group">
-            <label for="emerald-price">Price per Carat (₹/ct) <span class="required">*</span></label>
-            <input type="number" id="emerald-price" step="0.01" min="0" placeholder="e.g. 15000" required>
-          </div>
-
-          <div class="input-group">
-            <label for="emerald-pair">Is it a Pair? <span class="required">*</span></label>
-            <select id="emerald-pair" required>
-              <option value="No">No</option>
-              <option value="Yes">Yes</option>
-            </select>
-          </div>
-
-          <div class="input-group">
-            <label for="emerald-group">Group / Lot Name</label>
-            <input type="text" id="emerald-group" list="emerald-groups-list" placeholder="e.g. A-1 Lot or Custom Group">
-          </div>
-
-          <div class="input-group">
-            <label style="margin-bottom: 10px;">Origin <span class="required">*</span></label>
+          <div class="input-group" style="margin-bottom: 20px;">
+            <label style="margin-bottom: 8px;">Origin <span class="required">*</span></label>
             <div style="display: flex; gap: 20px; align-items: center; padding-top: 5px;">
               <label
                 style="display: flex; align-items: center; gap: 6px; text-transform: none; font-size: 14px; font-weight: normal; cursor: pointer;">
@@ -2540,23 +2533,20 @@
             </div>
           </div>
 
-          <div class="input-group">
-            <label>Emerald Image</label>
-            <div class="image-uploader-box" id="emerald-image-dropzone">
-              <input type="file" id="emerald-image-file" accept="image/*" class="hidden">
-              <div id="emerald-uploader-prompt">
-                <svg viewBox="0 0 24 24" width="32" height="32" class="upload-icon">
-                  <path fill="currentColor"
-                    d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z" />
-                </svg>
-                <p>Drag emerald photo here or <span>browse</span></p>
-                <span class="help-text">Image will be resized & compressed locally.</span>
-              </div>
-              <div id="emerald-uploader-preview" class="hidden">
-                <img src="" id="emerald-uploaded-img-el" alt="Emerald Preview">
-                <button type="button" id="btn-remove-emerald-image" class="btn-remove">&times;</button>
-              </div>
-            </div>
+          <div style="border-top: 1px solid var(--border-light); margin: 15px 0 20px 0; padding-top: 15px;">
+            <h4 style="margin: 0 0 10px 0; font-family: var(--font-serif); font-size: 14px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em;">Pudia Details</h4>
+          </div>
+
+          <!-- Dynamic Pudia Cards Container -->
+          <div id="emerald-pudias-list-container">
+            <!-- Pudia entries will be generated here -->
+          </div>
+
+          <!-- Add Another Pudia Button Container -->
+          <div id="emerald-add-pudia-btn-container" style="margin-top: 15px;">
+            <button type="button" class="btn btn-secondary full-width" id="btn-add-emerald-pudia" style="height: 42px;">
+              + Add Another Pudia to this Lot
+            </button>
           </div>
         </form>
       </div>
@@ -2890,6 +2880,13 @@
           </svg>
           Jewelry Photos
         </button>
+        <button type="button" class="mobile-menu-item" data-action="tab-emerald-photos">
+          <svg viewBox="0 0 24 24" width="18" height="18">
+            <path fill="currentColor"
+              d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />
+          </svg>
+          Emerald Photos
+        </button>
 
         <div class="mobile-menu-section-header">Memo Systems</div>
         <button type="button" class="mobile-menu-item" data-action="tab-memos">
@@ -2932,6 +2929,50 @@
       </div>
     </div>
   </div>
+  <!-- ==================== MODAL: IMAGE EDITOR ==================== -->
+  <div id="modal-image-editor" class="modal-overlay hidden" style="z-index: 1200;">
+    <div class="modal-card normal" style="max-width: 600px; display: flex; flex-direction: column; max-height: 90vh;">
+      <div class="modal-header">
+        <h3>Edit Image</h3>
+        <button type="button" class="btn-close modal-close-trigger-image-editor">&times;</button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 15px; align-items: center; justify-content: center; flex-grow: 1; overflow: hidden; padding: 20px;">
+        <div id="image-editor-canvas-container" style="position: relative; max-width: 100%; max-height: 50vh; width: 100%; height: 350px; overflow: hidden; background: #1a1a1a; border: 1px solid var(--border-light); display: flex; align-items: center; justify-content: center; border-radius: 4px; user-select: none;">
+          <!-- Canvas for drawing the image -->
+          <canvas id="image-editor-canvas" style="max-width: 100%; max-height: 100%; display: block;"></canvas>
+          <div id="image-editor-crop-box" style="position: absolute; border: 2px dashed var(--text-gold); box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.65); cursor: move; box-sizing: border-box;">
+            <div class="crop-handle tl" style="position: absolute; width: 12px; height: 12px; background: #fff; border: 1px solid #000; top: -6px; left: -6px; cursor: nwse-resize;"></div>
+            <div class="crop-handle tr" style="position: absolute; width: 12px; height: 12px; background: #fff; border: 1px solid #000; top: -6px; right: -6px; cursor: nesw-resize;"></div>
+            <div class="crop-handle bl" style="position: absolute; width: 12px; height: 12px; background: #fff; border: 1px solid #000; bottom: -6px; left: -6px; cursor: nesw-resize;"></div>
+            <div class="crop-handle br" style="position: absolute; width: 12px; height: 12px; background: #fff; border: 1px solid #000; bottom: -6px; right: -6px; cursor: nwse-resize;"></div>
+          </div>
+        </div>
+        
+        <!-- Controls -->
+        <div style="display: flex; gap: 10px; justify-content: center; width: 100%; flex-wrap: wrap; margin-top: 10px;">
+          <button type="button" id="btn-editor-rotate-l" class="btn btn-secondary" style="display: flex; align-items: center; gap: 6px;">
+            <svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M7.11 8.53L5.7 7.11C4.8 8.27 4.24 9.61 4.07 11h2.02c.17-.87.52-1.67 1.02-2.47zM6.09 13H4.07c.17 1.39.72 2.73 1.62 3.89l1.41-1.42c-.52-.8-.87-1.6-1.01-2.47zM15 4h-2v7.17l-2.59-2.58L9 10l5 5 5-5-1.41-1.41L15 11.17V4zm3.3 3.11l-1.41 1.42c.5.8.85 1.6 1.01 2.47h2.02c-.17-1.39-.72-2.73-1.62-3.89zM17 15.08l1.41 1.41c.9-1.16 1.45-2.5 1.62-3.89h-2.02c-.16.87-.51 1.67-1.01 2.48zM12 18c-3.31 0-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8h-2c0 3.31-2.69 6-6 6z"/></svg>
+            Rotate Left
+          </button>
+          <button type="button" id="btn-editor-rotate-r" class="btn btn-secondary" style="display: flex; align-items: center; gap: 6px;">
+            <svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M15.55 5.55L14.14 6.96C14.7 7.8 15.1 8.7 15.3 9.7h2.1c-.24-1.6-.9-3-1.85-4.15zM17.4 11h-2.1c-.2 1-.6 1.9-1.16 2.74l1.41 1.41c.95-1.15 1.61-2.55 1.85-4.15zM12 4V2c-5.5 0-10 4.5-10 10h2c0-4.4 3.6-8 8-8zm-2 9.17l-2.59-2.58L6 12l5 5 5-5-1.41-1.41L12 11.17V4h-2v7.17zM1.15 12c.24 1.6.9 3 1.85 4.15l1.41-1.41c-.56-.84-.96-1.74-1.16-2.74H1.15zm2.7 5.15l1.41-1.41C5.82 16.2 6.22 17.1 6.78 17.94l-1.41 1.41C4.42 18.2 3.76 16.8 3.52 15.2zM12 20c4.4 0 8-3.6 8-8h2c0 5.5-4.5 10-10 10s-10-4.5-10-10h2c0 4.4 3.6 8 8 8z"/></svg>
+            Rotate Right
+          </button>
+          <button type="button" id="btn-editor-flip-h" class="btn btn-secondary">
+            Flip Horiz
+          </button>
+          <button type="button" id="btn-editor-flip-v" class="btn btn-secondary">
+            Flip Vert
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary modal-close-trigger-image-editor">Cancel</button>
+        <button type="button" id="btn-editor-save" class="btn btn-primary">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Global Datalists for Autocomplete Options -->
   <datalist id="emerald-shapes-list">
     <option value="Octagon">
@@ -2975,6 +3016,7 @@
   <script src="js/stone.js"></script>
   <script src="js/jewel-stone-memo.js"></script>
   <script src="js/jewelry-memo.js"></script>
+  <script src="js/image-editor.js"></script>
   <script src="js/app.js"></script>
 </body>
 

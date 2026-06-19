@@ -121,6 +121,11 @@ const App = {
       photoSearchInput.addEventListener('input', () => this.renderJewelryPhotos());
     }
 
+    const emeraldPhotoSearchInput = document.getElementById('emerald-photo-search-input');
+    if (emeraldPhotoSearchInput) {
+      emeraldPhotoSearchInput.addEventListener('input', () => this.renderEmeraldPhotos());
+    }
+
     // Mobile Menu Wire up
     const btnMobileMenu = document.getElementById('btn-mobile-menu');
     const mobileMenuOverlay = document.getElementById('mobile-menu-overlay');
@@ -151,7 +156,7 @@ const App = {
         const action = item.getAttribute('data-action');
         mobileMenuOverlay.classList.add('hidden');
 
-        if (action === 'tab-catalog' || action === 'tab-emerald-catalog' || action === 'tab-memos' || action === 'tab-logs' || action === 'tab-settings' || action === 'tab-stone-catalog' || action === 'tab-jewel-stone-memos' || action === 'tab-jewelry-memos' || action === 'tab-jewelry-photos') {
+        if (action === 'tab-catalog' || action === 'tab-emerald-catalog' || action === 'tab-memos' || action === 'tab-logs' || action === 'tab-settings' || action === 'tab-stone-catalog' || action === 'tab-jewel-stone-memos' || action === 'tab-jewelry-memos' || action === 'tab-jewelry-photos' || action === 'tab-emerald-photos') {
           this.switchTab(action);
         } else if (action === 'add-jewelry') {
           const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
@@ -231,6 +236,7 @@ const App = {
     }
     this.renderActivityLogs();
     this.renderJewelryPhotos();
+    this.renderEmeraldPhotos();
     
     // Update settings tab path display
     document.getElementById('settings-vault-path').textContent = DBManager.activePath || '';
@@ -490,6 +496,61 @@ const App = {
       // Allow clicking the photo card to view details (by triggering view modal)
       card.addEventListener('click', () => {
         this.openJewelryDetailModal(item);
+      });
+
+      gridContainer.appendChild(card);
+    });
+  },
+
+  renderEmeraldPhotos() {
+    const gridContainer = document.getElementById('emerald-photos-grid');
+    const emptyState = document.getElementById('emerald-photos-empty-state');
+    if (!gridContainer || !emptyState) return;
+
+    const queryInput = document.getElementById('emerald-photo-search-input');
+    const query = queryInput ? queryInput.value.toLowerCase().trim() : '';
+
+    // Retrieve all emeralds
+    const allEmeralds = DBManager.getEmeralds();
+
+    // Filter items: must have an image, and must match query (Group or Shape)
+    let filtered = allEmeralds.filter(item => {
+      if (!item.image) return false;
+      const matchGroup = (item.group || '').toLowerCase().includes(query);
+      const matchShape = (item.shape || '').toLowerCase().includes(query);
+      return matchGroup || matchShape;
+    });
+
+    gridContainer.innerHTML = '';
+
+    if (filtered.length === 0) {
+      gridContainer.classList.add('hidden');
+      emptyState.classList.remove('hidden');
+      return;
+    }
+
+    gridContainer.classList.remove('hidden');
+    emptyState.classList.add('hidden');
+
+    filtered.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'photo-card';
+      
+      card.innerHTML = `
+        <div class="photo-card-img-box">
+          <img src="${item.image}" alt="Pudia #${item.color}" class="photo-card-img">
+        </div>
+        <div class="photo-card-body">
+          <div class="photo-card-sku">${item.group || 'Lot'} #${item.color || 'N/A'}</div>
+          <div class="photo-card-name">${item.shape || 'Mixed Shapes'}</div>
+        </div>
+      `;
+
+      // Allow clicking the photo card to view details (by triggering share modal)
+      card.addEventListener('click', () => {
+        if (window.EmeraldController) {
+          EmeraldController.openShareModal(item);
+        }
       });
 
       gridContainer.appendChild(card);

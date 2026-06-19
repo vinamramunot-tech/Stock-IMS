@@ -153,6 +153,11 @@ const UI = {
    * Initialize Image Uploader Handlers
    */
   initImageUploader() {
+    // Initialize image editor controller
+    if (window.ImageEditor) {
+      ImageEditor.init();
+    }
+
     const dropzone = document.getElementById('image-dropzone');
     const fileInput = document.getElementById('item-image-file');
     const previewContainer = document.getElementById('uploader-preview');
@@ -196,6 +201,20 @@ const UI = {
         await handleImageFile(fileInput.files[0]);
       }
     });
+
+    const editBtn = document.getElementById('btn-edit-jewelry-image');
+    if (editBtn) {
+      editBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const currentBase64 = previewImg.src;
+        if (currentBase64) {
+          ImageEditor.open(currentBase64, (croppedBase64) => {
+            previewImg.src = croppedBase64;
+            UI.activeItemState.image = croppedBase64;
+          });
+        }
+      });
+    }
 
     removeBtn.addEventListener('click', (e) => {
       e.stopPropagation();

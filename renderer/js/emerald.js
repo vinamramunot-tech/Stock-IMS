@@ -107,6 +107,11 @@ const EmeraldController = {
       btnAddSize.addEventListener('click', () => this.createSizeRow());
     }
 
+    const btnAddPudia = document.getElementById('btn-add-emerald-pudia');
+    if (btnAddPudia) {
+      btnAddPudia.addEventListener('click', () => this.addPudiaCard());
+    }
+
     // Stock Type change listener
     const stockTypeSelect = document.getElementById('emerald-stock-type');
     if (stockTypeSelect) {
@@ -348,18 +353,31 @@ const EmeraldController = {
         lustreInput.removeAttribute('required');
         lustreInput.value = '';
       }
+      document.querySelectorAll('.pudia-entry-card .pudia-lustre-group').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.pudia-entry-card .pudia-lustre-input').forEach(el => {
+        el.removeAttribute('required');
+        el.value = '';
+      });
     } else {
       if (lustreGroup) lustreGroup.classList.remove('hidden');
       if (lustreInput) {
         lustreInput.setAttribute('required', 'required');
       }
+      document.querySelectorAll('.pudia-entry-card .pudia-lustre-group').forEach(el => el.classList.remove('hidden'));
+      document.querySelectorAll('.pudia-entry-card .pudia-lustre-input').forEach(el => {
+        el.setAttribute('required', 'required');
+      });
     }
   },
 
   openAddModal() {
     this.resetForm();
-    this.createSizeRow(); // Seed with one default size row to prevent layout jerking/shifting and save a click
+    this.addPudiaCard();
     document.getElementById('emerald-modal-title').textContent = "Add New Emerald Stock";
+
+    const addBtnContainer = document.getElementById('emerald-add-pudia-btn-container');
+    if (addBtnContainer) addBtnContainer.classList.remove('hidden');
+
     UI.openModal('modal-emerald-item');
   },
 
@@ -372,29 +390,16 @@ const EmeraldController = {
     if (stockTypeSelect) {
       stockTypeSelect.value = 'Calibrated Series';
     }
-    this.handleStockTypeChange();
 
-    // Clear image elements
-    const fileInput = document.getElementById('emerald-image-file');
-    if (fileInput) fileInput.value = '';
-    const previewImg = document.getElementById('emerald-uploaded-img-el');
-    if (previewImg) previewImg.src = '';
-    const previewContainer = document.getElementById('emerald-uploader-preview');
-    if (previewContainer) previewContainer.classList.add('hidden');
-    const promptContainer = document.getElementById('emerald-uploader-prompt');
-    if (promptContainer) promptContainer.classList.remove('hidden');
-
-    // Clear all checked origins & price
+    // Clear checked origins
     const checkBoxes = document.querySelectorAll('input[name="emerald-origin"]');
     checkBoxes.forEach(cb => cb.checked = false);
-    document.getElementById('emerald-price').value = '';
 
-    // Clear size breakdown rows
-    const sizesContainer = document.getElementById('emerald-sizes-container');
-    if (sizesContainer) {
-      sizesContainer.innerHTML = '';
+    // Clear dynamic cards container
+    const container = document.getElementById('emerald-pudias-list-container');
+    if (container) {
+      container.innerHTML = '';
     }
-    this.updateSizeTotals();
 
     this.populateGroupAutocomplete();
     this.populateShapeAutocomplete();
@@ -616,12 +621,17 @@ const EmeraldController = {
   /**
    * Create a dynamic size row (Shape + MM + Pcs + cts + remove button)
    */
-  createSizeRow(data = { shape: '', mm: '', pieces: '', weight: '' }) {
-    const container = document.getElementById('emerald-sizes-container');
+  createSizeRow(data = { shape: '', mm: '', pieces: '', weight: '' }, targetContainer = null) {
+    const container = targetContainer || document.getElementById('emerald-sizes-container');
     if (!container) return;
 
     const row = document.createElement('div');
     row.className = 'emerald-size-row';
+
+    const numSpan = document.createElement('span');
+    numSpan.className = 'size-number';
+    numSpan.style.cssText = 'font-size: 11px; font-weight: 600; color: var(--text-muted); text-align: center;';
+    row.appendChild(numSpan);
 
     const shapeWidget = this._buildComboWidget(
       'size-shape',
@@ -656,11 +666,11 @@ const EmeraldController = {
     removeBtn.title = 'Remove this size row';
     removeBtn.innerHTML = '&times;';
 
-    piecesInput.addEventListener('input', () => this.updateSizeTotals());
-    weightInput.addEventListener('input', () => this.updateSizeTotals());
+    piecesInput.addEventListener('input', () => this.updateSizeTotals(container));
+    weightInput.addEventListener('input', () => this.updateSizeTotals(container));
     removeBtn.addEventListener('click', () => {
       row.remove();
-      this.updateSizeTotals();
+      this.updateSizeTotals(container);
     });
 
     row.appendChild(shapeWidget);
@@ -670,14 +680,18 @@ const EmeraldController = {
     row.appendChild(removeBtn);
 
     container.appendChild(row);
-    this.updateSizeTotals();
+    this.updateSizeTotals(container);
   },
 
   /**
    * Recalculate and display total Pcs and total cts from all size rows
    */
-  updateSizeTotals() {
-    const rows = document.querySelectorAll('.emerald-size-row');
+  updateSizeTotals(targetContainer = null) {
+    const container = targetContainer || document.getElementById('emerald-sizes-container');
+    if (!container) return;
+
+    const parentCard = container.closest('.pudia-entry-card') || document;
+    const rows = container.querySelectorAll('.emerald-size-row');
     let totalPcs = 0;
     let totalCts = 0;
 
@@ -690,10 +704,283 @@ const EmeraldController = {
       totalCts += Number(row.querySelector('.size-weight').value || 0);
     });
 
-    const pcsEl = document.getElementById('emerald-total-pcs');
-    const ctsEl = document.getElementById('emerald-total-cts');
+    const pcsEl = parentCard.querySelector('.pudia-total-pcs') || document.getElementById('emerald-total-pcs');
+    const ctsEl = parentCard.querySelector('.pudia-total-cts') || document.getElementById('emerald-total-cts');
     if (pcsEl) pcsEl.textContent = totalPcs;
     if (ctsEl) ctsEl.textContent = totalCts.toFixed(2);
+  },
+
+  addPudiaCard(data = null) {
+    const container = document.getElementById('emerald-pudias-list-container');
+    if (!container) return;
+
+    const index = container.querySelectorAll('.pudia-entry-card').length + 1;
+    const card = document.createElement('div');
+    card.className = 'pudia-entry-card';
+
+    card.innerHTML = `
+      <div class="pudia-card-header">
+        <h4>Pudia #<span class="pudia-card-index">${index}</span></h4>
+        <button type="button" class="btn-remove-pudia">&times; Remove Pudia</button>
+      </div>
+
+      <div class="form-grid-row" style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 15px;">
+        <div class="form-col-6" style="flex: 1; min-width: 200px;">
+          <div class="input-group">
+            <label>Pudia Number <span class="required">*</span></label>
+            <input type="number" class="pudia-color-input" placeholder="e.g. 7" required>
+          </div>
+        </div>
+        <div class="form-col-6" style="flex: 1; min-width: 200px;">
+          <div class="input-group">
+            <label>Price per Carat (₹/ct) <span class="required">*</span></label>
+            <input type="number" class="pudia-price-input" step="0.01" min="0" placeholder="e.g. 15000" required>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-grid-row" style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 15px;">
+        <div class="form-col-6" style="flex: 1; min-width: 200px;">
+          <div class="input-group pudia-lustre-group">
+            <label>Lustre Grade <span class="required">*</span></label>
+            <input type="text" class="pudia-lustre-input" placeholder="Select or type lustre grade..." required>
+          </div>
+        </div>
+        <div class="form-col-6" style="flex: 1; min-width: 200px;">
+          <div class="input-group">
+            <label>Is it a Pair? <span class="required">*</span></label>
+            <select class="pudia-pair-select" required>
+              <option value="No">No</option>
+              <option value="Yes">Yes</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sizes Breakdown Section inside this Pudia Card -->
+      <div class="emerald-sizes-section" style="margin-bottom: 15px;">
+        <span class="section-label">SIZE BREAKDOWN <span class="required">*</span></span>
+
+        <div class="emerald-sizes-header">
+          <span>#</span>
+          <span>Shape</span>
+          <span>MM</span>
+          <span>Pcs</span>
+          <span>cts (Weight)</span>
+          <span></span>
+        </div>
+
+        <div class="pudia-sizes-container">
+          <!-- Dynamic size rows will be appended here -->
+        </div>
+
+        <div class="emerald-sizes-totals">
+          <span class="totals-label" style="grid-column: span 3; text-align: right; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted);">Total</span>
+          <span class="pudia-total-pcs">0</span>
+          <span class="pudia-total-cts">0.00</span>
+          <span></span>
+        </div>
+
+        <button type="button" class="btn-add-size-row btn-add-pudia-size" style="margin-top: 10px;">+ Add Size Row</button>
+      </div>
+
+      <div class="input-group">
+        <label>Pudia Image</label>
+        <div class="image-uploader-box pudia-image-dropzone">
+          <input type="file" class="pudia-image-file hidden" accept="image/*">
+          <div class="pudia-uploader-prompt">
+            <svg viewBox="0 0 24 24" width="32" height="32" class="upload-icon">
+              <path fill="currentColor"
+                d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z" />
+            </svg>
+            <p>Drag emerald photo here or <span>browse</span></p>
+            <span class="help-text">Image will be resized & compressed locally.</span>
+          </div>
+          <div class="pudia-uploader-preview hidden">
+            <img src="" class="pudia-uploaded-img-el" alt="Emerald Preview">
+            <button type="button" class="btn-edit-img btn-edit-pudia-image" title="Crop/Edit Image">
+              <svg viewBox="0 0 24 24" width="12" height="12" style="vertical-align: middle;"><path fill="currentColor" d="M17 15h2V7c0-1.1-.9-2-2-2H9v2h8v8zM7 17V1H5v4H1v2h4v10c0 1.1.9 2 2 2h10v4h2v-4h4v-2H7z"/></svg>
+            </button>
+            <button type="button" class="btn-remove btn-remove-pudia-image">&times;</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Wire up events for this specific card
+    const removeBtn = card.querySelector('.btn-remove-pudia');
+    removeBtn.addEventListener('click', () => {
+      card.remove();
+      this.updatePudiaCardIndices();
+    });
+
+    const addSizeBtn = card.querySelector('.btn-add-pudia-size');
+    const sizesContainer = card.querySelector('.pudia-sizes-container');
+    addSizeBtn.addEventListener('click', () => {
+      this.createSizeRow({ shape: '', mm: '', pieces: '', weight: '' }, sizesContainer);
+    });
+
+    // Setup lustre datalist
+    const lustreInput = card.querySelector('.pudia-lustre-input');
+    lustreInput.setAttribute('list', 'emerald-lustres-list');
+
+    // Wire up image uploader
+    this.setupImageUploaderForCard(card);
+
+    // If adding a new card and cards exist, pre-fill from previous card:
+    const cards = container.querySelectorAll('.pudia-entry-card');
+    if (cards.length > 0 && !data) {
+      const prevCard = cards[cards.length - 1];
+      const prevPrice = prevCard.querySelector('.pudia-price-input').value;
+      const prevLustre = prevCard.querySelector('.pudia-lustre-input').value;
+      const prevPair = prevCard.querySelector('.pudia-pair-select').value;
+      const prevPudiaNum = Number(prevCard.querySelector('.pudia-color-input').value || 0);
+
+      card.querySelector('.pudia-price-input').value = prevPrice;
+      card.querySelector('.pudia-lustre-input').value = prevLustre;
+      card.querySelector('.pudia-pair-select').value = prevPair;
+      if (prevPudiaNum > 0) {
+        card.querySelector('.pudia-color-input').value = prevPudiaNum + 1;
+      }
+    }
+
+    container.appendChild(card);
+
+    // Load custom data if provided
+    if (data) {
+      card.querySelector('.pudia-color-input').value = data.color || '';
+      card.querySelector('.pudia-price-input').value = data.pricePerCarat || '';
+      card.querySelector('.pudia-lustre-input').value = data.lustreGrade || '';
+      card.querySelector('.pudia-pair-select').value = data.pair || 'No';
+
+      if (data.image) {
+        card.querySelector('.pudia-uploaded-img-el').src = data.image;
+        card.querySelector('.pudia-uploader-prompt').classList.add('hidden');
+        card.querySelector('.pudia-uploader-preview').classList.remove('hidden');
+        card.dataset.imageUrl = data.image;
+      }
+
+      if (data.sizes && data.sizes.length > 0) {
+        data.sizes.forEach(s => this.createSizeRow(s, sizesContainer));
+      }
+    } else {
+      // Seed with one default size row
+      this.createSizeRow({ shape: '', mm: '', pieces: '', weight: '' }, sizesContainer);
+    }
+
+    // Refresh display of lustre field based on top level Stock Type
+    const stockType = document.getElementById('emerald-stock-type').value;
+    const lustreGroup = card.querySelector('.pudia-lustre-group');
+    if (stockType === 'Single Pieces') {
+      lustreGroup.classList.add('hidden');
+      lustreInput.removeAttribute('required');
+    }
+
+    this.updatePudiaCardIndices();
+  },
+
+  updatePudiaCardIndices() {
+    const cards = document.querySelectorAll('#emerald-pudias-list-container .pudia-entry-card');
+    cards.forEach((card, index) => {
+      const idxSpan = card.querySelector('.pudia-card-index');
+      if (idxSpan) idxSpan.textContent = index + 1;
+
+      // Only show remove button if there is more than 1 card and we are not in edit mode
+      const isEdit = !!document.getElementById('emerald-item-id').value;
+      const removeBtn = card.querySelector('.btn-remove-pudia');
+      if (removeBtn) {
+        if (cards.length > 1 && !isEdit) {
+          removeBtn.style.display = 'inline-block';
+        } else {
+          removeBtn.style.display = 'none';
+        }
+      }
+    });
+  },
+
+  setupImageUploaderForCard(card) {
+    const dropzone = card.querySelector('.pudia-image-dropzone');
+    const fileInput = card.querySelector('.pudia-image-file');
+    const previewContainer = card.querySelector('.pudia-uploader-preview');
+    const previewImg = card.querySelector('.pudia-uploaded-img-el');
+    const promptContainer = card.querySelector('.pudia-uploader-prompt');
+    const removeBtn = card.querySelector('.btn-remove-pudia-image');
+
+    if (!dropzone || !fileInput || !previewContainer || !previewImg || !promptContainer || !removeBtn) return;
+
+    // Open file dialog when clicking dropzone, except when clicking remove button
+    dropzone.addEventListener('click', (e) => {
+      if (e.target !== removeBtn && !removeBtn.contains(e.target)) {
+        fileInput.click();
+      }
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+      }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+      }, false);
+    });
+
+    dropzone.addEventListener('drop', async (e) => {
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        await handleImageFile(files[0]);
+      }
+    });
+
+    fileInput.addEventListener('change', async () => {
+      if (fileInput.files.length > 0) {
+        await handleImageFile(fileInput.files[0]);
+      }
+    });
+
+    const editBtn = card.querySelector('.btn-edit-pudia-image');
+    if (editBtn) {
+      editBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const currentBase64 = previewImg.src;
+        if (currentBase64) {
+          ImageEditor.open(currentBase64, (croppedBase64) => {
+            previewImg.src = croppedBase64;
+            card.dataset.imageUrl = croppedBase64;
+          });
+        }
+      });
+    }
+
+    removeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      fileInput.value = '';
+      previewImg.src = '';
+      previewContainer.classList.add('hidden');
+      promptContainer.classList.remove('hidden');
+      card.dataset.imageUrl = '';
+    });
+
+    const self = this;
+    async function handleImageFile(file) {
+      if (!file.type.startsWith('image/')) {
+        UI.showToast("Only image files are supported.", true);
+        return;
+      }
+      try {
+        const compressedBase64 = await UI.processImageUpload(file);
+        previewImg.src = compressedBase64;
+        promptContainer.classList.add('hidden');
+        previewContainer.classList.remove('hidden');
+        card.dataset.imageUrl = compressedBase64;
+      } catch (err) {
+        UI.showToast(err.message, true);
+      }
+    }
   },
 
   /**
@@ -747,42 +1034,12 @@ const EmeraldController = {
     this.activeEmeraldState = JSON.parse(JSON.stringify(emerald));
 
     document.getElementById('emerald-item-id').value = emerald.id || '';
-    document.getElementById('emerald-lustre').value = emerald.lustreGrade || '';
-    document.getElementById('emerald-color').value = emerald.color || '';
-    document.getElementById('emerald-pair').value = emerald.pair || 'No';
     document.getElementById('emerald-group').value = emerald.group || '';
-    document.getElementById('emerald-price').value = emerald.pricePerCarat || '';
 
     const stockTypeSelect = document.getElementById('emerald-stock-type');
     if (stockTypeSelect) {
       stockTypeSelect.value = emerald.stockType || (emerald.lustreGrade ? 'Calibrated Series' : 'Single Pieces');
     }
-    this.handleStockTypeChange();
-
-    // Load Image
-    if (emerald.image) {
-      document.getElementById('emerald-uploaded-img-el').src = emerald.image;
-      document.getElementById('emerald-uploader-prompt').classList.add('hidden');
-      document.getElementById('emerald-uploader-preview').classList.remove('hidden');
-    }
-
-    // Load size breakdown rows
-    if (emerald.sizes && emerald.sizes.length > 0) {
-      emerald.sizes.forEach(s => this.createSizeRow(s));
-    } else {
-      // Backward compatibility: old emeralds with single shape + weight
-      this.createSizeRow({
-        shape: emerald.shape || '',
-        mm: '',
-        pieces: '',
-        weight: emerald.weight || emerald.size || ''
-      });
-    }
-
-    // Re-populate autocomplete datalists now that this entry's rows are in the DOM,
-    // so its own shape/mm values appear as suggestions in the dropdowns.
-    this.populateShapeAutocomplete();
-    this.populateMmAutocomplete();
 
     // Check origins
     const origins = emerald.origins || [];
@@ -792,6 +1049,17 @@ const EmeraldController = {
         cb.checked = true;
       }
     });
+
+    // Add a single card populated with the emerald's specific details
+    this.addPudiaCard(emerald);
+
+    // Hide "+ Add Another Pudia" container during edit
+    const addBtnContainer = document.getElementById('emerald-add-pudia-btn-container');
+    if (addBtnContainer) addBtnContainer.classList.add('hidden');
+
+    // Also hide the "Remove Pudia" button since we must have at least one
+    const removePudiaBtn = document.querySelector('.pudia-entry-card .btn-remove-pudia');
+    if (removePudiaBtn) removePudiaBtn.style.display = 'none';
 
     document.getElementById('emerald-modal-title').textContent = "Edit Emerald Stock";
   },
@@ -1017,6 +1285,9 @@ const EmeraldController = {
 
     emptyState.classList.add('hidden');
     gridContainer.classList.remove('hidden');
+
+    gridContainer.classList.remove('emerald-grouped-container'); // Clean up any layout overrides if present
+    gridContainer.style.display = 'flex'; // Ensure standard vertical accordion layout
 
     // Grouping
     const groups = {};
@@ -1358,80 +1629,151 @@ const EmeraldController = {
 
   async handleSaveEmerald() {
     const stockType = document.getElementById('emerald-stock-type').value;
-    const lustreGrade = stockType === 'Single Pieces' ? '' : document.getElementById('emerald-lustre').value.trim();
-    const color = Number(document.getElementById('emerald-color').value || 0);
-    const pricePerCarat = Number(Number(document.getElementById('emerald-price').value || 0).toFixed(2));
-    const pair = document.getElementById('emerald-pair').value;
     const group = document.getElementById('emerald-group').value.trim();
-
-    // Gather sizes
-    const sizes = this.gatherSizes();
-    const totalWeight = sizes.reduce((sum, s) => sum + s.weight, 0);
 
     // Gather checked origins
     const checkBoxes = document.querySelectorAll('input[name="emerald-origin"]:checked');
     const origins = Array.from(checkBoxes).map(cb => cb.value);
 
-    // Validation
-    if (sizes.length === 0) {
-      UI.showToast("Please add at least one size row with Shape, MM, Pcs, and Weight.", true);
+    // Validation for shared fields
+    if (!group) {
+      UI.showToast("Please specify a Group / Lot Name.", true);
+      return;
+    }
+    if (origins.length === 0) {
+      UI.showToast("Please select at least one Origin.", true);
       return;
     }
 
-    const hasInvalidRow = sizes.some(s => !s.shape || !s.mm || s.pieces <= 0 || s.weight <= 0);
-    if (hasInvalidRow) {
-      UI.showToast("Each size row must have a Shape, MM, Pcs (>0), and Weight (>0).", true);
+    const pudiaCards = document.querySelectorAll('.pudia-entry-card');
+    if (pudiaCards.length === 0) {
+      UI.showToast("Please add at least one Pudia to save.", true);
       return;
     }
 
-    if ((stockType === 'Calibrated Series' && !lustreGrade) || isNaN(color) || pricePerCarat < 0 || origins.length === 0) {
-      UI.showToast("Please fill all required fields and select at least one Origin.", true);
-      return;
-    }
-
-    const id = document.getElementById('emerald-item-id').value || 'emerald_' + Date.now();
     const isEdit = !!document.getElementById('emerald-item-id').value;
 
-    // Derive shapes list from sizes for backward-compat searches
-    const shapes = this.getShapesFromSizes(sizes);
+    const savedPudias = [];
+    let validationError = null;
 
-    const image = this.activeEmeraldState ? this.activeEmeraldState.image : null;
+    pudiaCards.forEach((card, idx) => {
+      if (validationError) return;
 
-    const savedEmerald = {
-      id,
-      stockType,
-      sizes,
-      weight: Number(totalWeight.toFixed(3)),
-      shape: shapes.join(', '),  // backward compat: store joined shapes string
-      lustreGrade,
-      color,
-      pricePerCarat,
-      pair,
-      group,
-      origins,
-      image,
-      createdAt: isEdit ? this.activeEmeraldState.createdAt : new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
+      const pudiaIndexStr = `Pudia #${idx + 1}`;
+      const color = Number(card.querySelector('.pudia-color-input').value || 0);
+      const pricePerCarat = Number(Number(card.querySelector('.pudia-price-input').value || 0).toFixed(2));
+      const lustreGrade = stockType === 'Single Pieces' ? '' : card.querySelector('.pudia-lustre-input').value.trim();
+      const pair = card.querySelector('.pudia-pair-select').value;
+      const image = card.dataset.imageUrl || null;
+
+      // Sizes for this card
+      const sizesContainer = card.querySelector('.pudia-sizes-container');
+      const sizes = [];
+      const rows = sizesContainer.querySelectorAll('.emerald-size-row');
+      rows.forEach(row => {
+        const shapeInput = row.querySelector('.size-shape.size-combo-input');
+        const mmInput = row.querySelector('.size-mm.size-combo-input');
+        const shape = shapeInput ? shapeInput.value.trim() : '';
+        const mm = mmInput ? mmInput.value.trim() : '';
+        const pieces = Number(row.querySelector('.size-pieces').value || 0);
+        const weight = Number(row.querySelector('.size-weight').value || 0);
+        if (shape || mm || pieces > 0 || weight > 0) {
+          sizes.push({ shape, mm, pieces, weight });
+        }
+      });
+
+      const totalWeight = sizes.reduce((sum, s) => sum + s.weight, 0);
+
+      // Validate
+      if (sizes.length === 0) {
+        validationError = `${pudiaIndexStr}: Please add at least one size row with Shape, MM, Pcs, and Weight.`;
+        return;
+      }
+      const hasInvalidRow = sizes.some(s => !s.shape || !s.mm || s.pieces <= 0 || s.weight <= 0);
+      if (hasInvalidRow) {
+        validationError = `${pudiaIndexStr}: Each size row must have a Shape, MM, Pcs (>0), and Weight (>0).`;
+        return;
+      }
+      if (isNaN(color) || color <= 0) {
+        validationError = `${pudiaIndexStr}: Please specify a valid Pudia Number.`;
+        return;
+      }
+      if (pricePerCarat <= 0) {
+        validationError = `${pudiaIndexStr}: Price per carat must be greater than 0.`;
+        return;
+      }
+      if (stockType === 'Calibrated Series' && !lustreGrade) {
+        validationError = `${pudiaIndexStr}: Please specify a Lustre Grade.`;
+        return;
+      }
+
+      // Check duplicate Pudia number within the group
+      const dbDuplicates = DBManager.getEmeralds().filter(e => 
+        (e.group || 'Default').toLowerCase() === group.toLowerCase() && 
+        e.color === color &&
+        (!isEdit || e.id !== document.getElementById('emerald-item-id').value)
+      );
+      if (dbDuplicates.length > 0) {
+        validationError = `${pudiaIndexStr}: Pudia Number #${color} already exists in Group "${group}".`;
+        return;
+      }
+
+      const batchDuplicates = savedPudias.filter(p => p.color === color);
+      if (batchDuplicates.length > 0) {
+        validationError = `${pudiaIndexStr}: Duplicate Pudia Number #${color} in the current batch.`;
+        return;
+      }
+
+      const shapes = Array.from(new Set(sizes.map(s => s.shape).filter(Boolean)));
+
+      const parsedPudia = {
+        id: isEdit ? document.getElementById('emerald-item-id').value : 'emerald_' + (Date.now() + idx),
+        stockType,
+        sizes,
+        weight: Number(totalWeight.toFixed(3)),
+        shape: shapes.join(', '),
+        lustreGrade,
+        color,
+        pricePerCarat,
+        pair,
+        group,
+        origins,
+        image,
+        createdAt: isEdit ? this.activeEmeraldState.createdAt : new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      savedPudias.push(parsedPudia);
+    });
+
+    if (validationError) {
+      UI.showToast(validationError, true);
+      return;
+    }
 
     try {
       if (isEdit) {
-        // Deep Diff
-        const changes = Logs.diffItem(this.activeEmeraldState, savedEmerald);
-        const summary = Logs.buildSummary(changes, `Updated Emerald: ${shapes.join(', ')} (${savedEmerald.weight}ct)`);
+        // Edit flow
+        const updatedPudia = savedPudias[0];
+        const changes = Logs.diffItem(this.activeEmeraldState, updatedPudia);
+        const shapes = updatedPudia.shape.split(', ').filter(Boolean);
+        const summary = Logs.buildSummary(changes, `Updated Emerald: ${shapes.join(', ')} (${updatedPudia.weight}ct)`);
 
-        DBManager.addLog("EDIT", savedEmerald.id, `Emerald (${shapes.join(', ')})`, summary, changes);
+        DBManager.addLog("EDIT", updatedPudia.id, `Emerald (${shapes.join(', ')})`, summary, changes);
 
-        // Replace item in array
-        const index = DBManager.database.emeralds.findIndex(e => e.id === savedEmerald.id);
+        const index = DBManager.database.emeralds.findIndex(e => e.id === updatedPudia.id);
         if (index !== -1) {
-          DBManager.database.emeralds[index] = savedEmerald;
+          DBManager.database.emeralds[index] = updatedPudia;
         }
         UI.showToast("Emerald stock updated successfully!");
       } else {
-        DBManager.addLog("ADD", savedEmerald.id, `Emerald (${shapes.join(', ')})`, `Added new emerald stock: ${shapes.join(', ')} (${savedEmerald.weight}ct)`, []);
-        DBManager.database.emeralds.push(savedEmerald);
-        UI.showToast("New emerald stock added successfully!");
+        // Add flow (could be 1 or multiple!)
+        savedPudias.forEach(p => {
+          const shapes = p.shape.split(', ').filter(Boolean);
+          DBManager.addLog("ADD", p.id, `Emerald (${shapes.join(', ')})`, `Added new emerald stock: ${shapes.join(', ')} (${p.weight}ct)`, []);
+          DBManager.database.emeralds.push(p);
+        });
+        UI.showToast(`Successfully added ${savedPudias.length} Pudia(s) to Group "${group}"!`);
       }
 
       await DBManager.saveVault();

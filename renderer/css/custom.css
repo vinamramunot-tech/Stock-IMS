@@ -278,3 +278,166 @@
     justify-content: center !important;
   }
 }
+
+/* Pudia Batch Add Entry Card */
+.pudia-entry-card {
+  border: 1px solid var(--border-light) !important;
+  padding: 20px;
+  margin-bottom: 20px;
+  background-color: var(--bg-card);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.pudia-entry-card:hover {
+  border-color: var(--border-dark) !important;
+}
+
+.pudia-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  border-bottom: 1px solid var(--border-light);
+  padding-bottom: 10px;
+}
+
+.pudia-card-header h4 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 15px;
+  color: var(--text-gold-dark);
+  font-weight: 600;
+}
+
+.btn-remove-pudia {
+  color: var(--danger-red) !important;
+  font-size: 12px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-weight: 600;
+  transition: color var(--transition-fast);
+}
+
+.btn-remove-pudia:hover {
+  color: #ff3b30 !important;
+  text-decoration: underline;
+}
+
+.pudia-image-dropzone {
+  border: 2px dashed var(--border-light);
+  border-radius: 4px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+  background-color: var(--bg-base);
+  transition: border-color var(--transition-fast);
+}
+
+.pudia-image-dropzone:hover,
+.pudia-image-dropzone.dragover {
+  border-color: var(--border-dark);
+}
+
+.pudia-uploader-prompt {
+  text-align: center;
+  padding: 15px;
+}
+
+.pudia-uploader-preview {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  background-color: var(--bg-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+}
+
+.pudia-uploaded-img-el {
+  max-height: 100px;
+  max-width: 100%;
+  object-fit: contain;
+  border: 1px solid var(--border-light);
+}
+
+.btn-remove-pudia-image {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: background-color var(--transition-fast);
+}
+
+.btn-remove-pudia-image:hover {
+  background-color: var(--danger-red);
+}
+
+/* Image Editor Buttons & Overlay Styles */
+.btn-edit-img {
+  position: absolute;
+  background-color: var(--text-main);
+  color: var(--bg-card);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+#uploader-preview .btn-edit-img {
+  top: 10px;
+  right: 44px;
+  width: 24px;
+  height: 24px;
+  font-size: 14px;
+}
+
+#uploader-preview .btn-edit-img:hover {
+  background-color: var(--text-gold);
+  color: #000;
+}
+
+.pudia-uploader-preview .btn-edit-img {
+  top: 8px;
+  right: 36px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 11px;
+}
+
+.pudia-uploader-preview .btn-edit-img:hover {
+  background-color: var(--text-gold);
+  color: #000;
+}
+
+/* Canvas Selection Box Constraints */
+#image-editor-crop-box {
+  transition: none !important; /* Disable transitions during dragging/resizing for high performance */
+}
+
+.crop-handle {
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
+  border-radius: 2px;
+}
+
