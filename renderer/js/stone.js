@@ -10,10 +10,11 @@ const StoneController = {
   activePdfDocument: null,
 
   init() {
-    // Convert clarity/grade, packet number, and group inputs to comboboxes
+    // Convert clarity/grade, packet number, group, and type inputs to comboboxes
     this._replaceWithComboWidget('stone-grade', 'form-grade', () => this._getKnownGrades(), 'Select or type Clarity/Grade...');
     this._replaceWithComboWidget('stone-packet-no', 'form-packet-no', () => this._getKnownPacketNumbers(), 'e.g. D-12');
     this._replaceWithComboWidget('stone-group', 'form-group', () => this._getKnownGroups(), 'e.g. Lot-Diamonds');
+    this._replaceWithComboWidget('stone-type', 'form-type', () => this._getKnownTypes(), 'Select or type Category...', (option, refresh) => this.handleDeleteTypeOption(option, refresh));
 
     // Event listeners for filters and search
     const searchInput = document.getElementById('stone-search-input');
@@ -231,7 +232,7 @@ const StoneController = {
    * combobox dropdown widget, retaining the original HTML ID so form loading
    * and saving logic works seamlessly.
    */
-  _replaceWithComboWidget(inputId, fieldClass, getOptions, placeholder) {
+  _replaceWithComboWidget(inputId, fieldClass, getOptions, placeholder, onDeleteOption) {
     const originalInput = document.getElementById(inputId);
     if (!originalInput) return;
 
@@ -263,15 +264,46 @@ const StoneController = {
       matches.forEach(o => {
         const item = document.createElement('div');
         item.className = 'combo-option';
-        if (q) {
-          const idx = String(o).toLowerCase().indexOf(q);
-          item.innerHTML =
-            UI.escapeHtml(String(o).slice(0, idx)) +
-            '<mark>' + UI.escapeHtml(String(o).slice(idx, idx + q.length)) + '</mark>' +
-            UI.escapeHtml(String(o).slice(idx + q.length));
+        
+        if (onDeleteOption) {
+          item.style.cssText = 'display: flex; justify-content: space-between; align-items: center; gap: 8px;';
+          const textSpan = document.createElement('span');
+          if (q) {
+            const idx = String(o).toLowerCase().indexOf(q);
+            textSpan.innerHTML =
+              UI.escapeHtml(String(o).slice(0, idx)) +
+              '<mark>' + UI.escapeHtml(String(o).slice(idx, idx + q.length)) + '</mark>' +
+              UI.escapeHtml(String(o).slice(idx + q.length));
+          } else {
+            textSpan.textContent = String(o);
+          }
+          item.appendChild(textSpan);
+
+          const deleteBtn = document.createElement('button');
+          deleteBtn.type = 'button';
+          deleteBtn.className = 'btn-delete-option';
+          deleteBtn.innerHTML = '&times;';
+          deleteBtn.style.cssText = 'background: none; border: none; color: var(--text-muted); font-size: 16px; cursor: pointer; padding: 2px 6px; line-height: 1;';
+          deleteBtn.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            onDeleteOption(o, () => {
+              openDropdown(input.value);
+            });
+          });
+          item.appendChild(deleteBtn);
         } else {
-          item.textContent = String(o);
+          if (q) {
+            const idx = String(o).toLowerCase().indexOf(q);
+            item.innerHTML =
+              UI.escapeHtml(String(o).slice(0, idx)) +
+              '<mark>' + UI.escapeHtml(String(o).slice(idx, idx + q.length)) + '</mark>' +
+              UI.escapeHtml(String(o).slice(idx + q.length));
+          } else {
+            item.textContent = String(o);
+          }
         }
+
         item.addEventListener('mousedown', (e) => {
           e.preventDefault();
           input.value = String(o);
@@ -319,7 +351,7 @@ const StoneController = {
         items[idx].scrollIntoView({ block: 'nearest' });
       } else if (e.key === 'Enter' && active) {
         e.preventDefault();
-        input.value = active.textContent;
+        input.value = active.querySelector('span') ? active.querySelector('span').textContent : active.textContent;
         closeDropdown();
         input.dispatchEvent(new Event('input', { bubbles: true }));
         input.dispatchEvent(new Event('change', { bubbles: true }));
@@ -465,6 +497,56 @@ const StoneController = {
     document.getElementById('stone-modal-title').textContent = "Edit Stone Stock";
   },
 
+  _getKnownTypes() {
+    const SEEDS = ['Diamond', 'Ruby', 'Sapphire', 'Polki', 'Emerald', 'Other Semi-Precious', 'Other'];
+    const removed = (DBManager.database && DBManager.database.settings && DBManager.database.settings.removedStoneTypes) || [];
+    
+    const all = new Set();
+    SEEDS.forEach(s => {
+      if (!removed.includes(s)) {
+        all.add(s);
+      }
+    });
+
+    if (DBManager.database && DBManager.database.settings && DBManager.database.settings.stoneTypes) {
+      DBManager.database.settings.stoneTypes.forEach(t => {
+        if (!removed.includes(t)) {
+          all.add(t);
+        }
+      });
+    }
+
+    DBManager.getStones().forEach(st => {
+      if (st.type && st.type.trim() && !removed.includes(st.type.trim())) {
+        all.add(st.type.trim());
+      }
+    });
+
+    return Array.from(all).sort();
+  },
+
+  async handleDeleteTypeOption(option, refreshDropdown) {
+    UI.confirm(`Are you sure you want to remove "${option}" from the dropdown category options?`, async () => {
+      try {
+        if (!DBManager.database.settings.removedStoneTypes) {
+          DBManager.database.settings.removedStoneTypes = [];
+        }
+        if (!DBManager.database.settings.removedStoneTypes.includes(option)) {
+          DBManager.database.settings.removedStoneTypes.push(option);
+        }
+        if (DBManager.database.settings.stoneTypes) {
+          DBManager.database.settings.stoneTypes = DBManager.database.settings.stoneTypes.filter(t => t !== option);
+        }
+        await DBManager.saveVault();
+        UI.showToast(`Removed category option: ${option}`);
+        if (refreshDropdown) refreshDropdown();
+        this.renderStoneGrid();
+      } catch (err) {
+        UI.showToast(err.message, true);
+      }
+    });
+  },
+
   /** Collect all known unique shapes from DB */
   _getKnownShapes() {
     const SEEDS = ['Round Brilliant', 'Emerald Cut', 'Oval Cut', 'Pear Shape', 'Marquise', 'Cushion Cut', 'Princess Cut', 'Rose Cut', 'Fancy Cut'];
@@ -539,6 +621,26 @@ const StoneController = {
   populateGroupAutocomplete() {},
 
   populateGradeAutocomplete() {},
+
+  populateTypeFilterOptions() {
+    const filterSelect = document.getElementById('stone-filter-type');
+    if (!filterSelect) return;
+    const current = filterSelect.value;
+    const types = this._getKnownTypes();
+
+    let optionsHtml = `<option value="">All Types</option>`;
+    types.forEach(t => {
+      optionsHtml += `<option value="${t}">${UI.escapeHtml(t)}</option>`;
+    });
+
+    const curOpts = Array.from(filterSelect.options).map(o => o.value).join(',');
+    const newOpts = ["", ...types].join(',');
+
+    if (curOpts !== newOpts) {
+      filterSelect.innerHTML = optionsHtml;
+      filterSelect.value = types.includes(current) ? current : "";
+    }
+  },
 
   populateGroupFilterOptions() {
     const filterSelect = document.getElementById('stone-filter-group');
@@ -647,6 +749,7 @@ const StoneController = {
 
     this.populateGroupFilterOptions();
     this.populateGradeFilterOptions();
+    this.populateTypeFilterOptions();
 
     const filtered = this.getFilteredStones();
     const sortVal = document.getElementById('stone-sort-items').value;
@@ -981,6 +1084,20 @@ const StoneController = {
         DBManager.database.stones.push(savedStone);
         DBManager.addLog("ADD", savedStone.id, `${savedStone.type} #${savedStone.color}`, `Added new loose stone stock`, []);
         UI.showToast("New stone stock added successfully!");
+      }
+
+      // Persist custom types to settings
+      const SEEDS = ['Diamond', 'Ruby', 'Sapphire', 'Polki', 'Emerald', 'Other Semi-Precious', 'Other'];
+      if (type && !SEEDS.includes(type)) {
+        if (!DBManager.database.settings.stoneTypes) {
+          DBManager.database.settings.stoneTypes = [];
+        }
+        if (!DBManager.database.settings.stoneTypes.includes(type)) {
+          DBManager.database.settings.stoneTypes.push(type);
+        }
+        if (DBManager.database.settings.removedStoneTypes) {
+          DBManager.database.settings.removedStoneTypes = DBManager.database.settings.removedStoneTypes.filter(t => t !== type);
+        }
       }
 
       await DBManager.saveVault();
