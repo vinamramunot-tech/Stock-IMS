@@ -42,7 +42,7 @@
     "@tauri-apps/cli": "^2.0.0"
   },
   "dependencies": {
-    "dompurify": "^3.4.10",
+    "dompurify": "^3.4.11",
     "firebase": "^12.14.0",
     "jspdf": "^4.2.1"
   }
