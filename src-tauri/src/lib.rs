@@ -444,6 +444,8 @@ fn save_file_dialog(handle: AppHandle, default_name: String) -> Option<String> {
         let mut dialog = FileDialog::new();
         if ext == "png" {
             dialog = dialog.set_title("Save Image").add_filter("PNG Image", &["png"]);
+        } else if ext == "xlsx" {
+            dialog = dialog.set_title("Save Excel Report").add_filter("Excel Spreadsheet", &["xlsx"]);
         } else {
             dialog = dialog.set_title("Save PDF Report").add_filter("PDF Document", &["pdf"]);
         }

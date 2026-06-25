@@ -187,6 +187,46 @@
         }
       },
 
+      // Excel (.xlsx) file saver — reuses the same Tauri command as PDF (generic base64 writer)
+      saveXlsxFile: async (base64Data, path) => {
+        if (path && path.startsWith("MOBILE_SHARE_PATH:")) {
+          const filename = path.substring("MOBILE_SHARE_PATH:".length);
+          try {
+            const byteCharacters = atob(base64Data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+            const blob = new Blob([byteArray], { type: mimeType });
+            if (navigator.canShare && navigator.share) {
+              const file = new File([blob], filename, { type: mimeType });
+              if (navigator.canShare({ files: [file] })) {
+                await navigator.share({ files: [file], title: filename, text: 'Exported from Mava Gems' });
+                return true;
+              }
+            }
+            const blobUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+            return true;
+          } catch (e) {
+            console.error("Mobile share/save XLSX failed:", e);
+            alert("Failed to save Excel file: " + e.message);
+            return false;
+          }
+        } else {
+          // Reuse the generic base64-to-file Tauri command
+          return window.__TAURI__.core.invoke('save_pdf_file', { base64Data: base64Data, path });
+        }
+      },
+
       // Real-time Database File Change Hook (Tauri Events)
       onDatabaseChanged: (callback) => {
         window.__TAURI__.event.listen('database-file-changed', (event) => {
@@ -260,6 +300,10 @@
       },
       savePdfFile: async (base64Data, path) => {
         console.log(`Mock: Saved PDF file to ${path}`);
+        return true;
+      },
+      saveXlsxFile: async (base64Data, path) => {
+        console.log(`Mock: Saved XLSX file to ${path}`);
         return true;
       },
       onDatabaseChanged: (callback) => {

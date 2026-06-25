@@ -830,6 +830,12 @@
                 </svg>
                 Print
               </button>
+              <button type="button" id="btn-export-excel-jewelry-catalog" class="btn btn-secondary" style="height: 42px; margin-left: 6px;">
+                <svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align: middle; margin-right: 6px;">
+                  <path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM8 11h8v1H8zm0 2h8v1H8zm0 2h6v1H8z"/>
+                </svg>
+                Export Excel
+              </button>
               <button type="button" id="btn-add-jewelry-piece-main" class="btn btn-primary"
                 style="height: 42px; margin-left: 8px;">
                 + Add Piece
@@ -2677,6 +2683,11 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary modal-close-trigger-print-jewelry-catalog">Cancel</button>
+        <button type="button" id="btn-submit-export-excel-jewelry-catalog" class="btn btn-secondary"
+          style="display:flex; align-items:center; gap:6px;">
+          <svg viewBox="0 0 24 24" width="15" height="15"><path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM8 11h8v1H8zm0 2h8v1H8zm0 2h6v1H8z"/></svg>
+          Export Excel
+        </button>
         <button type="button" id="btn-submit-print-jewelry-catalog" class="btn btn-primary">Print Report</button>
       </div>
     </div>
@@ -2993,6 +3004,7 @@
 
   <div id="print-section"></div>
   <!-- Load Scripts -->
+  <script src="js/xlsx.full.min.js"></script>
   <script src="js/jspdf.umd.min.js"></script>
   <script src="js/tauri-shim.js"></script>
   <script src="js/db-manager.js"></script>

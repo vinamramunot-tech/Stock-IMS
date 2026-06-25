@@ -572,9 +572,19 @@ const Catalog = {
       btnNone.addEventListener('click', () => this.toggleAllPrintItems(false));
     }
 
+    const btnExcelMain = document.getElementById('btn-export-excel-jewelry-catalog');
+    if (btnExcelMain) {
+      btnExcelMain.addEventListener('click', () => this.openPrintModal());
+    }
+
     const btnSubmit = document.getElementById('btn-submit-print-jewelry-catalog');
     if (btnSubmit) {
       btnSubmit.addEventListener('click', () => this.printFromSelection());
+    }
+
+    const btnExcelSubmit = document.getElementById('btn-submit-export-excel-jewelry-catalog');
+    if (btnExcelSubmit) {
+      btnExcelSubmit.addEventListener('click', () => this.exportFromSelection());
     }
   },
 
@@ -852,8 +862,372 @@ const Catalog = {
     } catch (err) {
       UI.showToast("Failed to save PDF: " + err.message, true);
     }
+  },
+
+  // ==================== EXCEL EXPORT ====================
+
+  async exportFromSelection() {
+    const checkedBoxes = document.querySelectorAll('.jewelry-print-item-checkbox:checked');
+    if (checkedBoxes.length === 0) {
+      UI.showToast("Please select at least one jewelry piece to export.", true);
+      return;
+    }
+
+    const selectedIds = Array.from(checkedBoxes).map(cb => cb.value);
+    const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
+    const allItems = DBManager.getItems();
+    const filtered = allItems
+      .filter(item => selectedIds.includes(item.id))
+      .map(item => ({
+        ...item,
+        evaluation: Calc.evaluateItem(item, goldRate)
+      }));
+
+    UI.closeModal('modal-print-jewelry-catalog');
+    UI.showToast("Generating Excel file…");
+
+    try {
+      const xlsxBase64 = this.generateExcel(filtered, goldRate);
+      const defaultName = `jewelry_latest_price_${new Date().toISOString().split('T')[0]}.xlsx`;
+      const savePath = await window.electronAPI.saveFileDialog(defaultName);
+      if (!savePath) return;
+      await window.electronAPI.saveXlsxFile(xlsxBase64, savePath);
+      UI.showToast("Excel file saved successfully!");
+    } catch (err) {
+      console.error('Excel export error:', err);
+      UI.showToast("Failed to generate Excel: " + err.message, true);
+    }
+  },
+
+  /**
+   * Generate a "Latest Price" format Excel workbook matching the user's Jewelry 23.04.26.xlsx structure.
+   * Returns a base64 string of the .xlsx binary.
+   *
+   * Sheet layout:
+   *   Row 1  : date label + today's date
+   *   Row 2  : MTL 24K rate (per 10g = goldRate * 10), formula anchor $B$2
+   *   Row 3  : wastage multiplier (1 + wastage/100), anchor $B$3
+   *   Row 8  : column headers
+   *   Row 9+ : per-item multi-row blocks
+   *
+   * Column mapping (0-indexed -> A=0, B=1, …):
+   *   A=S.No  B=Description  C=Date of MFG  D=Grading(karat)  E=Type
+   *   F=Gross WT  G=Net WT  H=CTS  I=@rate  J=Total
+   *   K=Subtotal  L=Market CP  M=Home CP  N=SP for Market
+   */
+  generateExcel(filteredItems, goldRate) {
+    const XLSX = window.XLSX;
+    if (!XLSX) throw new Error("SheetJS library not loaded.");
+
+    // ---------- Helper: column letter from 0-based index ----------
+    const col = (n) => {
+      let s = '';
+      n += 1;
+      while (n > 0) {
+        const r = (n - 1) % 26;
+        s = String.fromCharCode(65 + r) + s;
+        n = Math.floor((n - 1) / 26);
+      }
+      return s;
+    };
+    // Column letters (0-indexed)
+    const C = { A:0,B:1,C:2,D:3,E:4,F:5,G:6,H:7,I:8,J:9,K:10,L:11,M:12,N:13 };
+    const $ = r => r + 1; // 1-based row for cell refs
+
+    // Pick a representative wastage from first item (or 15 default)
+    // Each item's wastage is embedded directly in formulas so B3 is just a display reference.
+    const GLOBAL_WASTAGE = (filteredItems[0] ? Number(filteredItems[0].wastage || 15) : 15);
+    const WASTAGE_FACTOR = 1 + GLOBAL_WASTAGE / 100;
+    const GOLD_RATE_PER_10G = goldRate * 10;
+    const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' });
+    const goldDate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.effectiveDate : today;
+    const goldDateFmt = goldDate ? new Date(goldDate).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' }) : today;
+
+    // ========== Build aoa (array of arrays) ==========
+    // We'll use a sheet_aoa approach and manually set formulas after.
+    // Actually, we build a worksheet cell-by-cell for maximum control.
+
+    const ws = {}; // worksheet cells dictionary
+    const setCellText   = (r, c, v, s) => { ws[XLSX.utils.encode_cell({r, c})] = { v, t: 's', s }; };
+    const setCellNum    = (r, c, v, s) => { ws[XLSX.utils.encode_cell({r, c})] = { v: Number(v) || 0, t: 'n', s }; };
+    const setCellFormula = (r, c, formula, cached, s) => {
+      ws[XLSX.utils.encode_cell({r, c})] = { f: formula, v: cached !== undefined ? cached : 0, t: 'n', s };
+    };
+
+    // Style shortcuts
+    const BOLD  = { font: { bold: true } };
+    const HEADER = { font: { bold: true }, fill: { fgColor: { rgb: 'D9D9D9' } }, alignment: { horizontal: 'center' } };
+    const MONEY  = { numFmt: '₹#,##0.00', font: { bold: false } };
+    const MONEYBOLD = { numFmt: '₹#,##0.00', font: { bold: true } };
+    const CENTER = { alignment: { horizontal: 'center' } };
+
+    // ---- Row 0 (1 in Excel): Title / Date ----
+    setCellText(0, C.A, 'MAVA GEMS — JEWELRY LATEST PRICE', BOLD);
+    setCellText(0, C.C, `date: ${today}`);
+
+    // ---- Row 1 (2 in Excel): Gold rate anchor ----
+    setCellText(1, C.A, 'MTL 24K (10g)', BOLD);
+    setCellNum (1, C.B, GOLD_RATE_PER_10G, BOLD);
+    setCellText(1, C.C, goldDateFmt);
+
+    // ---- Row 2 (3 in Excel): Wastage anchor ----
+    setCellText(2, C.A, 'wastage', BOLD);
+    setCellNum (2, C.B, WASTAGE_FACTOR, BOLD);
+
+    // ---- Row 4 (5 in Excel): Legend ----
+    setCellText(4, C.A, 'To fill compulsory', { font: { color: { rgb: 'FF0000' } } });
+    setCellText(5, C.A, 'If required', { font: { color: { rgb: '0000FF' } } });
+
+    // ---- Row 7 (8 in Excel): Column headers ----
+    const headers = ['S No.', 'Description by 5', 'Date of MFG', 'Grading', '', 'Gross WT', 'Net WT', 'CTS', '@', 'Total', 'K (subtotal)', 'market C.P', 'home C.P', 'SP for market'];
+    headers.forEach((h, ci) => setCellText(7, ci, h, HEADER));
+
+    // ---- Per-item blocks starting at row 8 (Excel row 9) ----
+    let rowIdx = 8; // 0-based
+    let sNo = 1;
+
+    filteredItems.forEach(item => {
+      const metals = item.metals || [];
+      const stones = item.stones || [];
+      const diamonds = item.diamondsPolki || [];
+      const labour = Number(item.labourCost || 0);
+      const wastage = Number(item.wastage !== undefined ? item.wastage : 15);
+      const wastageMultiplier = 1 + wastage / 100;
+      const createdDate = item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '';
+
+      // Combine all metals into one MTL row (sum gross weights, compute net proportionally)
+      // Per the excel format each item starts with a single MTL row
+      const totalGrossWt = metals.reduce((s, m) => s + Number(m.weight || 0), 0);
+
+      // Determine karat: use first metal's karat (most common case), or mixed if multiple
+      const mainKarat = metals.length > 0 ? Number(metals[0].karat) : 18;
+
+      // Stone weight for net-wt formula
+      const totalStoneCts = [...stones, ...diamonds].reduce((s, x) => s + Number(x.weight || 0), 0);
+
+      // Row references (1-based Excel row numbers)
+      const mtlRow = $(rowIdx);     // Excel row of MTL line
+
+      // Collect rows for component lines (built below)
+      const stoneComponentRows = [];  // { rowExcel, type, cts, rate, isEmerald }
+      let labourRowExcel = null;
+      let commRowExcel = null;
+
+      // ---- MTL row (E=MTL) ----
+      const mtlR = rowIdx;
+      setCellNum(mtlR,  C.A, sNo++, BOLD);
+      setCellText(mtlR, C.B, item.name || 'Unnamed Piece', BOLD);
+      setCellText(mtlR, C.C, createdDate);
+      setCellNum(mtlR,  C.D, mainKarat);
+      setCellText(mtlR, C.E, 'MTL');
+      setCellNum(mtlR,  C.F, totalGrossWt);
+      // Net WT formula is set after we know stone rows
+      // I (rate per gram) = ($B$2/(10*24))*D<row>
+      setCellFormula(mtlR, C.I,
+        `($B$2/(10*24))*${col(C.D)}${mtlRow}`,
+        (GOLD_RATE_PER_10G / 240) * mainKarat
+      );
+      rowIdx++;
+
+      // ---- Component rows: all stone types ----
+      const allComponents = [
+        ...stones.map(s => ({ ...s, isDiamond: false })),
+        ...diamonds.map(d => ({ ...d, isDiamond: true }))
+      ];
+
+      allComponents.forEach(comp => {
+        const compR = rowIdx;
+        const compExcelRow = $(rowIdx);
+        const compType = (comp.type || 'stone').toLowerCase();
+        const isEmerald = compType === 'emerald';
+        const cts = Number(comp.weight || 0);
+        const rate = Number(comp.ratePerCarat || 0);
+        const totalVal = Number(comp.totalValue || cts * rate || 0);
+
+        setCellText(compR, C.E, comp.type || 'stone');
+        setCellText(compR, C.F, '-');
+        setCellText(compR, C.G, '-');
+        setCellNum(compR,  C.H, cts);
+        setCellNum(compR,  C.I, rate);
+        // J = H*I
+        setCellFormula(compR, C.J,
+          `${col(C.H)}${compExcelRow}*${col(C.I)}${compExcelRow}`,
+          totalVal
+        );
+        stoneComponentRows.push({ rowExcel: compExcelRow, rowIdx: compR, cts, rate, totalVal, isEmerald });
+        rowIdx++;
+      });
+
+      // ---- Labour row ----
+      const labourR = rowIdx;
+      labourRowExcel = $(rowIdx);
+      setCellText(labourR, C.E, 'labour');
+      setCellNum(labourR,  C.F, labour);
+      rowIdx++;
+
+      // ---- TK Commission row ----
+      const commR = rowIdx;
+      commRowExcel = $(rowIdx);
+      setCellText(commR, C.E, 'tk commission');
+      // commission = K_mtl * VLOOKUP(K_mtl, 'rates tk'!$B$5:$C$10, 2, TRUE)
+      // K column is col(C.K), mtl row is mtlRow
+      const kRef = `${col(C.K)}${mtlRow}`;
+      const commResult = Calc.calculateCommission(item.evaluation.subtotal);
+      const commCachedVal = (commResult && typeof commResult === 'object') ? commResult.value : (commResult || 0);
+      setCellFormula(commR, C.F,
+        `${kRef}*VLOOKUP(${kRef},'rates tk'!$B$5:$C$10,2,TRUE)`,
+        commCachedVal
+      );
+      rowIdx++;
+
+      // ---- Now fill in the deferred formulas on the MTL row ----
+      // Net WT = Gross WT - (sum of all stone CTS / 5)
+      const stoneHCells = stoneComponentRows.map(s => `${col(C.H)}${s.rowExcel}`).join('+');
+      const netWtFormula = stoneHCells.length > 0
+        ? `${col(C.F)}${mtlRow}-((${stoneHCells})/5)`
+        : `${col(C.F)}${mtlRow}`;
+      const stoneWtGrams = totalStoneCts * 0.2;
+      const netWt = Math.max(0, totalGrossWt - stoneWtGrams);
+      setCellFormula(mtlR, C.G, netWtFormula, netWt);
+
+      // Metal total J = G * wastage_factor * I  (we embed wastage directly)
+      const metalTotal = netWt * wastageMultiplier * ((GOLD_RATE_PER_10G / 240) * mainKarat);
+        commCached
+      );
+      rowIdx++;
+
+      // ── Back-fill deferred formulas on the MTL row ──
+
+      // G: Net WT = Gross WT − (sum_of_stone_CTS / 5)
+      const stoneHCells = stoneRows.map(s => `${col(C.H)}${s.rowExcel}`).join('+');
+      const netWtFormula = stoneHCells
+        ? `${col(C.F)}${mtlExcelRow}-((${stoneHCells})/5)`
+        : `${col(C.F)}${mtlExcelRow}`;
+      const netWt = Math.max(0, totalGrossWt - totalStoneCts * 0.2);
+      cf(mtlR, C.G, netWtFormula, netWt);
+
+      // J (MTL): Net WT × wastage_factor × rate_per_gram
+      const ratePerGram = (GOLD_RATE_PER_10G / 240) * mainKarat;
+      const metalTotal  = netWt * wastageMultiplier * ratePerGram;
+      cf(mtlR, C.J,
+        `${col(C.G)}${mtlExcelRow}*${wastageMultiplier.toFixed(4)}*${col(C.I)}${mtlExcelRow}`,
+        metalTotal
+      );
+
+      // K: Subtotal = SUM(J_mtl, J_stones…, F_labour)
+      const jRefs = [`${col(C.J)}${mtlExcelRow}`, ...stoneRows.map(s => `${col(C.J)}${s.rowExcel}`)];
+      cf(mtlR, C.K,
+        `SUM(${jRefs.join(',')},${col(C.F)}${labourExcel})`,
+        item.evaluation.subtotal
+      );
+
+      // Split stone refs by emerald for M / N
+      const emeraldJRefs    = stoneRows.filter(s =>  s.isEmerald).map(s => `${col(C.J)}${s.rowExcel}`);
+      const nonEmeraldJRefs = [`${col(C.J)}${mtlExcelRow}`,
+                               ...stoneRows.filter(s => !s.isEmerald).map(s => `${col(C.J)}${s.rowExcel}`)];
+      const labFRef  = `${col(C.F)}${labourExcel}`;
+      const commFRef = `${col(C.F)}${commExcel}`;
+
+      // L: Market CP = SUM(all J's + labour + commission) / 5
+      cf(mtlR, C.L,
+        `SUM(${jRefs.join(',')},${labFRef},${commFRef})/5`,
+        item.evaluation.marketCostPrice
+      );
+
+      // M: Home CP — emerald counted at 50%
+      if (emeraldJRefs.length > 0) {
+        const mParts = [
+          ...nonEmeraldJRefs,
+          ...emeraldJRefs.map(r => `(${r}*0.5)`),
+          labFRef, commFRef
+        ];
+        cf(mtlR, C.M,
+          `SUM(${mParts.join(',')})/5`,
+          item.evaluation.homeCostPrice
+        );
+      } else {
+        cf(mtlR, C.M,
+          `SUM(${jRefs.join(',')},${labFRef},${commFRef})/5`,
+          item.evaluation.homeCostPrice
+        );
+      }
+
+      // N: SP for Market
+      // = ((non_emerald + labour + commission) × 1.4 + emerald) / 5
+      if (emeraldJRefs.length > 0) {
+        cf(mtlR, C.N,
+          `((SUM(${[...nonEmeraldJRefs, labFRef, commFRef].join(',')})*1.4)+(${emeraldJRefs.join('+')}))/5`,
+          item.evaluation.sellingPrice
+        );
+      } else {
+        cf(mtlR, C.N,
+          `(SUM(${[...nonEmeraldJRefs, labFRef, commFRef].join(',')})*1.4)/5`,
+          item.evaluation.sellingPrice
+        );
+      }
+
+      // Gap row between items
+      rowIdx++;
+    });
+
+    // ── Grand total row ──
+    const totalMarketCP     = filteredItems.reduce((acc, i) => acc + i.evaluation.marketCostPrice, 0);
+    const totalSellingPrice = filteredItems.reduce((acc, i) => acc + i.evaluation.sellingPrice,    0);
+    cv(rowIdx, C.A, 'GRAND TOTAL',             S.grandTotal);
+    cv(rowIdx, C.B, filteredItems.length,       S.grandTotal);
+    cv(rowIdx, C.C, 'pieces',                   S.grandTotal);
+    cv(rowIdx, C.L, totalMarketCP,              S.grandTotal);
+    cv(rowIdx, C.N, totalSellingPrice,          S.grandTotal);
+
+    // ── Worksheet metadata ──
+    ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rowIdx, c: C.N } });
+    ws['!cols'] = [
+      { wch: 6  }, // A: S.No
+      { wch: 35 }, // B: Description
+      { wch: 12 }, // C: Date
+      { wch: 8  }, // D: Grading
+      { wch: 12 }, // E: Type
+      { wch: 10 }, // F: Gross WT / amounts
+      { wch: 10 }, // G: Net WT
+      { wch: 8  }, // H: CTS
+      { wch: 12 }, // I: @ Rate
+      { wch: 14 }, // J: Total
+      { wch: 14 }, // K: Subtotal
+      { wch: 14 }, // L: Market CP
+      { wch: 14 }, // M: Home CP
+      { wch: 14 }, // N: SP for Market
+    ];
+
+    // ── rates tk sheet ──
+    const wsTk = {};
+    [
+      [null, 'rates TK'],
+      [null, 'range',  'percentage'],
+      [null, 0,        0.10],
+      [null, 25000,    0.08],
+      [null, 50000,    0.06],
+      [null, 150000,   0.04],
+      [null, 300000,   0.03],
+      [null, 500000,   0.02],
+    ].forEach((rowArr, ri) => {
+      rowArr.forEach((val, ci) => {
+        if (val !== null) {
+          const ref = XLSX.utils.encode_cell({ r: ri + 2, c: ci });
+          wsTk[ref] = { v: val, t: typeof val === 'string' ? 's' : 'n' };
+        }
+      });
+    });
+    wsTk['!ref'] = XLSX.utils.encode_range({ s: { r: 2, c: 0 }, e: { r: 9, c: 2 } });
+    wsTk['!cols'] = [{ wch: 4 }, { wch: 12 }, { wch: 12 }];
+
+    // ── Assemble workbook ──
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'latest price');
+    XLSX.utils.book_append_sheet(wb, wsTk, 'rates tk');
+
+    // cellStyles: true is required for SheetJS CE to write the s property
+    return XLSX.write(wb, { bookType: 'xlsx', type: 'base64', cellStyles: true });
   }
 };
 
 window.Catalog = Catalog;
-
