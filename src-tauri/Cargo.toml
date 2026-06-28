@@ -6,6 +6,8 @@ authors = ["Antigravity"]
 license = "ISC"
 edition = "2021"
 rust-version = "1.77.2"
+default-run = "mava-gems-stock"
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
