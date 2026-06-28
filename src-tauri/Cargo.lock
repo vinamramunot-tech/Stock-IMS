@@ -2210,6 +2210,7 @@ dependencies = [
  "aes",
  "base64 0.21.7",
  "cbc",
+ "flate2",
  "log",
  "rand 0.8.6",
  "rfd",

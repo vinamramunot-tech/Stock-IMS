@@ -9,6 +9,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
+use std::io::{Read, Write};
+use flate2::Compression;
+use flate2::read::GzDecoder;
+use flate2::write::GzEncoder;
 use aes::Aes256;
 use aes::cipher::{block_padding::Pkcs7, typenum::{U16, U32}, BlockDecryptMut, BlockEncryptMut, KeyIvInit, generic_array::GenericArray};
 use sha2::{Digest, Sha256};
@@ -344,13 +348,24 @@ fn read_vault(handle: AppHandle, custom_path: String) -> Result<serde_json::Valu
         
     let decrypted = decrypt_data_bytes(&raw_buffer)?;
     
+    // Check for Gzip magic bytes: [0x1f, 0x8b]
+    let decompressed = if decrypted.len() >= 2 && decrypted[0] == 0x1f && decrypted[1] == 0x8b {
+        let mut decoder = GzDecoder::new(&decrypted[..]);
+        let mut decompressed_bytes = Vec::new();
+        decoder.read_to_end(&mut decompressed_bytes)
+            .map_err(|e| format!("Failed to decompress database: {:?}", e))?;
+        decompressed_bytes
+    } else {
+        decrypted
+    };
+    
     // Try deserializing as the new MessagePack database format
-    let json_str = if let Ok(bin_db) = rmp_serde::from_slice::<db::VaultDatabase>(&decrypted) {
+    let json_str = if let Ok(bin_db) = rmp_serde::from_slice::<db::VaultDatabase>(&decompressed) {
         serde_json::to_string(&bin_db)
             .map_err(|e| format!("Failed to convert binary db to JSON: {:?}", e))?
     } else {
         // Fallback: legacy decrypted JSON string
-        match String::from_utf8(decrypted.clone()) {
+        match String::from_utf8(decompressed.clone()) {
             Ok(s) => s,
             Err(_) => {
                 if let Ok(utf8_str) = std::str::from_utf8(&raw_buffer) {
@@ -386,7 +401,13 @@ fn write_vault(handle: AppHandle, payload: String, custom_path: String) -> Resul
     let binary_data = rmp_serde::to_vec(&parsed)
         .map_err(|e| format!("Serialization error: {:?}", e))?;
         
-    let encrypted_buffer = encrypt_data_bytes(&binary_data)?;
+    let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+    encoder.write_all(&binary_data)
+        .map_err(|e| format!("Compression failed: {:?}", e))?;
+    let compressed_data = encoder.finish()
+        .map_err(|e| format!("Compression finish failed: {:?}", e))?;
+        
+    let encrypted_buffer = encrypt_data_bytes(&compressed_data)?;
     
     let temp_path_str = format!("{}.tmp", custom_path);
     let temp_path = std::path::Path::new(&temp_path_str);
@@ -423,9 +444,21 @@ fn import_db_file(handle: AppHandle, base64_data: String, custom_path: String) -
         Err(_) => buffer.clone()
     };
     
-    let is_valid = if rmp_serde::from_slice::<db::VaultDatabase>(&decrypted).is_ok() {
+    let decompressed = if decrypted.len() >= 2 && decrypted[0] == 0x1f && decrypted[1] == 0x8b {
+        let mut decoder = GzDecoder::new(&decrypted[..]);
+        let mut decompressed_bytes = Vec::new();
+        if decoder.read_to_end(&mut decompressed_bytes).is_ok() {
+            decompressed_bytes
+        } else {
+            decrypted
+        }
+    } else {
+        decrypted
+    };
+    
+    let is_valid = if rmp_serde::from_slice::<db::VaultDatabase>(&decompressed).is_ok() {
         true
-    } else if let Ok(utf8_str) = std::str::from_utf8(&decrypted) {
+    } else if let Ok(utf8_str) = std::str::from_utf8(&decompressed) {
         if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(utf8_str) {
             parsed.get("settings").is_some() && parsed.get("items").is_some()
         } else {
@@ -436,11 +469,11 @@ fn import_db_file(handle: AppHandle, base64_data: String, custom_path: String) -
     };
     
     if is_valid {
-        if let Ok(bin_db) = rmp_serde::from_slice::<db::VaultDatabase>(&decrypted) {
+        if let Ok(bin_db) = rmp_serde::from_slice::<db::VaultDatabase>(&decompressed) {
             let json_str = serde_json::to_string(&bin_db)
                 .map_err(|e| format!("Serialization error: {:?}", e))?;
             write_vault(handle, json_str, custom_path)?;
-        } else if let Ok(utf8_str) = std::str::from_utf8(&decrypted) {
+        } else if let Ok(utf8_str) = std::str::from_utf8(&decompressed) {
             write_vault(handle, utf8_str.to_string(), custom_path)?;
         }
         Ok(true)
