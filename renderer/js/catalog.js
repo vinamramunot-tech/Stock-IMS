@@ -1044,6 +1044,7 @@ const Catalog = {
         const rate = Number(comp.ratePerCarat || 0);
         const totalVal = Number(comp.totalValue || cts * rate || 0);
 
+        setCellText(compR, C.B, `${comp.pieces || 0} pcs ${comp.shape || ''} ${comp.type || 'stone'}`.trim().replace(/\s+/g, ' '));
         setCellText(compR, C.E, comp.type || 'stone');
         setCellText(compR, C.F, '-');
         setCellText(compR, C.G, '-');
@@ -1092,44 +1093,27 @@ const Catalog = {
 
       // Metal total J = G * wastage_factor * I  (we embed wastage directly)
       const metalTotal = netWt * wastageMultiplier * ((GOLD_RATE_PER_10G / 240) * mainKarat);
-        commCached
-      );
-      rowIdx++;
-
-      // ── Back-fill deferred formulas on the MTL row ──
-
-      // G: Net WT = Gross WT − (sum_of_stone_CTS / 5)
-      const stoneHCells = stoneRows.map(s => `${col(C.H)}${s.rowExcel}`).join('+');
-      const netWtFormula = stoneHCells
-        ? `${col(C.F)}${mtlExcelRow}-((${stoneHCells})/5)`
-        : `${col(C.F)}${mtlExcelRow}`;
-      const netWt = Math.max(0, totalGrossWt - totalStoneCts * 0.2);
-      cf(mtlR, C.G, netWtFormula, netWt);
-
-      // J (MTL): Net WT × wastage_factor × rate_per_gram
-      const ratePerGram = (GOLD_RATE_PER_10G / 240) * mainKarat;
-      const metalTotal  = netWt * wastageMultiplier * ratePerGram;
-      cf(mtlR, C.J,
-        `${col(C.G)}${mtlExcelRow}*${wastageMultiplier.toFixed(4)}*${col(C.I)}${mtlExcelRow}`,
+      setCellFormula(mtlR, C.J,
+        `${col(C.G)}${mtlRow}*${wastageMultiplier.toFixed(4)}*${col(C.I)}${mtlRow}`,
         metalTotal
       );
 
       // K: Subtotal = SUM(J_mtl, J_stones…, F_labour)
-      const jRefs = [`${col(C.J)}${mtlExcelRow}`, ...stoneRows.map(s => `${col(C.J)}${s.rowExcel}`)];
-      cf(mtlR, C.K,
-        `SUM(${jRefs.join(',')},${col(C.F)}${labourExcel})`,
+      const jRefs = [`${col(C.J)}${mtlRow}`, ...stoneComponentRows.map(s => `${col(C.J)}${s.rowExcel}`)];
+      setCellFormula(mtlR, C.K,
+        `SUM(${jRefs.join(',')},${col(C.F)}${labourRowExcel})`,
         item.evaluation.subtotal
       );
 
       // Split stone refs by emerald for M / N
-      const emeraldJRefs    = stoneRows.filter(s =>  s.isEmerald).map(s => `${col(C.J)}${s.rowExcel}`);
-      const nonEmeraldJRefs = [`${col(C.J)}${mtlExcelRow}`,
-                               ...stoneRows.filter(s => !s.isEmerald).map(s => `${col(C.J)}${s.rowExcel}`)];
-      const labFRef  = `${col(C.F)}${labourExcel}`;
-      const commFRef = `${col(C.F)}${commExcel}`;
+      const emeraldJRefs    = stoneComponentRows.filter(s => s.isEmerald).map(s => `${col(C.J)}${s.rowExcel}`);
+      const nonEmeraldJRefs = [`${col(C.J)}${mtlRow}`,
+                               ...stoneComponentRows.filter(s => !s.isEmerald).map(s => `${col(C.J)}${s.rowExcel}`)];
+      const labFRef  = `${col(C.F)}${labourRowExcel}`;
+      const commFRef = `${col(C.F)}${commRowExcel}`;
 
       // L: Market CP = SUM(all J's + labour + commission) / 5
-      cf(mtlR, C.L,
+      setCellFormula(mtlR, C.L,
         `SUM(${jRefs.join(',')},${labFRef},${commFRef})/5`,
         item.evaluation.marketCostPrice
       );
@@ -1141,26 +1125,25 @@ const Catalog = {
           ...emeraldJRefs.map(r => `(${r}*0.5)`),
           labFRef, commFRef
         ];
-        cf(mtlR, C.M,
+        setCellFormula(mtlR, C.M,
           `SUM(${mParts.join(',')})/5`,
           item.evaluation.homeCostPrice
         );
       } else {
-        cf(mtlR, C.M,
+        setCellFormula(mtlR, C.M,
           `SUM(${jRefs.join(',')},${labFRef},${commFRef})/5`,
           item.evaluation.homeCostPrice
         );
       }
 
       // N: SP for Market
-      // = ((non_emerald + labour + commission) × 1.4 + emerald) / 5
       if (emeraldJRefs.length > 0) {
-        cf(mtlR, C.N,
+        setCellFormula(mtlR, C.N,
           `((SUM(${[...nonEmeraldJRefs, labFRef, commFRef].join(',')})*1.4)+(${emeraldJRefs.join('+')}))/5`,
           item.evaluation.sellingPrice
         );
       } else {
-        cf(mtlR, C.N,
+        setCellFormula(mtlR, C.N,
           `(SUM(${[...nonEmeraldJRefs, labFRef, commFRef].join(',')})*1.4)/5`,
           item.evaluation.sellingPrice
         );
@@ -1173,11 +1156,11 @@ const Catalog = {
     // ── Grand total row ──
     const totalMarketCP     = filteredItems.reduce((acc, i) => acc + i.evaluation.marketCostPrice, 0);
     const totalSellingPrice = filteredItems.reduce((acc, i) => acc + i.evaluation.sellingPrice,    0);
-    cv(rowIdx, C.A, 'GRAND TOTAL',             S.grandTotal);
-    cv(rowIdx, C.B, filteredItems.length,       S.grandTotal);
-    cv(rowIdx, C.C, 'pieces',                   S.grandTotal);
-    cv(rowIdx, C.L, totalMarketCP,              S.grandTotal);
-    cv(rowIdx, C.N, totalSellingPrice,          S.grandTotal);
+    setCellText(rowIdx, C.A, 'GRAND TOTAL',             BOLD);
+    setCellNum(rowIdx, C.B, filteredItems.length,       BOLD);
+    setCellText(rowIdx, C.C, 'pieces',                   BOLD);
+    setCellNum(rowIdx, C.L, totalMarketCP,              MONEYBOLD);
+    setCellNum(rowIdx, C.N, totalSellingPrice,          MONEYBOLD);
 
     // ── Worksheet metadata ──
     ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rowIdx, c: C.N } });
