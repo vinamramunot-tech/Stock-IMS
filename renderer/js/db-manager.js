@@ -60,7 +60,8 @@ const DBManager = {
       return { success: true, path: customPath };
     } catch (error) {
       console.error("Failed to initialize database:", error);
-      throw new Error("Failed to initialize database: " + error.message);
+      const errMsg = (error && error.message) || error;
+      throw new Error("Failed to initialize database: " + errMsg);
     }
   },
 
@@ -111,7 +112,8 @@ const DBManager = {
       return { success: true, path: customPath };
     } catch (error) {
       console.error("Database load failed:", error);
-      throw new Error("Failed to load database: " + error.message);
+      const errMsg = (error && error.message) || error;
+      throw new Error("Failed to load database: " + errMsg);
     }
   },
 
@@ -130,7 +132,8 @@ const DBManager = {
       return true;
     } catch (error) {
       console.error("Failed to save database:", error);
-      throw new Error("Failed to write to database: " + error.message);
+      const errMsg = (error && error.message) || error;
+      throw new Error("Failed to write to database: " + errMsg);
     }
   },
 

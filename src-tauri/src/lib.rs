@@ -62,6 +62,14 @@ fn decrypt_data_bytes(buffer: &[u8]) -> Result<Vec<u8>, String> {
         return Ok(Vec::new());
     }
     
+    // Backward compatibility: If the file is plain JSON, return it directly
+    if let Ok(utf8_str) = std::str::from_utf8(buffer) {
+        let trimmed = utf8_str.trim();
+        if trimmed.starts_with('{') {
+            return Ok(buffer.to_vec());
+        }
+    }
+    
     if buffer.len() < IV_LENGTH {
         return Err("Buffer too short to contain IV".to_string());
     }
@@ -336,8 +344,8 @@ fn read_vault(handle: AppHandle, custom_path: String) -> Result<serde_json::Valu
         
     let decrypted = decrypt_data_bytes(&raw_buffer)?;
     
-    // Try deserializing as the new bincode database format
-    let json_str = if let Ok(bin_db) = bincode::deserialize::<db::VaultDatabase>(&decrypted) {
+    // Try deserializing as the new MessagePack database format
+    let json_str = if let Ok(bin_db) = rmp_serde::from_slice::<db::VaultDatabase>(&decrypted) {
         serde_json::to_string(&bin_db)
             .map_err(|e| format!("Failed to convert binary db to JSON: {:?}", e))?
     } else {
@@ -348,7 +356,7 @@ fn read_vault(handle: AppHandle, custom_path: String) -> Result<serde_json::Valu
                 if let Ok(utf8_str) = std::str::from_utf8(&raw_buffer) {
                     utf8_str.to_string()
                 } else {
-                    return Err("Decrypted data is neither bincode nor valid UTF-8 JSON".to_string());
+                    return Err("Decrypted data is neither MessagePack nor valid UTF-8 JSON".to_string());
                 }
             }
         }
@@ -375,7 +383,7 @@ fn write_vault(handle: AppHandle, payload: String, custom_path: String) -> Resul
     let parsed: db::VaultDatabase = serde_json::from_str(&payload)
         .map_err(|e| format!("Failed to parse database payload: {:?}", e))?;
         
-    let binary_data = bincode::serialize(&parsed)
+    let binary_data = rmp_serde::to_vec(&parsed)
         .map_err(|e| format!("Serialization error: {:?}", e))?;
         
     let encrypted_buffer = encrypt_data_bytes(&binary_data)?;
@@ -415,7 +423,7 @@ fn import_db_file(handle: AppHandle, base64_data: String, custom_path: String) -
         Err(_) => buffer.clone()
     };
     
-    let is_valid = if bincode::deserialize::<db::VaultDatabase>(&decrypted).is_ok() {
+    let is_valid = if rmp_serde::from_slice::<db::VaultDatabase>(&decrypted).is_ok() {
         true
     } else if let Ok(utf8_str) = std::str::from_utf8(&decrypted) {
         if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(utf8_str) {
@@ -428,7 +436,7 @@ fn import_db_file(handle: AppHandle, base64_data: String, custom_path: String) -
     };
     
     if is_valid {
-        if let Ok(bin_db) = bincode::deserialize::<db::VaultDatabase>(&decrypted) {
+        if let Ok(bin_db) = rmp_serde::from_slice::<db::VaultDatabase>(&decrypted) {
             let json_str = serde_json::to_string(&bin_db)
                 .map_err(|e| format!("Serialization error: {:?}", e))?;
             write_vault(handle, json_str, custom_path)?;
