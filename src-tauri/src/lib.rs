@@ -1,6 +1,8 @@
 // Premium, secure desktop stock management backend for Mava Gems.
 // Re-implemented in pure Rust for high performance and minimal memory footprint.
 
+mod db;
+
 use std::sync::OnceLock;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -29,18 +31,17 @@ fn get_encryption_key() -> Vec<u8> {
     hasher.finalize().to_vec()
 }
 
-// Encrypt plaintext string into secure binary buffer with 16-byte prepended IV
-fn encrypt_data(plain_text: &str) -> Result<Vec<u8>, String> {
+// Encrypt raw binary buffer with 16-byte prepended IV
+fn encrypt_data_bytes(plain_bytes: &[u8]) -> Result<Vec<u8>, String> {
     let key = get_encryption_key();
     let mut iv = [0u8; IV_LENGTH];
     rand::thread_rng().fill(&mut iv); // Cryptographically secure random IV
     
-    let plaintext_bytes = plain_text.as_bytes();
-    let pt_len = plaintext_bytes.len();
+    let pt_len = plain_bytes.len();
     
     // Allocate buffer large enough for padded plaintext
     let mut buffer = vec![0u8; pt_len + 32];
-    buffer[..pt_len].copy_from_slice(plaintext_bytes);
+    buffer[..pt_len].copy_from_slice(plain_bytes);
     
     let key_array: GenericArray<u8, U32> = GenericArray::clone_from_slice(&key);
     let iv_array: GenericArray<u8, U16> = GenericArray::clone_from_slice(&iv);
@@ -55,18 +56,10 @@ fn encrypt_data(plain_text: &str) -> Result<Vec<u8>, String> {
     Ok(result)
 }
 
-// Decrypt binary buffer into plaintext string
-fn decrypt_data(buffer: &[u8]) -> Result<String, String> {
+// Decrypt binary buffer into plaintext raw bytes
+fn decrypt_data_bytes(buffer: &[u8]) -> Result<Vec<u8>, String> {
     if buffer.is_empty() {
-        return Ok(String::new());
-    }
-    
-    // Backward compatibility: If the file is plain JSON, return it as string directly
-    if let Ok(utf8_str) = std::str::from_utf8(buffer) {
-        let trimmed = utf8_str.trim();
-        if trimmed.starts_with('{') {
-            return Ok(utf8_str.to_string());
-        }
+        return Ok(Vec::new());
     }
     
     if buffer.len() < IV_LENGTH {
@@ -84,10 +77,9 @@ fn decrypt_data(buffer: &[u8]) -> Result<String, String> {
     
     let decrypted = Aes256CbcDec::new(&key_array, &iv_array)
         .decrypt_padded_mut::<Pkcs7>(&mut decrypt_buffer)
-        .map_err(|e| format!("Decryption failed. The file may be corrupted or key mismatched. Details: {:?}", e))?;
+        .map_err(|e| format!("Decryption failed: {:?}", e))?;
         
-    String::from_utf8(decrypted.to_vec())
-        .map_err(|e| format!("Decrypted data is not valid UTF-8: {:?}", e))
+    Ok(decrypted.to_vec())
 }
 
 // --- Background File Watcher System ---
@@ -341,13 +333,32 @@ fn read_vault(handle: AppHandle, custom_path: String) -> Result<serde_json::Valu
     
     let raw_buffer = std::fs::read(file_path)
         .map_err(|e| format!("Failed to read file: {:?}", e))?;
-    let decrypted = decrypt_data(&raw_buffer)?;
+        
+    let decrypted = decrypt_data_bytes(&raw_buffer)?;
+    
+    // Try deserializing as the new bincode database format
+    let json_str = if let Ok(bin_db) = bincode::deserialize::<db::VaultDatabase>(&decrypted) {
+        serde_json::to_string(&bin_db)
+            .map_err(|e| format!("Failed to convert binary db to JSON: {:?}", e))?
+    } else {
+        // Fallback: legacy decrypted JSON string
+        match String::from_utf8(decrypted.clone()) {
+            Ok(s) => s,
+            Err(_) => {
+                if let Ok(utf8_str) = std::str::from_utf8(&raw_buffer) {
+                    utf8_str.to_string()
+                } else {
+                    return Err("Decrypted data is neither bincode nor valid UTF-8 JSON".to_string());
+                }
+            }
+        }
+    };
     
     start_watching_db_file(handle, custom_path.clone());
     
     Ok(serde_json::json!({
         "exists": true,
-        "data": decrypted,
+        "data": json_str,
         "path": custom_path
     }))
 }
@@ -361,7 +372,13 @@ fn write_vault(handle: AppHandle, payload: String, custom_path: String) -> Resul
         let _ = std::fs::create_dir_all(parent);
     }
     
-    let encrypted_buffer = encrypt_data(&payload)?;
+    let parsed: db::VaultDatabase = serde_json::from_str(&payload)
+        .map_err(|e| format!("Failed to parse database payload: {:?}", e))?;
+        
+    let binary_data = bincode::serialize(&parsed)
+        .map_err(|e| format!("Serialization error: {:?}", e))?;
+        
+    let encrypted_buffer = encrypt_data_bytes(&binary_data)?;
     
     let temp_path_str = format!("{}.tmp", custom_path);
     let temp_path = std::path::Path::new(&temp_path_str);
@@ -393,31 +410,31 @@ fn import_db_file(handle: AppHandle, base64_data: String, custom_path: String) -
     let buffer = general_purpose::STANDARD.decode(&base64_data)
         .map_err(|e| format!("Failed to decode base64: {:?}", e))?;
         
-    let decrypted = match decrypt_data(&buffer) {
-        Ok(json_str) => Some(json_str),
-        Err(_) => {
-            if let Ok(utf8_str) = std::str::from_utf8(&buffer) {
-                let trimmed = utf8_str.trim();
-                if trimmed.starts_with('{') {
-                    Some(utf8_str.to_string())
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        }
+    let decrypted = match decrypt_data_bytes(&buffer) {
+        Ok(bytes) => bytes,
+        Err(_) => buffer.clone()
     };
     
-    if let Some(json_str) = decrypted {
-        let parsed: serde_json::Value = serde_json::from_str(&json_str)
-            .map_err(|e| format!("Invalid JSON format: {:?}", e))?;
-            
-        if parsed.get("settings").is_none() || parsed.get("items").is_none() {
-            return Err("Invalid database file structure: missing settings or items.".to_string());
+    let is_valid = if bincode::deserialize::<db::VaultDatabase>(&decrypted).is_ok() {
+        true
+    } else if let Ok(utf8_str) = std::str::from_utf8(&decrypted) {
+        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(utf8_str) {
+            parsed.get("settings").is_some() && parsed.get("items").is_some()
+        } else {
+            false
         }
-        
-        write_vault(handle, json_str, custom_path)?;
+    } else {
+        false
+    };
+    
+    if is_valid {
+        if let Ok(bin_db) = bincode::deserialize::<db::VaultDatabase>(&decrypted) {
+            let json_str = serde_json::to_string(&bin_db)
+                .map_err(|e| format!("Serialization error: {:?}", e))?;
+            write_vault(handle, json_str, custom_path)?;
+        } else if let Ok(utf8_str) = std::str::from_utf8(&decrypted) {
+            write_vault(handle, utf8_str.to_string(), custom_path)?;
+        }
         Ok(true)
     } else {
         Err("The selected file is not a valid Mava Gems database.".to_string())
