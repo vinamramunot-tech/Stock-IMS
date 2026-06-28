@@ -931,7 +931,23 @@ const Catalog = {
       return s;
     };
     // Column letters (0-indexed)
-    const C = { A:0,B:1,C:2,D:3,E:4,F:5,G:6,H:7,I:8,J:9,K:10,L:11,M:12,N:13 };
+    const C = {
+      A: 0,  // S.No
+      B: 1,  // Description
+      C: 2,  // Date of MFG
+      D: 3,  // Grading
+      E: 4,  // Type
+      F: 5,  // Gross WT
+      G: 6,  // Net WT
+      H: 7,  // Stone Description (New)
+      I: 8,  // Pieces (New)
+      J: 9,  // CTS (was H=7)
+      K: 10, // @ (was I=8)
+      L: 11, // Total (was J=9)
+      M: 12, // market C.P (was L=11)
+      N: 13, // home C.P (was M=12)
+      O: 14  // SP for market (was N=13)
+    };
     const $ = r => r + 1; // 1-based row for cell refs
 
     // Pick a representative wastage from first item (or 15 default)
@@ -953,6 +969,39 @@ const Catalog = {
     const setCellFormula = (r, c, formula, cached, s) => {
       ws[XLSX.utils.encode_cell({r, c})] = { f: formula, v: cached !== undefined ? cached : 0, t: 'n', s };
     };
+    const THIN_BORDER = { style: 'thin' };
+    const borderAll = { top: THIN_BORDER, bottom: THIN_BORDER, left: THIN_BORDER, right: THIN_BORDER };
+
+    const applyBlockBorders = (startRow, endRow) => {
+      const outerCols = [C.A, C.B, C.C, C.M, C.N, C.O];
+      for (let r = startRow; r <= endRow; r++) {
+        const isFirst = (r === startRow);
+        const isLast = (r === endRow);
+        for (let c = 0; c <= C.O; c++) {
+          const cellRef = XLSX.utils.encode_cell({ r, c });
+          if (!ws[cellRef]) {
+            ws[cellRef] = { v: '', t: 's' };
+          }
+          const cell = ws[cellRef];
+          if (!cell.s) {
+            cell.s = {};
+          }
+          let border = {};
+          if (outerCols.includes(c)) {
+            border.left = THIN_BORDER;
+            border.right = THIN_BORDER;
+            if (isFirst) border.top = THIN_BORDER;
+            if (isLast) border.bottom = THIN_BORDER;
+          } else {
+            border.top = THIN_BORDER;
+            border.bottom = THIN_BORDER;
+            border.left = THIN_BORDER;
+            border.right = THIN_BORDER;
+          }
+          cell.s.border = border;
+        }
+      }
+    };
 
     // Style shortcuts
     const BOLD  = { font: { bold: true } };
@@ -966,20 +1015,26 @@ const Catalog = {
     setCellText(0, C.C, `date: ${today}`);
 
     // ---- Row 1 (2 in Excel): Gold rate anchor ----
-    setCellText(1, C.A, 'MTL 24K (10g)', BOLD);
-    setCellNum (1, C.B, GOLD_RATE_PER_10G, BOLD);
+    setCellText(1, C.A, 'MTL 24K (10g)', { font: { bold: true }, border: borderAll });
+    setCellNum (1, C.B, GOLD_RATE_PER_10G, { font: { bold: true }, border: borderAll });
     setCellText(1, C.C, goldDateFmt);
 
     // ---- Row 2 (3 in Excel): Wastage anchor ----
-    setCellText(2, C.A, 'wastage', BOLD);
-    setCellNum (2, C.B, WASTAGE_FACTOR, BOLD);
+    setCellText(2, C.A, 'wastage', { font: { bold: true }, border: borderAll });
+    setCellNum (2, C.B, WASTAGE_FACTOR, { font: { bold: true }, border: borderAll });
 
     // ---- Row 4 (5 in Excel): Legend ----
-    setCellText(4, C.A, 'To fill compulsory', { font: { color: { rgb: 'FF0000' } } });
-    setCellText(5, C.A, 'If required', { font: { color: { rgb: '0000FF' } } });
+    setCellText(4, C.A, 'To fill compulsory', { font: { color: { rgb: 'FF0000' } }, border: borderAll });
+    setCellText(4, C.B, '', { border: borderAll });
+    setCellText(5, C.A, 'If required', { font: { color: { rgb: '0000FF' } }, border: borderAll });
+    setCellText(5, C.B, '', { border: borderAll });
 
     // ---- Row 7 (8 in Excel): Column headers ----
-    const headers = ['S No.', 'Description by 5', 'Date of MFG', 'Grading', '', 'Gross WT', 'Net WT', 'CTS', '@', 'Total', 'K (subtotal)', 'market C.P', 'home C.P', 'SP for market'];
+    const headers = [
+      'S No.', 'Description by 5', 'Date of MFG', 'Grading', '', 'Gross WT', 'Net WT',
+      'Stone Description', 'Pieces', 'CTS', '@', 'Total',
+      'market C.P', 'home C.P', 'SP for market'
+    ];
     headers.forEach((h, ci) => setCellText(7, ci, h, HEADER));
 
     // ---- Per-item blocks starting at row 8 (Excel row 9) ----
@@ -1022,8 +1077,8 @@ const Catalog = {
       setCellText(mtlR, C.E, 'MTL');
       setCellNum(mtlR,  C.F, totalGrossWt);
       // Net WT formula is set after we know stone rows
-      // I (rate per gram) = ($B$2/(10*24))*D<row>
-      setCellFormula(mtlR, C.I,
+      // K (rate per gram) = ($B$2/(10*24))*D<row>
+      setCellFormula(mtlR, C.K,
         `($B$2/(10*24))*${col(C.D)}${mtlRow}`,
         (GOLD_RATE_PER_10G / 240) * mainKarat
       );
@@ -1044,15 +1099,17 @@ const Catalog = {
         const rate = Number(comp.ratePerCarat || 0);
         const totalVal = Number(comp.totalValue || cts * rate || 0);
 
-        setCellText(compR, C.B, `${comp.pieces || 0} pcs ${comp.shape || ''} ${comp.type || 'stone'}`.trim().replace(/\s+/g, ' '));
+        setCellText(compR, C.B, ''); // Keep item description blank for component rows
         setCellText(compR, C.E, comp.type || 'stone');
         setCellText(compR, C.F, '-');
         setCellText(compR, C.G, '-');
-        setCellNum(compR,  C.H, cts);
-        setCellNum(compR,  C.I, rate);
-        // J = H*I
-        setCellFormula(compR, C.J,
-          `${col(C.H)}${compExcelRow}*${col(C.I)}${compExcelRow}`,
+        setCellText(compR, C.H, `${comp.shape || ''}`.trim()); // Stone description
+        setCellNum(compR,  C.I, comp.pieces || 0); // Pieces
+        setCellNum(compR,  C.J, cts); // CTS
+        setCellNum(compR,  C.K, rate); // @ Rate
+        // L (Total) = J (CTS) * K (@ Rate)
+        setCellFormula(compR, C.L,
+          `${col(C.J)}${compExcelRow}*${col(C.K)}${compExcelRow}`,
           totalVal
         );
         stoneComponentRows.push({ rowExcel: compExcelRow, rowIdx: compR, cts, rate, totalVal, isEmerald });
@@ -1070,84 +1127,84 @@ const Catalog = {
       const commR = rowIdx;
       commRowExcel = $(rowIdx);
       setCellText(commR, C.E, 'tk commission');
-      // commission = K_mtl * VLOOKUP(K_mtl, 'rates tk'!$B$5:$C$10, 2, TRUE)
-      // K column is col(C.K), mtl row is mtlRow
-      const kRef = `${col(C.K)}${mtlRow}`;
+
+      // We do not have a Subtotal cell in the sheet, so we construct the formula dynamically
+      // subtotalFormula = SUM(L_mtl, L_stones..., F_labour)
+      const lRefs = [`${col(C.L)}${mtlRow}`, ...stoneComponentRows.map(s => `${col(C.L)}${s.rowExcel}`)];
+      const subtotalFormula = `SUM(${lRefs.join(',')},${col(C.F)}${labourRowExcel})`;
+
       const commResult = Calc.calculateCommission(item.evaluation.subtotal);
       const commCachedVal = (commResult && typeof commResult === 'object') ? commResult.value : (commResult || 0);
       setCellFormula(commR, C.F,
-        `${kRef}*VLOOKUP(${kRef},'rates tk'!$B$5:$C$10,2,TRUE)`,
+        `${subtotalFormula}*VLOOKUP(${subtotalFormula},'rates tk'!$B$5:$C$10,2,TRUE)`,
         commCachedVal
       );
       rowIdx++;
 
       // ---- Now fill in the deferred formulas on the MTL row ----
       // Net WT = Gross WT - (sum of all stone CTS / 5)
-      const stoneHCells = stoneComponentRows.map(s => `${col(C.H)}${s.rowExcel}`).join('+');
-      const netWtFormula = stoneHCells.length > 0
-        ? `${col(C.F)}${mtlRow}-((${stoneHCells})/5)`
+      // CTS column is now J
+      const stoneJCells = stoneComponentRows.map(s => `${col(C.J)}${s.rowExcel}`).join('+');
+      const netWtFormula = stoneJCells.length > 0
+        ? `${col(C.F)}${mtlRow}-((${stoneJCells})/5)`
         : `${col(C.F)}${mtlRow}`;
       const stoneWtGrams = totalStoneCts * 0.2;
       const netWt = Math.max(0, totalGrossWt - stoneWtGrams);
       setCellFormula(mtlR, C.G, netWtFormula, netWt);
 
-      // Metal total J = G * wastage_factor * I  (we embed wastage directly)
+      // Metal total L = G * wastage_factor * K
       const metalTotal = netWt * wastageMultiplier * ((GOLD_RATE_PER_10G / 240) * mainKarat);
-      setCellFormula(mtlR, C.J,
-        `${col(C.G)}${mtlRow}*${wastageMultiplier.toFixed(4)}*${col(C.I)}${mtlRow}`,
+      setCellFormula(mtlR, C.L,
+        `${col(C.G)}${mtlRow}*${wastageMultiplier.toFixed(4)}*${col(C.K)}${mtlRow}`,
         metalTotal
       );
 
-      // K: Subtotal = SUM(J_mtl, J_stones…, F_labour)
-      const jRefs = [`${col(C.J)}${mtlRow}`, ...stoneComponentRows.map(s => `${col(C.J)}${s.rowExcel}`)];
-      setCellFormula(mtlR, C.K,
-        `SUM(${jRefs.join(',')},${col(C.F)}${labourRowExcel})`,
-        item.evaluation.subtotal
-      );
-
-      // Split stone refs by emerald for M / N
-      const emeraldJRefs    = stoneComponentRows.filter(s => s.isEmerald).map(s => `${col(C.J)}${s.rowExcel}`);
-      const nonEmeraldJRefs = [`${col(C.J)}${mtlRow}`,
-                               ...stoneComponentRows.filter(s => !s.isEmerald).map(s => `${col(C.J)}${s.rowExcel}`)];
+      // Split stone refs by emerald for M / N / O
+      const emeraldLRefs    = stoneComponentRows.filter(s => s.isEmerald).map(s => `${col(C.L)}${s.rowExcel}`);
+      const nonEmeraldLRefs = [`${col(C.L)}${mtlRow}`,
+                               ...stoneComponentRows.filter(s => !s.isEmerald).map(s => `${col(C.L)}${s.rowExcel}`)];
       const labFRef  = `${col(C.F)}${labourRowExcel}`;
       const commFRef = `${col(C.F)}${commRowExcel}`;
 
-      // L: Market CP = SUM(all J's + labour + commission) / 5
-      setCellFormula(mtlR, C.L,
-        `SUM(${jRefs.join(',')},${labFRef},${commFRef})/5`,
+      // M: Market CP = SUM(all L's + labour + commission) / 5
+      setCellFormula(mtlR, C.M,
+        `SUM(${lRefs.join(',')},${labFRef},${commFRef})/5`,
         item.evaluation.marketCostPrice
       );
 
-      // M: Home CP — emerald counted at 50%
-      if (emeraldJRefs.length > 0) {
+      // N: Home CP — emerald counted at 50%
+      if (emeraldLRefs.length > 0) {
         const mParts = [
-          ...nonEmeraldJRefs,
-          ...emeraldJRefs.map(r => `(${r}*0.5)`),
+          ...nonEmeraldLRefs,
+          ...emeraldLRefs.map(r => `(${r}*0.5)`),
           labFRef, commFRef
         ];
-        setCellFormula(mtlR, C.M,
+        setCellFormula(mtlR, C.N,
           `SUM(${mParts.join(',')})/5`,
           item.evaluation.homeCostPrice
         );
       } else {
-        setCellFormula(mtlR, C.M,
-          `SUM(${jRefs.join(',')},${labFRef},${commFRef})/5`,
+        setCellFormula(mtlR, C.N,
+          `SUM(${lRefs.join(',')},${labFRef},${commFRef})/5`,
           item.evaluation.homeCostPrice
         );
       }
 
-      // N: SP for Market
-      if (emeraldJRefs.length > 0) {
-        setCellFormula(mtlR, C.N,
-          `((SUM(${[...nonEmeraldJRefs, labFRef, commFRef].join(',')})*1.4)+(${emeraldJRefs.join('+')}))/5`,
+      // O: SP for Market
+      if (emeraldLRefs.length > 0) {
+        setCellFormula(mtlR, C.O,
+          `((SUM(${[...nonEmeraldLRefs, labFRef, commFRef].join(',')})*1.4)+(${emeraldLRefs.join('+')}))/5`,
           item.evaluation.sellingPrice
         );
       } else {
-        setCellFormula(mtlR, C.N,
-          `(SUM(${[...nonEmeraldJRefs, labFRef, commFRef].join(',')})*1.4)/5`,
+        setCellFormula(mtlR, C.O,
+          `(SUM(${[...nonEmeraldLRefs, labFRef, commFRef].join(',')})*1.4)/5`,
           item.evaluation.sellingPrice
         );
       }
+
+      // Apply exact outer & inner borders to this item block
+      applyBlockBorders(mtlR, commR);
 
       // Gap row between items
       rowIdx++;
@@ -1159,11 +1216,11 @@ const Catalog = {
     setCellText(rowIdx, C.A, 'GRAND TOTAL',             BOLD);
     setCellNum(rowIdx, C.B, filteredItems.length,       BOLD);
     setCellText(rowIdx, C.C, 'pieces',                   BOLD);
-    setCellNum(rowIdx, C.L, totalMarketCP,              MONEYBOLD);
-    setCellNum(rowIdx, C.N, totalSellingPrice,          MONEYBOLD);
+    setCellNum(rowIdx, C.M, totalMarketCP,              MONEYBOLD);
+    setCellNum(rowIdx, C.O, totalSellingPrice,          MONEYBOLD);
 
     // ── Worksheet metadata ──
-    ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rowIdx, c: C.N } });
+    ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rowIdx, c: C.O } });
     ws['!cols'] = [
       { wch: 6  }, // A: S.No
       { wch: 35 }, // B: Description
@@ -1172,13 +1229,14 @@ const Catalog = {
       { wch: 12 }, // E: Type
       { wch: 10 }, // F: Gross WT / amounts
       { wch: 10 }, // G: Net WT
-      { wch: 8  }, // H: CTS
-      { wch: 12 }, // I: @ Rate
-      { wch: 14 }, // J: Total
-      { wch: 14 }, // K: Subtotal
-      { wch: 14 }, // L: Market CP
-      { wch: 14 }, // M: Home CP
-      { wch: 14 }, // N: SP for Market
+      { wch: 15 }, // H: Stone Description
+      { wch: 8  }, // I: Pieces
+      { wch: 8  }, // J: CTS
+      { wch: 12 }, // K: @ Rate
+      { wch: 14 }, // L: Total
+      { wch: 14 }, // M: Market CP
+      { wch: 14 }, // N: Home CP
+      { wch: 14 }, // O: SP for Market
     ];
 
     // ── rates tk sheet ──
