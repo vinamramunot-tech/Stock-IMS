@@ -904,16 +904,17 @@ const Catalog = {
    * Returns a base64 string of the .xlsx binary.
    *
    * Sheet layout:
-   *   Row 1  : date label + today's date
-   *   Row 2  : MTL 24K rate (per 10g = goldRate * 10), formula anchor $B$2
-   *   Row 3  : wastage multiplier (1 + wastage/100), anchor $B$3
-   *   Row 8  : column headers
-   *   Row 9+ : per-item multi-row blocks
+   *   Row 1  : Title/date label
+   *   Row 2  : MTL 24K rate anchor ($B$2)
+   *   Row 3  : wastage multiplier ($B$3)
+   *   Row 4-5: Legend
+   *   Row 7  : Column headers
+   *   Row 8+ : Per-item multi-row blocks
    *
-   * Column mapping (0-indexed -> A=0, B=1, …):
-   *   A=S.No  B=Description  C=Date of MFG  D=Grading(karat)  E=Type
-   *   F=Gross WT  G=Net WT  H=CTS  I=@rate  J=Total
-   *   K=Subtotal  L=Market CP  M=Home CP  N=SP for Market
+   * Column mapping (matches reference 'Jewelry 23.04.26'):
+   *   A=S.No  B=Description  C=Date  D=Grading  E=Type
+   *   F=Gross WT  G=Net WT  H=Stone Desc  I=Pieces  J=CTS  K=@rate  L=Total
+   *   M=Market CP  N=Home CP  O=SP for Market
    */
   generateExcel(filteredItems, goldRate) {
     const XLSX = window.XLSX;
@@ -930,313 +931,299 @@ const Catalog = {
       }
       return s;
     };
-    // Column letters (0-indexed)
+
+    // Column indices (0-based)
     const C = {
       A: 0,  // S.No
       B: 1,  // Description
       C: 2,  // Date of MFG
-      D: 3,  // Grading
+      D: 3,  // Grading (karat)
       E: 4,  // Type
-      F: 5,  // Gross WT
+      F: 5,  // Gross WT / amounts
       G: 6,  // Net WT
-      H: 7,  // Stone Description (New)
-      I: 8,  // Pieces (New)
-      J: 9,  // CTS (was H=7)
-      K: 10, // @ (was I=8)
-      L: 11, // Total (was J=9)
-      M: 12, // market C.P (was L=11)
-      N: 13, // home C.P (was M=12)
-      O: 14  // SP for market (was N=13)
+      H: 7,  // Stone Description
+      I: 8,  // Pieces
+      J: 9,  // CTS
+      K: 10, // @ Rate
+      L: 11, // Total
+      M: 12, // Market CP
+      N: 13, // Home CP
+      O: 14  // SP for Market
     };
-    const $ = r => r + 1; // 1-based row for cell refs
+    const $ = r => r + 1; // 0-based row -> 1-based Excel row number
 
-    // Pick a representative wastage from first item (or 15 default)
-    // Each item's wastage is embedded directly in formulas so B3 is just a display reference.
-    const GLOBAL_WASTAGE = (filteredItems[0] ? Number(filteredItems[0].wastage || 15) : 15);
-    const WASTAGE_FACTOR = 1 + GLOBAL_WASTAGE / 100;
+    const GLOBAL_WASTAGE   = (filteredItems[0] ? Number(filteredItems[0].wastage || 15) : 15);
+    const WASTAGE_FACTOR   = 1 + GLOBAL_WASTAGE / 100;
     const GOLD_RATE_PER_10G = goldRate * 10;
-    const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' });
-    const goldDate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.effectiveDate : today;
+    const today      = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' });
+    const goldDate   = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.effectiveDate : today;
     const goldDateFmt = goldDate ? new Date(goldDate).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' }) : today;
 
-    // ========== Build aoa (array of arrays) ==========
-    // We'll use a sheet_aoa approach and manually set formulas after.
-    // Actually, we build a worksheet cell-by-cell for maximum control.
+    // =========================================================
+    //  Build worksheet cell-by-cell
+    // =========================================================
+    const ws = {};
 
-    const ws = {}; // worksheet cells dictionary
-    const setCellText   = (r, c, v, s) => { ws[XLSX.utils.encode_cell({r, c})] = { v, t: 's', s }; };
-    const setCellNum    = (r, c, v, s) => { ws[XLSX.utils.encode_cell({r, c})] = { v: Number(v) || 0, t: 'n', s }; };
-    const setCellFormula = (r, c, formula, cached, s) => {
-      ws[XLSX.utils.encode_cell({r, c})] = { f: formula, v: cached !== undefined ? cached : 0, t: 'n', s };
-    };
-    const THIN_BORDER = { style: 'thin' };
-    const borderAll = { top: THIN_BORDER, bottom: THIN_BORDER, left: THIN_BORDER, right: THIN_BORDER };
+    // -- Thin border side object --
+    const T = { style: 'thin' };
 
-    const applyBlockBorders = (startRow, endRow) => {
-      const outerCols = [C.A, C.B, C.C, C.M, C.N, C.O];
-      for (let r = startRow; r <= endRow; r++) {
-        const isFirst = (r === startRow);
-        const isLast = (r === endRow);
-        for (let c = 0; c <= C.O; c++) {
-          const cellRef = XLSX.utils.encode_cell({ r, c });
-          if (!ws[cellRef]) {
-            ws[cellRef] = { v: '', t: 's' };
-          }
-          const cell = ws[cellRef];
-          if (!cell.s) {
-            cell.s = {};
-          }
-          let border = {};
-          if (outerCols.includes(c)) {
-            border.left = THIN_BORDER;
-            border.right = THIN_BORDER;
-            if (isFirst) border.top = THIN_BORDER;
-            if (isLast) border.bottom = THIN_BORDER;
-          } else {
-            border.top = THIN_BORDER;
-            border.bottom = THIN_BORDER;
-            border.left = THIN_BORDER;
-            border.right = THIN_BORDER;
-          }
-          cell.s.border = border;
-        }
-      }
+    // -- Reusable border presets (matching reference exactly) --
+    const B = {
+      all:    { top: T, bottom: T, left: T, right: T },
+      lr:     { left: T, right: T },
+      botLR:  { bottom: T, left: T, right: T },
+      topLR:  { top: T, left: T, right: T },
+      tbr:    { top: T, bottom: T, right: T },    // karat/D col on MTL
+      tb:     { top: T, bottom: T },              // G-K on labour/comm rows
+      tbR:    { top: T, bottom: T, right: T },    // last of G-K on labour/comm
+      tbL:    { top: T, bottom: T, left: T },     // L col on MTL (left, no right)
     };
 
-    // Style shortcuts
-    const BOLD  = { font: { bold: true } };
-    const HEADER = { font: { bold: true }, fill: { fgColor: { rgb: 'D9D9D9' } }, alignment: { horizontal: 'center' } };
-    const MONEY  = { numFmt: '₹#,##0.00', font: { bold: false } };
-    const MONEYBOLD = { numFmt: '₹#,##0.00', font: { bold: true } };
-    const CENTER = { alignment: { horizontal: 'center' } };
+    // -- Fill colors --
+    const FILL_ORANGE = { patternType: 'solid', fgColor: { rgb: 'FFFFC000' } }; // karat, gross wt
+    const FILL_BLUE   = { patternType: 'solid', fgColor: { rgb: 'FFB4C6E7' } }; // stone CTS, @ rate
+    const FILL_HEADER = { patternType: 'solid', fgColor: { rgb: 'FFD9D9D9' } };
 
-    // ---- Row 0 (1 in Excel): Title / Date ----
-    setCellText(0, C.A, 'MAVA GEMS — JEWELRY LATEST PRICE', BOLD);
-    setCellText(0, C.C, `date: ${today}`);
+    // -- Alignment --
+    const AL  = { horizontal: 'center', vertical: 'center' };
+    const ALW = { horizontal: 'center', vertical: 'center', wrapText: true };
 
-    // ---- Row 1 (2 in Excel): Gold rate anchor ----
-    setCellText(1, C.A, 'MTL 24K (10g)', { font: { bold: true }, border: borderAll });
-    setCellNum (1, C.B, GOLD_RATE_PER_10G, { font: { bold: true }, border: borderAll });
-    setCellText(1, C.C, goldDateFmt);
+    // -- setCell helpers --
+    const setCell = (r, c, v, t, s) => { ws[XLSX.utils.encode_cell({r, c})] = { v, t, s }; };
+    const S = (r, c, v, s)          => setCell(r, c, v, 's', s);
+    const N = (r, c, v, s)          => setCell(r, c, Number(v) || 0, 'n', s);
+    const F = (r, c, f, cached, s)  => { ws[XLSX.utils.encode_cell({r, c})] = { f, v: cached !== undefined ? cached : 0, t: 'n', s }; };
 
-    // ---- Row 2 (3 in Excel): Wastage anchor ----
-    setCellText(2, C.A, 'wastage', { font: { bold: true }, border: borderAll });
-    setCellNum (2, C.B, WASTAGE_FACTOR, { font: { bold: true }, border: borderAll });
+    const BOLD_STYLE   = { font: { bold: true } };
+    const MONEY_BOLD   = { numFmt: '\u20b9#,##0.00', font: { bold: true } };
+    const HDR          = { font: { bold: true }, fill: FILL_HEADER, alignment: AL, border: B.all };
 
-    // ---- Row 4 (5 in Excel): Legend ----
-    setCellText(4, C.A, 'To fill compulsory', { font: { color: { rgb: 'FF0000' } }, border: borderAll });
-    setCellText(4, C.B, '', { border: borderAll });
-    setCellText(5, C.A, 'If required', { font: { color: { rgb: '0000FF' } }, border: borderAll });
-    setCellText(5, C.B, '', { border: borderAll });
+    // ---- Row 0 (Excel 1): Title ----
+    S(0, C.A, 'MAVA GEMS \u2014 JEWELRY LATEST PRICE', { font: { bold: true } });
+    S(0, C.C, `date: ${today}`, {});
 
-    // ---- Row 7 (8 in Excel): Column headers ----
-    const headers = [
-      'S No.', 'Description by 5', 'Date of MFG', 'Grading', '', 'Gross WT', 'Net WT',
-      'Stone Description', 'Pieces', 'CTS', '@', 'Total',
+    // ---- Row 1 (Excel 2): Gold rate ----
+    S(1, C.A, 'MTL 24K (10g)', { font: { bold: true }, border: B.all });
+    N(1, C.B, GOLD_RATE_PER_10G, { font: { bold: true }, border: B.all });
+    S(1, C.C, goldDateFmt, {});
+
+    // ---- Row 2 (Excel 3): Wastage ----
+    S(2, C.A, 'wastage', { font: { bold: true }, border: B.all });
+    N(2, C.B, WASTAGE_FACTOR, { font: { bold: true }, border: B.all });
+
+    // ---- Rows 3-4 (Excel 4-5): Legend ----
+    S(3, C.A, 'To fill compulsory', { font: { color: { rgb: 'FFFF0000' } }, border: B.all });
+    S(3, C.B, '', { border: B.all });
+    S(4, C.A, 'If required',         { font: { color: { rgb: 'FF0000FF' } }, border: B.all });
+    S(4, C.B, '', { border: B.all });
+
+    // ---- Row 6 (Excel 7): Column headers ----
+    [
+      'S No.', 'Description by 5', 'Date of MFG', 'Grading', 'Type',
+      'Gross WT', 'Net WT', 'Stone Description', 'Pieces', 'CTS', '@', 'Total',
       'market C.P', 'home C.P', 'SP for market'
-    ];
-    headers.forEach((h, ci) => setCellText(7, ci, h, HEADER));
+    ].forEach((h, ci) => S(6, ci, h, HDR));
 
-    // ---- Per-item blocks starting at row 8 (Excel row 9) ----
-    let rowIdx = 8; // 0-based
+    // ---- Per-item blocks (start at row 7 = Excel row 8) ----
+    let rowIdx = 7;
     let sNo = 1;
 
     filteredItems.forEach(item => {
-      const metals = item.metals || [];
-      const stones = item.stones || [];
+      const metals   = item.metals || [];
+      const stones   = item.stones || [];
       const diamonds = item.diamondsPolki || [];
-      const labour = Number(item.labourCost || 0);
-      const wastage = Number(item.wastage !== undefined ? item.wastage : 15);
-      const wastageMultiplier = 1 + wastage / 100;
-      const createdDate = item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '';
+      const labour   = Number(item.labourCost || 0);
+      const wastage  = Number(item.wastage !== undefined ? item.wastage : 15);
+      const wFactor  = 1 + wastage / 100;
+      const createdDate = item.createdAt
+        ? new Date(item.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' })
+        : '';
 
-      // Combine all metals into one MTL row (sum gross weights, compute net proportionally)
-      // Per the excel format each item starts with a single MTL row
-      const totalGrossWt = metals.reduce((s, m) => s + Number(m.weight || 0), 0);
-
-      // Determine karat: use first metal's karat (most common case), or mixed if multiple
-      const mainKarat = metals.length > 0 ? Number(metals[0].karat) : 18;
-
-      // Stone weight for net-wt formula
+      const totalGrossWt  = metals.reduce((s, m) => s + Number(m.weight || 0), 0);
+      const mainKarat     = metals.length > 0 ? Number(metals[0].karat) : 18;
       const totalStoneCts = [...stones, ...diamonds].reduce((s, x) => s + Number(x.weight || 0), 0);
 
-      // Row references (1-based Excel row numbers)
-      const mtlRow = $(rowIdx);     // Excel row of MTL line
+      const mtlR   = rowIdx;
+      const mtlRow = $(rowIdx); // 1-based Excel row
 
-      // Collect rows for component lines (built below)
-      const stoneComponentRows = [];  // { rowExcel, type, cts, rate, isEmerald }
-      let labourRowExcel = null;
-      let commRowExcel = null;
+      const stoneRows = []; // { rowExcel, cts, rate, totalVal, isEmerald }
+      let labRowXl   = null;
+      let commRowXl  = null;
 
-      // ---- MTL row (E=MTL) ----
-      const mtlR = rowIdx;
-      setCellNum(mtlR,  C.A, sNo++, BOLD);
-      setCellText(mtlR, C.B, item.name || 'Unnamed Piece', BOLD);
-      setCellText(mtlR, C.C, createdDate);
-      setCellNum(mtlR,  C.D, mainKarat);
-      setCellText(mtlR, C.E, 'MTL');
-      setCellNum(mtlR,  C.F, totalGrossWt);
-      // Net WT formula is set after we know stone rows
-      // K (rate per gram) = ($B$2/(10*24))*D<row>
-      setCellFormula(mtlR, C.K,
-        `($B$2/(10*24))*${col(C.D)}${mtlRow}`,
-        (GOLD_RATE_PER_10G / 240) * mainKarat
-      );
+      // ===================== MTL ROW =====================
+      N(mtlR, C.A, sNo++,           { font: { bold: true }, alignment: AL,  border: B.all });
+      S(mtlR, C.B, item.name || 'Unnamed Piece', { alignment: ALW, border: B.all });
+      S(mtlR, C.C, createdDate,     { alignment: AL,  border: B.all });
+      N(mtlR, C.D, mainKarat,       { fill: FILL_ORANGE, alignment: AL, border: B.tbr });  // orange, no left
+      S(mtlR, C.E, 'MTL',           { alignment: AL,  border: B.all });
+      N(mtlR, C.F, totalGrossWt,    { fill: FILL_ORANGE, alignment: AL, border: B.all }); // orange
+      // G: Net WT — deferred after we know stone rows
+      S(mtlR, C.H, '',              { alignment: AL,  border: B.all }); // stone desc empty on MTL
+      S(mtlR, C.I, '',              { alignment: AL,  border: B.all }); // pieces empty on MTL
+      S(mtlR, C.J, '-',             { alignment: AL,  border: B.all }); // CTS dash on MTL
+      F(mtlR, C.K, `($B$2/(10*24))*${col(C.D)}${mtlRow}`,
+        (GOLD_RATE_PER_10G / 240) * mainKarat, { alignment: AL, border: B.all }); // @ rate formula
+      // L: metal total — deferred
+      // M, N, O: CP/SP — deferred
       rowIdx++;
 
-      // ---- Component rows: all stone types ----
-      const allComponents = [
-        ...stones.map(s => ({ ...s, isDiamond: false })),
+      // ===================== STONE/DIAMOND ROWS =====================
+      const allComps = [
+        ...stones.map(s   => ({ ...s, isDiamond: false })),
         ...diamonds.map(d => ({ ...d, isDiamond: true }))
       ];
 
-      allComponents.forEach(comp => {
-        const compR = rowIdx;
-        const compExcelRow = $(rowIdx);
-        const compType = (comp.type || 'stone').toLowerCase();
-        const isEmerald = compType === 'emerald';
-        const cts = Number(comp.weight || 0);
+      allComps.forEach(comp => {
+        const cR   = rowIdx;
+        const cXl  = $(rowIdx);
+        const isEm = (comp.type || '').toLowerCase() === 'emerald';
+        const cts  = Number(comp.weight || 0);
         const rate = Number(comp.ratePerCarat || 0);
-        const totalVal = Number(comp.totalValue || cts * rate || 0);
+        const tv   = Number(comp.totalValue || cts * rate || 0);
 
-        setCellText(compR, C.B, ''); // Keep item description blank for component rows
-        setCellText(compR, C.E, comp.type || 'stone');
-        setCellText(compR, C.F, '-');
-        setCellText(compR, C.G, '-');
-        setCellText(compR, C.H, `${comp.shape || ''}`.trim()); // Stone description
-        setCellNum(compR,  C.I, comp.pieces || 0); // Pieces
-        setCellNum(compR,  C.J, cts); // CTS
-        setCellNum(compR,  C.K, rate); // @ Rate
-        // L (Total) = J (CTS) * K (@ Rate)
-        setCellFormula(compR, C.L,
-          `${col(C.J)}${compExcelRow}*${col(C.K)}${compExcelRow}`,
-          totalVal
-        );
-        stoneComponentRows.push({ rowExcel: compExcelRow, rowIdx: compR, cts, rate, totalVal, isEmerald });
+        // A, B, C: side borders only (no top/bottom inside block)
+        S(cR, C.A, '', { border: B.lr });
+        S(cR, C.B, '', { border: B.lr });
+        S(cR, C.C, '', { border: B.lr });
+        S(cR, C.D, '', { alignment: AL });  // no border on D in stone rows
+        S(cR, C.E, comp.type || 'stone', { alignment: ALW, border: B.all });
+        S(cR, C.F, '-', { alignment: AL, border: B.all });
+        S(cR, C.G, '-', { alignment: AL, border: B.all });
+        S(cR, C.H, `${comp.shape || ''}`.trim(), { alignment: AL, border: B.all });
+        N(cR, C.I, comp.pieces || 0,             { alignment: AL, border: B.all });
+        N(cR, C.J, cts,  { fill: FILL_BLUE, alignment: AL, border: B.all }); // blue CTS
+        N(cR, C.K, rate, { fill: FILL_BLUE, alignment: AL, border: B.all }); // blue rate
+        F(cR, C.L, `${col(C.J)}${cXl}*${col(C.K)}${cXl}`, tv, { alignment: AL, border: B.all });
+        S(cR, C.M, '', { border: B.lr });
+        S(cR, C.N, '', { border: B.lr });
+        S(cR, C.O, '', { border: B.lr });
+
+        stoneRows.push({ rowExcel: cXl, cts, rate, totalVal: tv, isEmerald: isEm });
         rowIdx++;
       });
 
-      // ---- Labour row ----
-      const labourR = rowIdx;
-      labourRowExcel = $(rowIdx);
-      setCellText(labourR, C.E, 'labour');
-      setCellNum(labourR,  C.F, labour);
+      // ===================== LABOUR ROW =====================
+      const labR = rowIdx;
+      labRowXl   = $(rowIdx);
+
+      S(labR, C.A, '', { border: B.lr });
+      S(labR, C.B, '', { border: B.lr });
+      S(labR, C.C, '', { border: B.lr });
+      S(labR, C.D, '', { alignment: AL });
+      S(labR, C.E, 'labour',  { alignment: ALW, border: B.all });
+      N(labR, C.F, labour,   { alignment: AL,  border: B.all });
+      S(labR, C.G, '', { border: B.tb });   // top+bottom only
+      S(labR, C.H, '', { border: B.tb });
+      S(labR, C.I, '', { border: B.tb });
+      S(labR, C.J, '', { border: B.tb });
+      S(labR, C.K, '', { border: B.tbR }); // top+bottom+right
+      S(labR, C.M, '', { border: B.lr });
+      S(labR, C.N, '', { border: B.lr });
+      S(labR, C.O, '', { border: B.lr });
       rowIdx++;
 
-      // ---- TK Commission row ----
+      // ===================== COMMISSION ROW =====================
       const commR = rowIdx;
-      commRowExcel = $(rowIdx);
-      setCellText(commR, C.E, 'tk commission');
+      commRowXl   = $(rowIdx);
 
-      // We do not have a Subtotal cell in the sheet, so we construct the formula dynamically
-      // subtotalFormula = SUM(L_mtl, L_stones..., F_labour)
-      const lRefs = [`${col(C.L)}${mtlRow}`, ...stoneComponentRows.map(s => `${col(C.L)}${s.rowExcel}`)];
-      const subtotalFormula = `SUM(${lRefs.join(',')},${col(C.F)}${labourRowExcel})`;
-
-      const commResult = Calc.calculateCommission(item.evaluation.subtotal);
+      const lRefs  = [`${col(C.L)}${mtlRow}`, ...stoneRows.map(s => `${col(C.L)}${s.rowExcel}`)];
+      const subFml = `SUM(${lRefs.join(',')},${col(C.F)}${labRowXl})`;
+      const commResult    = Calc.calculateCommission(item.evaluation.subtotal);
       const commCachedVal = (commResult && typeof commResult === 'object') ? commResult.value : (commResult || 0);
-      setCellFormula(commR, C.F,
-        `${subtotalFormula}*VLOOKUP(${subtotalFormula},'rates tk'!$B$5:$C$10,2,TRUE)`,
-        commCachedVal
-      );
+
+      S(commR, C.A, '', { border: B.botLR });
+      S(commR, C.B, '', { border: B.botLR });
+      S(commR, C.C, '', { border: B.botLR });
+      S(commR, C.D, '', { alignment: AL });
+      S(commR, C.E, 'tk commission', { alignment: ALW, border: B.all });
+      F(commR, C.F,
+        `${subFml}*VLOOKUP(${subFml},'rates tk'!$B$5:$C$10,2,TRUE)`,
+        commCachedVal, { alignment: AL, border: B.all });
+      S(commR, C.G, '', { border: B.tb });   // top+bottom
+      S(commR, C.H, '', { border: B.tb });
+      S(commR, C.I, '', { border: B.tb });
+      S(commR, C.J, '', { border: B.tb });
+      S(commR, C.K, '', { border: B.tbR }); // top+bottom+right
+      S(commR, C.M, '', { border: B.botLR });
+      S(commR, C.N, '', { border: B.botLR });
+      S(commR, C.O, '', { border: B.botLR });
       rowIdx++;
 
-      // ---- Now fill in the deferred formulas on the MTL row ----
-      // Net WT = Gross WT - (sum of all stone CTS / 5)
-      // CTS column is now J
-      const stoneJCells = stoneComponentRows.map(s => `${col(C.J)}${s.rowExcel}`).join('+');
+      // ===================== DEFERRED MTL FORMULAS =====================
+
+      // Net WT = Gross WT - (sum stone CTS / 5)
+      const stoneJCells  = stoneRows.map(s => `${col(C.J)}${s.rowExcel}`).join('+');
       const netWtFormula = stoneJCells.length > 0
-        ? `${col(C.F)}${mtlRow}-((${stoneJCells})/5)`
-        : `${col(C.F)}${mtlRow}`;
+        ? `${col(C.F)}${mtlRow}-((${stoneJCells})/5)` : `${col(C.F)}${mtlRow}`;
       const stoneWtGrams = totalStoneCts * 0.2;
       const netWt = Math.max(0, totalGrossWt - stoneWtGrams);
-      setCellFormula(mtlR, C.G, netWtFormula, netWt);
+      F(mtlR, C.G, netWtFormula, netWt, { alignment: AL, border: B.all });
 
-      // Metal total L = G * wastage_factor * K
-      const metalTotal = netWt * wastageMultiplier * ((GOLD_RATE_PER_10G / 240) * mainKarat);
-      setCellFormula(mtlR, C.L,
-        `${col(C.G)}${mtlRow}*${wastageMultiplier.toFixed(4)}*${col(C.K)}${mtlRow}`,
-        metalTotal
-      );
+      // Metal Total L = G * wastage_factor * K
+      const metalTotal = netWt * wFactor * ((GOLD_RATE_PER_10G / 240) * mainKarat);
+      F(mtlR, C.L,
+        `${col(C.G)}${mtlRow}*${wFactor.toFixed(4)}*${col(C.K)}${mtlRow}`,
+        metalTotal,
+        { alignment: AL, border: B.tbL }); // top+bottom+left only (matches reference J/L col)
 
-      // Split stone refs by emerald for M / N / O
-      const emeraldLRefs    = stoneComponentRows.filter(s => s.isEmerald).map(s => `${col(C.L)}${s.rowExcel}`);
+      // M, N, O: CP / SP formulas
+      const labFRef  = `${col(C.F)}${labRowXl}`;
+      const commFRef = `${col(C.F)}${commRowXl}`;
+      const emeraldLRefs    = stoneRows.filter(s => s.isEmerald).map(s => `${col(C.L)}${s.rowExcel}`);
       const nonEmeraldLRefs = [`${col(C.L)}${mtlRow}`,
-                               ...stoneComponentRows.filter(s => !s.isEmerald).map(s => `${col(C.L)}${s.rowExcel}`)];
-      const labFRef  = `${col(C.F)}${labourRowExcel}`;
-      const commFRef = `${col(C.F)}${commRowExcel}`;
+                               ...stoneRows.filter(s => !s.isEmerald).map(s => `${col(C.L)}${s.rowExcel}`)];
 
-      // M: Market CP = SUM(all L's + labour + commission) / 5
-      setCellFormula(mtlR, C.M,
+      F(mtlR, C.M,
         `SUM(${lRefs.join(',')},${labFRef},${commFRef})/5`,
-        item.evaluation.marketCostPrice
-      );
+        item.evaluation.marketCostPrice,
+        { alignment: AL, border: B.all });
 
-      // N: Home CP — emerald counted at 50%
       if (emeraldLRefs.length > 0) {
-        const mParts = [
-          ...nonEmeraldLRefs,
-          ...emeraldLRefs.map(r => `(${r}*0.5)`),
-          labFRef, commFRef
-        ];
-        setCellFormula(mtlR, C.N,
-          `SUM(${mParts.join(',')})/5`,
-          item.evaluation.homeCostPrice
-        );
-      } else {
-        setCellFormula(mtlR, C.N,
-          `SUM(${lRefs.join(',')},${labFRef},${commFRef})/5`,
-          item.evaluation.homeCostPrice
-        );
-      }
-
-      // O: SP for Market
-      if (emeraldLRefs.length > 0) {
-        setCellFormula(mtlR, C.O,
+        const mParts = [...nonEmeraldLRefs, ...emeraldLRefs.map(r => `(${r}*0.5)`), labFRef, commFRef];
+        F(mtlR, C.N, `SUM(${mParts.join(',')})/5`, item.evaluation.homeCostPrice,
+          { alignment: AL, border: B.all });
+        F(mtlR, C.O,
           `((SUM(${[...nonEmeraldLRefs, labFRef, commFRef].join(',')})*1.4)+(${emeraldLRefs.join('+')}))/5`,
-          item.evaluation.sellingPrice
-        );
+          item.evaluation.sellingPrice, { alignment: AL, border: B.all });
       } else {
-        setCellFormula(mtlR, C.O,
+        F(mtlR, C.N, `SUM(${lRefs.join(',')},${labFRef},${commFRef})/5`,
+          item.evaluation.homeCostPrice, { alignment: AL, border: B.all });
+        F(mtlR, C.O,
           `(SUM(${[...nonEmeraldLRefs, labFRef, commFRef].join(',')})*1.4)/5`,
-          item.evaluation.sellingPrice
-        );
+          item.evaluation.sellingPrice, { alignment: AL, border: B.all });
       }
 
-      // Apply exact outer & inner borders to this item block
-      applyBlockBorders(mtlR, commR);
-
-      // Gap row between items
+      // Blank gap row between items
       rowIdx++;
     });
 
     // ── Grand total row ──
     const totalMarketCP     = filteredItems.reduce((acc, i) => acc + i.evaluation.marketCostPrice, 0);
     const totalSellingPrice = filteredItems.reduce((acc, i) => acc + i.evaluation.sellingPrice,    0);
-    setCellText(rowIdx, C.A, 'GRAND TOTAL',             BOLD);
-    setCellNum(rowIdx, C.B, filteredItems.length,       BOLD);
-    setCellText(rowIdx, C.C, 'pieces',                   BOLD);
-    setCellNum(rowIdx, C.M, totalMarketCP,              MONEYBOLD);
-    setCellNum(rowIdx, C.O, totalSellingPrice,          MONEYBOLD);
+    S(rowIdx, C.A, 'GRAND TOTAL',       { font: { bold: true } });
+    N(rowIdx, C.B, filteredItems.length, { font: { bold: true } });
+    S(rowIdx, C.C, 'pieces',             { font: { bold: true } });
+    N(rowIdx, C.M, totalMarketCP,        MONEY_BOLD);
+    N(rowIdx, C.O, totalSellingPrice,    MONEY_BOLD);
 
-    // ── Worksheet metadata ──
+    // ── Worksheet range & column widths ──
     ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rowIdx, c: C.O } });
     ws['!cols'] = [
-      { wch: 6  }, // A: S.No
-      { wch: 35 }, // B: Description
-      { wch: 12 }, // C: Date
-      { wch: 8  }, // D: Grading
-      { wch: 12 }, // E: Type
-      { wch: 10 }, // F: Gross WT / amounts
-      { wch: 10 }, // G: Net WT
-      { wch: 15 }, // H: Stone Description
-      { wch: 8  }, // I: Pieces
-      { wch: 8  }, // J: CTS
-      { wch: 12 }, // K: @ Rate
-      { wch: 14 }, // L: Total
-      { wch: 14 }, // M: Market CP
-      { wch: 14 }, // N: Home CP
-      { wch: 14 }, // O: SP for Market
+      { wch: 6  }, // A
+      { wch: 30 }, // B
+      { wch: 12 }, // C
+      { wch: 8  }, // D
+      { wch: 14 }, // E
+      { wch: 10 }, // F
+      { wch: 10 }, // G
+      { wch: 18 }, // H Stone Desc
+      { wch: 7  }, // I Pieces
+      { wch: 8  }, // J CTS
+      { wch: 12 }, // K @ Rate
+      { wch: 14 }, // L Total
+      { wch: 14 }, // M Market CP
+      { wch: 14 }, // N Home CP
+      { wch: 14 }, // O SP
     ];
 
     // ── rates tk sheet ──
@@ -1266,7 +1253,6 @@ const Catalog = {
     XLSX.utils.book_append_sheet(wb, ws, 'latest price');
     XLSX.utils.book_append_sheet(wb, wsTk, 'rates tk');
 
-    // cellStyles: true is required for SheetJS CE to write the s property
     return XLSX.write(wb, { bookType: 'xlsx', type: 'base64', cellStyles: true });
   }
 };
