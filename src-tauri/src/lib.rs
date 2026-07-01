@@ -240,10 +240,10 @@ fn set_last_db_path(handle: AppHandle, db_path: Option<String>) -> bool {
 }
 
 #[tauri::command]
-fn create_db_dialog(handle: AppHandle) -> Option<String> {
+fn create_db_dialog(_handle: AppHandle) -> Option<String> {
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     {
-        let doc_dir = handle.path().document_dir().ok();
+        let doc_dir = _handle.path().document_dir().ok();
         
         let mut dialog = FileDialog::new()
             .set_title("Create New Mava Gems Database")
@@ -295,11 +295,11 @@ fn select_directory() -> Option<String> {
 }
 
 #[tauri::command]
-fn export_backup_dialog(handle: AppHandle, default_name: Option<String>) -> Option<String> {
+fn export_backup_dialog(_handle: AppHandle, _default_name: Option<String>) -> Option<String> {
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     {
-        let doc_dir = handle.path().document_dir().ok();
-        let default_filename = default_name.unwrap_or_else(|| "mava_gems_stock_backup.db".to_string());
+        let doc_dir = _handle.path().document_dir().ok();
+        let default_filename = _default_name.unwrap_or_else(|| "mava_gems_stock_backup.db".to_string());
         
         let mut dialog = FileDialog::new()
             .set_title("Export Database Backup")
@@ -490,11 +490,11 @@ fn copy_file(source_path: String, dest_path: String) -> Result<bool, String> {
 }
 
 #[tauri::command]
-fn save_file_dialog(handle: AppHandle, default_name: String) -> Option<String> {
+fn save_file_dialog(_handle: AppHandle, _default_name: String) -> Option<String> {
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     {
-        let doc_dir = handle.path().document_dir().ok();
-        let ext = std::path::Path::new(&default_name)
+        let doc_dir = _handle.path().document_dir().ok();
+        let ext = std::path::Path::new(&_default_name)
             .extension()
             .and_then(|e| e.to_str())
             .unwrap_or("pdf");
@@ -511,7 +511,7 @@ fn save_file_dialog(handle: AppHandle, default_name: String) -> Option<String> {
         if let Some(path) = doc_dir {
             dialog = dialog.set_directory(path);
         }
-        dialog = dialog.set_file_name(&default_name);
+        dialog = dialog.set_file_name(&_default_name);
         
         dialog.save_file().map(|p| p.to_string_lossy().to_string())
     }
