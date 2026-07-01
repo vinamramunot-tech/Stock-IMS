@@ -237,10 +237,40 @@ jobs:
         run: |
           export PATH="$HOME/.cargo/bin:$PATH"
           npx tauri android build --apk
-          APK_PATH=$(find src-tauri/gen/android -name "*.apk" | head -n 1)
-          if [ -n "$APK_PATH" ]; then
-            cp "$APK_PATH" "mava-gems-stock-android-${{ needs.prepare.outputs.version }}.apk"
+
+      - name: Sign & Align Android APK
+        run: |
+          # 1. Decode keystore
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > release.keystore
+          
+          # 2. Find unsigned APK
+          UNSIGNED_APK=$(find src-tauri/gen/android -name "*release-unsigned.apk" | head -n 1)
+          if [ -z "$UNSIGNED_APK" ]; then
+            UNSIGNED_APK=$(find src-tauri/gen/android -name "*release.apk" | grep -v "signed" | head -n 1)
           fi
+          
+          # 3. Find build tools
+          BUILD_TOOLS_DIR=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -n 1)
+          ZIPALIGN="$BUILD_TOOLS_DIR/zipalign"
+          APKSIGNER="$BUILD_TOOLS_DIR/apksigner"
+          
+          # 4. Align APK
+          $ZIPALIGN -v 4 "$UNSIGNED_APK" aligned-release.apk
+          
+          # 5. Sign APK
+          $APKSIGNER sign \
+            --ks release.keystore \
+            --ks-pass pass:"${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
+            --key-pass pass:"${{ secrets.ANDROID_KEY_PASSWORD }}" \
+            --ks-key-alias "${{ secrets.ANDROID_KEY_ALIAS }}" \
+            --out "mava-gems-stock-android-${{ needs.prepare.outputs.version }}.apk" \
+            aligned-release.apk
+            
+          # 6. Verify
+          $APKSIGNER verify --verbose "mava-gems-stock-android-${{ needs.prepare.outputs.version }}.apk"
+          
+          # 7. Cleanup
+          rm -f release.keystore aligned-release.apk
 
       # Upload built APK to workflow artifacts
       - name: Upload Android Artifacts

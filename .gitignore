@@ -63,3 +63,10 @@ desktop.ini
 *.njsproj
 *.sln
 *.swp
+
+# Android Signing Keys & Keystores (SENSITIVE)
+*.keystore
+*.jks
+keystore.properties
+*.b64
+

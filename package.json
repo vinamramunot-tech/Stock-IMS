@@ -19,6 +19,7 @@
     "android:dev": "tauri android dev",
     "preandroid:build": "node scripts/sync-version.js",
     "android:build": "tauri android build",
+    "android:build:signed": "npm run android:build -- --apk && ./scripts/sign-android.sh",
     "ios:init": "tauri ios init",
     "ios:dev": "bash scripts/ios-dev.sh",
     "ios:dev:device": "tauri ios dev",
