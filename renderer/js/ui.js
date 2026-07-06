@@ -14,6 +14,16 @@ const UI = {
       .replace(/'/g, '&#39;');
   },
 
+  debounce(func, delay = 250) {
+    let timeoutId;
+    return function(...args) {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        func.apply(this, args);
+      }, delay);
+    };
+  },
+
   // Toast Notification
   showToast(message, isError = false) {
     const toast = document.getElementById('toast-alert');

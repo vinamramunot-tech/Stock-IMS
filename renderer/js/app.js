@@ -15,6 +15,9 @@ const App = {
     if (window.EmeraldController) {
       EmeraldController.init();
     }
+    if (window.EmeraldDashboardController) {
+      EmeraldDashboardController.init();
+    }
     if (window.MemoController) {
       MemoController.init();
     }
@@ -118,12 +121,12 @@ const App = {
 
     const photoSearchInput = document.getElementById('photo-search-input');
     if (photoSearchInput) {
-      photoSearchInput.addEventListener('input', () => this.renderJewelryPhotos());
+      photoSearchInput.addEventListener('input', UI.debounce(() => this.renderJewelryPhotos(), 200));
     }
 
     const emeraldPhotoSearchInput = document.getElementById('emerald-photo-search-input');
     if (emeraldPhotoSearchInput) {
-      emeraldPhotoSearchInput.addEventListener('input', () => this.renderEmeraldPhotos());
+      emeraldPhotoSearchInput.addEventListener('input', UI.debounce(() => this.renderEmeraldPhotos(), 200));
     }
 
     // Mobile Menu Wire up
@@ -217,6 +220,9 @@ const App = {
       EmeraldController.populateGroupAutocomplete();
       EmeraldController.populateShapeAutocomplete();
       EmeraldController.populateMmAutocomplete();
+    }
+    if (window.EmeraldDashboardController) {
+      EmeraldDashboardController.renderDashboard();
     }
     if (window.MemoController) {
       MemoController.renderMemoList();

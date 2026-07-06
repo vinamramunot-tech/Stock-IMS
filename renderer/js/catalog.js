@@ -6,7 +6,7 @@
 const Catalog = {
   init() {
     // Search & Filter event listeners
-    document.getElementById('search-input').addEventListener('input', () => this.renderCatalogGrid());
+    document.getElementById('search-input').addEventListener('input', UI.debounce(() => this.renderCatalogGrid(), 200));
     document.getElementById('filter-category').addEventListener('change', () => this.renderCatalogGrid());
     document.getElementById('filter-karat').addEventListener('change', () => this.renderCatalogGrid());
     document.getElementById('sort-items').addEventListener('change', () => this.renderCatalogGrid());

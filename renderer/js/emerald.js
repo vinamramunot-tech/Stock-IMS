@@ -6,6 +6,7 @@
 
 const EmeraldController = {
   activeEmeraldState: null,
+  currentViewMode: 'accordion',
 
   init() {
     // Convert lustre, color (pudia number), and group inputs to comboboxes
@@ -16,7 +17,7 @@ const EmeraldController = {
     // Event listeners for filters and search
     const searchInput = document.getElementById('emerald-search-input');
     if (searchInput) {
-      searchInput.addEventListener('input', () => this.renderEmeraldGrid());
+      searchInput.addEventListener('input', UI.debounce(() => this.renderEmeraldGrid(), 200));
     }
     const filterShape = document.getElementById('emerald-filter-shape');
     if (filterShape) {
@@ -260,6 +261,25 @@ const EmeraldController = {
     if (btnExport) {
       btnExport.addEventListener('click', () => {
         if (this.sharingEmerald) this.exportShareCard(this.sharingEmerald);
+      });
+    }
+
+    const btnViewAccordion = document.getElementById('btn-emerald-view-accordion');
+    const btnViewGrid = document.getElementById('btn-emerald-view-grid');
+
+    if (btnViewAccordion && btnViewGrid) {
+      btnViewAccordion.addEventListener('click', () => {
+        this.currentViewMode = 'accordion';
+        btnViewAccordion.classList.add('active');
+        btnViewGrid.classList.remove('active');
+        this.renderEmeraldGrid();
+      });
+
+      btnViewGrid.addEventListener('click', () => {
+        this.currentViewMode = 'grid';
+        btnViewGrid.classList.add('active');
+        btnViewAccordion.classList.remove('active');
+        this.renderEmeraldGrid();
       });
     }
 
@@ -1248,8 +1268,9 @@ const EmeraldController = {
 
   renderEmeraldGrid() {
     const gridContainer = document.getElementById('emerald-catalog-grid');
+    const flatContainer = document.getElementById('emerald-flat-grid');
     const emptyState = document.getElementById('emerald-empty-state');
-    if (!gridContainer || !emptyState) return;
+    if (!gridContainer || !flatContainer || !emptyState) return;
 
     const catalogApplyMultiplier = document.getElementById('catalog-apply-multiplier');
     const catalogMultiplierSelect = document.getElementById('catalog-multiplier-select');
@@ -1274,17 +1295,50 @@ const EmeraldController = {
     let filtered = this.getFilteredEmeralds();
     const sortVal = document.getElementById('emerald-sort-items').value;
 
-    // Clear grid
+    // Clear both containers
     gridContainer.innerHTML = '';
+    flatContainer.innerHTML = '';
 
     if (filtered.length === 0) {
       gridContainer.classList.add('hidden');
+      flatContainer.classList.add('hidden');
       emptyState.classList.remove('hidden');
       return;
     }
 
     emptyState.classList.add('hidden');
+
+    if (this.currentViewMode === 'grid') {
+      gridContainer.classList.add('hidden');
+      flatContainer.classList.remove('hidden');
+
+      // Sort flat array
+      if (sortVal === 'weight-high' || sortVal === 'size-high') {
+        filtered.sort((a, b) => this.getEmeraldWeight(b) - this.getEmeraldWeight(a));
+      } else if (sortVal === 'weight-low' || sortVal === 'size-low') {
+        filtered.sort((a, b) => this.getEmeraldWeight(a) - this.getEmeraldWeight(b));
+      } else if (sortVal === 'price-high') {
+        filtered.sort((a, b) => (b.pricePerCarat || 0) - (a.pricePerCarat || 0));
+      } else if (sortVal === 'price-low') {
+        filtered.sort((a, b) => (a.pricePerCarat || 0) - (b.pricePerCarat || 0));
+      } else if (sortVal === 'color-high') {
+        filtered.sort((a, b) => Number(b.color || 0) - Number(a.color || 0));
+      } else if (sortVal === 'color-low') {
+        filtered.sort((a, b) => Number(a.color || 0) - Number(b.color || 0));
+      } else {
+        filtered.sort((a, b) => (a.group || '').localeCompare(b.group || '') || Number(a.color || 0) - Number(b.color || 0));
+      }
+
+      // Render flat cards
+      filtered.forEach(item => {
+        const card = this.createFlatPudiaCard(item, isMultiplierEnabled, globalMultiplier);
+        flatContainer.appendChild(card);
+      });
+      return;
+    }
+
     gridContainer.classList.remove('hidden');
+    flatContainer.classList.add('hidden');
 
     gridContainer.classList.remove('emerald-grouped-container'); // Clean up any layout overrides if present
     gridContainer.style.display = 'flex'; // Ensure standard vertical accordion layout
@@ -3339,6 +3393,175 @@ const EmeraldController = {
       console.error(err);
       UI.showToast("Export failed: " + err.message, true);
     }
+  },
+
+  createFlatPudiaCard(item, isMultiplierEnabled, globalMultiplier) {
+    const card = document.createElement('div');
+    card.className = 'flat-pudia-card';
+
+    const totalWeight = this.getEmeraldWeight(item);
+    const totalPieces = this.getEmeraldPieces(item);
+    const shapes = this.getEmeraldShapes(item);
+    const shapesDisplay = shapes.length > 0 ? shapes.join(', ') : 'Unknown Shape';
+    const originsStr = (item.origins || []).join(', ');
+
+    const pricePerCaratInr = item.pricePerCarat || 0;
+    const totalValueInr = Number((totalWeight * pricePerCaratInr).toFixed(2));
+
+    let rateHtml = `₹${pricePerCaratInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/ct`;
+    let valueHtml = `₹${totalValueInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    if (isMultiplierEnabled) {
+      const discountedRate = Number((pricePerCaratInr * globalMultiplier).toFixed(2));
+      const discountedValue = Number((totalWeight * discountedRate).toFixed(2));
+      rateHtml = `<span style="text-decoration: line-through; opacity: 0.6; font-size: 11px;">₹${pricePerCaratInr.toLocaleString()}</span> <strong style="color: var(--text-gold-dark);">₹${discountedRate.toLocaleString()}</strong>/ct`;
+      valueHtml = `<span style="text-decoration: line-through; opacity: 0.6; font-size: 11px;">₹${totalValueInr.toLocaleString()}</span> <strong style="color: var(--text-gold-dark);">₹${discountedValue.toLocaleString()}</strong>`;
+    }
+
+    const usdRate = DBManager.getSettings().usdToInr ? DBManager.getSettings().usdToInr.rate : 0;
+    const pricePerCaratUsd = Number((usdRate > 0 ? pricePerCaratInr / usdRate : 0).toFixed(2));
+    const totalValueUsd = Number((usdRate > 0 ? totalValueInr / usdRate : 0).toFixed(2));
+
+    let usdDisplay = '';
+    if (usdRate > 0) {
+      let usdRateDisplay = `$${pricePerCaratUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/ct`;
+      let usdValueDisplay = `$${totalValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      if (isMultiplierEnabled) {
+        const discountedRate = Number((pricePerCaratInr * globalMultiplier).toFixed(2));
+        const discountedValue = Number((totalWeight * discountedRate).toFixed(2));
+        const discountedPriceUsd = Number((usdRate > 0 ? discountedRate / usdRate : 0).toFixed(2));
+        const discountedValueUsd = Number((usdRate > 0 ? discountedValue / usdRate : 0).toFixed(2));
+        usdRateDisplay = `<span style="text-decoration: line-through; opacity: 0.6;">$${pricePerCaratUsd.toLocaleString()}</span> <strong>$${discountedPriceUsd.toLocaleString()}</strong>/ct`;
+        usdValueDisplay = `<span style="text-decoration: line-through; opacity: 0.6;">$${totalValueUsd.toLocaleString()}</span> <strong>$${discountedValueUsd.toLocaleString()}</strong>`;
+      }
+      usdDisplay = `
+        <div style="font-size: 11px; color: var(--text-muted); border-top: 1px dashed var(--border-light); padding-top: 6px; margin-top: 6px; display: flex; flex-direction: column; gap: 2px;">
+          <div>Rate (USD): <strong style="color: var(--text-main);">${usdRateDisplay}</strong></div>
+          <div>Value (USD): <strong style="color: var(--text-main);">${usdValueDisplay}</strong></div>
+        </div>
+      `;
+    }
+
+    let imgHtml = '';
+    if (item.image) {
+      imgHtml = `<img src="${item.image}" alt="Pudia #${item.color}" class="flat-pudia-img">`;
+    } else {
+      imgHtml = `<div class="flat-pudia-no-img">No Image</div>`;
+    }
+
+    // Build sizes table HTML
+    let sizesHtml = '';
+    if (item.sizes && item.sizes.length > 0) {
+      sizesHtml = '<table style="width:100%; font-size:11px; border-collapse:collapse; margin-top:10px; border: 1px solid var(--border-light);">';
+      sizesHtml += '<tr style="color:var(--text-muted); font-size:9px; text-transform:uppercase; background-color:var(--bg-base); border-bottom:1px solid var(--border-light);"><th style="padding:4px; text-align:left;">Shape</th><th style="padding:4px; text-align:left;">MM</th><th style="padding:4px; text-align:right;">Pcs</th><th style="padding:4px; text-align:right;">cts</th></tr>';
+      item.sizes.forEach(s => {
+        sizesHtml += `<tr style="border-bottom: 1px solid var(--border-light);"><td style="padding:4px;">${UI.escapeHtml(s.shape || '')}</td><td style="padding:4px;">${UI.escapeHtml(s.mm || '')}</td><td style="padding:4px; text-align:right;">${s.pieces || 0}</td><td style="padding:4px; text-align:right;">${Number(s.weight || 0).toFixed(2)}</td></tr>`;
+      });
+      sizesHtml += '</table>';
+    }
+
+    card.innerHTML = `
+      <div class="flat-pudia-header">
+        <div class="flat-pudia-title">
+          <span class="flat-pudia-num">Pudia #${item.color || 'N/A'}</span>
+          <span class="flat-pudia-group">${UI.escapeHtml(item.group || 'Unassigned')}</span>
+        </div>
+        <span class="flat-pudia-grade-badge" title="${UI.escapeHtml(item.lustreGrade || 'N/A')}">
+          ${UI.escapeHtml(item.lustreGrade || 'Calibrated')}
+        </span>
+      </div>
+
+      <div class="flat-pudia-body">
+        <div class="flat-pudia-details">
+          <div class="flat-pudia-detail-item">
+            <span class="flat-pudia-detail-label">Weight:</span>
+            <span class="flat-pudia-detail-val">${totalWeight.toFixed(2)} cts</span>
+          </div>
+          <div class="flat-pudia-detail-item">
+            <span class="flat-pudia-detail-label">Pieces:</span>
+            <span class="flat-pudia-detail-val">${totalPieces} pcs</span>
+          </div>
+          <div class="flat-pudia-detail-item">
+            <span class="flat-pudia-detail-label">Rate/ct:</span>
+            <span class="flat-pudia-detail-val">${rateHtml}</span>
+          </div>
+          <div class="flat-pudia-detail-item">
+            <span class="flat-pudia-detail-label">Valuation:</span>
+            <span class="flat-pudia-detail-val" style="color: var(--text-gold-dark);">${valueHtml}</span>
+          </div>
+          ${usdDisplay}
+        </div>
+        <div class="flat-pudia-img-container" title="Click to view details & Share Card">
+          ${imgHtml}
+        </div>
+      </div>
+
+      <div class="flat-pudia-expandable">
+        <div style="font-size: 11px; display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--border-light); padding-top: 8px;">
+          <div><strong>Origin:</strong> ${originsStr || 'None'}</div>
+          <div><strong>Pair:</strong> ${item.pair || 'No'}</div>
+          <div><strong>Stock Type:</strong> ${item.stockType || 'Calibrated Series'}</div>
+        </div>
+        ${sizesHtml}
+      </div>
+
+      <div class="flat-pudia-footer">
+        <button type="button" class="btn btn-secondary btn-small btn-toggle-expand" style="padding: 4px 8px; font-size: 11px;">
+          Expand Sizes
+        </button>
+        <div style="display: flex; gap: 6px;">
+          <button type="button" class="btn btn-secondary btn-small btn-share-flat" style="padding: 4px 8px;" title="Share Card">
+            Share
+          </button>
+          <button type="button" class="btn btn-secondary btn-small btn-edit-flat" style="padding: 4px 8px;" title="Edit">
+            Edit
+          </button>
+          <button type="button" class="btn btn-danger btn-small btn-delete-flat" style="padding: 4px 8px; background-color: var(--danger-red); border-color: var(--danger-red); color: white;" title="Delete">
+            Delete
+          </button>
+        </div>
+      </div>
+    `;
+
+    // Click on Image opens share modal
+    const imgEl = card.querySelector('.flat-pudia-img-container');
+    if (imgEl) {
+      imgEl.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        this.openShareModal(item);
+      });
+    }
+
+    // Toggle expand button
+    const btnExpand = card.querySelector('.btn-toggle-expand');
+    const expandableDiv = card.querySelector('.flat-pudia-expandable');
+    if (btnExpand && expandableDiv) {
+      btnExpand.addEventListener('click', () => {
+        const isActive = expandableDiv.classList.toggle('active');
+        btnExpand.textContent = isActive ? 'Collapse' : 'Expand Sizes';
+      });
+    }
+
+    // Edit button
+    card.querySelector('.btn-edit-flat').addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      this.loadItemIntoForm(item);
+      UI.openModal('modal-emerald-item');
+    });
+
+    // Delete button
+    card.querySelector('.btn-delete-flat').addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      this.handleDeleteEmerald(item);
+    });
+
+    // Share button
+    card.querySelector('.btn-share-flat').addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      this.openShareModal(item);
+    });
+
+    return card;
   }
 };
 

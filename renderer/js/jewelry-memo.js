@@ -44,7 +44,7 @@ const JewelryMemoController = {
     // Create Modal Search/Filters
     const searchInp = document.getElementById('jewelry-memo-create-search');
     if (searchInp) {
-      searchInp.addEventListener('input', () => this.filterCreateJewelry());
+      searchInp.addEventListener('input', UI.debounce(() => this.filterCreateJewelry(), 200));
     }
     const catSelect = document.getElementById('jewelry-memo-create-category');
     if (catSelect) {
@@ -64,7 +64,7 @@ const JewelryMemoController = {
     }
     const searchInput = document.getElementById('jewelry-memo-search-input');
     if (searchInput) {
-      searchInput.addEventListener('input', () => this.renderMemoList());
+      searchInput.addEventListener('input', UI.debounce(() => this.renderMemoList(), 200));
     }
   },
 

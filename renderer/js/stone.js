@@ -19,7 +19,7 @@ const StoneController = {
     // Event listeners for filters and search
     const searchInput = document.getElementById('stone-search-input');
     if (searchInput) {
-      searchInput.addEventListener('input', () => this.renderStoneGrid());
+      searchInput.addEventListener('input', UI.debounce(() => this.renderStoneGrid(), 200));
     }
     const filterType = document.getElementById('stone-filter-type');
     if (filterType) {

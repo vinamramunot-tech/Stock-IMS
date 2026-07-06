@@ -236,6 +236,13 @@
             </svg>
             Emerald Catalog
           </button>
+          <button type="button" class="nav-item" data-target="tab-emerald-analysis">
+            <svg viewBox="0 0 24 24" width="18" height="18">
+              <path fill="currentColor"
+                d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
+            </svg>
+            Emerald Analysis
+          </button>
           <button type="button" class="nav-item" data-target="tab-stone-catalog">
             <svg viewBox="0 0 24 24" width="18" height="18">
               <path fill="currentColor" d="M12 2L2 12h3v8h6v-6h2v6h6v-8h3L12 2z" />
@@ -610,6 +617,23 @@
                 <input type="number" id="catalog-multiplier-custom" step="0.01" min="0" placeholder="e.g. 0.85"
                   style="width: 75px; height: 38px; display: none; padding: 6px 8px; border: 1px solid var(--border-light); border-radius: 4px; background: var(--bg-base); color: var(--text-main);">
               </div>
+
+              <!-- View Mode Toggle -->
+              <div class="view-mode-container">
+                <button type="button" class="btn-view-mode active" id="btn-emerald-view-accordion" title="Accordion View">
+                  <svg viewBox="0 0 24 24" width="14" height="14">
+                    <path fill="currentColor" d="M3 9h18v2H3V9zm0-4h18v2H3V5zm0 8h18v2H3v-2zm0 4h18v2H3v-2z"/>
+                  </svg>
+                  Accordion
+                </button>
+                <button type="button" class="btn-view-mode" id="btn-emerald-view-grid" title="Grid Card View">
+                  <svg viewBox="0 0 24 24" width="14" height="14">
+                    <path fill="currentColor" d="M4 4h7v7H4V4zm0 9h7v7H4v-7zm9-9h7v7h-7V4zm0 9h7v7h-7v-7z"/>
+                  </svg>
+                  Grid View
+                </button>
+              </div>
+
               <button type="button" id="btn-print-emerald" class="btn btn-secondary" style="height: 42px;">
                 <svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align: middle; margin-right: 6px;">
                   <path fill="currentColor"
@@ -637,12 +661,282 @@
             <!-- Dynamic cards will render here -->
           </div>
 
+          <!-- EMERALD FLAT GRID (CARD VIEW) -->
+          <div id="emerald-flat-grid" class="emerald-pudia-grid hidden">
+            <!-- Dynamic flat cards will render here -->
+          </div>
+
           <!-- EMPTY STATE -->
           <div id="emerald-empty-state" class="empty-state-card hidden">
             <h2 class="empty-title">No Emeralds Found</h2>
             <p class="empty-description">Create your first emerald entry by clicking the sidebar button.</p>
             <button type="button" id="btn-empty-add-emerald" class="btn btn-primary">Add Emerald Stock</button>
           </div>
+        </div>
+
+        <!-- ==================== TAB: EMERALD ANALYSIS ==================== -->
+        <div id="tab-emerald-analysis" class="tab-content hidden">
+
+          <!-- INTERACTIVE ANALYSIS FILTERS -->
+          <div class="analysis-filter-bar">
+            <div style="font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); margin-right: 10px;">
+              Dashboard Filters:
+            </div>
+            <select id="analysis-filter-group" class="filter-select">
+              <option value="">All Groups</option>
+            </select>
+            <select id="analysis-filter-origin" class="filter-select">
+              <option value="">All Origins</option>
+              <option value="Zambian">Zambian</option>
+              <option value="Panjshir">Panjshir</option>
+              <option value="Swat">Swat</option>
+            </select>
+            <select id="analysis-filter-lustre" class="filter-select">
+              <option value="">All Lustres</option>
+              <option value="Lustre">Lustre</option>
+              <option value="Mota pani">Mota pani</option>
+              <option value="Tas paani">Tas paani</option>
+              <option value="Tas tas pani">Tas tas pani</option>
+              <option value="P.K">P.K</option>
+              <option value="Bluish Green (BG)">Bluish Green (BG)</option>
+            </select>
+            <button type="button" id="btn-reset-analysis-filters" class="btn btn-secondary" style="height: 38px; padding: 0 12px; font-size: 12px;">
+              Reset Filters
+            </button>
+          </div>
+
+          <!-- SUMMARY CARDS -->
+          <section class="dashboard-grid">
+            <div class="dashboard-card-premium">
+              <div class="planner-output-label">Total Volume</div>
+              <div class="planner-output-val" id="analysis-total-weight">0.00 cts</div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;" id="analysis-total-pieces">0 pieces</div>
+            </div>
+            <div class="dashboard-card-premium">
+              <div class="planner-output-label">Valuation (INR)</div>
+              <div class="planner-output-val text-gold" id="analysis-valuation-inr">₹0.00</div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;" id="analysis-avg-rate-inr">₹0.00 / ct (avg)</div>
+            </div>
+            <div class="dashboard-card-premium">
+              <div class="planner-output-label">Valuation (USD)</div>
+              <div class="planner-output-val" id="analysis-valuation-usd">$0.00</div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;" id="analysis-avg-rate-usd">$0.00 / ct (avg)</div>
+            </div>
+            <div class="dashboard-card-premium">
+              <div class="planner-output-label">Active Pudias</div>
+              <div class="planner-output-val" id="analysis-pudias-count">0</div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;" id="analysis-avg-pudia-weight">0.00 cts / pudia</div>
+            </div>
+          </section>
+
+          <!-- ANALYTICS BREAKDOWN GRIDS -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 20px; margin-bottom: 20px;">
+            
+            <!-- Group Distribution -->
+            <div class="dashboard-card-premium">
+              <div class="dashboard-card-header-row">
+                <span class="dashboard-card-title-text">Weight by Group</span>
+              </div>
+              <div class="distribution-container" id="analysis-group-distribution">
+                <!-- Dynamic progress bars -->
+              </div>
+            </div>
+
+            <!-- Lustre Grade Distribution -->
+            <div class="dashboard-card-premium">
+              <div class="dashboard-card-header-row">
+                <span class="dashboard-card-title-text">Weight by Lustre Grade</span>
+              </div>
+              <div class="distribution-container" id="analysis-lustre-distribution">
+                <!-- Dynamic progress bars -->
+              </div>
+            </div>
+
+            <!-- Shape Distribution -->
+            <div class="dashboard-card-premium">
+              <div class="dashboard-card-header-row">
+                <span class="dashboard-card-title-text">Weight by Shape</span>
+              </div>
+              <div class="distribution-container" id="analysis-shape-distribution">
+                <!-- Dynamic progress bars -->
+              </div>
+            </div>
+
+            <!-- Origin Distribution -->
+            <div class="dashboard-card-premium">
+              <div class="dashboard-card-header-row">
+                <span class="dashboard-card-title-text">Weight by Origin</span>
+              </div>
+              <div class="distribution-container" id="analysis-origin-distribution">
+                <!-- Dynamic progress bars -->
+              </div>
+            </div>
+
+          </div>
+
+          <!-- TOP VALUED & LARGEST PUDIAS TABLES -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 20px; margin-bottom: 20px;">
+            
+            <!-- Top 5 Valued -->
+            <div class="dashboard-card-premium">
+              <div class="dashboard-card-header-row">
+                <span class="dashboard-card-title-text">Top 5 Highest-Valued Pudias</span>
+              </div>
+              <div style="overflow-x: auto;">
+                <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+                  <thead>
+                    <tr style="border-bottom: 1px solid var(--border-light); text-align: left; color: var(--text-muted); font-size: 10px; text-transform: uppercase;">
+                      <th style="padding: 6px 4px;">Pudia #</th>
+                      <th style="padding: 6px 4px;">Group</th>
+                      <th style="padding: 6px 4px; text-align: right;">Weight</th>
+                      <th style="padding: 6px 4px; text-align: right;">Rate/ct</th>
+                      <th style="padding: 6px 4px; text-align: right;">Total Value</th>
+                    </tr>
+                  </thead>
+                  <tbody id="analysis-top-valued-tbody">
+                    <!-- Dynamic rows -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Top 5 Largest -->
+            <div class="dashboard-card-premium">
+              <div class="dashboard-card-header-row">
+                <span class="dashboard-card-title-text">Top 5 Heaviest Pudias</span>
+              </div>
+              <div style="overflow-x: auto;">
+                <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+                  <thead>
+                    <tr style="border-bottom: 1px solid var(--border-light); text-align: left; color: var(--text-muted); font-size: 10px; text-transform: uppercase;">
+                      <th style="padding: 6px 4px;">Pudia #</th>
+                      <th style="padding: 6px 4px;">Group</th>
+                      <th style="padding: 6px 4px; text-align: right;">Weight</th>
+                      <th style="padding: 6px 4px; text-align: right;">Rate/ct</th>
+                      <th style="padding: 6px 4px; text-align: right;">Total Value</th>
+                    </tr>
+                  </thead>
+                  <tbody id="analysis-top-weight-tbody">
+                    <!-- Dynamic rows -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- INVESTMENT & YIELD PLANNER SIMULATOR -->
+          <div class="dashboard-card-premium">
+            <div class="dashboard-card-header-row">
+              <span class="dashboard-card-title-text">Raw Material Investment & Yield Simulator</span>
+              <span style="font-size: 11px; color: var(--text-muted);">Simulate polished yield and margins from rough emerald logs</span>
+            </div>
+            
+            <div class="investment-planner-container">
+              
+              <!-- Inputs Panel -->
+              <div class="planner-inputs-panel">
+                <div class="form-grid-row" style="display: flex; gap: 15px; flex-wrap: wrap;">
+                  <div style="flex: 1; min-width: 180px;" class="input-group">
+                    <label>Target Group Reference</label>
+                    <select id="planner-group-select" class="filter-select" style="width: 100%; height: 38px;">
+                      <option value="">-- Choose Group or Custom --</option>
+                    </select>
+                  </div>
+                  <div style="flex: 1; min-width: 180px;" class="input-group">
+                    <label>Or Enter Custom Group</label>
+                    <input type="text" id="planner-group-custom" placeholder="e.g. A-1 Rough Lot" style="height: 38px; border-radius: 4px;">
+                  </div>
+                </div>
+
+                <div class="form-grid-row" style="display: flex; gap: 15px; flex-wrap: wrap;">
+                  <div style="flex: 1; min-width: 120px;" class="input-group">
+                    <label>Rough Weight</label>
+                    <input type="number" id="planner-rough-weight" value="100" min="0.1" step="0.1" style="height: 38px; border-radius: 4px;">
+                  </div>
+                  <div style="width: 100px;" class="input-group">
+                    <label>Weight Unit</label>
+                    <select id="planner-weight-unit" class="filter-select" style="width: 100%; height: 38px;">
+                      <option value="grams" selected>Grams (g)</option>
+                      <option value="carats">Carats (cts)</option>
+                    </select>
+                  </div>
+                  <div style="flex: 1; min-width: 160px;" class="input-group">
+                    <label>Total Cost of Rough (₹)</label>
+                    <input type="number" id="planner-rough-cost" value="250000" min="0" step="100" style="height: 38px; border-radius: 4px;">
+                  </div>
+                </div>
+
+                <div class="planner-slider-group">
+                  <div class="planner-slider-header">
+                    <label>Polished Yield Percentage</label>
+                    <span class="planner-slider-val" id="lbl-planner-yield">25%</span>
+                  </div>
+                  <input type="range" id="planner-yield-slider" class="planner-slider" min="10" max="50" value="25" step="1">
+                  <span style="font-size: 10px; color: var(--text-muted);">Standard manufacturing yields range between 20% and 35% depending on rough quality.</span>
+                </div>
+
+                <div class="input-group">
+                  <label>Estimated Polished Sale Price (₹/ct)</label>
+                  <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="number" id="planner-sale-price" value="8000" min="0" step="50" style="height: 38px; border-radius: 4px; flex: 1;">
+                    <button type="button" id="btn-planner-fill-average" class="btn btn-secondary" style="height: 38px; font-size: 11px; white-space: nowrap;" title="Preset based on current stock average rate">
+                      Use Group Avg
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Outputs Panel -->
+              <div class="planner-outputs-panel">
+                <div>
+                  <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 12px; letter-spacing: 0.05em; border-bottom: 1px solid var(--border-light); padding-bottom: 4px;">
+                    Simulated Manufacturing Output
+                  </div>
+                  <div class="planner-output-grid">
+                    <div class="planner-output-card">
+                      <div class="planner-output-label">Rough Weight (cts)</div>
+                      <div class="planner-output-val" id="out-rough-carats">500.00 cts</div>
+                    </div>
+                    <div class="planner-output-card">
+                      <div class="planner-output-label">Expected Polished (cts)</div>
+                      <div class="planner-output-val" id="out-polished-carats" style="color: var(--gold-accent);">125.00 cts</div>
+                    </div>
+                    <div class="planner-output-card">
+                      <div class="planner-output-label">Cost per Rough Carat</div>
+                      <div class="planner-output-val" id="out-cost-per-rough-ct" style="font-size: 16px;">₹500</div>
+                    </div>
+                    <div class="planner-output-card">
+                      <div class="planner-output-label">Break-even / polished ct</div>
+                      <div class="planner-output-val" id="out-break-even-ct" style="font-size: 16px;">₹2,000</div>
+                    </div>
+                  </div>
+                  
+                  <div class="planner-output-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 0;">
+                    <div class="planner-output-card">
+                      <div class="planner-output-label">Estimated Sales Value</div>
+                      <div class="planner-output-val" id="out-sales-revenue" style="font-size: 16px;">₹1,000,000</div>
+                    </div>
+                    <div class="planner-output-card">
+                      <div class="planner-output-label">Projected Net Profit</div>
+                      <div class="planner-output-val profit-positive" id="out-net-profit" style="font-size: 16px;">₹750,000</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="planner-roi-banner">
+                  <div>
+                    <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; display: block;">Return on Investment</span>
+                    <strong style="font-size: 20px; font-weight: 800; color: var(--text-main);" id="out-roi-percentage">300.0%</strong>
+                  </div>
+                  <div class="roi-badge high-margin" id="out-margin-status">HIGH MARGIN</div>
+                </div>
+
+              </div>
+
+            </div>
+          </div>
+
         </div>
 
         <!-- ==================== TAB: STONE CATALOG ==================== -->
@@ -3015,6 +3309,7 @@
   <script src="js/catalog.js"></script>
   <script src="js/settings.js"></script>
   <script src="js/emerald.js"></script>
+  <script src="js/emerald-dashboard.js"></script>
   <script src="js/memo.js"></script>
   <script src="js/stone.js"></script>
   <script src="js/jewel-stone-memo.js"></script>

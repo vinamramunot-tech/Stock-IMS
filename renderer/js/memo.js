@@ -64,7 +64,7 @@ const MemoController = {
 
     const searchInp = document.getElementById('memo-create-search');
     if (searchInp) {
-      searchInp.addEventListener('input', () => this.handleCreateSearchInput());
+      searchInp.addEventListener('input', UI.debounce(() => this.handleCreateSearchInput(), 200));
     }
 
     const btnAddItem = document.getElementById('btn-memo-add-item');
@@ -77,7 +77,7 @@ const MemoController = {
     if (statusFilter) statusFilter.addEventListener('change', () => this.renderMemoList());
 
     const searchInput = document.getElementById('memo-search-input');
-    if (searchInput) searchInput.addEventListener('input', () => this.renderMemoList());
+    if (searchInput) searchInput.addEventListener('input', UI.debounce(() => this.renderMemoList(), 200));
   },
 
   // ── Helpers ─────────────────────────────────────────────────────────────────

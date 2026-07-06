@@ -441,3 +441,429 @@
   border-radius: 2px;
 }
 
+/* ==================== EMERALD ENHANCEMENTS & DASHBOARD STYLES ==================== */
+
+/* View Mode Selector */
+.view-mode-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--bg-card);
+  padding: 4px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  margin-right: 12px;
+}
+
+.btn-view-mode {
+  border: none;
+  background: none;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-view-mode:hover {
+  color: var(--text-main);
+  background-color: var(--bg-base);
+}
+
+.btn-view-mode.active {
+  color: var(--text-main);
+  background-color: var(--border-light);
+}
+
+/* Pudia Flat Card View */
+.emerald-pudia-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  margin-top: 15px;
+}
+
+.flat-pudia-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+  box-shadow: var(--shadow-subtle);
+  position: relative;
+  overflow: hidden;
+}
+
+.flat-pudia-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--gold-accent);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.05);
+}
+
+.flat-pudia-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1px solid var(--border-light);
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+}
+
+.flat-pudia-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.flat-pudia-num {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.flat-pudia-group {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.flat-pudia-grade-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background-color: var(--bg-base);
+  color: var(--text-main);
+  border: 1px solid var(--border-light);
+  max-width: 120px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.flat-pudia-body {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.flat-pudia-details {
+  flex: 1;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.flat-pudia-detail-item {
+  display: flex;
+  justify-content: space-between;
+}
+
+.flat-pudia-detail-label {
+  color: var(--text-muted);
+}
+
+.flat-pudia-detail-val {
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.flat-pudia-img-container {
+  width: 75px;
+  height: 75px;
+  border: 1px dashed var(--border-light);
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-base);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.flat-pudia-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.flat-pudia-no-img {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 4px;
+}
+
+.flat-pudia-expandable {
+  border-top: 1px dashed var(--border-light);
+  padding-top: 10px;
+  margin-top: 5px;
+  display: none;
+}
+
+.flat-pudia-expandable.active {
+  display: block;
+}
+
+.flat-pudia-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-light);
+}
+
+/* Emerald Analysis Dashboard styles */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.analysis-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  background-color: var(--bg-card);
+  padding: 12px 16px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  margin-bottom: 20px;
+}
+
+.dashboard-card-premium {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  padding: 20px;
+  box-shadow: var(--shadow-subtle);
+  transition: transform var(--transition-fast);
+}
+
+.dashboard-card-premium:hover {
+  transform: translateY(-1px);
+}
+
+.dashboard-card-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  border-bottom: 1px solid var(--border-light);
+  padding-bottom: 8px;
+}
+
+.dashboard-card-title-text {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.distribution-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.distribution-row {
+  position: relative;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--border-light);
+  background-color: var(--bg-base);
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  z-index: 1;
+}
+
+.distribution-progress-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background-color: rgba(80, 200, 120, 0.1); /* transparent emerald green */
+  z-index: -1;
+  transition: width 0.5s ease-out;
+}
+
+.distribution-row-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 60%;
+}
+
+.distribution-row-value {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+/* Investment Yield Planner Styles */
+.investment-planner-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 800px) {
+  .investment-planner-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+.planner-inputs-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.planner-outputs-panel {
+  background-color: var(--bg-base);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.planner-slider-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.planner-slider-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.planner-slider-header label {
+  font-weight: 600;
+}
+
+.planner-slider-val {
+  font-weight: 700;
+  color: var(--gold-accent);
+}
+
+.planner-slider {
+  width: 100%;
+  -webkit-appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border-light);
+  outline: none;
+}
+
+.planner-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--gold-accent);
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.planner-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.planner-output-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.planner-output-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  padding: 12px;
+  text-align: center;
+}
+
+.planner-output-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  letter-spacing: 0.05em;
+}
+
+.planner-output-val {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.planner-output-val.profit-positive {
+  color: #30D158 !important;
+}
+
+.planner-output-val.profit-negative {
+  color: var(--danger-red) !important;
+}
+
+.planner-roi-banner {
+  border-top: 1px solid var(--border-light);
+  padding-top: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.roi-badge {
+  font-size: 14px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.roi-badge.high-margin {
+  background-color: rgba(48, 209, 88, 0.15);
+  color: #30D158;
+  border: 1px solid #30D158;
+}
+
+.roi-badge.moderate-margin {
+  background-color: rgba(245, 166, 35, 0.15);
+  color: #F5A623;
+  border: 1px solid #F5A623;
+}
+
+.roi-badge.loss {
+  background-color: rgba(255, 69, 58, 0.15);
+  color: #FF453A;
+  border: 1px solid #FF453A;
+}
+
+

@@ -52,7 +52,7 @@ const JewelStoneMemoController = {
     }
     const searchInp = document.getElementById('jewel-stone-memo-create-search');
     if (searchInp) {
-      searchInp.addEventListener('input', () => this.handleCreateSearchInput());
+      searchInp.addEventListener('input', UI.debounce(() => this.handleCreateSearchInput(), 200));
     }
 
     const btnAddItem = document.getElementById('btn-jewel-stone-memo-add-item');
@@ -67,7 +67,7 @@ const JewelStoneMemoController = {
     }
     const searchInput = document.getElementById('jewel-stone-memo-search-input');
     if (searchInput) {
-      searchInput.addEventListener('input', () => this.renderMemoList());
+      searchInput.addEventListener('input', UI.debounce(() => this.renderMemoList(), 200));
     }
   },
 
