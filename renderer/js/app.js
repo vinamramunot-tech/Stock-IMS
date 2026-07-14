@@ -186,9 +186,33 @@ const App = {
           if (window.JewelryMemoController) {
             window.JewelryMemoController.openCreateMemoModal();
           }
+        } else if (action === 'switch-app') {
+          this.showLauncher();
         }
       });
     });
+
+    // Wire up Launcher Portal Buttons
+    const btnLaunchJewelry = document.getElementById('btn-launch-jewelry');
+    if (btnLaunchJewelry) {
+      btnLaunchJewelry.addEventListener('click', () => this.launchApp('jewelry'));
+    }
+    const btnLaunchEmerald = document.getElementById('btn-launch-emerald');
+    if (btnLaunchEmerald) {
+      btnLaunchEmerald.addEventListener('click', () => this.launchApp('emerald'));
+    }
+    const btnLaunchStone = document.getElementById('btn-launch-stone');
+    if (btnLaunchStone) {
+      btnLaunchStone.addEventListener('click', () => this.launchApp('stone'));
+    }
+    const btnLauncherDisconnect = document.getElementById('btn-launcher-disconnect');
+    if (btnLauncherDisconnect) {
+      btnLauncherDisconnect.addEventListener('click', () => Startup.showStartupScreen());
+    }
+    const btnSidebarSwitchApp = document.getElementById('btn-sidebar-switch-app');
+    if (btnSidebarSwitchApp) {
+      btnSidebarSwitchApp.addEventListener('click', () => this.showLauncher());
+    }
   },
 
   async handleExternalDbChange(filePath) {
@@ -351,6 +375,12 @@ const App = {
     const startupToggleBtn = document.getElementById('btn-startup-toggle-theme');
     if (startupToggleBtn) {
       startupToggleBtn.addEventListener('click', () => this.toggleTheme());
+    }
+
+    // Wire up launcher screen toggle button
+    const launcherToggleBtn = document.getElementById('btn-launcher-toggle-theme');
+    if (launcherToggleBtn) {
+      launcherToggleBtn.addEventListener('click', () => this.toggleTheme());
     }
 
     // Wire up Settings tab theme preference buttons
@@ -690,6 +720,70 @@ const App = {
     }
 
     UI.openModal('modal-jewelry-detail');
+  },
+
+  activeApp: null,
+
+  launchApp(appName) {
+    this.activeApp = appName;
+    
+    // Hide Launcher Portal Screen
+    document.getElementById('app-launcher-screen').classList.add('hidden');
+    // Show Main Workspace
+    document.getElementById('app-workspace').classList.remove('hidden');
+
+    // Filter sidebar navigation groups
+    const appGroups = document.querySelectorAll('.sidebar-app-group[data-app-group]');
+    appGroups.forEach(group => {
+      const groupName = group.getAttribute('data-app-group');
+      if (groupName === appName || groupName === 'system') {
+        group.classList.remove('hidden');
+      } else {
+        group.classList.add('hidden');
+      }
+    });
+
+    // Also filter mobile menu items based on active app suite
+    const mobileItems = document.querySelectorAll('.mobile-menu-item[data-action]');
+    mobileItems.forEach(item => {
+      const action = item.getAttribute('data-action');
+      let show = false;
+      if (appName === 'jewelry') {
+        show = ['tab-catalog', 'tab-jewelry-photos', 'tab-jewelry-memos', 'tab-logs', 'tab-settings', 'add-jewelry', 'add-jewelry-memo'].includes(action);
+      } else if (appName === 'emerald') {
+        show = ['tab-emerald-catalog', 'tab-emerald-photos', 'tab-memos', 'tab-logs', 'tab-settings', 'add-emerald', 'add-memo'].includes(action);
+      } else if (appName === 'stone') {
+        show = ['tab-stone-catalog', 'tab-jewel-stone-memos', 'tab-logs', 'tab-settings', 'add-stone', 'add-jewel-stone-memo'].includes(action);
+      }
+      
+      if (show) {
+        item.style.display = 'flex';
+      } else {
+        item.style.display = 'none';
+      }
+    });
+
+    // Automatically boot into the first/default tab of the selected app suite
+    let defaultTab = 'tab-catalog';
+    if (appName === 'emerald') {
+      defaultTab = 'tab-emerald-catalog';
+    } else if (appName === 'stone') {
+      defaultTab = 'tab-stone-catalog';
+    }
+
+    this.switchTab(defaultTab);
+  },
+
+  showLauncher() {
+    this.activeApp = null;
+    document.getElementById('app-workspace').classList.add('hidden');
+    document.getElementById('startup-screen').classList.add('hidden');
+    document.getElementById('app-launcher-screen').classList.remove('hidden');
+
+    const dbPathText = document.getElementById('launcher-db-path-text');
+    if (dbPathText) {
+      dbPathText.textContent = DBManager.activePath || '';
+    }
   }
 };
 

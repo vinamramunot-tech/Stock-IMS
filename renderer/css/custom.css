@@ -55,6 +55,7 @@
   opacity: 1;
   transition: opacity var(--transition-normal);
 }
+
 .tab-content.hidden {
   display: none !important;
   opacity: 0;
@@ -96,7 +97,7 @@
   top: 10px;
   right: 10px;
   z-index: 10;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .product-card.on-memo {
@@ -142,7 +143,7 @@
 }
 
 .stone-sizes-table td {
-  border-bottom: 1px solid rgba(0,0,0,0.03);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.03);
   padding: 6px 8px;
 }
 
@@ -184,11 +185,25 @@
 }
 
 /* Custom layout helpers */
-.mt-10 { margin-top: 10px; }
-.mt-15 { margin-top: 15px; }
-.mt-20 { margin-top: 20px; }
-.mb-10 { margin-bottom: 10px; }
-.mb-20 { margin-bottom: 20px; }
+.mt-10 {
+  margin-top: 10px;
+}
+
+.mt-15 {
+  margin-top: 15px;
+}
+
+.mt-20 {
+  margin-top: 20px;
+}
+
+.mb-10 {
+  margin-bottom: 10px;
+}
+
+.mb-20 {
+  margin-bottom: 20px;
+}
 
 .metric-valuation-container {
   display: flex;
@@ -210,6 +225,7 @@
   .stone-size-row {
     grid-template-columns: 1fr 1fr;
   }
+
   .stone-size-row .btn-remove-size {
     grid-column: span 2;
     text-align: center;
@@ -229,6 +245,7 @@
     padding: 10px 16px 2px 16px;
     margin-top: 10px;
   }
+
   /* First category header doesn't need top margin */
   .mobile-menu-section-header:first-of-type {
     margin-top: 0;
@@ -433,7 +450,8 @@
 
 /* Canvas Selection Box Constraints */
 #image-editor-crop-box {
-  transition: none !important; /* Disable transitions during dragging/resizing for high performance */
+  transition: none !important;
+  /* Disable transitions during dragging/resizing for high performance */
 }
 
 .crop-handle {
@@ -441,3 +459,27 @@
   border-radius: 2px;
 }
 
+/* App Launcher Styles */
+.launcher-grid {
+  grid-template-columns: 1fr 1fr 1fr !important;
+}
+
+@media (max-width: 768px) {
+  .launcher-grid {
+    grid-template-columns: 1fr !important;
+    gap: 15px !important;
+  }
+}
+
+.launcher-card {
+  min-height: 240px !important;
+  border-radius: 0px !important;
+}
+
+.sidebar-app-group {
+  margin-bottom: 20px;
+}
+
+.sidebar-app-group.hidden {
+  display: none !important;
+}

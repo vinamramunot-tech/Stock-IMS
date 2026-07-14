@@ -106,6 +106,64 @@
     </div>
   </div>
 
+  <!-- ==================== APP LAUNCHER / PORTAL SCREEN ==================== -->
+  <div id="app-launcher-screen" class="startup-overlay-container hidden">
+    <div class="startup-card" style="max-width: 900px; width: 95%;">
+      <div class="startup-header-row">
+        <div class="startup-brand-row">
+          <span class="logo-serif startup-logo">Mava Gems</span>
+          <span class="divider">|</span>
+          <span class="startup-tagline">APP PORTAL</span>
+        </div>
+        <button type="button" id="btn-launcher-toggle-theme" class="btn-icon theme-toggle-btn startup-theme-btn"
+          title="Toggle Dark/Light Mode">
+          <!-- Sun Icon -->
+          <svg class="sun-icon" viewBox="0 0 24 24" width="22" height="22">
+            <circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="2" />
+            <path stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+          </svg>
+          <!-- Moon Icon -->
+          <svg class="moon-icon" viewBox="0 0 24 24" width="22" height="22">
+            <path fill="currentColor"
+              d="M12.3 22h-.1c-5.5 0-10-4.5-10-10 0-4.8 3.5-8.9 8.2-9.8.5-.1 1 .2 1.1.7.2.5-.1 1.1-.6 1.3-3.6 1.4-6 5-6 9 0 4.4 3.6 8 8 8 2.2 0 4.3-.9 5.8-2.5.4-.4 1-.5 1.4-.2.4.3.6.8.5 1.3-1 4.5-5.1 7.7-9.8 7.7z" />
+          </svg>
+        </button>
+      </div>
+
+      <p class="startup-desc" style="margin-bottom: 25px;">
+        Database Connected: <strong id="launcher-db-path-text" style="color: var(--text-main);"></strong><br>
+        Select a dedicated catalog application suite to launch below.
+      </p>
+
+      <div class="startup-options-grid launcher-grid">
+        <div class="startup-option-box launcher-card" id="btn-launch-jewelry">
+          <h3>Jewelry Suite</h3>
+          <p>Complete jewelry inventory management with metal/stone component breakdown, automated labor costing, live pricing, base64 photo cataloging, and jewelry memos.</p>
+          <div class="option-action-indicator">LAUNCH JEWELRY APP &rarr;</div>
+        </div>
+
+        <div class="startup-option-box launcher-card" id="btn-launch-emerald">
+          <h3>Emerald Suite</h3>
+          <p>Dedicated emerald pudias registry. Track carat weights, origins, cuts, and colors with automated exchange rate conversion and emerald broker memos.</p>
+          <div class="option-action-indicator">LAUNCH EMERALD APP &rarr;</div>
+        </div>
+
+        <div class="startup-option-box launcher-card" id="btn-launch-stone">
+          <h3>Loose Stones Suite</h3>
+          <p>Loose diamond, pearl, color stone, and diamond-polki parcel manager with carat-based pricing, group/color/clarity tracking, and loose stone broker memos.</p>
+          <div class="option-action-indicator">LAUNCH STONES APP &rarr;</div>
+        </div>
+      </div>
+
+      <div style="margin-top: 30px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-light); padding-top: 20px;">
+        <button type="button" id="btn-launcher-disconnect" class="btn btn-secondary">
+          Disconnect / Switch Database
+        </button>
+        <span class="offline-tag" style="margin: 0;">Mava Offline Portal</span>
+      </div>
+    </div>
+  </div>
 
   <!-- ==================== MAIN WORKSPACE CONTAINER ==================== -->
   <div id="app-workspace" class="workspace-container hidden">
@@ -219,92 +277,104 @@
       <!-- SIDEBAR -->
       <aside class="workspace-sidebar">
         <nav class="sidebar-nav">
-          <div
-            style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px; padding-left:12px; letter-spacing:0.05em;">
-            CATALOGS</div>
-          <button type="button" class="nav-item active" data-target="tab-catalog">
-            <svg viewBox="0 0 24 24" width="18" height="18">
-              <path fill="currentColor"
-                d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z" />
-            </svg>
-            Jewelry Catalog
-          </button>
-          <button type="button" class="nav-item" data-target="tab-emerald-catalog">
-            <svg viewBox="0 0 24 24" width="18" height="18">
-              <path fill="currentColor"
-                d="M16 2H8L2 8l10 14 10-14-6-6zM12 4.12L15.38 8H8.62L12 4.12zM5.38 8.88l3.43 4.8-4.43-4.8zm5.62 9.07L7.15 12.8h7.7L11 17.95z" />
-            </svg>
-            Emerald Catalog
-          </button>
-          <button type="button" class="nav-item" data-target="tab-stone-catalog">
-            <svg viewBox="0 0 24 24" width="18" height="18">
-              <path fill="currentColor" d="M12 2L2 12h3v8h6v-6h2v6h6v-8h3L12 2z" />
-            </svg>
-            Stone Catalog
-          </button>
+          <!-- Jewelry App Nav -->
+          <div class="sidebar-app-group" data-app-group="jewelry">
+            <div style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px; padding-left:12px; letter-spacing:0.05em;">
+              Jewelry Suite</div>
+            <button type="button" class="nav-item active" data-target="tab-catalog">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path fill="currentColor"
+                  d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z" />
+              </svg>
+              Jewelry Catalog
+            </button>
+            <button type="button" class="nav-item" data-target="tab-jewelry-photos">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path fill="currentColor"
+                  d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />
+              </svg>
+              Jewelry Photos
+            </button>
+            <button type="button" class="nav-item" data-target="tab-jewelry-memos">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path fill="currentColor"
+                  d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zm0 5h-2V5h2v3zM4 19h16v2H4z" />
+              </svg>
+              Jewelry Memos
+            </button>
+          </div>
 
-          <div
-            style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin:15px 0 8px 0; padding-left:12px; letter-spacing:0.05em;">
-            PHOTOS</div>
-          <button type="button" class="nav-item" data-target="tab-jewelry-photos">
-            <svg viewBox="0 0 24 24" width="18" height="18">
-              <path fill="currentColor"
-                d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />
-            </svg>
-            Jewelry Photos
-          </button>
-          <button type="button" class="nav-item" data-target="tab-emerald-photos">
-            <svg viewBox="0 0 24 24" width="18" height="18">
-              <path fill="currentColor"
-                d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />
-            </svg>
-            Emerald Photos
-          </button>
+          <!-- Emerald App Nav -->
+          <div class="sidebar-app-group" data-app-group="emerald">
+            <div style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px; padding-left:12px; letter-spacing:0.05em;">
+              Emerald Suite</div>
+            <button type="button" class="nav-item" data-target="tab-emerald-catalog">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path fill="currentColor"
+                  d="M16 2H8L2 8l10 14 10-14-6-6zM12 4.12L15.38 8H8.62L12 4.12zM5.38 8.88l3.43 4.8-4.43-4.8zm5.62 9.07L7.15 12.8h7.7L11 17.95z" />
+              </svg>
+              Emerald Catalog
+            </button>
+            <button type="button" class="nav-item" data-target="tab-emerald-photos">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path fill="currentColor"
+                  d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />
+              </svg>
+              Emerald Photos
+            </button>
+            <button type="button" class="nav-item" data-target="tab-memos">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path fill="currentColor"
+                  d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zm0 5h-2V5h2v3zM4 19h16v2H4z" />
+              </svg>
+              Emerald Memos
+            </button>
+          </div>
 
-          <div
-            style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin:15px 0 8px 0; padding-left:12px; letter-spacing:0.05em;">
-            MEMO SYSTEMS</div>
-          <button type="button" class="nav-item" data-target="tab-memos">
-            <svg viewBox="0 0 24 24" width="18" height="18">
-              <path fill="currentColor"
-                d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zm0 5h-2V5h2v3zM4 19h16v2H4z" />
-            </svg>
-            Emerald Memos
-          </button>
-          <button type="button" class="nav-item" data-target="tab-jewel-stone-memos">
-            <svg viewBox="0 0 24 24" width="18" height="18">
-              <path fill="currentColor"
-                d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
-            </svg>
-            Jewelry Stone Memos
-          </button>
-          <button type="button" class="nav-item" data-target="tab-jewelry-memos">
-            <svg viewBox="0 0 24 24" width="18" height="18">
-              <path fill="currentColor"
-                d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zm0 5h-2V5h2v3zM4 19h16v2H4z" />
-            </svg>
-            Jewelry Memos
-          </button>
+          <!-- Loose Stones App Nav -->
+          <div class="sidebar-app-group" data-app-group="stone">
+            <div style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px; padding-left:12px; letter-spacing:0.05em;">
+              Loose Stones Suite</div>
+            <button type="button" class="nav-item" data-target="tab-stone-catalog">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path fill="currentColor" d="M12 2L2 12h3v8h6v-6h2v6h6v-8h3L12 2z" />
+              </svg>
+              Stone Catalog
+            </button>
+            <button type="button" class="nav-item" data-target="tab-jewel-stone-memos">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path fill="currentColor"
+                  d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
+              </svg>
+              Jewelry Stone Memos
+            </button>
+          </div>
 
-
-
-          <div
-            style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin:15px 0 8px 0; padding-left:12px; letter-spacing:0.05em;">
-            SYSTEM</div>
-          <button type="button" class="nav-item" data-target="tab-logs">
-            <svg viewBox="0 0 24 24" width="18" height="18">
-              <path fill="currentColor"
-                d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z" />
-            </svg>
-            Activity Logs
-          </button>
-          <button type="button" class="nav-item" data-target="tab-settings">
-            <svg viewBox="0 0 24 24" width="18" height="18">
-              <path fill="currentColor"
-                d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h-3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
-            </svg>
-            Vault Settings
-          </button>
+          <!-- System Nav -->
+          <div class="sidebar-app-group" data-app-group="system">
+            <div style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin:15px 0 8px 0; padding-left:12px; letter-spacing:0.05em;">
+              System</div>
+            <button type="button" class="nav-item" data-target="tab-logs">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path fill="currentColor"
+                  d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z" />
+              </svg>
+              Activity Logs
+            </button>
+            <button type="button" class="nav-item" data-target="tab-settings">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path fill="currentColor"
+                  d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h-3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
+              </svg>
+              Vault Settings
+            </button>
+            <button type="button" id="btn-sidebar-switch-app" class="nav-item" style="margin-top: 10px; border-top: 1px solid var(--border-light); padding-top: 12px; color: var(--text-gold-dark);">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path fill="currentColor" d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
+              </svg>
+              Switch App / Portal
+            </button>
+          </div>
         </nav>
 
         <div class="sidebar-footer">
@@ -830,9 +900,11 @@
                 </svg>
                 Print
               </button>
-              <button type="button" id="btn-export-excel-jewelry-catalog" class="btn btn-secondary" style="height: 42px; margin-left: 6px;">
+              <button type="button" id="btn-export-excel-jewelry-catalog" class="btn btn-secondary"
+                style="height: 42px; margin-left: 6px;">
                 <svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align: middle; margin-right: 6px;">
-                  <path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM8 11h8v1H8zm0 2h8v1H8zm0 2h6v1H8z"/>
+                  <path fill="currentColor"
+                    d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM8 11h8v1H8zm0 2h8v1H8zm0 2h6v1H8z" />
                 </svg>
                 Export Excel
               </button>
@@ -1243,7 +1315,10 @@
                     <div id="uploader-preview" class="hidden">
                       <img src="" id="uploaded-img-el" alt="Jewelry Preview">
                       <button type="button" id="btn-edit-jewelry-image" class="btn-edit-img" title="Crop/Edit Image">
-                        <svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align: middle;"><path fill="currentColor" d="M17 15h2V7c0-1.1-.9-2-2-2H9v2h8v8zM7 17V1H5v4H1v2h4v10c0 1.1.9 2 2 2h10v4h2v-4h4v-2H7z"/></svg>
+                        <svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align: middle;">
+                          <path fill="currentColor"
+                            d="M17 15h2V7c0-1.1-.9-2-2-2H9v2h8v8zM7 17V1H5v4H1v2h4v10c0 1.1.9 2 2 2h10v4h2v-4h4v-2H7z" />
+                        </svg>
                       </button>
                       <button type="button" id="btn-remove-image" class="btn-remove">&times;</button>
                     </div>
@@ -2531,7 +2606,9 @@
           </div>
 
           <div style="border-top: 1px solid var(--border-light); margin: 15px 0 20px 0; padding-top: 15px;">
-            <h4 style="margin: 0 0 10px 0; font-family: var(--font-serif); font-size: 14px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em;">Pudia Details</h4>
+            <h4
+              style="margin: 0 0 10px 0; font-family: var(--font-serif); font-size: 14px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em;">
+              Pudia Details</h4>
           </div>
 
           <!-- Dynamic Pudia Cards Container -->
@@ -2685,7 +2762,10 @@
         <button type="button" class="btn btn-secondary modal-close-trigger-print-jewelry-catalog">Cancel</button>
         <button type="button" id="btn-submit-export-excel-jewelry-catalog" class="btn btn-secondary"
           style="display:flex; align-items:center; gap:6px;">
-          <svg viewBox="0 0 24 24" width="15" height="15"><path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM8 11h8v1H8zm0 2h8v1H8zm0 2h6v1H8z"/></svg>
+          <svg viewBox="0 0 24 24" width="15" height="15">
+            <path fill="currentColor"
+              d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM8 11h8v1H8zm0 2h8v1H8zm0 2h6v1H8z" />
+          </svg>
           Export Excel
         </button>
         <button type="button" id="btn-submit-print-jewelry-catalog" class="btn btn-primary">Print Report</button>
@@ -2928,6 +3008,12 @@
           </svg>
           Vault Settings
         </button>
+        <button type="button" class="mobile-menu-item" data-action="switch-app" style="color: var(--text-gold-dark); border-top: 1px solid var(--border-light); margin-top: 10px; padding-top: 12px;">
+          <svg viewBox="0 0 24 24" width="18" height="18">
+            <path fill="currentColor" d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
+          </svg>
+          Switch App / Portal
+        </button>
       </div>
     </div>
   </div>
@@ -2938,26 +3024,45 @@
         <h3>Edit Image</h3>
         <button type="button" class="btn-close modal-close-trigger-image-editor">&times;</button>
       </div>
-      <div class="modal-body" style="display: flex; flex-direction: column; gap: 15px; align-items: center; justify-content: center; flex-grow: 1; overflow: hidden; padding: 20px;">
-        <div id="image-editor-canvas-container" style="position: relative; max-width: 100%; max-height: 50vh; width: 100%; height: 350px; overflow: hidden; background: #1a1a1a; border: 1px solid var(--border-light); display: flex; align-items: center; justify-content: center; border-radius: 4px; user-select: none;">
+      <div class="modal-body"
+        style="display: flex; flex-direction: column; gap: 15px; align-items: center; justify-content: center; flex-grow: 1; overflow: hidden; padding: 20px;">
+        <div id="image-editor-canvas-container"
+          style="position: relative; max-width: 100%; max-height: 50vh; width: 100%; height: 350px; overflow: hidden; background: #1a1a1a; border: 1px solid var(--border-light); display: flex; align-items: center; justify-content: center; border-radius: 4px; user-select: none;">
           <!-- Canvas for drawing the image -->
           <canvas id="image-editor-canvas" style="max-width: 100%; max-height: 100%; display: block;"></canvas>
-          <div id="image-editor-crop-box" style="position: absolute; border: 2px dashed var(--text-gold); box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.65); cursor: move; box-sizing: border-box;">
-            <div class="crop-handle tl" style="position: absolute; width: 12px; height: 12px; background: #fff; border: 1px solid #000; top: -6px; left: -6px; cursor: nwse-resize;"></div>
-            <div class="crop-handle tr" style="position: absolute; width: 12px; height: 12px; background: #fff; border: 1px solid #000; top: -6px; right: -6px; cursor: nesw-resize;"></div>
-            <div class="crop-handle bl" style="position: absolute; width: 12px; height: 12px; background: #fff; border: 1px solid #000; bottom: -6px; left: -6px; cursor: nesw-resize;"></div>
-            <div class="crop-handle br" style="position: absolute; width: 12px; height: 12px; background: #fff; border: 1px solid #000; bottom: -6px; right: -6px; cursor: nwse-resize;"></div>
+          <div id="image-editor-crop-box"
+            style="position: absolute; border: 2px dashed var(--text-gold); box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.65); cursor: move; box-sizing: border-box;">
+            <div class="crop-handle tl"
+              style="position: absolute; width: 12px; height: 12px; background: #fff; border: 1px solid #000; top: -6px; left: -6px; cursor: nwse-resize;">
+            </div>
+            <div class="crop-handle tr"
+              style="position: absolute; width: 12px; height: 12px; background: #fff; border: 1px solid #000; top: -6px; right: -6px; cursor: nesw-resize;">
+            </div>
+            <div class="crop-handle bl"
+              style="position: absolute; width: 12px; height: 12px; background: #fff; border: 1px solid #000; bottom: -6px; left: -6px; cursor: nesw-resize;">
+            </div>
+            <div class="crop-handle br"
+              style="position: absolute; width: 12px; height: 12px; background: #fff; border: 1px solid #000; bottom: -6px; right: -6px; cursor: nwse-resize;">
+            </div>
           </div>
         </div>
-        
+
         <!-- Controls -->
         <div style="display: flex; gap: 10px; justify-content: center; width: 100%; flex-wrap: wrap; margin-top: 10px;">
-          <button type="button" id="btn-editor-rotate-l" class="btn btn-secondary" style="display: flex; align-items: center; gap: 6px;">
-            <svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M7.11 8.53L5.7 7.11C4.8 8.27 4.24 9.61 4.07 11h2.02c.17-.87.52-1.67 1.02-2.47zM6.09 13H4.07c.17 1.39.72 2.73 1.62 3.89l1.41-1.42c-.52-.8-.87-1.6-1.01-2.47zM15 4h-2v7.17l-2.59-2.58L9 10l5 5 5-5-1.41-1.41L15 11.17V4zm3.3 3.11l-1.41 1.42c.5.8.85 1.6 1.01 2.47h2.02c-.17-1.39-.72-2.73-1.62-3.89zM17 15.08l1.41 1.41c.9-1.16 1.45-2.5 1.62-3.89h-2.02c-.16.87-.51 1.67-1.01 2.48zM12 18c-3.31 0-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8h-2c0 3.31-2.69 6-6 6z"/></svg>
+          <button type="button" id="btn-editor-rotate-l" class="btn btn-secondary"
+            style="display: flex; align-items: center; gap: 6px;">
+            <svg viewBox="0 0 24 24" width="14" height="14">
+              <path fill="currentColor"
+                d="M7.11 8.53L5.7 7.11C4.8 8.27 4.24 9.61 4.07 11h2.02c.17-.87.52-1.67 1.02-2.47zM6.09 13H4.07c.17 1.39.72 2.73 1.62 3.89l1.41-1.42c-.52-.8-.87-1.6-1.01-2.47zM15 4h-2v7.17l-2.59-2.58L9 10l5 5 5-5-1.41-1.41L15 11.17V4zm3.3 3.11l-1.41 1.42c.5.8.85 1.6 1.01 2.47h2.02c-.17-1.39-.72-2.73-1.62-3.89zM17 15.08l1.41 1.41c.9-1.16 1.45-2.5 1.62-3.89h-2.02c-.16.87-.51 1.67-1.01 2.48zM12 18c-3.31 0-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8h-2c0 3.31-2.69 6-6 6z" />
+            </svg>
             Rotate Left
           </button>
-          <button type="button" id="btn-editor-rotate-r" class="btn btn-secondary" style="display: flex; align-items: center; gap: 6px;">
-            <svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M15.55 5.55L14.14 6.96C14.7 7.8 15.1 8.7 15.3 9.7h2.1c-.24-1.6-.9-3-1.85-4.15zM17.4 11h-2.1c-.2 1-.6 1.9-1.16 2.74l1.41 1.41c.95-1.15 1.61-2.55 1.85-4.15zM12 4V2c-5.5 0-10 4.5-10 10h2c0-4.4 3.6-8 8-8zm-2 9.17l-2.59-2.58L6 12l5 5 5-5-1.41-1.41L12 11.17V4h-2v7.17zM1.15 12c.24 1.6.9 3 1.85 4.15l1.41-1.41c-.56-.84-.96-1.74-1.16-2.74H1.15zm2.7 5.15l1.41-1.41C5.82 16.2 6.22 17.1 6.78 17.94l-1.41 1.41C4.42 18.2 3.76 16.8 3.52 15.2zM12 20c4.4 0 8-3.6 8-8h2c0 5.5-4.5 10-10 10s-10-4.5-10-10h2c0 4.4 3.6 8 8 8z"/></svg>
+          <button type="button" id="btn-editor-rotate-r" class="btn btn-secondary"
+            style="display: flex; align-items: center; gap: 6px;">
+            <svg viewBox="0 0 24 24" width="14" height="14">
+              <path fill="currentColor"
+                d="M15.55 5.55L14.14 6.96C14.7 7.8 15.1 8.7 15.3 9.7h2.1c-.24-1.6-.9-3-1.85-4.15zM17.4 11h-2.1c-.2 1-.6 1.9-1.16 2.74l1.41 1.41c.95-1.15 1.61-2.55 1.85-4.15zM12 4V2c-5.5 0-10 4.5-10 10h2c0-4.4 3.6-8 8-8zm-2 9.17l-2.59-2.58L6 12l5 5 5-5-1.41-1.41L12 11.17V4h-2v7.17zM1.15 12c.24 1.6.9 3 1.85 4.15l1.41-1.41c-.56-.84-.96-1.74-1.16-2.74H1.15zm2.7 5.15l1.41-1.41C5.82 16.2 6.22 17.1 6.78 17.94l-1.41 1.41C4.42 18.2 3.76 16.8 3.52 15.2zM12 20c4.4 0 8-3.6 8-8h2c0 5.5-4.5 10-10 10s-10-4.5-10-10h2c0 4.4 3.6 8 8 8z" />
+            </svg>
             Rotate Right
           </button>
           <button type="button" id="btn-editor-flip-h" class="btn btn-secondary">
