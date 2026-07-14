@@ -109,6 +109,41 @@ The completed installer files will be located in:
 
 ---
 
+## 🤖 Building and Signing for Android (.apk)
+
+To build and sign the Android release package locally:
+
+### 1. Requirements
+- **Android SDK**: Install Android Studio and command-line tools. The signing script expects the SDK to be located at `~/Library/Android/sdk` (macOS).
+- **Keystore**: A keystore file `mava-gems-stock.keystore` is required in the root directory. If you do not have one, you can generate it using:
+  ```bash
+  keytool -genkey -v -keystore mava-gems-stock.keystore -alias mava-gems-key -keyalg RSA -keysize 2048 -validity 10000
+  ```
+
+### 2. Build and Sign Command
+Run the helper script via `npm` to automatically compile the Android release APK, align it, sign it, and verify the signature:
+
+```bash
+npm run android:build:signed
+```
+
+During execution, the script will prompt you for your Keystore password and Key password.
+
+### 3. Environment Variables (Optional)
+You can automate the process and bypass interactive password prompts by exporting the following environment variables before running the build command:
+
+```bash
+export ANDROID_KEYSTORE_PATH="mava-gems-stock.keystore"
+export ANDROID_KEY_ALIAS="mava-gems-key"
+export ANDROID_KEYSTORE_PASSWORD="your-keystore-password"
+export ANDROID_KEY_PASSWORD="your-key-password" # Omit or leave empty if same as keystore password
+```
+
+The final signed APK will be generated at:
+`dist-android/mava-gems-stock-android-v<VERSION>.apk`
+
+---
+
 ## ⛓️ GitHub Actions Workflow (CI/CD)
 
 The project includes an automated GitHub Actions workflow defined in `.github/workflows/release.yml` that compiles and drafts a release of the application.
