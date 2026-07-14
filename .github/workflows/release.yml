@@ -240,8 +240,15 @@ jobs:
 
       - name: Sign & Align Android APK
         run: |
-          # 1. Decode keystore
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > release.keystore
+          # 1. Decode keystore robustly (removing any line wraps/whitespace first)
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | tr -d '\r\n[:space:]' | base64 --decode > release.keystore
+          
+          # Verify file was decoded and is not empty
+          if [ ! -s release.keystore ]; then
+            echo "Error: Decoded keystore file is empty!"
+            exit 1
+          fi
+          
           
           # 2. Find unsigned APK
           UNSIGNED_APK=$(find src-tauri/gen/android -name "*release-unsigned.apk" | head -n 1)
