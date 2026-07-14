@@ -238,54 +238,29 @@ jobs:
           export PATH="$HOME/.cargo/bin:$PATH"
           npx tauri android build --apk
 
-      - name: Sign & Align Android APK
+      - name: Prepare Unsigned Android APK
         run: |
-          # 1. Decode keystore robustly (removing any line wraps/whitespace first)
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | tr -d '\r\n[:space:]' | base64 --decode > release.keystore
-          
-          # Verify file was decoded and is not empty
-          if [ ! -s release.keystore ]; then
-            echo "Error: Decoded keystore file is empty!"
-            exit 1
-          fi
-          
-          
-          # 2. Find unsigned APK
+          # Find the unsigned release APK
           UNSIGNED_APK=$(find src-tauri/gen/android -name "*release-unsigned.apk" | head -n 1)
           if [ -z "$UNSIGNED_APK" ]; then
             UNSIGNED_APK=$(find src-tauri/gen/android -name "*release.apk" | grep -v "signed" | head -n 1)
           fi
           
-          # 3. Find build tools
-          BUILD_TOOLS_DIR=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -n 1)
-          ZIPALIGN="$BUILD_TOOLS_DIR/zipalign"
-          APKSIGNER="$BUILD_TOOLS_DIR/apksigner"
+          if [ -z "$UNSIGNED_APK" ]; then
+            echo "Error: Unsigned APK not found!"
+            exit 1
+          fi
           
-          # 4. Align APK
-          $ZIPALIGN -v 4 "$UNSIGNED_APK" aligned-release.apk
-          
-          # 5. Sign APK
-          $APKSIGNER sign \
-            --ks release.keystore \
-            --ks-pass pass:"${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
-            --key-pass pass:"${{ secrets.ANDROID_KEY_PASSWORD }}" \
-            --ks-key-alias "${{ secrets.ANDROID_KEY_ALIAS }}" \
-            --out "mava-gems-stock-android-${{ needs.prepare.outputs.version }}.apk" \
-            aligned-release.apk
-            
-          # 6. Verify
-          $APKSIGNER verify --verbose "mava-gems-stock-android-${{ needs.prepare.outputs.version }}.apk"
-          
-          # 7. Cleanup
-          rm -f release.keystore aligned-release.apk
+          echo "Found unsigned APK: $UNSIGNED_APK"
+          cp "$UNSIGNED_APK" "mava-gems-stock-android-${{ needs.prepare.outputs.version }}-unsigned.apk"
 
       # Upload built APK to workflow artifacts
       - name: Upload Android Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: android-artifacts
-          path: mava-gems-stock-android-${{ needs.prepare.outputs.version }}.apk
-          if-no-files-found: ignore
+          path: mava-gems-stock-android-${{ needs.prepare.outputs.version }}-unsigned.apk
+          if-no-files-found: error
 
   publish-ios:
     needs: prepare
