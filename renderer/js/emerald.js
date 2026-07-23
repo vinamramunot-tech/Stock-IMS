@@ -1707,11 +1707,10 @@ const EmeraldController = {
         return;
       }
 
-      // Check duplicate Pudia number within the group
       const dbDuplicates = DBManager.getEmeralds().filter(e => 
         (e.group || 'Default').toLowerCase() === group.toLowerCase() && 
         e.color === color &&
-        (!isEdit || e.id !== document.getElementById('emerald-item-id').value)
+        (!isEdit || String(e.id) !== String(document.getElementById('emerald-item-id').value))
       );
       if (dbDuplicates.length > 0) {
         validationError = `${pudiaIndexStr}: Pudia Number #${color} already exists in Group "${group}".`;
@@ -1761,7 +1760,7 @@ const EmeraldController = {
 
         DBManager.addLog("EDIT", updatedPudia.id, `Emerald (${shapes.join(', ')})`, summary, changes);
 
-        const index = DBManager.database.emeralds.findIndex(e => e.id === updatedPudia.id);
+        const index = DBManager.database.emeralds.findIndex(e => String(e.id) === String(updatedPudia.id));
         if (index !== -1) {
           DBManager.database.emeralds[index] = updatedPudia;
         }
@@ -1792,7 +1791,7 @@ const EmeraldController = {
       try {
         DBManager.addLog("DELETE", emerald.id, "Emerald", `Deleted emerald stock entry (${shapes}, ${weight}ct)`, []);
 
-        const index = DBManager.database.emeralds.findIndex(e => e.id === emerald.id);
+        const index = DBManager.database.emeralds.findIndex(e => String(e.id) === String(emerald.id));
         if (index !== -1) {
           DBManager.database.emeralds.splice(index, 1);
         }
