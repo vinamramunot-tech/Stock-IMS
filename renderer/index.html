@@ -340,6 +340,13 @@
               </svg>
               Emerald Memos
             </button>
+            <button type="button" class="nav-item" data-target="tab-emerald-sales">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path fill="currentColor"
+                  d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z" />
+              </svg>
+              Sales Data
+            </button>
           </div>
 
           <!-- Loose Stones App Nav -->
@@ -465,6 +472,73 @@
             <p class="empty-description">Issue your first emerald memo by clicking "New Memo".</p>
             <button type="button" id="btn-empty-create-memo" class="btn btn-primary"
               onclick="MemoController.openCreateMemoModal()">Create First Memo</button>
+          </div>
+
+        </div>
+
+        <!-- ==================== TAB: EMERALD SALES DATA ==================== -->
+        <div id="tab-emerald-sales" class="tab-content hidden">
+
+          <!-- SALES METRICS -->
+          <section class="metrics-bar">
+            <div class="metrics-line-1">
+              <div class="metric-card gold-border">
+                <span class="metric-label">TOTAL CARATS SOLD</span>
+                <span class="metric-value text-gold" id="sales-metric-total-sold">0.00 cts</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">TRANSACTIONS</span>
+                <span class="metric-value" id="sales-metric-total-txns">0</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">TOTAL SALE VALUE</span>
+                <span class="metric-value" id="sales-metric-total-value">—</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- FILTER BAR -->
+          <div class="filter-bar">
+            <div class="search-box">
+              <input type="text" id="sales-search-input" placeholder="Search by memo #, broker or client name...">
+              <svg viewBox="0 0 24 24" width="18" height="18" class="search-icon">
+                <path fill="currentColor"
+                  d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+              </svg>
+            </div>
+            <div class="filters-group" style="display:flex;gap:8px;align-items:center;">
+              <label style="font-size:12px;color:var(--text-muted);white-space:nowrap;">Closed from</label>
+              <input type="date" id="sales-filter-date-from"
+                style="height:38px;padding:0 10px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);font-size:13px;">
+              <label style="font-size:12px;color:var(--text-muted);white-space:nowrap;">to</label>
+              <input type="date" id="sales-filter-date-to"
+                style="height:38px;padding:0 10px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);font-size:13px;">
+              <button type="button" id="sales-filter-clear" class="btn btn-secondary" style="height:38px;padding:0 14px;font-size:12px;">Clear</button>
+            </div>
+          </div>
+
+          <!-- SALES TABLE -->
+          <div class="logs-container">
+            <table class="logs-table">
+              <thead>
+                <tr>
+                  <th style="width:9%;">MEMO #</th>
+                  <th style="width:14%;">DATE</th>
+                  <th style="width:18%;">BROKER / CLIENT</th>
+                  <th style="width:14%;text-align:right;">SOLD</th>
+                  <th style="width:14%;text-align:right;">VALUE</th>
+                  <th style="width:13%;">OUTCOME</th>
+                  <th style="width:18%;">PUDIAS / NOTES</th>
+                </tr>
+              </thead>
+              <tbody id="sales-list-tbody"></tbody>
+            </table>
+          </div>
+
+          <!-- EMPTY STATE -->
+          <div id="sales-empty-state" class="empty-state-card hidden">
+            <h2 class="empty-title">No Sales Records Yet</h2>
+            <p class="empty-description">Sales data appears here once a memo is closed with a Complete Sale or Partial Sale outcome.</p>
           </div>
 
         </div>
@@ -3605,6 +3679,7 @@
   <script src="js/stone.js"></script>
   <script src="js/jewel-stone-memo.js"></script>
   <script src="js/jewelry-memo.js"></script>
+  <script src="js/emerald-sales.js"></script>
   <script src="js/image-editor.js"></script>
   <script src="js/app.js"></script>
 </body>

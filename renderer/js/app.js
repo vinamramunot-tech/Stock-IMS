@@ -30,6 +30,9 @@ const App = {
     if (window.JewelryMemoController) {
       JewelryMemoController.init();
     }
+    if (window.SalesController) {
+      SalesController.init();
+    }
 
     // 2. Tab switching navigation listeners
     const navItems = document.querySelectorAll('.nav-item[data-target]');
@@ -263,6 +266,9 @@ const App = {
     }
     if (window.JewelryMemoController) {
       JewelryMemoController.renderMemoList();
+    }
+    if (window.SalesController) {
+      SalesController.renderSalesList();
     }
     this.renderActivityLogs();
     this.renderJewelryPhotos();
@@ -757,7 +763,7 @@ const App = {
       if (appName === 'jewelry') {
         show = ['tab-catalog', 'tab-jewelry-photos', 'tab-jewelry-memos', 'tab-logs', 'tab-settings', 'add-jewelry', 'add-jewelry-memo'].includes(action);
       } else if (appName === 'emerald') {
-        show = ['tab-emerald-catalog', 'tab-emerald-analysis', 'tab-emerald-photos', 'tab-memos', 'tab-logs', 'tab-settings', 'add-emerald', 'add-memo'].includes(action);
+        show = ['tab-emerald-catalog', 'tab-emerald-analysis', 'tab-emerald-photos', 'tab-memos', 'tab-emerald-sales', 'tab-logs', 'tab-settings', 'add-emerald', 'add-memo'].includes(action);
       } else if (appName === 'stone') {
         show = ['tab-stone-catalog', 'tab-jewel-stone-memos', 'tab-logs', 'tab-settings', 'add-stone', 'add-jewel-stone-memo'].includes(action);
       }

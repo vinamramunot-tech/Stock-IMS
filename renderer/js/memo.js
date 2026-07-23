@@ -620,6 +620,7 @@ const MemoController = {
             ${memo.status === 'open' ? `
               <button type="button" class="btn btn-primary btn-small btn-outcome-memo" style="font-size:11px; white-space:nowrap;">Record Outcome</button>
             ` : ''}
+            <button type="button" class="btn btn-danger btn-small btn-delete-memo" style="font-size:11px;">Delete</button>
           </div>
         </td>
       `;
@@ -627,6 +628,8 @@ const MemoController = {
       tr.querySelector('.btn-view-memo').addEventListener('click', () => this.openMemoDetail(memo.id));
       const outcomeBtn = tr.querySelector('.btn-outcome-memo');
       if (outcomeBtn) outcomeBtn.addEventListener('click', () => this.openMemoOutcomeModal(memo.id));
+      const deleteBtn = tr.querySelector('.btn-delete-memo');
+      if (deleteBtn) deleteBtn.addEventListener('click', () => this.deleteMemo(memo.id));
 
       tbody.appendChild(tr);
     });
@@ -1464,6 +1467,45 @@ const MemoController = {
     } catch (err) {
       UI.showToast(err.message, true);
     }
+  },
+
+  deleteMemo(memoId) {
+    const memo = DBManager.getMemos().find(m => m.id === memoId);
+    if (!memo) return;
+
+    UI.confirm(
+      `Are you sure you want to delete Memo ${memo.memoNumber}? Any remaining items on this memo will automatically be returned to company stock.`,
+      async () => {
+        // Automatically return all remaining carats to stock
+        (memo.items || []).forEach(item => {
+          const rem = Math.max(0, Number((item.carats - (item.returnedCarats || 0) - (item.soldCarats || 0)).toFixed(3)));
+          const remPcs = Math.max(0, (item.pieces || 0) - (item.returnedPieces || 0) - (item.soldPieces || 0));
+          if (rem > 0) {
+            item.returnedCarats = Number(((item.returnedCarats || 0) + rem).toFixed(3));
+            item.returnedPieces = (item.returnedPieces || 0) + remPcs;
+          }
+        });
+
+        // Delete memo from storage
+        DBManager.database.memos = (DBManager.database.memos || []).filter(m => m.id !== memoId);
+
+        DBManager.addLog(
+          'DELETE',
+          memo.id,
+          `Memo ${memo.memoNumber}`,
+          `Deleted Memo ${memo.memoNumber} (${memo.brokerName}). All remaining goods returned to stock.`,
+          []
+        );
+
+        try {
+          await DBManager.saveVault();
+          UI.showToast(`Deleted Memo ${memo.memoNumber} and returned all goods to stock.`);
+          App.refreshAllDisplays();
+        } catch (err) {
+          UI.showToast(err.message, true);
+        }
+      }
+    );
   }
 };
 
