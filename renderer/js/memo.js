@@ -1323,7 +1323,13 @@ const MemoController = {
       if (!item) return;
 
       if (soldVal > 0) {
+        // Compute proportional pieces to sell (round down to not overshoot)
+        const remCarats = Math.max(0, Number((item.carats - (item.returnedCarats || 0) - (item.soldCarats || 0)).toFixed(3)));
+        const remPcs    = Math.max(0, (item.pieces || 0) - (item.returnedPieces || 0) - (item.soldPieces || 0));
+        const soldPcs   = remCarats > 0 ? Math.floor((soldVal / remCarats) * remPcs) : 0;
+
         item.soldCarats  = Number(((item.soldCarats || 0) + soldVal).toFixed(3));
+        item.soldPieces  = (item.soldPieces || 0) + soldPcs;
         totalSoldCts    += soldVal;
 
         const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
@@ -1340,7 +1346,13 @@ const MemoController = {
       }
 
       if (retVal > 0) {
+        // Compute proportional pieces to return
+        const remCarats = Math.max(0, Number((item.carats - (item.returnedCarats || 0) - (item.soldCarats || 0)).toFixed(3)));
+        const remPcs    = Math.max(0, (item.pieces || 0) - (item.returnedPieces || 0) - (item.soldPieces || 0));
+        const retPcs    = remCarats > 0 ? Math.floor((retVal / remCarats) * remPcs) : 0;
+
         item.returnedCarats  = Number(((item.returnedCarats || 0) + retVal).toFixed(3));
+        item.returnedPieces  = (item.returnedPieces || 0) + retPcs;
         totalRetCts         += retVal;
       }
     });
@@ -1404,7 +1416,7 @@ const MemoController = {
     }
 
     DBManager.addLog(
-      isDeleted ? 'EDIT' : 'EDIT',
+      'EDIT',
       memo.id,
       `Memo ${memo.memoNumber}`,
       isDeleted
