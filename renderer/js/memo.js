@@ -163,6 +163,15 @@ const MemoController = {
     return Array.from(brokers).sort();
   },
 
+  /**
+   * Collect all unique client names from existing memos (for datalist autocomplete).
+   */
+  getAllPastClients() {
+    const clients = new Set();
+    DBManager.getMemos().forEach(m => { if (m.clientName) clients.add(m.clientName); });
+    return Array.from(clients).sort();
+  },
+
   // ── Create Memo ─────────────────────────────────────────────────────────────
 
   openCreateMemoModal() {
@@ -175,6 +184,8 @@ const MemoController = {
   resetCreateMemoForm() {
     const brokerInput = document.getElementById('memo-broker-name');
     if (brokerInput) brokerInput.value = '';
+    const clientInput = document.getElementById('memo-client-name');
+    if (clientInput) clientInput.value = '';
     const dateInput = document.getElementById('memo-date');
     if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
     const notesInput = document.getElementById('memo-notes');
@@ -208,6 +219,15 @@ const MemoController = {
       const opt = document.createElement('option');
       opt.value = broker;
       list.appendChild(opt);
+    });
+
+    const clientList = document.getElementById('memo-clients-list');
+    if (!clientList) return;
+    clientList.innerHTML = '';
+    this.getAllPastClients().forEach(client => {
+      const opt = document.createElement('option');
+      opt.value = client;
+      clientList.appendChild(opt);
     });
   },
 
@@ -361,7 +381,8 @@ const MemoController = {
         if (lbl) lbl.textContent = `(Available: ${availCts.toFixed(2)} cts)`;
         caratsInp.max = availCts;
         caratsInp.value = availCts;
-        piecesInp.value = e.pieces || '';
+        // Use getEmeraldPieces() which correctly sums across all size rows
+        piecesInp.value = EmeraldController.getEmeraldPieces(e) || '';
       });
 
       listContainer.appendChild(div);
@@ -475,6 +496,7 @@ const MemoController = {
 
   async handleSaveMemo() {
     const brokerName = (document.getElementById('memo-broker-name').value || '').trim();
+    const clientName = (document.getElementById('memo-client-name').value || '').trim();
     const date       = document.getElementById('memo-date').value;
     const notes      = (document.getElementById('memo-notes').value || '').trim();
 
@@ -492,6 +514,7 @@ const MemoController = {
       id: 'memo_' + Date.now(),
       memoNumber,
       brokerName,
+      clientName: clientName || null,
       date,
       status: 'open',          // "open" | "returned" | "sold" | "closed"
       createdAt: new Date().toISOString(),
@@ -506,7 +529,7 @@ const MemoController = {
 
     DBManager.addLog(
       'ADD', memo.id, `Memo ${memoNumber}`,
-      `Issued memo ${memoNumber} to ${brokerName}: ${totalCarats.toFixed(2)} cts (${this.selectedItems.length} Pudia${this.selectedItems.length !== 1 ? 's' : ''})`,
+      `Issued memo ${memoNumber} to ${brokerName}${clientName ? ` (client: ${clientName})` : ''}: ${totalCarats.toFixed(2)} cts (${this.selectedItems.length} Pudia${this.selectedItems.length !== 1 ? 's' : ''})`,
       []
     );
 
@@ -581,7 +604,7 @@ const MemoController = {
       tr.innerHTML = `
         <td style="font-weight:700;font-family:var(--font-serif);">${UI.escapeHtml(memo.memoNumber)}</td>
         <td>${dateFmt}</td>
-        <td style="font-weight:600;">${UI.escapeHtml(memo.brokerName)}</td>
+        <td style="font-weight:600;">${UI.escapeHtml(memo.brokerName)}${memo.clientName ? `<br><span style="font-size:11px;font-weight:400;color:var(--text-muted);">Client: ${UI.escapeHtml(memo.clientName)}</span>` : ''}</td>
         <td style="text-align:right;font-weight:700;">${(memo.totalCarats || 0).toFixed(2)} cts</td>
         <td style="text-align:center;">${(memo.items || []).length}</td>
         <td>
@@ -625,6 +648,12 @@ const MemoController = {
     document.getElementById('memo-detail-status').textContent      = memo.status.toUpperCase();
     document.getElementById('memo-detail-notes').textContent       = memo.notes || '—';
     document.getElementById('memo-detail-total-carats').textContent = (memo.totalCarats || 0).toFixed(2) + ' cts';
+
+    // Client name — show row if populated, hide if not
+    const clientRowEl = document.getElementById('memo-detail-client-row');
+    const clientEl    = document.getElementById('memo-detail-client');
+    if (clientEl) clientEl.textContent = memo.clientName || '—';
+    if (clientRowEl) clientRowEl.style.display = memo.clientName ? '' : 'none';
 
     if (memo.closedAt) {
       document.getElementById('memo-detail-closed-at').textContent =

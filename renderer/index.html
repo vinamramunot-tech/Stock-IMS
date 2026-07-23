@@ -1893,21 +1893,25 @@
       </div>
       <div class="modal-body form-modal-body">
 
-        <!-- Broker + Date row -->
-        <div class="form-grid-row">
-          <div class="form-col-6">
-            <div class="input-group">
-              <label for="memo-broker-name">Broker / Party Name <span class="required">*</span></label>
-              <input type="text" id="memo-broker-name" list="memo-brokers-list" placeholder="e.g. Ravi Enterprises"
-                autocomplete="off">
-              <datalist id="memo-brokers-list"></datalist>
-            </div>
+        <!-- Broker + Client + Date row -->
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:4px;">
+          <div class="input-group">
+            <label for="memo-broker-name">Broker Name <span class="required">*</span></label>
+            <input type="text" id="memo-broker-name" list="memo-brokers-list"
+              placeholder="e.g. Ravi Enterprises" autocomplete="off">
+            <datalist id="memo-brokers-list"></datalist>
           </div>
-          <div class="form-col-6">
-            <div class="input-group">
-              <label for="memo-date">Memo Date <span class="required">*</span></label>
-              <input type="date" id="memo-date">
-            </div>
+          <div class="input-group">
+            <label for="memo-client-name">Client Name
+              <span style="font-weight:normal; color:var(--text-muted); font-size:11px; text-transform:none;">optional</span>
+            </label>
+            <input type="text" id="memo-client-name" list="memo-clients-list"
+              placeholder="e.g. Sharma Jewellers" autocomplete="off">
+            <datalist id="memo-clients-list"></datalist>
+          </div>
+          <div class="input-group">
+            <label for="memo-date">Memo Date <span class="required">*</span></label>
+            <input type="date" id="memo-date">
           </div>
         </div>
 
@@ -2066,6 +2070,12 @@
               style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:4px;">
               Broker</div>
             <div style="font-size:14px;font-weight:600;color:var(--text-main);" id="memo-detail-broker">—</div>
+          </div>
+          <div style="background:var(--bg-base);border:1px solid var(--border-light);border-radius:4px;padding:12px;" id="memo-detail-client-row">
+            <div
+              style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:4px;">
+              Client</div>
+            <div style="font-size:14px;font-weight:600;color:var(--text-main);" id="memo-detail-client">—</div>
           </div>
           <div style="background:var(--bg-base);border:1px solid var(--border-light);border-radius:4px;padding:12px;">
             <div
