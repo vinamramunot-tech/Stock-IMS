@@ -153,9 +153,9 @@ const Logs = {
     });
 
     // Origins
-    const oldOrigins = oldItem.origins || [];
-    const newOrigins = newItem.origins || [];
-    if (JSON.stringify(oldOrigins.sort()) !== JSON.stringify(newOrigins.sort())) {
+    const oldOrigins = Array.isArray(oldItem.origins) ? oldItem.origins : (typeof oldItem.origins === 'string' ? [oldItem.origins] : []);
+    const newOrigins = Array.isArray(newItem.origins) ? newItem.origins : (typeof newItem.origins === 'string' ? [newItem.origins] : []);
+    if (JSON.stringify([...oldOrigins].sort()) !== JSON.stringify([...newOrigins].sort())) {
       changes.push({
         field: 'Origins',
         old: oldOrigins.join(', ') || 'None',
@@ -214,8 +214,8 @@ const Logs = {
     });
 
     // Origins
-    const oldOrigins = oldItem.origins || [];
-    const newOrigins = newItem.origins || [];
+    const oldOrigins = Array.isArray(oldItem.origins) ? oldItem.origins : (typeof oldItem.origins === 'string' ? [oldItem.origins] : []);
+    const newOrigins = Array.isArray(newItem.origins) ? newItem.origins : (typeof newItem.origins === 'string' ? [newItem.origins] : []);
     if (JSON.stringify([...oldOrigins].sort()) !== JSON.stringify([...newOrigins].sort())) {
       changes.push({
         field: 'Origins',
