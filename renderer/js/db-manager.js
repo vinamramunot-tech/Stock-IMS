@@ -225,6 +225,16 @@ const DBManager = {
    */
   getJewelryMemos() {
     return this.database ? this.database.jewelryMemos || [] : [];
+  },
+
+  /**
+   * Disconnect the active database and clear the persistent path.
+   */
+  async disconnectVault() {
+    this.database = null;
+    this.activePath = null;
+    this.isLoaded = false;
+    await window.electronAPI.setLastDbPath(null);
   }
 };
 

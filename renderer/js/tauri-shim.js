@@ -10,7 +10,7 @@
     window.electronAPI = {
       // Basic configuration getters/setters
       getLastDbPath: () => window.__TAURI__.core.invoke('get_last_db_path'),
-      setLastDbPath: (dbPath) => window.__TAURI__.core.invoke('set_last_db_path', { dbPath }),
+      setLastDbPath: (dbPath) => window.__TAURI__.core.invoke('set_last_db_path', { db_path: dbPath, dbPath }),
 
       // Native file/folder picker dialogs
       createDbDialog: () => window.__TAURI__.core.invoke('create_db_dialog'),
@@ -39,7 +39,7 @@
                   if (!targetPath) {
                     targetPath = 'mava_gems_stock.db';
                   }
-                  await window.__TAURI__.core.invoke('import_db_file', { base64Data, customPath: targetPath });
+                  await window.__TAURI__.core.invoke('import_db_file', { base64_data: base64Data, base64Data, custom_path: targetPath, customPath: targetPath });
                   resolve(targetPath);
                 } catch (err) {
                   alert("Failed to import database file: " + err.message);
@@ -56,7 +56,7 @@
       },
 
       selectDirectory: () => window.__TAURI__.core.invoke('select_directory'),
-      exportBackupDialog: (defaultName) => window.__TAURI__.core.invoke('export_backup_dialog', { defaultName }),
+      exportBackupDialog: (defaultName) => window.__TAURI__.core.invoke('export_backup_dialog', { _default_name: defaultName, default_name: defaultName, defaultName }),
       
       importBackupDialog: async () => {
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -76,7 +76,7 @@
                   const dataUrl = evt.target.result;
                   const base64Data = dataUrl.split(',')[1];
                   const targetPath = DBManager.activePath || 'mava_gems_stock.db';
-                  await window.__TAURI__.core.invoke('import_db_file', { base64Data, customPath: targetPath });
+                  await window.__TAURI__.core.invoke('import_db_file', { base64_data: base64Data, base64Data, custom_path: targetPath, customPath: targetPath });
                   resolve(targetPath);
                 } catch (err) {
                   alert("Failed to import backup file: " + err.message);
@@ -109,7 +109,7 @@
               if (!targetPath) {
                 targetPath = 'mava_gems_stock.db';
               }
-              await window.__TAURI__.core.invoke('import_db_file', { base64Data, customPath: targetPath });
+              await window.__TAURI__.core.invoke('import_db_file', { base64_data: base64Data, base64Data, custom_path: targetPath, customPath: targetPath });
               resolve(targetPath);
             } catch (err) {
               alert('Failed to read database file: ' + err.message);
@@ -122,11 +122,11 @@
       }),
 
       // Database reads and writes (AES-256-CBC)
-      readVault: (customPath) => window.__TAURI__.core.invoke('read_vault', { customPath }),
-      writeVault: (payload, customPath) => window.__TAURI__.core.invoke('write_vault', { payload, customPath }),
+      readVault: (customPath) => window.__TAURI__.core.invoke('read_vault', { custom_path: customPath, customPath }),
+      writeVault: (payload, customPath) => window.__TAURI__.core.invoke('write_vault', { payload, custom_path: customPath, customPath }),
 
       // Local utility functions
-      copyFile: (sourcePath, destPath) => window.__TAURI__.core.invoke('copy_file', { sourcePath, destPath }),
+      copyFile: (sourcePath, destPath) => window.__TAURI__.core.invoke('copy_file', { source_path: sourcePath, sourcePath, dest_path: destPath, destPath }),
       
       // PDF saving dialog and file writing
       saveFileDialog: async (defaultName) => {
@@ -134,7 +134,7 @@
         if (isMobile) {
           return "MOBILE_SHARE_PATH:" + defaultName;
         } else {
-          return window.__TAURI__.core.invoke('save_file_dialog', { defaultName });
+          return window.__TAURI__.core.invoke('save_file_dialog', { default_name: defaultName, defaultName });
         }
       },
       savePdfFile: async (base64Data, path) => {
@@ -183,7 +183,7 @@
             return false;
           }
         } else {
-          return window.__TAURI__.core.invoke('save_pdf_file', { base64Data: base64Data, path });
+          return window.__TAURI__.core.invoke('save_pdf_file', { base64_data: base64Data, base64Data, path });
         }
       },
 
@@ -223,7 +223,7 @@
           }
         } else {
           // Reuse the generic base64-to-file Tauri command
-          return window.__TAURI__.core.invoke('save_pdf_file', { base64Data: base64Data, path });
+          return window.__TAURI__.core.invoke('save_pdf_file', { base64_data: base64Data, base64Data, path });
         }
       },
 

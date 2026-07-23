@@ -1761,11 +1761,22 @@ const EmeraldController = {
         return;
       }
 
-      const dbDuplicates = DBManager.getEmeralds().filter(e => 
-        (e.group || 'Default').toLowerCase() === group.toLowerCase() && 
-        e.color === color &&
-        (!isEdit || String(e.id) !== String(document.getElementById('emerald-item-id').value))
-      );
+      const dbDuplicates = DBManager.getEmeralds().filter(e => {
+        // Must match the new group and new color (pudia number)
+        const isSameGroupAndColor = (e.group || 'Default').toLowerCase() === group.toLowerCase() && 
+                                    Number(e.color || 0) === Number(color || 0);
+        if (!isSameGroupAndColor) return false;
+
+        // If we are editing, exclude the item currently being edited
+        if (isEdit && this.activeEmeraldState) {
+          const isSameItem = (e.id && this.activeEmeraldState.id && String(e.id) === String(this.activeEmeraldState.id)) ||
+                             ((e.group || 'Default').toLowerCase() === (this.activeEmeraldState.group || 'Default').toLowerCase() && 
+                              Number(e.color || 0) === Number(this.activeEmeraldState.color || 0));
+          if (isSameItem) return false;
+        }
+
+        return true;
+      });
       if (dbDuplicates.length > 0) {
         validationError = `${pudiaIndexStr}: Pudia Number #${color} already exists in Group "${group}".`;
         return;

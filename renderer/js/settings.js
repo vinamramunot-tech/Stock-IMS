@@ -54,7 +54,7 @@ const Settings = {
         document.getElementById('view-dashboard').classList.remove('active');
         document.getElementById('view-catalog').classList.remove('active');
         
-        StartupController.init();
+        Startup.init();
       } catch (err) {
         UI.showToast(err.message, true);
       }
