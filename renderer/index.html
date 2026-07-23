@@ -2175,8 +2175,153 @@
     </div>
   </div>
 
+  <!-- ==================== MODAL: MEMO OUTCOME ==================== -->
+  <div id="modal-memo-outcome" class="modal-overlay hidden">
+    <div class="modal-card" style="max-width:660px; width:100%;">
+      <div class="modal-header">
+        <div>
+          <h3>Record Memo Outcome</h3>
+          <div style="font-size:12px; color:var(--text-muted); margin-top:2px;" id="memo-outcome-subtitle">—</div>
+        </div>
+        <button type="button" class="btn-close modal-close-trigger-memo-outcome">&times;</button>
+      </div>
+      <div class="modal-body" style="max-height:75vh; overflow-y:auto;">
+
+        <!-- Step 1: Outcome Selector Cards -->
+        <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); margin-bottom:12px;">
+          Select Outcome
+        </div>
+        <div class="outcome-option-cards">
+          <div class="outcome-option-card" id="outcome-card-sale" data-outcome="complete-sale">
+            <div class="outcome-card-icon">💰</div>
+            <div class="outcome-card-title">Complete Sale</div>
+            <div class="outcome-card-desc">All remaining goods sold to the broker</div>
+          </div>
+          <div class="outcome-option-card" id="outcome-card-partial" data-outcome="partial-sale">
+            <div class="outcome-card-icon">⚖️</div>
+            <div class="outcome-card-title">Partial Sale</div>
+            <div class="outcome-card-desc">Some sold, some returned to stock</div>
+          </div>
+          <div class="outcome-option-card" id="outcome-card-return" data-outcome="full-return">
+            <div class="outcome-card-icon">↩️</div>
+            <div class="outcome-card-title">Full Return</div>
+            <div class="outcome-card-desc">All goods returned, no sale made</div>
+          </div>
+        </div>
+
+        <!-- Step 2a: Complete Sale -->
+        <div class="outcome-section" id="outcome-section-complete-sale">
+          <div class="outcome-section-divider">
+            <div class="outcome-section-label" style="color:#30D158;">Complete Sale — Summary</div>
+          </div>
+          <div class="outcome-summary-box" id="outcome-sale-summary">
+            <!-- populated dynamically -->
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;">
+            <div class="input-group" style="margin-bottom:0;">
+              <label for="outcome-sale-rate">Sale Rate (₹ / carat)
+                <span style="font-weight:normal; color:var(--text-muted); font-size:11px; text-transform:none;">optional</span>
+              </label>
+              <input type="number" id="outcome-sale-rate" min="0" step="1" placeholder="e.g. 8500"
+                style="width:100%; height:38px; padding:6px 12px; border:1px solid var(--border-light); border-radius:4px; background:var(--bg-base); color:var(--text-main);">
+            </div>
+            <div class="input-group" style="margin-bottom:0;">
+              <label for="outcome-sale-date">Sale Date
+                <span style="font-weight:normal; color:var(--text-muted); font-size:11px; text-transform:none;">optional</span>
+              </label>
+              <input type="date" id="outcome-sale-date"
+                style="width:100%; height:38px; padding:6px 12px; border:1px solid var(--border-light); border-radius:4px; background:var(--bg-base); color:var(--text-main);">
+            </div>
+          </div>
+          <div class="input-group">
+            <label for="outcome-sale-notes">Buyer / Remarks
+              <span style="font-weight:normal; color:var(--text-muted); font-size:11px; text-transform:none;">optional</span>
+            </label>
+            <textarea id="outcome-sale-notes" rows="2"
+              placeholder="e.g. Sold to XYZ Ltd at Mumbai show…"></textarea>
+          </div>
+        </div>
+
+        <!-- Step 2b: Partial Sale -->
+        <div class="outcome-section" id="outcome-section-partial-sale">
+          <div class="outcome-section-divider">
+            <div class="outcome-section-label" style="color:var(--text-gold-dark);">Partial Sale — Enter Quantities per Pudia</div>
+          </div>
+          <div style="overflow-x:auto; margin-bottom:16px;">
+            <table class="outcome-partial-table" id="outcome-partial-items-table">
+              <thead>
+                <tr>
+                  <th>Pudia</th>
+                  <th style="text-align:right;">Issued</th>
+                  <th style="text-align:right;">Remaining</th>
+                  <th style="color:#30D158; text-align:right;">Sold (cts) ✓</th>
+                  <th style="color:var(--text-muted); text-align:right;">Returned (cts)</th>
+                  <th style="text-align:center;">After</th>
+                </tr>
+              </thead>
+              <tbody id="outcome-partial-tbody">
+                <!-- populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;">
+            <div class="input-group" style="margin-bottom:0;">
+              <label for="outcome-partial-sale-rate">Sale Rate (₹ / carat)
+                <span style="font-weight:normal; color:var(--text-muted); font-size:11px; text-transform:none;">optional</span>
+              </label>
+              <input type="number" id="outcome-partial-sale-rate" min="0" step="1" placeholder="e.g. 8500"
+                style="width:100%; height:38px; padding:6px 12px; border:1px solid var(--border-light); border-radius:4px; background:var(--bg-base); color:var(--text-main);">
+            </div>
+            <div class="input-group" style="margin-bottom:0;">
+              <label for="outcome-partial-sale-date">Sale Date
+                <span style="font-weight:normal; color:var(--text-muted); font-size:11px; text-transform:none;">optional</span>
+              </label>
+              <input type="date" id="outcome-partial-sale-date"
+                style="width:100%; height:38px; padding:6px 12px; border:1px solid var(--border-light); border-radius:4px; background:var(--bg-base); color:var(--text-main);">
+            </div>
+          </div>
+          <div class="input-group">
+            <label for="outcome-partial-notes">Remarks
+              <span style="font-weight:normal; color:var(--text-muted); font-size:11px; text-transform:none;">optional</span>
+            </label>
+            <textarea id="outcome-partial-notes" rows="2"
+              placeholder="Optional notes about the partial transaction…"></textarea>
+          </div>
+        </div>
+
+        <!-- Step 2c: Full Return -->
+        <div class="outcome-section" id="outcome-section-full-return">
+          <div class="outcome-section-divider">
+            <div class="outcome-section-label" style="color:var(--text-muted);">Full Return — Confirmation</div>
+          </div>
+          <div class="outcome-confirm-banner" id="outcome-return-summary">
+            <!-- populated dynamically -->
+          </div>
+          <div class="input-group">
+            <label for="outcome-return-notes">Return Notes
+              <span style="font-weight:normal; color:var(--text-muted); font-size:11px; text-transform:none;">optional</span>
+            </label>
+            <textarea id="outcome-return-notes" rows="2"
+              placeholder="e.g. Client declined, quality mismatch…"></textarea>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <div class="modal-footer-left">
+          <span id="memo-outcome-validation-msg" style="color:var(--danger-red); font-size:12px; font-weight:600;"></span>
+        </div>
+        <div class="modal-footer-right">
+          <button type="button" class="btn btn-secondary modal-close-trigger-memo-outcome">Cancel</button>
+          <button type="button" id="btn-save-memo-outcome" class="btn btn-primary" disabled>Confirm Outcome</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ==================== MODAL: EMERALD ITEM FORM ==================== -->
   </div>
+
 
   <!-- ==================== MODAL: STONE ITEM FORM ==================== -->
   <div id="modal-stone-item" class="modal-overlay hidden">

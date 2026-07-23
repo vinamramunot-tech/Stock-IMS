@@ -910,3 +910,209 @@
 .sidebar-app-group.hidden {
   display: none !important;
 }
+
+/* ==================== MEMO OUTCOME MODAL STYLES ==================== */
+
+.outcome-option-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+@media (max-width: 560px) {
+  .outcome-option-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+.outcome-option-card {
+  border: 2px solid var(--border-light);
+  border-radius: 10px;
+  padding: 18px 12px;
+  cursor: pointer;
+  text-align: center;
+  transition: all var(--transition-fast);
+  background: var(--bg-base);
+  user-select: none;
+  position: relative;
+}
+
+.outcome-option-card:hover {
+  border-color: var(--gold-accent);
+  background: var(--bg-card);
+  transform: translateY(-2px);
+}
+
+.outcome-option-card.active-sale {
+  border-color: #30D158;
+  background: rgba(48, 209, 88, 0.07);
+  box-shadow: 0 0 0 1px #30D158, 0 4px 16px rgba(48, 209, 88, 0.15);
+  transform: translateY(-2px);
+}
+
+.outcome-option-card.active-partial {
+  border-color: var(--text-gold-dark);
+  background: rgba(212, 175, 55, 0.08);
+  box-shadow: 0 0 0 1px var(--text-gold-dark), 0 4px 16px rgba(212, 175, 55, 0.15);
+  transform: translateY(-2px);
+}
+
+.outcome-option-card.active-return {
+  border-color: #8C8CA0;
+  background: rgba(140, 140, 160, 0.08);
+  box-shadow: 0 0 0 1px #8C8CA0, 0 4px 16px rgba(140, 140, 160, 0.15);
+  transform: translateY(-2px);
+}
+
+.outcome-card-icon {
+  font-size: 30px;
+  margin-bottom: 10px;
+  line-height: 1;
+}
+
+.outcome-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 5px;
+}
+
+.outcome-card-desc {
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* Selected checkmark indicator */
+.outcome-option-card.active-sale::after,
+.outcome-option-card.active-partial::after,
+.outcome-option-card.active-return::after {
+  content: '✓';
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.outcome-option-card.active-sale::after { color: #30D158; }
+.outcome-option-card.active-partial::after { color: var(--text-gold-dark); }
+.outcome-option-card.active-return::after { color: #8C8CA0; }
+
+/* Outcome input sections */
+.outcome-section {
+  display: none;
+}
+
+.outcome-section.active {
+  display: block;
+  animation: outcomeSlideIn 0.22s ease;
+}
+
+@keyframes outcomeSlideIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.outcome-section-divider {
+  border-top: 1px solid var(--border-light);
+  margin: 18px 0 16px 0;
+  padding-top: 16px;
+}
+
+.outcome-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 14px;
+}
+
+/* Summary box */
+.outcome-summary-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.outcome-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  padding: 4px 0;
+}
+
+/* Confirm banner (full return) */
+.outcome-confirm-banner {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 20px 16px;
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+/* Partial sale table */
+.outcome-partial-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.outcome-partial-table th {
+  padding: 9px 10px;
+  background: var(--bg-card);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-light);
+  text-align: left;
+}
+
+.outcome-partial-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-main);
+  vertical-align: middle;
+}
+
+.outcome-partial-table tr:last-child td {
+  border-bottom: none;
+}
+
+.outcome-partial-table tr:hover td {
+  background: var(--bg-base);
+}
+
+.outcome-partial-input {
+  width: 90px;
+  height: 32px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  background: var(--bg-base);
+  color: var(--text-main);
+  font-size: 12px;
+  text-align: right;
+  transition: border-color var(--transition-fast);
+}
+
+.outcome-partial-input:focus {
+  border-color: var(--gold-accent);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.15);
+}
+
+.outcome-partial-input.input-error {
+  border-color: var(--danger-red);
+}

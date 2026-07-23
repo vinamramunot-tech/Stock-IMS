@@ -8,6 +8,7 @@
 const MemoController = {
   selectedItems: [],
   activeCreateSelectedId: null,
+  activeOutcomeContext: null,
 
   // ── Initialisation ──────────────────────────────────────────────────────────
 
@@ -49,6 +50,27 @@ const MemoController = {
     const btnSaveMemoAction = document.getElementById('btn-save-memo-action');
     if (btnSaveMemoAction) {
       btnSaveMemoAction.addEventListener('click', () => this.handleSaveMemoAction());
+    }
+
+    // ── Outcome Modal wiring ──────────────────────────────────────────────────
+    document.querySelectorAll('.modal-close-trigger-memo-outcome').forEach(btn => {
+      btn.addEventListener('click', () => UI.closeModal('modal-memo-outcome'));
+    });
+
+    // Outcome card clicks
+    ['outcome-card-sale', 'outcome-card-partial', 'outcome-card-return'].forEach(cardId => {
+      const card = document.getElementById(cardId);
+      if (card) {
+        card.addEventListener('click', () => {
+          this.handleOutcomeSelect(card.getAttribute('data-outcome'));
+        });
+      }
+    });
+
+    // Save outcome button
+    const btnSaveOutcome = document.getElementById('btn-save-memo-outcome');
+    if (btnSaveOutcome) {
+      btnSaveOutcome.addEventListener('click', () => this.handleSaveOutcome());
     }
 
     // Form control listeners for create modal
@@ -573,18 +595,15 @@ const MemoController = {
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
             <button type="button" class="btn btn-secondary btn-small btn-view-memo">View</button>
             ${memo.status === 'open' ? `
-              <button type="button" class="btn btn-secondary btn-small btn-return-memo" style="font-size:11px;">Return</button>
-              <button type="button" class="btn btn-primary btn-small btn-sell-memo" style="font-size:11px;">Sold</button>
+              <button type="button" class="btn btn-primary btn-small btn-outcome-memo" style="font-size:11px; white-space:nowrap;">Record Outcome</button>
             ` : ''}
           </div>
         </td>
       `;
 
       tr.querySelector('.btn-view-memo').addEventListener('click', () => this.openMemoDetail(memo.id));
-      const retBtn  = tr.querySelector('.btn-return-memo');
-      const sellBtn = tr.querySelector('.btn-sell-memo');
-      if (retBtn)  retBtn.addEventListener('click',  () => this.openMemoActionInputModal(memo.id, null, 'returned'));
-      if (sellBtn) sellBtn.addEventListener('click',  () => this.openMemoActionInputModal(memo.id, null, 'sold'));
+      const outcomeBtn = tr.querySelector('.btn-outcome-memo');
+      if (outcomeBtn) outcomeBtn.addEventListener('click', () => this.openMemoOutcomeModal(memo.id));
 
       tbody.appendChild(tr);
     });
@@ -661,16 +680,13 @@ const MemoController = {
     if (actionsEl) {
       if (memo.status === 'open') {
         actionsEl.innerHTML = `
-          <button type="button" class="btn btn-secondary" id="btn-detail-return">Return All Remaining</button>
-          <button type="button" class="btn btn-primary" id="btn-detail-sell">Sell All Remaining</button>
+          <button type="button" class="btn btn-primary" id="btn-detail-outcome" style="min-width:150px;">
+            Record Outcome
+          </button>
         `;
-        document.getElementById('btn-detail-return').addEventListener('click', () => {
+        document.getElementById('btn-detail-outcome').addEventListener('click', () => {
           UI.closeModal('modal-memo-detail');
-          this.handleCloseMemo(memo.id, 'returned');
-        });
-        document.getElementById('btn-detail-sell').addEventListener('click', () => {
-          UI.closeModal('modal-memo-detail');
-          this.handleCloseMemo(memo.id, 'sold');
+          this.openMemoOutcomeModal(memo.id);
         });
       } else {
         actionsEl.innerHTML = '';
@@ -984,6 +1000,429 @@ const MemoController = {
         }
       }
     );
+  },
+
+  // ── Outcome Modal ─────────────────────────────────────────────────────────
+
+  openMemoOutcomeModal(memoId) {
+    const memo = DBManager.getMemos().find(m => m.id === memoId);
+    if (!memo) return;
+
+    this.activeOutcomeContext = { memoId, selectedOutcome: null };
+
+    // Subtitle
+    const issuedDate = new Date(memo.date + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    document.getElementById('memo-outcome-subtitle').textContent =
+      `${memo.memoNumber} · ${memo.brokerName} · ${(memo.totalCarats || 0).toFixed(2)} cts · Issued ${issuedDate}`;
+
+    // Reset card states
+    ['outcome-card-sale', 'outcome-card-partial', 'outcome-card-return'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('active-sale', 'active-partial', 'active-return');
+    });
+
+    // Hide all sections
+    document.querySelectorAll('.outcome-section').forEach(s => s.classList.remove('active'));
+
+    // Reset all inputs
+    ['outcome-sale-rate', 'outcome-sale-date', 'outcome-sale-notes',
+     'outcome-partial-sale-rate', 'outcome-partial-sale-date', 'outcome-partial-notes',
+     'outcome-return-notes'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+
+    // Disable confirm & clear errors
+    const btnSave = document.getElementById('btn-save-memo-outcome');
+    if (btnSave) btnSave.disabled = true;
+    const msg = document.getElementById('memo-outcome-validation-msg');
+    if (msg) msg.textContent = '';
+
+    UI.openModal('modal-memo-outcome');
+  },
+
+  handleOutcomeSelect(outcome) {
+    if (!this.activeOutcomeContext) return;
+    const memo = DBManager.getMemos().find(m => m.id === this.activeOutcomeContext.memoId);
+    if (!memo) return;
+
+    this.activeOutcomeContext.selectedOutcome = outcome;
+
+    // Clear card active states
+    document.getElementById('outcome-card-sale').classList.remove('active-sale', 'active-partial', 'active-return');
+    document.getElementById('outcome-card-partial').classList.remove('active-sale', 'active-partial', 'active-return');
+    document.getElementById('outcome-card-return').classList.remove('active-sale', 'active-partial', 'active-return');
+
+    // Apply active class
+    if (outcome === 'complete-sale')  document.getElementById('outcome-card-sale').classList.add('active-sale');
+    if (outcome === 'partial-sale')   document.getElementById('outcome-card-partial').classList.add('active-partial');
+    if (outcome === 'full-return')    document.getElementById('outcome-card-return').classList.add('active-return');
+
+    // Hide all input sections
+    document.querySelectorAll('.outcome-section').forEach(s => s.classList.remove('active'));
+
+    // Show & populate relevant section
+    if (outcome === 'complete-sale') {
+      this._renderCompleteSaleSummary(memo);
+      document.getElementById('outcome-section-complete-sale').classList.add('active');
+    } else if (outcome === 'partial-sale') {
+      this._renderPartialSaleTable(memo);
+      document.getElementById('outcome-section-partial-sale').classList.add('active');
+    } else if (outcome === 'full-return') {
+      this._renderFullReturnSummary(memo);
+      document.getElementById('outcome-section-full-return').classList.add('active');
+    }
+
+    // Clear validation message and enable confirm
+    const msg = document.getElementById('memo-outcome-validation-msg');
+    if (msg) msg.textContent = '';
+    const btnSave = document.getElementById('btn-save-memo-outcome');
+    if (btnSave) btnSave.disabled = false;
+  },
+
+  _renderCompleteSaleSummary(memo) {
+    let totalRem = 0, totalRemPcs = 0;
+    const pudiaLines = [];
+
+    (memo.items || []).forEach(item => {
+      const rem = Math.max(0, Number((item.carats - (item.returnedCarats || 0) - (item.soldCarats || 0)).toFixed(3)));
+      const remPcs = Math.max(0, (item.pieces || 0) - (item.returnedPieces || 0) - (item.soldPieces || 0));
+      if (rem > 0) {
+        totalRem += rem;
+        totalRemPcs += remPcs;
+        const snap = item.emeraldSnapshot || {};
+        pudiaLines.push(`#${snap.color || 'N/A'} &mdash; ${UI.escapeHtml(snap.group || '—')} (${rem.toFixed(2)} cts)`);
+      }
+    });
+
+    document.getElementById('outcome-sale-summary').innerHTML = `
+      <div class="outcome-summary-row">
+        <span style="color:var(--text-muted);">Carats to be marked as sold:</span>
+        <span style="font-size:20px; font-weight:800; color:#30D158;">${totalRem.toFixed(2)} cts</span>
+      </div>
+      <div class="outcome-summary-row">
+        <span style="color:var(--text-muted);">Pieces:</span>
+        <span style="font-weight:600;">${totalRemPcs} pcs</span>
+      </div>
+      ${pudiaLines.length > 0 ? `
+      <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border-light); font-size:12px; color:var(--text-muted); display:flex; flex-direction:column; gap:3px;">
+        ${pudiaLines.map(l => `<span>${l}</span>`).join('')}
+      </div>` : ''}
+      <div style="margin-top:10px; padding:8px 12px; background:rgba(48,209,88,0.08); border:1px solid rgba(48,209,88,0.3); border-radius:6px; font-size:12px; color:#30D158; font-weight:600;">
+        ⚡ These carats will be permanently deducted from stock.
+      </div>
+    `;
+  },
+
+  _renderPartialSaleTable(memo) {
+    const tbody = document.getElementById('outcome-partial-tbody');
+    tbody.innerHTML = '';
+
+    (memo.items || []).forEach((item, idx) => {
+      const rem = Math.max(0, Number((item.carats - (item.returnedCarats || 0) - (item.soldCarats || 0)).toFixed(3)));
+      if (rem <= 0) return;
+
+      const snap = item.emeraldSnapshot || {};
+      const gradeText = snap.stockType === 'Single Pieces' ? '' : ` · ${UI.escapeHtml(snap.lustreGrade || '—')}`;
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>
+          <span style="font-weight:700; color:var(--text-gold-dark);">#${snap.color || 'N/A'}</span><br>
+          <span style="font-size:10px; color:var(--text-muted);">${UI.escapeHtml(snap.group || '—')} · ${UI.escapeHtml(snap.shape || '—')}${gradeText}</span>
+        </td>
+        <td style="text-align:right; color:var(--text-muted);">${(item.carats || 0).toFixed(2)}</td>
+        <td style="text-align:right; font-weight:700;">${rem.toFixed(2)} cts</td>
+        <td style="text-align:right;">
+          <input type="number" class="outcome-partial-input outcome-sold-input"
+            data-idx="${idx}" data-rem="${rem}"
+            min="0" max="${rem}" step="0.001" value="0">
+        </td>
+        <td style="text-align:right;">
+          <input type="number" class="outcome-partial-input outcome-returned-input"
+            data-idx="${idx}" data-rem="${rem}"
+            min="0" max="${rem}" step="0.001" value="0">
+        </td>
+        <td style="text-align:center;" id="outcome-partial-rem-${idx}">
+          <span style="font-weight:700; font-size:13px;">${rem.toFixed(2)}</span>
+        </td>
+      `;
+
+      const soldInput = tr.querySelector('.outcome-sold-input');
+      const retInput  = tr.querySelector('.outcome-returned-input');
+
+      const updateRow = () => {
+        const sold = Number(soldInput.value || 0);
+        const ret  = Number(retInput.value || 0);
+        const after = Number((rem - sold - ret).toFixed(3));
+        const remCell = document.getElementById(`outcome-partial-rem-${idx}`);
+        if (!remCell) return;
+
+        // Highlight error state if over-allocated
+        const isOver = sold + ret > rem + 0.001;
+        soldInput.classList.toggle('input-error', isOver);
+        retInput.classList.toggle('input-error', isOver);
+
+        if (isOver) {
+          remCell.innerHTML = `<span style="color:var(--danger-red); font-weight:700; font-size:11px;">⚠ Exceeds</span>`;
+        } else if (after <= 0) {
+          remCell.innerHTML = `<span style="color:#30D158; font-weight:700; font-size:11px;">CLOSED ✓</span>`;
+        } else {
+          remCell.innerHTML = `<span style="font-weight:700; font-size:13px;">${after.toFixed(2)}</span>`;
+        }
+      };
+
+      soldInput.addEventListener('input', updateRow);
+      retInput.addEventListener('input', updateRow);
+
+      tbody.appendChild(tr);
+    });
+
+    if (tbody.children.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:16px; color:var(--text-muted);">No remaining items on this memo.</td></tr>';
+    }
+  },
+
+  _renderFullReturnSummary(memo) {
+    let totalRem = 0, totalRemPcs = 0;
+    (memo.items || []).forEach(item => {
+      totalRem    += Math.max(0, Number((item.carats - (item.returnedCarats || 0) - (item.soldCarats || 0)).toFixed(3)));
+      totalRemPcs += Math.max(0, (item.pieces || 0) - (item.returnedPieces || 0) - (item.soldPieces || 0));
+    });
+
+    document.getElementById('outcome-return-summary').innerHTML = `
+      <div style="font-size:36px; margin-bottom:10px;">↩️</div>
+      <div style="font-size:16px; font-weight:700; color:var(--text-main); margin-bottom:6px;">
+        ${totalRem.toFixed(2)} cts · ${totalRemPcs} pcs returned to stock
+      </div>
+      <div style="font-size:12px; color:var(--text-muted); margin-bottom:12px;">
+        All remaining goods will be returned. No stock changes. Memo will be deleted.
+      </div>
+      <div style="display:inline-block; padding:6px 16px; background:rgba(140,140,160,0.1); border:1px solid rgba(140,140,160,0.3); border-radius:20px; font-size:11px; color:var(--text-muted); font-weight:700;">
+        Broker: ${UI.escapeHtml(memo.brokerName)}
+      </div>
+    `;
+  },
+
+  async handleSaveOutcome() {
+    if (!this.activeOutcomeContext) return;
+    const { memoId, selectedOutcome } = this.activeOutcomeContext;
+    const validationMsg = document.getElementById('memo-outcome-validation-msg');
+    if (validationMsg) validationMsg.textContent = '';
+
+    if (!selectedOutcome) {
+      if (validationMsg) validationMsg.textContent = 'Please select an outcome above.';
+      return;
+    }
+
+    const memo = DBManager.getMemos().find(m => m.id === memoId);
+    if (!memo) return;
+
+    if (selectedOutcome === 'complete-sale') {
+      await this._executeCompleteSale(memo);
+    } else if (selectedOutcome === 'partial-sale') {
+      await this._executePartialSale(memo, validationMsg);
+    } else if (selectedOutcome === 'full-return') {
+      await this._executeFullReturn(memo);
+    }
+  },
+
+  async _executeCompleteSale(memo) {
+    const saleRate = Number(document.getElementById('outcome-sale-rate').value || 0);
+    const saleDate = document.getElementById('outcome-sale-date').value || '';
+    const saleNotes = (document.getElementById('outcome-sale-notes').value || '').trim();
+
+    let totalSoldCts = 0;
+
+    (memo.items || []).forEach(item => {
+      const rem    = Math.max(0, Number((item.carats - (item.returnedCarats || 0) - (item.soldCarats || 0)).toFixed(3)));
+      const remPcs = Math.max(0, (item.pieces || 0) - (item.returnedPieces || 0) - (item.soldPieces || 0));
+      if (rem <= 0) return;
+
+      item.soldCarats = Number(((item.soldCarats || 0) + rem).toFixed(3));
+      item.soldPieces = (item.soldPieces || 0) + remPcs;
+      totalSoldCts   += rem;
+
+      // Deduct from emerald stock
+      const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
+      if (emerald) {
+        const cur    = EmeraldController.getEmeraldWeight(emerald);
+        const newWt  = Math.max(0, Number((cur - rem).toFixed(3)));
+        if (emerald.sizes && emerald.sizes.length > 0 && cur > 0) {
+          const ratio = newWt / cur;
+          emerald.sizes.forEach(s => { s.weight = Number((Number(s.weight || 0) * ratio).toFixed(3)); });
+        }
+        emerald.weight    = newWt;
+        emerald.updatedAt = new Date().toISOString();
+      }
+    });
+
+    memo.status      = 'sold';
+    memo.closedAt    = new Date().toISOString();
+    memo.outcomeType = 'complete-sale';
+    if (saleRate > 0) memo.saleRate = saleRate;
+    if (saleDate)     memo.saleDate = saleDate;
+    if (saleNotes)    memo.outcomeNotes = saleNotes;
+
+    const rateNote = saleRate > 0 ? ` · Rate: ₹${saleRate.toLocaleString('en-IN')}/ct · Total: ₹${(saleRate * totalSoldCts).toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '';
+    DBManager.addLog('DELETE', memo.id, `Memo ${memo.memoNumber}`,
+      `Complete Sale: Memo ${memo.memoNumber} (${memo.brokerName}) — ${totalSoldCts.toFixed(2)} cts sold.${rateNote}`, []);
+
+    try {
+      await DBManager.saveVault();
+      UI.closeModal('modal-memo-outcome');
+      UI.showToast(`💰 Memo ${memo.memoNumber} — Complete Sale recorded. ${totalSoldCts.toFixed(2)} cts sold.`);
+      App.refreshAllDisplays();
+    } catch (err) {
+      UI.showToast(err.message, true);
+    }
+  },
+
+  async _executePartialSale(memo, validationMsg) {
+    const soldInputs = document.querySelectorAll('#outcome-partial-tbody .outcome-sold-input');
+    const retInputs  = document.querySelectorAll('#outcome-partial-tbody .outcome-returned-input');
+
+    let hasAnyAction = false;
+    let errorMsg     = null;
+    const rowData    = [];
+
+    soldInputs.forEach((soldInp, i) => {
+      const retInp  = retInputs[i];
+      const idx     = parseInt(soldInp.dataset.idx, 10);
+      const rem     = parseFloat(soldInp.dataset.rem);
+      const soldVal = Math.max(0, Number(soldInp.value || 0));
+      const retVal  = Math.max(0, Number(retInp.value || 0));
+
+      if (soldVal > 0 || retVal > 0) hasAnyAction = true;
+
+      if (soldVal + retVal > rem + 0.001) {
+        const snap = (memo.items[idx] || {}).emeraldSnapshot || {};
+        errorMsg = `Pudia #${snap.color || idx + 1}: Sold + Returned (${(soldVal + retVal).toFixed(2)}) exceeds remaining (${rem.toFixed(2)}) cts.`;
+      }
+
+      rowData.push({ idx, soldVal, retVal, rem });
+    });
+
+    if (errorMsg) {
+      if (validationMsg) validationMsg.textContent = errorMsg;
+      return;
+    }
+    if (!hasAnyAction) {
+      if (validationMsg) validationMsg.textContent = 'Please enter at least one sold or returned quantity.';
+      return;
+    }
+
+    const saleRate  = Number(document.getElementById('outcome-partial-sale-rate').value || 0);
+    const saleDate  = document.getElementById('outcome-partial-sale-date').value || '';
+    const saleNotes = (document.getElementById('outcome-partial-notes').value || '').trim();
+
+    let totalSoldCts = 0, totalRetCts = 0;
+
+    rowData.forEach(({ idx, soldVal, retVal }) => {
+      const item = memo.items[idx];
+      if (!item) return;
+
+      if (soldVal > 0) {
+        item.soldCarats  = Number(((item.soldCarats || 0) + soldVal).toFixed(3));
+        totalSoldCts    += soldVal;
+
+        const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
+        if (emerald) {
+          const cur   = EmeraldController.getEmeraldWeight(emerald);
+          const newWt = Math.max(0, Number((cur - soldVal).toFixed(3)));
+          if (emerald.sizes && emerald.sizes.length > 0 && cur > 0) {
+            const ratio = newWt / cur;
+            emerald.sizes.forEach(s => { s.weight = Number((Number(s.weight || 0) * ratio).toFixed(3)); });
+          }
+          emerald.weight    = newWt;
+          emerald.updatedAt = new Date().toISOString();
+        }
+      }
+
+      if (retVal > 0) {
+        item.returnedCarats  = Number(((item.returnedCarats || 0) + retVal).toFixed(3));
+        totalRetCts         += retVal;
+      }
+    });
+
+    // Check if memo is now fully resolved
+    const remaining = memo.items.reduce((sum, it) =>
+      sum + Math.max(0, it.carats - (it.returnedCarats || 0) - (it.soldCarats || 0)), 0);
+
+    if (remaining <= 0.001) {
+      const totalSoldAll = memo.items.reduce((s, it) => s + (it.soldCarats || 0), 0);
+      if (totalSoldAll <= 0.001) {
+        DBManager.database.memos = DBManager.database.memos.filter(m => m.id !== memo.id);
+      } else {
+        const totalRetAll = memo.items.reduce((s, it) => s + (it.returnedCarats || 0), 0);
+        memo.status   = totalRetAll > 0.001 ? 'closed' : 'sold';
+        memo.closedAt = new Date().toISOString();
+      }
+    }
+
+    memo.outcomeType = 'partial-sale';
+    if (saleRate > 0) memo.saleRate = saleRate;
+    if (saleDate)     memo.saleDate = saleDate;
+    if (saleNotes)    memo.outcomeNotes = saleNotes;
+
+    DBManager.addLog('EDIT', memo.id, `Memo ${memo.memoNumber}`,
+      `Partial Sale: Memo ${memo.memoNumber} (${memo.brokerName}) — ${totalSoldCts.toFixed(2)} cts sold, ${totalRetCts.toFixed(2)} cts returned.`, []);
+
+    try {
+      await DBManager.saveVault();
+      UI.closeModal('modal-memo-outcome');
+      UI.showToast(`⚖️ Memo ${memo.memoNumber} — Partial outcome recorded. ${totalSoldCts.toFixed(2)} cts sold, ${totalRetCts.toFixed(2)} cts returned.`);
+      App.refreshAllDisplays();
+    } catch (err) {
+      UI.showToast(err.message, true);
+    }
+  },
+
+  async _executeFullReturn(memo) {
+    const notes = (document.getElementById('outcome-return-notes').value || '').trim();
+
+    (memo.items || []).forEach(item => {
+      const rem    = Math.max(0, Number((item.carats - (item.returnedCarats || 0) - (item.soldCarats || 0)).toFixed(3)));
+      const remPcs = Math.max(0, (item.pieces || 0) - (item.returnedPieces || 0) - (item.soldPieces || 0));
+      if (rem <= 0) return;
+      item.returnedCarats  = Number(((item.returnedCarats || 0) + rem).toFixed(3));
+      item.returnedPieces  = (item.returnedPieces || 0) + remPcs;
+    });
+
+    const totalSoldAll = memo.items.reduce((s, it) => s + (it.soldCarats || 0), 0);
+    let isDeleted = false;
+
+    if (totalSoldAll <= 0.001) {
+      // No prior sales — delete memo entirely
+      DBManager.database.memos = DBManager.database.memos.filter(m => m.id !== memo.id);
+      isDeleted = true;
+    } else {
+      memo.status      = 'closed';
+      memo.closedAt    = new Date().toISOString();
+      memo.outcomeType = 'full-return';
+      if (notes) memo.outcomeNotes = notes;
+    }
+
+    DBManager.addLog(
+      isDeleted ? 'EDIT' : 'EDIT',
+      memo.id,
+      `Memo ${memo.memoNumber}`,
+      isDeleted
+        ? `Full Return: Memo ${memo.memoNumber} (${memo.brokerName}) fully returned and deleted.`
+        : `Full Return: Memo ${memo.memoNumber} (${memo.brokerName}) — all remaining goods returned, memo closed.`,
+      []
+    );
+
+    try {
+      await DBManager.saveVault();
+      UI.closeModal('modal-memo-outcome');
+      UI.showToast(isDeleted
+        ? `↩️ Memo ${memo.memoNumber} fully returned and deleted.`
+        : `↩️ Memo ${memo.memoNumber} — Full return recorded.`);
+      App.refreshAllDisplays();
+    } catch (err) {
+      UI.showToast(err.message, true);
+    }
   }
 };
 
