@@ -77,29 +77,16 @@ const DBManager = {
         throw new Error("The specified database file does not exist.");
       }
 
-      // Read raw JSON from disk
-      const db = JSON.parse(fileInfo.data);
-      if (!db.emeralds) {
-        db.emeralds = [];
-      }
-      if (!db.memos) {
-        db.memos = [];
-      }
-      if (!db.stones) {
-        db.stones = [];
-      }
-      if (!db.stoneMemos) {
-        db.stoneMemos = [];
-      }
-      if (db.stoneMemos && !db.jewelStoneMemos) {
-        db.jewelStoneMemos = db.stoneMemos;
-      }
-      if (!db.jewelStoneMemos) {
-        db.jewelStoneMemos = [];
-      }
-      if (!db.jewelryMemos) {
-        db.jewelryMemos = [];
-      }
+      // Read raw JSON or object payload from disk
+      let db = typeof fileInfo.data === 'string' ? JSON.parse(fileInfo.data) : (fileInfo.data || {});
+      if (!db.settings) db.settings = {};
+      if (!db.items) db.items = [];
+      if (!db.emeralds) db.emeralds = [];
+      if (!db.memos) db.memos = [];
+      if (!db.stones) db.stones = [];
+      if (!db.jewelStoneMemos) db.jewelStoneMemos = db.stoneMemos || [];
+      if (!db.jewelryMemos) db.jewelryMemos = [];
+      if (!db.logs) db.logs = [];
 
       // Successful load
       this.database = db;

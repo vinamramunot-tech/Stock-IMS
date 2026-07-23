@@ -337,48 +337,107 @@ fn import_backup_dialog() -> Option<String> {
 }
 
 #[tauri::command]
+fn parse_vault_bytes(raw_buffer: &[u8]) -> Result<String, String> {
+    if raw_buffer.is_empty() {
+        return Ok(serde_json::json!({
+            "settings": {},
+            "items": [],
+            "emeralds": [],
+            "memos": [],
+            "stones": [],
+            "jewelStoneMemos": [],
+            "jewelryMemos": [],
+            "logs": []
+        }).to_string());
+    }
+
+    let decrypted = match decrypt_data_bytes(raw_buffer) {
+        Ok(bytes) => bytes,
+        Err(_) => raw_buffer.to_vec(),
+    };
+
+    // Check for Gzip magic bytes: [0x1f, 0x8b]
+    let decompressed = if decrypted.len() >= 2 && decrypted[0] == 0x1f && decrypted[1] == 0x8b {
+        let mut decoder = GzDecoder::new(&decrypted[..]);
+        let mut decompressed_bytes = Vec::new();
+        if decoder.read_to_end(&mut decompressed_bytes).is_ok() {
+            decompressed_bytes
+        } else {
+            decrypted
+        }
+    } else {
+        decrypted
+    };
+
+    // 1. Try MessagePack deserialization into generic serde_json::Value
+    if let Ok(bin_val) = rmp_serde::from_slice::<serde_json::Value>(&decompressed) {
+        if let Ok(json_str) = serde_json::to_string(&bin_val) {
+            return Ok(json_str);
+        }
+    }
+
+    // 2. Try MessagePack deserialization into VaultDatabase struct
+    if let Ok(bin_db) = rmp_serde::from_slice::<db::VaultDatabase>(&decompressed) {
+        if let Ok(json_str) = serde_json::to_string(&bin_db) {
+            return Ok(json_str);
+        }
+    }
+
+    // 3. Try UTF-8 string from decompressed bytes (plain or Gzip JSON)
+    if let Ok(s) = String::from_utf8(decompressed.clone()) {
+        let trimmed = s.trim();
+        if trimmed.starts_with('{') && serde_json::from_str::<serde_json::Value>(trimmed).is_ok() {
+            return Ok(trimmed.to_string());
+        }
+    }
+
+    // 4. Try UTF-8 string from raw buffer (plain unencrypted JSON file)
+    if let Ok(s) = String::from_utf8(raw_buffer.to_vec()) {
+        let trimmed = s.trim();
+        if trimmed.starts_with('{') && serde_json::from_str::<serde_json::Value>(trimmed).is_ok() {
+            return Ok(trimmed.to_string());
+        }
+    }
+
+    Err("Database payload is unreadable (neither MessagePack nor valid JSON)".to_string())
+}
+
+#[tauri::command]
 fn read_vault(handle: AppHandle, custom_path: String) -> Result<serde_json::Value, String> {
     let file_path = std::path::Path::new(&custom_path);
     if !file_path.exists() {
         return Ok(serde_json::json!({ "exists": false, "data": null }));
     }
-    
+
     let raw_buffer = std::fs::read(file_path)
         .map_err(|e| format!("Failed to read file: {:?}", e))?;
-        
-    let decrypted = decrypt_data_bytes(&raw_buffer)?;
-    
-    // Check for Gzip magic bytes: [0x1f, 0x8b]
-    let decompressed = if decrypted.len() >= 2 && decrypted[0] == 0x1f && decrypted[1] == 0x8b {
-        let mut decoder = GzDecoder::new(&decrypted[..]);
-        let mut decompressed_bytes = Vec::new();
-        decoder.read_to_end(&mut decompressed_bytes)
-            .map_err(|e| format!("Failed to decompress database: {:?}", e))?;
-        decompressed_bytes
-    } else {
-        decrypted
-    };
-    
-    // Try deserializing as the new MessagePack database format
-    let json_str = if let Ok(bin_db) = rmp_serde::from_slice::<db::VaultDatabase>(&decompressed) {
-        serde_json::to_string(&bin_db)
-            .map_err(|e| format!("Failed to convert binary db to JSON: {:?}", e))?
-    } else {
-        // Fallback: legacy decrypted JSON string
-        match String::from_utf8(decompressed.clone()) {
-            Ok(s) => s,
-            Err(_) => {
-                if let Ok(utf8_str) = std::str::from_utf8(&raw_buffer) {
-                    utf8_str.to_string()
-                } else {
-                    return Err("Decrypted data is neither MessagePack nor valid UTF-8 JSON".to_string());
+
+    let json_str = match parse_vault_bytes(&raw_buffer) {
+        Ok(data) => data,
+        Err(err) => {
+            // Automatic backup recovery attempt if main file is unreadable
+            let backup_path = format!("{}.bak", custom_path);
+            let b_path = std::path::Path::new(&backup_path);
+            if b_path.exists() {
+                if let Ok(b_buffer) = std::fs::read(b_path) {
+                    if let Ok(b_data) = parse_vault_bytes(&b_buffer) {
+                        // Successfully recovered from backup! Overwrite corrupted main file with backup.
+                        let _ = std::fs::copy(b_path, file_path);
+                        start_watching_db_file(handle, custom_path.clone());
+                        return Ok(serde_json::json!({
+                            "exists": true,
+                            "data": b_data,
+                            "path": custom_path
+                        }));
+                    }
                 }
             }
+            return Err(err);
         }
     };
-    
+
     start_watching_db_file(handle, custom_path.clone());
-    
+
     Ok(serde_json::json!({
         "exists": true,
         "data": json_str,
