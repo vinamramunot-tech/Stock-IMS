@@ -9,10 +9,10 @@ const EmeraldController = {
   currentViewMode: 'accordion',
 
   init() {
-    // Convert lustre, color (pudia number), and group inputs to comboboxes
     this._replaceWithComboWidget('emerald-lustre', 'form-lustre', () => this._getKnownLustres(), 'Select or type lustre grade...');
     this._replaceWithComboWidget('emerald-color', 'form-color', () => this._getKnownPudiaNumbers(), 'e.g. 9');
     this._replaceWithComboWidget('emerald-group', 'form-group', () => this._getKnownGroups(), 'e.g. A-1 Lot or Custom Group');
+    this._replaceWithComboWidget('emerald-origin', 'form-origin', () => this._getKnownOrigins(), 'e.g. Zambian or Custom Origin');
 
     // Event listeners for filters and search
     const searchInput = document.getElementById('emerald-search-input');
@@ -411,9 +411,11 @@ const EmeraldController = {
       stockTypeSelect.value = 'Calibrated Series';
     }
 
-    // Clear checked origins
-    const checkBoxes = document.querySelectorAll('input[name="emerald-origin"]');
-    checkBoxes.forEach(cb => cb.checked = false);
+    // Clear origin
+    const originInput = document.getElementById('emerald-origin');
+    if (originInput) {
+      originInput.value = '';
+    }
 
     // Clear dynamic cards container
     const container = document.getElementById('emerald-pudias-list-container');
@@ -1061,14 +1063,8 @@ const EmeraldController = {
       stockTypeSelect.value = emerald.stockType || (emerald.lustreGrade ? 'Calibrated Series' : 'Single Pieces');
     }
 
-    // Check origins
-    const origins = emerald.origins || [];
-    const checkBoxes = document.querySelectorAll('input[name="emerald-origin"]');
-    checkBoxes.forEach(cb => {
-      if (origins.includes(cb.value)) {
-        cb.checked = true;
-      }
-    });
+    // Load origin
+    document.getElementById('emerald-origin').value = (emerald.origins || []).join(', ');
 
     // Add a single card populated with the emerald's specific details
     this.addPudiaCard(emerald);
@@ -1152,6 +1148,15 @@ const EmeraldController = {
     const all = new Set();
     DBManager.getEmeralds().forEach(e => {
       if (e.group && e.group.trim()) all.add(e.group.trim());
+    });
+    return Array.from(all).sort();
+  },
+
+  /** Collect all known unique origins from DB */
+  _getKnownOrigins() {
+    const all = new Set();
+    DBManager.getEmeralds().forEach(e => {
+      (e.origins || []).forEach(o => { if (o && o.trim()) all.add(o.trim()); });
     });
     return Array.from(all).sort();
   },
@@ -1685,9 +1690,9 @@ const EmeraldController = {
     const stockType = document.getElementById('emerald-stock-type').value;
     const group = document.getElementById('emerald-group').value.trim();
 
-    // Gather checked origins
-    const checkBoxes = document.querySelectorAll('input[name="emerald-origin"]:checked');
-    const origins = Array.from(checkBoxes).map(cb => cb.value);
+    // Gather origins
+    const originInputVal = document.getElementById('emerald-origin').value.trim();
+    const origins = originInputVal ? originInputVal.split(',').map(o => o.trim()).filter(Boolean) : [];
 
     // Validation for shared fields
     if (!group) {
