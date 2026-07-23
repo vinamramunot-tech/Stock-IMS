@@ -1480,6 +1480,12 @@ const EmeraldController = {
           pudiaBlock.className = 'emerald-pudia-block';
           pudiaBlock.style.cssText = 'border-radius: 4px; overflow: hidden; border: 1px solid var(--border-light); background-color: var(--bg-card);';
 
+          const totalWeight = this.getEmeraldWeight(item);
+          const totalPieces = this.getEmeraldPieces(item);
+          const shapes = this.getEmeraldShapes(item);
+          const shapesDisplay = shapes.length > 0 ? shapes.join(', ') : 'Unknown Shape';
+          const originsStr = (item.origins || []).join(', ');
+
           const pudiaHeader = document.createElement('div');
           pudiaHeader.className = 'emerald-pudia-header';
           pudiaHeader.style.cssText = 'display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px 12px; user-select: none; background-color: var(--bg-card);';
