@@ -281,92 +281,111 @@
       <!-- SIDEBAR -->
       <aside class="workspace-sidebar">
         <nav class="sidebar-nav">
-          <div
-            style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px; padding-left:12px; letter-spacing:0.05em;">
-            CATALOGS</div>
-          <button type="button" class="nav-item active" data-target="tab-catalog">
-            <svg viewBox="0 0 24 24" width="18" height="18">
-              <path fill="currentColor"
-                d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z" />
-            </svg>
-            Jewelry Catalog
-          </button>
-          <button type="button" class="nav-item" data-target="tab-emerald-catalog">
-            <svg viewBox="0 0 24 24" width="18" height="18">
-              <path fill="currentColor"
-                d="M16 2H8L2 8l10 14 10-14-6-6zM12 4.12L15.38 8H8.62L12 4.12zM5.38 8.88l3.43 4.8-4.43-4.8zm5.62 9.07L7.15 12.8h7.7L11 17.95z" />
-            </svg>
-            Emerald Catalog
-          </button>
-          <button type="button" class="nav-item" data-target="tab-stone-catalog">
-            <svg viewBox="0 0 24 24" width="18" height="18">
-              <path fill="currentColor" d="M12 2L2 12h3v8h6v-6h2v6h6v-8h3L12 2z" />
-            </svg>
-            Stone Catalog
-          </button>
+          <!-- Jewelry App Nav -->
+          <div class="sidebar-app-group" data-app-group="jewelry">
+            <div style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px; padding-left:12px; letter-spacing:0.05em;">
+              Jewelry Suite</div>
+            <button type="button" class="nav-item active" data-target="tab-catalog">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path fill="currentColor"
+                  d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z" />
+              </svg>
+              Jewelry Catalog
+            </button>
+            <button type="button" class="nav-item" data-target="tab-jewelry-photos">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path fill="currentColor"
+                  d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />
+              </svg>
+              Jewelry Photos
+            </button>
+            <button type="button" class="nav-item" data-target="tab-jewelry-memos">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path fill="currentColor"
+                  d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zm0 5h-2V5h2v3zM4 19h16v2H4z" />
+              </svg>
+              Jewelry Memos
+            </button>
+          </div>
 
-          <div
-            style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin:15px 0 8px 0; padding-left:12px; letter-spacing:0.05em;">
-            PHOTOS</div>
-          <button type="button" class="nav-item" data-target="tab-jewelry-photos">
-            <svg viewBox="0 0 24 24" width="18" height="18">
-              <path fill="currentColor"
-                d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />
-            </svg>
-            Jewelry Photos
-          </button>
-          <button type="button" class="nav-item" data-target="tab-emerald-photos">
-            <svg viewBox="0 0 24 24" width="18" height="18">
-              <path fill="currentColor"
-                d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />
-            </svg>
-            Emerald Photos
-          </button>
+          <!-- Emerald App Nav -->
+          <div class="sidebar-app-group" data-app-group="emerald">
+            <div style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px; padding-left:12px; letter-spacing:0.05em;">
+              Emerald Suite</div>
+            <button type="button" class="nav-item" data-target="tab-emerald-catalog">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path fill="currentColor"
+                  d="M16 2H8L2 8l10 14 10-14-6-6zM12 4.12L15.38 8H8.62L12 4.12zM5.38 8.88l3.43 4.8-4.43-4.8zm5.62 9.07L7.15 12.8h7.7L11 17.95z" />
+              </svg>
+              Emerald Catalog
+            </button>
+            <button type="button" class="nav-item" data-target="tab-emerald-analysis">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path fill="currentColor"
+                  d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
+              </svg>
+              Emerald Analysis
+            </button>
+            <button type="button" class="nav-item" data-target="tab-emerald-photos">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path fill="currentColor"
+                  d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />
+              </svg>
+              Emerald Photos
+            </button>
+            <button type="button" class="nav-item" data-target="tab-memos">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path fill="currentColor"
+                  d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zm0 5h-2V5h2v3zM4 19h16v2H4z" />
+              </svg>
+              Emerald Memos
+            </button>
+          </div>
 
-          <div
-            style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin:15px 0 8px 0; padding-left:12px; letter-spacing:0.05em;">
-            MEMO SYSTEMS</div>
-          <button type="button" class="nav-item" data-target="tab-memos">
-            <svg viewBox="0 0 24 24" width="18" height="18">
-              <path fill="currentColor"
-                d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zm0 5h-2V5h2v3zM4 19h16v2H4z" />
-            </svg>
-            Emerald Memos
-          </button>
-          <button type="button" class="nav-item" data-target="tab-jewel-stone-memos">
-            <svg viewBox="0 0 24 24" width="18" height="18">
-              <path fill="currentColor"
-                d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
-            </svg>
-            Jewelry Stone Memos
-          </button>
-          <button type="button" class="nav-item" data-target="tab-jewelry-memos">
-            <svg viewBox="0 0 24 24" width="18" height="18">
-              <path fill="currentColor"
-                d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zm0 5h-2V5h2v3zM4 19h16v2H4z" />
-            </svg>
-            Jewelry Memos
-          </button>
+          <!-- Loose Stones App Nav -->
+          <div class="sidebar-app-group" data-app-group="stone">
+            <div style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px; padding-left:12px; letter-spacing:0.05em;">
+              Loose Stones Suite</div>
+            <button type="button" class="nav-item" data-target="tab-stone-catalog">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path fill="currentColor" d="M12 2L2 12h3v8h6v-6h2v6h6v-8h3L12 2z" />
+              </svg>
+              Stone Catalog
+            </button>
+            <button type="button" class="nav-item" data-target="tab-jewel-stone-memos">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path fill="currentColor"
+                  d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
+              </svg>
+              Jewelry Stone Memos
+            </button>
+          </div>
 
-
-
-          <div
-            style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin:15px 0 8px 0; padding-left:12px; letter-spacing:0.05em;">
-            SYSTEM</div>
-          <button type="button" class="nav-item" data-target="tab-logs">
-            <svg viewBox="0 0 24 24" width="18" height="18">
-              <path fill="currentColor"
-                d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z" />
-            </svg>
-            Activity Logs
-          </button>
-          <button type="button" class="nav-item" data-target="tab-settings">
-            <svg viewBox="0 0 24 24" width="18" height="18">
-              <path fill="currentColor"
-                d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h-3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
-            </svg>
-            Vault Settings
-          </button>
+          <!-- System Nav -->
+          <div class="sidebar-app-group" data-app-group="system">
+            <div style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin:15px 0 8px 0; padding-left:12px; letter-spacing:0.05em;">
+              System</div>
+            <button type="button" class="nav-item" data-target="tab-logs">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path fill="currentColor"
+                  d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z" />
+              </svg>
+              Activity Logs
+            </button>
+            <button type="button" class="nav-item" data-target="tab-settings">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path fill="currentColor"
+                  d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h-3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
+              </svg>
+              Vault Settings
+            </button>
+            <button type="button" id="btn-sidebar-switch-app" class="nav-item" style="margin-top: 10px; border-top: 1px solid var(--border-light); padding-top: 12px; color: var(--text-gold-dark);">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path fill="currentColor" d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
+              </svg>
+              Switch App / Portal
+            </button>
+          </div>
         </nav>
 
         <div class="sidebar-footer">

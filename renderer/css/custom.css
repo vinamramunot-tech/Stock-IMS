@@ -459,7 +459,6 @@
   border-radius: 2px;
 }
 
-<<<<<<< HEAD
 /* ==================== EMERALD ENHANCEMENTS & DASHBOARD STYLES ==================== */
 
 /* View Mode Selector */
@@ -885,8 +884,8 @@
   border: 1px solid #FF453A;
 }
 
+/* ==================== APP LAUNCHER STYLES ==================== */
 
-=======
 /* App Launcher Styles */
 .launcher-grid {
   grid-template-columns: 1fr 1fr 1fr !important;
@@ -911,4 +910,3 @@
 .sidebar-app-group.hidden {
   display: none !important;
 }
->>>>>>> main
