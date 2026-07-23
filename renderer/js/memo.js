@@ -119,8 +119,72 @@ const MemoController = {
   },
 
   /**
+   * Deducts carats and pieces from physical Emerald stock (emerald.weight & emerald.sizes)
+   * when goods are issued on memo.
+   */
+  deductStockFromEmerald(emerald, caratsToDeduct, piecesToDeduct) {
+    if (!emerald || caratsToDeduct <= 0) return;
+
+    const currentWeight = EmeraldController.getEmeraldWeight(emerald);
+    const newWeight = Math.max(0, Number((currentWeight - caratsToDeduct).toFixed(3)));
+
+    if (emerald.sizes && emerald.sizes.length > 0 && currentWeight > 0) {
+      const ratio = newWeight / currentWeight;
+      emerald.sizes.forEach(s => {
+        s.weight = Number((Number(s.weight || 0) * ratio).toFixed(3));
+        if (piecesToDeduct > 0) {
+          s.pieces = Math.max(0, (s.pieces || 0) - Math.floor(piecesToDeduct / emerald.sizes.length));
+        }
+      });
+    }
+
+    emerald.weight = newWeight;
+    if (piecesToDeduct > 0) {
+      emerald.pieces = Math.max(0, (emerald.pieces || 0) - piecesToDeduct);
+    }
+    emerald.updatedAt = new Date().toISOString();
+  },
+
+  /**
+   * Restores carats and pieces back to physical Emerald stock (emerald.weight & emerald.sizes)
+   * when goods are returned from memo or a memo is deleted/cancelled.
+   */
+  restoreStockToEmerald(emerald, caratsToRestore, piecesToRestore) {
+    if (!emerald || caratsToRestore <= 0) return;
+
+    const currentWeight = EmeraldController.getEmeraldWeight(emerald);
+    const restoredWeight = Number((currentWeight + caratsToRestore).toFixed(3));
+
+    if (emerald.sizes && emerald.sizes.length > 0) {
+      if (currentWeight > 0) {
+        const ratio = restoredWeight / currentWeight;
+        emerald.sizes.forEach(s => {
+          s.weight = Number((Number(s.weight || 0) * ratio).toFixed(3));
+          if (piecesToRestore > 0) {
+            s.pieces = (s.pieces || 0) + Math.max(1, Math.floor(piecesToRestore / emerald.sizes.length));
+          }
+        });
+      } else {
+        // Emerald was completely at 0 cts. Distribute restored weight across size rows.
+        const count = emerald.sizes.length;
+        const perSizeWeight = Number((caratsToRestore / count).toFixed(3));
+        const perSizePieces = Math.max(1, Math.floor((piecesToRestore || 0) / count));
+        emerald.sizes.forEach(s => {
+          s.weight = perSizeWeight;
+          s.pieces = (s.pieces || 0) + perSizePieces;
+        });
+      }
+    }
+
+    emerald.weight = restoredWeight;
+    if (piecesToRestore > 0) {
+      emerald.pieces = (emerald.pieces || 0) + piecesToRestore;
+    }
+    emerald.updatedAt = new Date().toISOString();
+  },
+
+  /**
    * Returns total carats currently OUT on open memos for a given emerald ID.
-   * Used both here and by emerald.js for the stock split display.
    */
   getOpenMemoCaratsForEmerald(emeraldId) {
     const memos = DBManager.getMemos();
@@ -310,9 +374,7 @@ const MemoController = {
         return false;
       }
 
-      const totalCts = EmeraldController.getEmeraldWeight(e);
-      const memoCts  = Number((memoCaratsMap[e.id] || 0).toFixed(3));
-      const availCts = Math.max(0, Number((totalCts - memoCts).toFixed(3)));
+      const availCts = EmeraldController.getEmeraldWeight(e);
       if (availCts <= 0) return false;
 
       if (groupVal && e.group !== groupVal) {
@@ -341,9 +403,7 @@ const MemoController = {
     }
 
     filtered.forEach(e => {
-      const totalCts = EmeraldController.getEmeraldWeight(e);
-      const memoCts  = Number((memoCaratsMap[e.id] || 0).toFixed(3));
-      const availCts = Math.max(0, Number((totalCts - memoCts).toFixed(3)));
+      const availCts = EmeraldController.getEmeraldWeight(e);
 
       const div = document.createElement('div');
       div.className = 'pudia-picker-row';
@@ -407,10 +467,7 @@ const MemoController = {
     const emerald = DBManager.getEmeralds().find(e => e.id === emeraldId);
     if (!emerald) return;
 
-    const memoCaratsMap = this.buildMemoCaratsMap();
-    const totalCts = EmeraldController.getEmeraldWeight(emerald);
-    const memoCts  = Number((memoCaratsMap[emerald.id] || 0).toFixed(3));
-    const maxCts = Math.max(0, Number((totalCts - memoCts).toFixed(3)));
+    const maxCts = EmeraldController.getEmeraldWeight(emerald);
 
     if (inputCarats <= 0) {
       UI.showToast('Please enter a valid amount of carats.', true);
@@ -526,6 +583,14 @@ const MemoController = {
 
     if (!DBManager.database.memos) DBManager.database.memos = [];
     DBManager.database.memos.push(memo);
+
+    // Immediately deduct physical stock from inventory when goods are issued on memo
+    (this.selectedItems || []).forEach(item => {
+      const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
+      if (emerald) {
+        this.deductStockFromEmerald(emerald, item.carats, item.pieces || 0);
+      }
+    });
 
     DBManager.addLog(
       'ADD', memo.id, `Memo ${memoNumber}`,
@@ -883,25 +948,16 @@ const MemoController = {
     if (actionType === 'returned') {
       item.returnedCarats = Number(((item.returnedCarats || 0) + inputCarats).toFixed(3));
       item.returnedPieces = (item.returnedPieces || 0) + inputPieces;
+
+      // Restore returned goods back to inventory stock
+      const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
+      if (emerald) {
+        this.restoreStockToEmerald(emerald, inputCarats, inputPieces);
+      }
     } else {
       item.soldCarats = Number(((item.soldCarats || 0) + inputCarats).toFixed(3));
       item.soldPieces = (item.soldPieces || 0) + inputPieces;
-
-      // Permanently deduct from stock
-      const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
-      if (emerald) {
-        const currentWeight = EmeraldController.getEmeraldWeight(emerald);
-        const newWeight     = Math.max(0, Number((currentWeight - inputCarats).toFixed(3)));
-
-        if (emerald.sizes && emerald.sizes.length > 0 && currentWeight > 0) {
-          const ratio = newWeight / currentWeight;
-          emerald.sizes.forEach(s => {
-            s.weight = Number((Number(s.weight || 0) * ratio).toFixed(3));
-          });
-        }
-        emerald.weight = newWeight;
-        emerald.updatedAt = new Date().toISOString();
-      }
+      // Stock was ALREADY deducted from inventory when the memo was issued!
     }
 
     // Check if entire memo is fully completed
@@ -984,24 +1040,16 @@ const MemoController = {
           if (action === 'sold') {
             item.soldCarats = Number(((item.soldCarats || 0) + rem).toFixed(3));
             item.soldPieces = (item.soldPieces || 0) + remPcs;
-
-            const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
-            if (emerald) {
-              const currentWeight = EmeraldController.getEmeraldWeight(emerald);
-              const newWeight     = Math.max(0, Number((currentWeight - rem).toFixed(3)));
-
-              if (emerald.sizes && emerald.sizes.length > 0 && currentWeight > 0) {
-                const ratio = newWeight / currentWeight;
-                emerald.sizes.forEach(s => {
-                  s.weight = Number((Number(s.weight || 0) * ratio).toFixed(3));
-                });
-              }
-              emerald.weight = newWeight;
-              emerald.updatedAt = new Date().toISOString();
-            }
+            // Stock was ALREADY deducted from inventory when memo was issued!
           } else {
             item.returnedCarats = Number(((item.returnedCarats || 0) + rem).toFixed(3));
             item.returnedPieces = (item.returnedPieces || 0) + remPcs;
+
+            // Restore returned goods back to inventory stock
+            const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
+            if (emerald) {
+              this.restoreStockToEmerald(emerald, rem, remPcs);
+            }
           }
         });
 
@@ -1284,19 +1332,7 @@ const MemoController = {
       item.soldCarats = Number(((item.soldCarats || 0) + rem).toFixed(3));
       item.soldPieces = (item.soldPieces || 0) + remPcs;
       totalSoldCts   += rem;
-
-      // Deduct from emerald stock
-      const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
-      if (emerald) {
-        const cur    = EmeraldController.getEmeraldWeight(emerald);
-        const newWt  = Math.max(0, Number((cur - rem).toFixed(3)));
-        if (emerald.sizes && emerald.sizes.length > 0 && cur > 0) {
-          const ratio = newWt / cur;
-          emerald.sizes.forEach(s => { s.weight = Number((Number(s.weight || 0) * ratio).toFixed(3)); });
-        }
-        emerald.weight    = newWt;
-        emerald.updatedAt = new Date().toISOString();
-      }
+      // Stock was ALREADY deducted from inventory when memo was issued!
     });
 
     memo.status      = 'sold';
@@ -1373,18 +1409,7 @@ const MemoController = {
         item.soldCarats  = Number(((item.soldCarats || 0) + soldVal).toFixed(3));
         item.soldPieces  = (item.soldPieces || 0) + soldPcs;
         totalSoldCts    += soldVal;
-
-        const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
-        if (emerald) {
-          const cur   = EmeraldController.getEmeraldWeight(emerald);
-          const newWt = Math.max(0, Number((cur - soldVal).toFixed(3)));
-          if (emerald.sizes && emerald.sizes.length > 0 && cur > 0) {
-            const ratio = newWt / cur;
-            emerald.sizes.forEach(s => { s.weight = Number((Number(s.weight || 0) * ratio).toFixed(3)); });
-          }
-          emerald.weight    = newWt;
-          emerald.updatedAt = new Date().toISOString();
-        }
+        // Stock was ALREADY deducted from inventory when memo was issued!
       }
 
       if (retVal > 0) {
@@ -1396,6 +1421,12 @@ const MemoController = {
         item.returnedCarats  = Number(((item.returnedCarats || 0) + retVal).toFixed(3));
         item.returnedPieces  = (item.returnedPieces || 0) + retPcs;
         totalRetCts         += retVal;
+
+        // Restore returned stock to company inventory
+        const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
+        if (emerald) {
+          this.restoreStockToEmerald(emerald, retVal, retPcs);
+        }
       }
     });
 
@@ -1441,6 +1472,12 @@ const MemoController = {
       if (rem <= 0) return;
       item.returnedCarats  = Number(((item.returnedCarats || 0) + rem).toFixed(3));
       item.returnedPieces  = (item.returnedPieces || 0) + remPcs;
+
+      // Restore returned stock to company inventory
+      const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
+      if (emerald) {
+        this.restoreStockToEmerald(emerald, rem, remPcs);
+      }
     });
 
     const totalSoldAll = memo.items.reduce((s, it) => s + (it.soldCarats || 0), 0);
@@ -1479,90 +1516,44 @@ const MemoController = {
     }
   },
 
-  /**
-   * Restores sold carats and pieces back to an Emerald stock record (emerald.weight & emerald.sizes)
-   */
-  restoreSoldStockToEmerald(emerald, soldCarats, soldPieces) {
-    if (!emerald || soldCarats <= 0) return;
-
-    const currentWeight = EmeraldController.getEmeraldWeight(emerald);
-    const restoredWeight = Number((currentWeight + soldCarats).toFixed(3));
-
-    if (emerald.sizes && emerald.sizes.length > 0) {
-      if (currentWeight > 0) {
-        const ratio = restoredWeight / currentWeight;
-        emerald.sizes.forEach(s => {
-          s.weight = Number((Number(s.weight || 0) * ratio).toFixed(3));
-          if (soldPieces > 0) {
-            s.pieces = (s.pieces || 0) + Math.max(1, Math.floor(soldPieces / emerald.sizes.length));
-          }
-        });
-      } else {
-        // Emerald was completely sold out to 0 cts. Distribute restored weight across size rows.
-        const count = emerald.sizes.length;
-        const perSizeWeight = Number((soldCarats / count).toFixed(3));
-        const perSizePieces = Math.max(1, Math.floor((soldPieces || 0) / count));
-        emerald.sizes.forEach(s => {
-          s.weight = perSizeWeight;
-          s.pieces = (s.pieces || 0) + perSizePieces;
-        });
-      }
-    }
-
-    emerald.weight = restoredWeight;
-    if (soldPieces > 0) {
-      emerald.pieces = (emerald.pieces || 0) + soldPieces;
-    }
-    emerald.updatedAt = new Date().toISOString();
-  },
-
   deleteMemo(memoId) {
     const memo = DBManager.getMemos().find(m => m.id === memoId);
     if (!memo) return;
 
     UI.confirm(
-      `Are you sure you want to delete Memo ${memo.memoNumber}? This will cancel the memo and restore ALL goods (including any sold or open carats) back into company stock.`,
+      `Are you sure you want to delete Memo ${memo.memoNumber}? This will cancel the memo and restore any unreturned goods back into company stock.`,
       async () => {
         let totalRestoredCarats = 0;
 
         (memo.items || []).forEach(item => {
-          const soldCarats = item.soldCarats || 0;
-          const soldPieces = item.soldPieces || 0;
+          // Unreturned/unsold carats on this memo were deducted when memo was created
+          const unreturnedCarats = Math.max(0, Number((item.carats - (item.returnedCarats || 0) - (item.soldCarats || 0)).toFixed(3)));
+          const unreturnedPieces = Math.max(0, (item.pieces || 0) - (item.returnedPieces || 0) - (item.soldPieces || 0));
 
-          // 1. If any carats were sold on this memo, restore them to physical stock (emerald.weight & sizes)
-          if (soldCarats > 0) {
+          if (unreturnedCarats > 0) {
             const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
             if (emerald) {
-              this.restoreSoldStockToEmerald(emerald, soldCarats, soldPieces);
-              totalRestoredCarats += soldCarats;
+              this.restoreStockToEmerald(emerald, unreturnedCarats, unreturnedPieces);
+              totalRestoredCarats += unreturnedCarats;
             }
-          }
-
-          // 2. Mark remaining carats as returned for data consistency
-          const rem = Math.max(0, Number((item.carats - (item.returnedCarats || 0) - soldCarats).toFixed(3)));
-          const remPcs = Math.max(0, (item.pieces || 0) - (item.returnedPieces || 0) - soldPieces);
-          if (rem > 0) {
-            item.returnedCarats = Number(((item.returnedCarats || 0) + rem).toFixed(3));
-            item.returnedPieces = (item.returnedPieces || 0) + remPcs;
-            totalRestoredCarats += rem;
           }
         });
 
-        // 3. Delete memo from storage
+        // Delete memo from storage
         DBManager.database.memos = (DBManager.database.memos || []).filter(m => m.id !== memoId);
 
         DBManager.addLog(
           'DELETE',
           memo.id,
           `Memo ${memo.memoNumber}`,
-          `Deleted Memo ${memo.memoNumber} (${memo.brokerName}). Restored all goods (${totalRestoredCarats.toFixed(2)} cts total) to company stock.`,
+          `Deleted Memo ${memo.memoNumber} (${memo.brokerName}). Restored unreturned goods (${totalRestoredCarats.toFixed(2)} cts total) to company stock.`,
           []
         );
 
         try {
           await DBManager.saveVault();
           UI.closeModal('modal-memo-detail');
-          UI.showToast(`Deleted Memo ${memo.memoNumber} — restored all goods (${totalRestoredCarats.toFixed(2)} cts) to stock.`);
+          UI.showToast(`Deleted Memo ${memo.memoNumber} — restored goods (${totalRestoredCarats.toFixed(2)} cts) to stock.`);
           App.refreshAllDisplays();
         } catch (err) {
           UI.showToast(err.message, true);
