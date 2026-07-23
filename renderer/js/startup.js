@@ -73,12 +73,15 @@ const Startup = {
       document.getElementById('startup-initial-setup-view').classList.remove('hidden');
     }
     document.getElementById('app-workspace').classList.add('hidden');
+    document.getElementById('app-launcher-screen').classList.add('hidden');
     document.getElementById('startup-screen').classList.remove('hidden');
   },
 
   hideStartupScreen() {
     document.getElementById('startup-screen').classList.add('hidden');
-    document.getElementById('app-workspace').classList.remove('hidden');
+    if (window.App) {
+      window.App.showLauncher();
+    }
   },
 
   async handleStartupCreate() {
