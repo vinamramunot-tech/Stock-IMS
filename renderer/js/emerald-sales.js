@@ -152,7 +152,20 @@ const SalesController = {
         '<td style="font-size:11px;color:var(--text-muted);max-width:160px;">' +
           '<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + UI.escapeHtml(pudiaList) + '">' + UI.escapeHtml(pudiaList) + '</div>' +
           (r.notes ? '<div style="margin-top:3px;font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + UI.escapeHtml(r.notes) + '">&ldquo;' + UI.escapeHtml(r.notes) + '&rdquo;</div>' : '') +
+        '</td>' +
+        '<td>' +
+          '<button type="button" class="btn btn-secondary btn-small btn-reverse-sale" style="font-size:11px;white-space:nowrap;color:var(--text-gold-dark);border-color:rgba(212,175,55,0.4);">Reverse Sale</button>' +
         '</td>';
+
+      const revBtn = tr.querySelector('.btn-reverse-sale');
+      if (revBtn) {
+        revBtn.addEventListener('click', () => {
+          if (window.MemoController) {
+            MemoController.reverseSale(r.memoId);
+          }
+        });
+      }
+
       tbody.appendChild(tr);
     });
   }

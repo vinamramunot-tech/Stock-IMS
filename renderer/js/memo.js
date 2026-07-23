@@ -685,6 +685,9 @@ const MemoController = {
             ${memo.status === 'open' ? `
               <button type="button" class="btn btn-primary btn-small btn-outcome-memo" style="font-size:11px; white-space:nowrap;">Record Outcome</button>
             ` : ''}
+            ${(memo.items || []).some(it => (it.soldCarats || 0) > 0) ? `
+              <button type="button" class="btn btn-secondary btn-small btn-reverse-memo" style="font-size:11px; white-space:nowrap; color:var(--text-gold-dark);">Reverse Sale</button>
+            ` : ''}
             <button type="button" class="btn btn-danger btn-small btn-delete-memo" style="font-size:11px;">Delete</button>
           </div>
         </td>
@@ -693,6 +696,8 @@ const MemoController = {
       tr.querySelector('.btn-view-memo').addEventListener('click', () => this.openMemoDetail(memo.id));
       const outcomeBtn = tr.querySelector('.btn-outcome-memo');
       if (outcomeBtn) outcomeBtn.addEventListener('click', () => this.openMemoOutcomeModal(memo.id));
+      const reverseBtn = tr.querySelector('.btn-reverse-memo');
+      if (reverseBtn) reverseBtn.addEventListener('click', () => this.reverseSale(memo.id));
       const deleteBtn = tr.querySelector('.btn-delete-memo');
       if (deleteBtn) deleteBtn.addEventListener('click', () => this.deleteMemo(memo.id));
 
@@ -781,6 +786,11 @@ const MemoController = {
             Record Outcome
           </button>
         ` : ''}
+        ${(memo.items || []).some(it => (it.soldCarats || 0) > 0) ? `
+          <button type="button" class="btn btn-secondary" id="btn-detail-reverse" style="color:var(--text-gold-dark);">
+            Reverse Sale
+          </button>
+        ` : ''}
         <button type="button" class="btn btn-danger" id="btn-detail-delete">
           Delete Memo
         </button>
@@ -790,6 +800,13 @@ const MemoController = {
         btnOutcome.addEventListener('click', () => {
           UI.closeModal('modal-memo-detail');
           this.openMemoOutcomeModal(memo.id);
+        });
+      }
+      const btnReverse = document.getElementById('btn-detail-reverse');
+      if (btnReverse) {
+        btnReverse.addEventListener('click', () => {
+          UI.closeModal('modal-memo-detail');
+          this.reverseSale(memo.id);
         });
       }
       const btnDelete = document.getElementById('btn-detail-delete');
@@ -1514,6 +1531,77 @@ const MemoController = {
     } catch (err) {
       UI.showToast(err.message, true);
     }
+  },
+
+  reverseSale(memoId) {
+    const memo = DBManager.getMemos().find(m => m.id === memoId);
+    if (!memo) return;
+
+    const totalSoldCts = (memo.items || []).reduce((s, it) => s + (it.soldCarats || 0), 0);
+    if (totalSoldCts <= 0.001) {
+      UI.showToast('This memo has no recorded sales to reverse.', true);
+      return;
+    }
+
+    UI.confirm(
+      `Reverse sale of ${totalSoldCts.toFixed(2)} cts for Memo ${memo.memoNumber}? This will return the sold goods back into company inventory stock and update Sales Data.`,
+      async () => {
+        let totalRestoredCts = 0;
+
+        (memo.items || []).forEach(item => {
+          const soldCts = item.soldCarats || 0;
+          const soldPcs = item.soldPieces || 0;
+
+          if (soldCts > 0) {
+            // Restore physical stock to emerald inventory
+            const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
+            if (emerald) {
+              this.restoreStockToEmerald(emerald, soldCts, soldPcs);
+            }
+
+            // Convert sold carats to returned carats on the memo item
+            item.returnedCarats = Number(((item.returnedCarats || 0) + soldCts).toFixed(3));
+            item.returnedPieces = (item.returnedPieces || 0) + soldPcs;
+            item.soldCarats = 0;
+            item.soldPieces = 0;
+
+            totalRestoredCts += soldCts;
+          }
+        });
+
+        // Update memo status
+        const totalRemaining = memo.items.reduce((sum, it) => {
+          const rem = it.carats - (it.returnedCarats || 0) - (it.soldCarats || 0);
+          return sum + Math.max(0, rem);
+        }, 0);
+
+        if (totalRemaining <= 0.001) {
+          memo.status = 'closed';
+          memo.outcomeType = 'full-return';
+        } else {
+          memo.status = 'open';
+        }
+
+        memo.saleRate = null;
+        memo.saleDate = null;
+
+        DBManager.addLog(
+          'EDIT',
+          memo.id,
+          `Memo ${memo.memoNumber}`,
+          `Reversed sale on Memo ${memo.memoNumber} (${memo.brokerName}). Restored ${totalRestoredCts.toFixed(2)} cts back into company inventory stock.`,
+          []
+        );
+
+        try {
+          await DBManager.saveVault();
+          UI.showToast(`↺ Sale reversed for Memo ${memo.memoNumber} — ${totalRestoredCts.toFixed(2)} cts returned to stock.`);
+          App.refreshAllDisplays();
+        } catch (err) {
+          UI.showToast(err.message, true);
+        }
+      }
+    );
   },
 
   deleteMemo(memoId) {
