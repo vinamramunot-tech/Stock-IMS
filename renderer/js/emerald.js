@@ -1484,15 +1484,13 @@ const EmeraldController = {
           pudiaHeader.className = 'emerald-pudia-header';
           pudiaHeader.style.cssText = 'display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px 12px; user-select: none; background-color: var(--bg-card);';
 
-          const totalWeight = this.getEmeraldWeight(item);
-          const totalPieces = this.getEmeraldPieces(item);
-          const shapes = this.getEmeraldShapes(item);
-          const shapesDisplay = shapes.length > 0 ? shapes.join(', ') : 'Unknown Shape';
-          const originsStr = (item.origins || []).join(', ');
+          const memoCarats = window.MemoController ? MemoController.getOpenMemoCaratsForEmerald(item.id) : 0;
+          const inCompanyWeight = Math.max(0, Number((totalWeight - memoCarats).toFixed(3)));
 
-          const pudiaTitleCol = `<div style="display: flex; align-items: center; gap: 10px;">
+          const pudiaTitleCol = `<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
             <span class="pudia-expand-icon" style="font-family: monospace; font-size: 10px; width: 10px; color: var(--text-muted);">▶</span>
             <span style="font-weight: 600; font-size: 13px; color: var(--text-main);">Pudia Number: <strong style="color: var(--text-gold-dark);">#${item.color || 'N/A'}</strong></span>
+            ${memoCarats > 0 ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;letter-spacing:0.05em;background:rgba(212,175,55,0.15);color:var(--text-gold-dark);border:1px solid rgba(212,175,55,0.35);" title="${memoCarats.toFixed(2)} cts currently out on memo">🏷️ ON MEMO (${memoCarats.toFixed(2)} cts)</span>` : ''}
           </div>`;
 
           const pricePerCaratInr = item.pricePerCarat || 0;
@@ -1510,6 +1508,8 @@ const EmeraldController = {
 
           const pudiaStatsCol = `<div style="display: flex; align-items: center; gap: 15px; font-size: 12px; color: var(--text-muted); flex-wrap: wrap;">
             <span>Weight: <strong style="color: var(--text-main);">${totalWeight.toFixed(2)} cts</strong></span>
+            ${memoCarats > 0 ? `<span>In Company: <strong style="color: #30D158;">${inCompanyWeight.toFixed(2)} cts</strong></span>` : ''}
+            ${memoCarats > 0 ? `<span>On Memo: <strong style="color: var(--text-gold-dark);">${memoCarats.toFixed(2)} cts</strong></span>` : ''}
             <span>Pcs: <strong style="color: var(--text-main);">${totalPieces}</strong></span>
             <span>Rate: <strong style="color: var(--text-main);">${rateHtml}</strong></span>
             <span>Value: <strong style="color: var(--text-gold-dark);">${valueHtml}</strong></span>
@@ -1598,6 +1598,11 @@ const EmeraldController = {
                   <div><strong>Shape:</strong> ${shapesDisplay}</div>
                   ${item.stockType !== 'Single Pieces' ? `<div><strong>Lustre Grade:</strong> ${UI.escapeHtml(item.lustreGrade || 'N/A')}</div>` : ''}
                 </div>
+                ${memoCarats > 0 ? `
+                  <div style="margin-top:10px;padding:8px 12px;background:rgba(212,175,55,0.08);border:1px solid rgba(212,175,55,0.25);border-radius:4px;font-size:12px;color:var(--text-gold-dark);font-weight:600;display:flex;align-items:center;gap:6px;">
+                    🏷️ <span>${memoCarats.toFixed(2)} cts of this Pudia are currently out on Memo (In Company: ${inCompanyWeight.toFixed(2)} cts).</span>
+                  </div>
+                ` : ''}
                 ${dollarPriceHtml}
               </div>
               <div>
@@ -3475,11 +3480,15 @@ const EmeraldController = {
       sizesHtml += '</table>';
     }
 
+    const memoCarats = window.MemoController ? MemoController.getOpenMemoCaratsForEmerald(item.id) : 0;
+    const inCompanyWeight = Math.max(0, Number((totalWeight - memoCarats).toFixed(3)));
+
     card.innerHTML = `
       <div class="flat-pudia-header">
-        <div class="flat-pudia-title">
+        <div class="flat-pudia-title" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
           <span class="flat-pudia-num">Pudia #${item.color || 'N/A'}</span>
           <span class="flat-pudia-group">${UI.escapeHtml(item.group || 'Unassigned')}</span>
+          ${memoCarats > 0 ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(212,175,55,0.15);color:var(--text-gold-dark);border:1px solid rgba(212,175,55,0.35);">🏷️ ON MEMO (${memoCarats.toFixed(2)} cts)</span>` : ''}
         </div>
         <span class="flat-pudia-grade-badge" title="${UI.escapeHtml(item.lustreGrade || 'N/A')}">
           ${UI.escapeHtml(item.lustreGrade || 'Calibrated')}
@@ -3492,6 +3501,16 @@ const EmeraldController = {
             <span class="flat-pudia-detail-label">Weight:</span>
             <span class="flat-pudia-detail-val">${totalWeight.toFixed(2)} cts</span>
           </div>
+          ${memoCarats > 0 ? `
+          <div class="flat-pudia-detail-item">
+            <span class="flat-pudia-detail-label">In Company:</span>
+            <span class="flat-pudia-detail-val" style="color: #30D158;">${inCompanyWeight.toFixed(2)} cts</span>
+          </div>
+          <div class="flat-pudia-detail-item">
+            <span class="flat-pudia-detail-label">On Memo:</span>
+            <span class="flat-pudia-detail-val" style="color: var(--text-gold-dark);">${memoCarats.toFixed(2)} cts</span>
+          </div>
+          ` : ''}
           <div class="flat-pudia-detail-item">
             <span class="flat-pudia-detail-label">Pieces:</span>
             <span class="flat-pudia-detail-val">${totalPieces} pcs</span>

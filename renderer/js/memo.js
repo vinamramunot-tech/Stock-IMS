@@ -584,13 +584,8 @@ const MemoController = {
     if (!DBManager.database.memos) DBManager.database.memos = [];
     DBManager.database.memos.push(memo);
 
-    // Immediately deduct physical stock from inventory when goods are issued on memo
-    (this.selectedItems || []).forEach(item => {
-      const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
-      if (emerald) {
-        this.deductStockFromEmerald(emerald, item.carats, item.pieces || 0);
-      }
-    });
+    // Note: Stock weight is NOT deducted upon memo issuance (it remains in physical inventory valuation,
+    // tagged as ON MEMO in the catalog view until actually sold).
 
     DBManager.addLog(
       'ADD', memo.id, `Memo ${memoNumber}`,
@@ -965,16 +960,16 @@ const MemoController = {
     if (actionType === 'returned') {
       item.returnedCarats = Number(((item.returnedCarats || 0) + inputCarats).toFixed(3));
       item.returnedPieces = (item.returnedPieces || 0) + inputPieces;
-
-      // Restore returned goods back to inventory stock
-      const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
-      if (emerald) {
-        this.restoreStockToEmerald(emerald, inputCarats, inputPieces);
-      }
+      // No physical stock addition needed (carats were never deducted on issue)
     } else {
       item.soldCarats = Number(((item.soldCarats || 0) + inputCarats).toFixed(3));
       item.soldPieces = (item.soldPieces || 0) + inputPieces;
-      // Stock was ALREADY deducted from inventory when the memo was issued!
+
+      // Permanently deduct sold goods from inventory stock
+      const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
+      if (emerald) {
+        this.deductStockFromEmerald(emerald, inputCarats, inputPieces);
+      }
     }
 
     // Check if entire memo is fully completed
@@ -1057,16 +1052,15 @@ const MemoController = {
           if (action === 'sold') {
             item.soldCarats = Number(((item.soldCarats || 0) + rem).toFixed(3));
             item.soldPieces = (item.soldPieces || 0) + remPcs;
-            // Stock was ALREADY deducted from inventory when memo was issued!
+
+            // Deduct sold goods from emerald inventory stock
+            const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
+            if (emerald) {
+              this.deductStockFromEmerald(emerald, rem, remPcs);
+            }
           } else {
             item.returnedCarats = Number(((item.returnedCarats || 0) + rem).toFixed(3));
             item.returnedPieces = (item.returnedPieces || 0) + remPcs;
-
-            // Restore returned goods back to inventory stock
-            const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
-            if (emerald) {
-              this.restoreStockToEmerald(emerald, rem, remPcs);
-            }
           }
         });
 
@@ -1349,7 +1343,12 @@ const MemoController = {
       item.soldCarats = Number(((item.soldCarats || 0) + rem).toFixed(3));
       item.soldPieces = (item.soldPieces || 0) + remPcs;
       totalSoldCts   += rem;
-      // Stock was ALREADY deducted from inventory when memo was issued!
+
+      // Permanently deduct sold goods from emerald inventory stock
+      const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
+      if (emerald) {
+        this.deductStockFromEmerald(emerald, rem, remPcs);
+      }
     });
 
     memo.status      = 'sold';
@@ -1426,7 +1425,12 @@ const MemoController = {
         item.soldCarats  = Number(((item.soldCarats || 0) + soldVal).toFixed(3));
         item.soldPieces  = (item.soldPieces || 0) + soldPcs;
         totalSoldCts    += soldVal;
-        // Stock was ALREADY deducted from inventory when memo was issued!
+
+        // Permanently deduct sold goods from emerald inventory stock
+        const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
+        if (emerald) {
+          this.deductStockFromEmerald(emerald, soldVal, soldPcs);
+        }
       }
 
       if (retVal > 0) {
@@ -1438,12 +1442,6 @@ const MemoController = {
         item.returnedCarats  = Number(((item.returnedCarats || 0) + retVal).toFixed(3));
         item.returnedPieces  = (item.returnedPieces || 0) + retPcs;
         totalRetCts         += retVal;
-
-        // Restore returned stock to company inventory
-        const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
-        if (emerald) {
-          this.restoreStockToEmerald(emerald, retVal, retPcs);
-        }
       }
     });
 
@@ -1489,12 +1487,6 @@ const MemoController = {
       if (rem <= 0) return;
       item.returnedCarats  = Number(((item.returnedCarats || 0) + rem).toFixed(3));
       item.returnedPieces  = (item.returnedPieces || 0) + remPcs;
-
-      // Restore returned stock to company inventory
-      const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
-      if (emerald) {
-        this.restoreStockToEmerald(emerald, rem, remPcs);
-      }
     });
 
     const totalSoldAll = memo.items.reduce((s, it) => s + (it.soldCarats || 0), 0);
@@ -1609,20 +1601,20 @@ const MemoController = {
     if (!memo) return;
 
     UI.confirm(
-      `Are you sure you want to delete Memo ${memo.memoNumber}? This will cancel the memo and restore any unreturned goods back into company stock.`,
+      `Are you sure you want to delete Memo ${memo.memoNumber}? This will cancel the memo and restore any sold carats back into company stock.`,
       async () => {
         let totalRestoredCarats = 0;
 
         (memo.items || []).forEach(item => {
-          // Unreturned/unsold carats on this memo were deducted when memo was created
-          const unreturnedCarats = Math.max(0, Number((item.carats - (item.returnedCarats || 0) - (item.soldCarats || 0)).toFixed(3)));
-          const unreturnedPieces = Math.max(0, (item.pieces || 0) - (item.returnedPieces || 0) - (item.soldPieces || 0));
+          const soldCarats = item.soldCarats || 0;
+          const soldPieces = item.soldPieces || 0;
 
-          if (unreturnedCarats > 0) {
+          // If any carats were sold on this memo, restore them to physical stock (emerald.weight & sizes)
+          if (soldCarats > 0) {
             const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
             if (emerald) {
-              this.restoreStockToEmerald(emerald, unreturnedCarats, unreturnedPieces);
-              totalRestoredCarats += unreturnedCarats;
+              this.restoreStockToEmerald(emerald, soldCarats, soldPieces);
+              totalRestoredCarats += soldCarats;
             }
           }
         });
@@ -1634,14 +1626,14 @@ const MemoController = {
           'DELETE',
           memo.id,
           `Memo ${memo.memoNumber}`,
-          `Deleted Memo ${memo.memoNumber} (${memo.brokerName}). Restored unreturned goods (${totalRestoredCarats.toFixed(2)} cts total) to company stock.`,
+          `Deleted Memo ${memo.memoNumber} (${memo.brokerName}). ${totalRestoredCarats > 0 ? `Restored ${totalRestoredCarats.toFixed(2)} cts sold carats to stock.` : ''}`,
           []
         );
 
         try {
           await DBManager.saveVault();
           UI.closeModal('modal-memo-detail');
-          UI.showToast(`Deleted Memo ${memo.memoNumber} — restored goods (${totalRestoredCarats.toFixed(2)} cts) to stock.`);
+          UI.showToast(`Deleted Memo ${memo.memoNumber}.`);
           App.refreshAllDisplays();
         } catch (err) {
           UI.showToast(err.message, true);
