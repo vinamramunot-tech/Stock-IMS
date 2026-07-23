@@ -369,10 +369,15 @@ fn parse_vault_bytes(raw_buffer: &[u8]) -> Result<String, String> {
         decrypted
     };
 
-    // 1. Try MessagePack deserialization into generic serde_json::Value
-    if let Ok(bin_val) = rmp_serde::from_slice::<serde_json::Value>(&decompressed) {
-        if let Ok(json_str) = serde_json::to_string(&bin_val) {
-            return Ok(json_str);
+    // 1. Try UTF-8 string from decompressed bytes (plain or Gzip JSON string)
+    if let Ok(s) = String::from_utf8(decompressed.clone()) {
+        let trimmed = s.trim();
+        if trimmed.starts_with('{') && trimmed.ends_with('}') {
+            if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(trimmed) {
+                if json_val.is_object() {
+                    return Ok(trimmed.to_string());
+                }
+            }
         }
     }
 
@@ -383,19 +388,24 @@ fn parse_vault_bytes(raw_buffer: &[u8]) -> Result<String, String> {
         }
     }
 
-    // 3. Try UTF-8 string from decompressed bytes (plain or Gzip JSON)
-    if let Ok(s) = String::from_utf8(decompressed.clone()) {
-        let trimmed = s.trim();
-        if trimmed.starts_with('{') && serde_json::from_str::<serde_json::Value>(trimmed).is_ok() {
-            return Ok(trimmed.to_string());
+    // 3. Try MessagePack deserialization into generic serde_json::Value (must be a JSON Object)
+    if let Ok(bin_val) = rmp_serde::from_slice::<serde_json::Value>(&decompressed) {
+        if bin_val.is_object() {
+            if let Ok(json_str) = serde_json::to_string(&bin_val) {
+                return Ok(json_str);
+            }
         }
     }
 
-    // 4. Try UTF-8 string from raw buffer (plain unencrypted JSON file)
+    // 4. Try UTF-8 string from raw unencrypted buffer
     if let Ok(s) = String::from_utf8(raw_buffer.to_vec()) {
         let trimmed = s.trim();
-        if trimmed.starts_with('{') && serde_json::from_str::<serde_json::Value>(trimmed).is_ok() {
-            return Ok(trimmed.to_string());
+        if trimmed.starts_with('{') && trimmed.ends_with('}') {
+            if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(trimmed) {
+                if json_val.is_object() {
+                    return Ok(trimmed.to_string());
+                }
+            }
         }
     }
 

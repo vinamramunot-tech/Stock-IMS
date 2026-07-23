@@ -79,6 +79,9 @@ const DBManager = {
 
       // Read raw JSON or object payload from disk
       let db = typeof fileInfo.data === 'string' ? JSON.parse(fileInfo.data) : (fileInfo.data || {});
+      if (typeof db !== 'object' || db === null || Array.isArray(db)) {
+        throw new Error("Unrecognized or corrupted database format.");
+      }
       if (!db.settings) db.settings = {};
       if (!db.items) db.items = [];
       if (!db.emeralds) db.emeralds = [];
