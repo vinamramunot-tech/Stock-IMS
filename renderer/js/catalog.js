@@ -358,23 +358,39 @@ const Catalog = {
 
       const badgeStatusHtml = `<span class="badge-status product-card-badge-status ${statusClass}">${statusLabel}</span>`;
 
+      const imgHtml = item.image
+        ? `<div class="product-img-box" style="cursor: pointer;" title="Click to view photo & details">
+             <img src="${item.image}" alt="${UI.escapeHtml(item.name || 'Jewelry Photo')}" class="product-img">
+           </div>`
+        : `<div class="product-img-box product-img-box-placeholder" style="cursor: pointer;" title="Click to view details or add photo">
+             <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--text-muted); opacity: 0.6; height: 100%;">
+               <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5">
+                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                 <circle cx="8.5" cy="8.5" r="1.5"/>
+                 <polyline points="21 15 16 10 5 21"/>
+               </svg>
+               <span style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">No Photo</span>
+             </div>
+           </div>`;
+
       card.innerHTML = `
         ${badgeStatusHtml}
+        ${imgHtml}
         <div class="product-body">
           <div class="product-meta">
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-              <div class="product-sku">${item.sku || 'SKU-NONE'}</div>
-              <span style="font-size: 9px; font-weight: 700; text-transform: uppercase; background-color: var(--bg-base); border: 1px solid var(--border-light); padding: 2px 6px; border-radius: 4px; letter-spacing: 0.05em; color: var(--text-muted);">${item.category || 'Jewelry'}</span>
+              <div class="product-sku">${UI.escapeHtml(item.sku || 'SKU-NONE')}</div>
+              <span style="font-size: 9px; font-weight: 700; text-transform: uppercase; background-color: var(--bg-base); border: 1px solid var(--border-light); padding: 2px 6px; border-radius: 4px; letter-spacing: 0.05em; color: var(--text-muted);">${UI.escapeHtml(item.category || 'Jewelry')}</span>
             </div>
-            <h3 class="product-title" style="margin-top: 4px;">${item.name || 'Unnamed Piece'}</h3>
+            <h3 class="product-title" style="margin-top: 4px;">${UI.escapeHtml(item.name || 'Unnamed Piece')}</h3>
           </div>
           
           <div class="product-specs">
-            <div class="specs-line" title="${metalsStr}"><strong>Metal:</strong> ${metalsStr || 'None added'}</div>
+            <div class="specs-line" title="${UI.escapeHtml(metalsStr)}"><strong>Metal:</strong> ${UI.escapeHtml(metalsStr) || 'None added'}</div>
             <div class="specs-line"><strong>Gemstones:</strong> ${stonesSum > 0 ? stonesSum.toFixed(2) + ' cts total' : 'None added'}</div>
             <div class="specs-line"><strong>Gross Weight:</strong> ${grossWeight.toFixed(3)} g</div>
             <div class="specs-line"><strong>Net Metal Wt:</strong> ${netMetalWeight.toFixed(3)} g</div>
-            <div class="specs-line" style="margin-bottom:0;" title="${item.description || ''}"><strong>Notes:</strong> ${item.description || 'No description'}</div>
+            <div class="specs-line" style="margin-bottom:0;" title="${UI.escapeHtml(item.description || '')}"><strong>Notes:</strong> ${UI.escapeHtml(item.description || 'No description')}</div>
           </div>
           
           <div class="product-price-row">
@@ -394,6 +410,13 @@ const Catalog = {
       `;
 
       // Event Wire up
+      const imgBox = card.querySelector('.product-img-box');
+      if (imgBox) {
+        imgBox.addEventListener('click', () => {
+          App.openJewelryDetailModal(item);
+        });
+      }
+
       card.querySelector('.btn-edit').addEventListener('click', () => {
         document.getElementById('jewelry-modal-title').textContent = "Edit Jewelry Piece";
         UI.loadItemIntoForm(item);

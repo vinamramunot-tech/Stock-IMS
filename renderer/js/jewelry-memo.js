@@ -190,7 +190,7 @@ const JewelryMemoController = {
     tbody.innerHTML = '';
 
     if (this.selectedItems.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:15px;color:var(--text-muted);">No pieces added to memo. Select a piece above and click "Add Piece".</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:15px;color:var(--text-muted);">No pieces added to memo. Select a piece above and click "Add Piece".</td></tr>';
       this.updateSelectedTotals();
       return;
     }
@@ -200,15 +200,25 @@ const JewelryMemoController = {
     this.selectedItems.forEach((item, index) => {
       const evalItem = Calc.evaluateItem(item, goldRate);
       const tr = document.createElement('tr');
+      const imgHtml = item.image
+        ? `<img src="${item.image}" alt="${UI.escapeHtml(item.name)}" style="width:36px;height:36px;object-fit:cover;border-radius:4px;border:1px solid var(--border-light);cursor:pointer;" class="memo-thumb-img">`
+        : `<div style="width:36px;height:36px;border-radius:4px;border:1px solid var(--border-light);background:var(--bg-base);display:flex;align-items:center;justify-content:center;color:var(--text-muted);opacity:0.6;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>`;
+
       tr.innerHTML = `
-        <td style="padding:8px 12px;font-weight:700;">${item.sku}</td>
-        <td style="padding:8px 12px;">${item.name}</td>
-        <td style="padding:8px 12px;">${item.category}</td>
+        <td style="padding:6px 10px;text-align:center;">${imgHtml}</td>
+        <td style="padding:8px 12px;font-weight:700;">${UI.escapeHtml(item.sku)}</td>
+        <td style="padding:8px 12px;">${UI.escapeHtml(item.name)}</td>
+        <td style="padding:8px 12px;">${UI.escapeHtml(item.category)}</td>
         <td style="padding:8px 12px;text-align:right;font-weight:700;color:var(--text-gold-dark);">₹${evalItem.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
         <td style="padding:8px 12px;text-align:center;">
           <button type="button" class="btn btn-danger btn-small" style="font-size:10px;padding:3px 6px;" data-index="${index}">Remove</button>
         </td>
       `;
+
+      const thumbImg = tr.querySelector('.memo-thumb-img');
+      if (thumbImg) {
+        thumbImg.addEventListener('click', () => App.openJewelryDetailModal(item));
+      }
 
       tr.querySelector('.btn-danger').addEventListener('click', () => {
         this.selectedItems.splice(index, 1);
@@ -260,6 +270,7 @@ const JewelryMemoController = {
         sku: item.sku,
         name: item.name,
         category: item.category,
+        image: item.image || null,
         sellingPrice: evalItem.sellingPrice,
         status: 'open' // open | returned | sold
       };
@@ -420,11 +431,19 @@ const JewelryMemoController = {
     tbody.innerHTML = '';
 
     (memo.items || []).forEach((item, index) => {
+      const mainItem = DBManager.getItems().find(i => i.id === item.itemId || i.sku === item.sku);
+      const imgSrc = item.image || (mainItem ? mainItem.image : null);
+
+      const imgHtml = imgSrc
+        ? `<img src="${imgSrc}" alt="${UI.escapeHtml(item.name)}" style="width:36px;height:36px;object-fit:cover;border-radius:4px;border:1px solid var(--border-light);cursor:pointer;" class="memo-detail-thumb-img">`
+        : `<div style="width:36px;height:36px;border-radius:4px;border:1px solid var(--border-light);background:var(--bg-base);display:flex;align-items:center;justify-content:center;color:var(--text-muted);opacity:0.6;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>`;
+
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td style="padding:8px 10px;font-weight:700;">${item.sku}</td>
-        <td style="padding:8px 10px;">${item.name}</td>
-        <td style="padding:8px 10px;">${item.category}</td>
+        <td style="padding:6px 10px;text-align:center;">${imgHtml}</td>
+        <td style="padding:8px 10px;font-weight:700;">${UI.escapeHtml(item.sku)}</td>
+        <td style="padding:8px 10px;">${UI.escapeHtml(item.name)}</td>
+        <td style="padding:8px 10px;">${UI.escapeHtml(item.category)}</td>
         <td style="padding:8px 10px;text-align:right;font-weight:700;">₹${item.sellingPrice.toLocaleString()}</td>
         <td style="padding:8px 10px;text-align:center;">
           <span style="font-size:11px;font-weight:bold;text-transform:uppercase;color:${item.status === 'open' ? 'var(--info-color)' : item.status === 'returned' ? 'var(--text-muted)' : 'var(--text-gold-dark)'};">
@@ -440,6 +459,13 @@ const JewelryMemoController = {
           ` : '—'}
         </td>
       `;
+
+      const thumbImg = tr.querySelector('.memo-detail-thumb-img');
+      if (thumbImg) {
+        thumbImg.addEventListener('click', () => {
+          App.openJewelryDetailModal(mainItem || item);
+        });
+      }
 
       if (memo.status === 'open' && item.status === 'open') {
         tr.querySelector('.btn-row-return').addEventListener('click', () => this.handleSaveMemoAction(memo.id, index, 'returned'));
@@ -596,18 +622,34 @@ const JewelryMemoController = {
     doc.setFont("helvetica", "normal");
 
     (memo.items || []).forEach(item => {
-      if (y + 10 > 280) {
+      const mainItem = DBManager.getItems().find(i => i.id === item.itemId || i.sku === item.sku);
+      const imgSrc = item.image || (mainItem ? mainItem.image : null);
+      const hasImg = imgSrc && imgSrc.startsWith('data:image/');
+      const rowHeight = hasImg ? 16 : 8;
+
+      if (y + rowHeight > 275) {
         doc.addPage();
         y = 25;
       }
+
       doc.setFont("helvetica", "bold");
-      doc.text(item.sku, 14, y);
+      doc.text(item.sku, 14, y + (hasImg ? 4 : 0));
       doc.setFont("helvetica", "normal");
-      doc.text(item.name.substring(0, 32), 45, y);
-      doc.text(item.category, 110, y);
-      doc.text(item.status.toUpperCase(), 140, y);
-      doc.text(`Rs ${item.sellingPrice.toLocaleString()}`, 170, y);
-      y += 8;
+      doc.text(item.name.substring(0, hasImg ? 22 : 32), 45, y + (hasImg ? 2 : 0));
+
+      if (hasImg) {
+        try {
+          const format = imgSrc.includes('png') ? 'PNG' : 'JPEG';
+          doc.addImage(imgSrc, format, 45, y + 4, 12, 10);
+        } catch (e) {
+          // ignore PDF image rendering errors gracefully
+        }
+      }
+
+      doc.text(item.category, 110, y + (hasImg ? 4 : 0));
+      doc.text(item.status.toUpperCase(), 140, y + (hasImg ? 4 : 0));
+      doc.text(`Rs ${item.sellingPrice.toLocaleString()}`, 170, y + (hasImg ? 4 : 0));
+      y += rowHeight;
     });
 
     doc.line(14, y, 196, y);

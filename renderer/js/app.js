@@ -502,12 +502,13 @@ const App = {
     // Retrieve all items
     const allItems = DBManager.getItems();
 
-    // Filter items: must have an image, and must match query (SKU or Name)
+    // Filter items: match search query (SKU, Name, Category)
     let filtered = allItems.filter(item => {
-      if (!item.image) return false;
+      if (!query) return true;
       const matchSku = (item.sku || '').toLowerCase().includes(query);
       const matchName = (item.name || '').toLowerCase().includes(query);
-      return matchSku || matchName;
+      const matchCat = (item.category || '').toLowerCase().includes(query);
+      return matchSku || matchName || matchCat;
     });
 
     gridContainer.innerHTML = '';
@@ -525,19 +526,37 @@ const App = {
       const card = document.createElement('div');
       card.className = 'photo-card';
       
+      const imgContent = item.image
+        ? `<img src="${item.image}" alt="${UI.escapeHtml(item.name || 'Jewelry Photo')}" class="photo-card-img">`
+        : `<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 6px; color: var(--text-muted); opacity: 0.6; padding: 20px;">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+            <span style="font-size: 11px; font-weight: 600; text-transform: uppercase;">No Photo Attached</span>
+            <span style="font-size: 10px; text-decoration: underline;">Click to Add Photo</span>
+           </div>`;
+
       card.innerHTML = `
         <div class="photo-card-img-box">
-          <img src="${item.image}" alt="${item.name || 'Jewelry Photo'}" class="photo-card-img">
+          ${imgContent}
         </div>
         <div class="photo-card-body">
-          <div class="photo-card-sku">${item.sku || 'SKU-NONE'}</div>
-          <div class="photo-card-name">${item.name || 'Unnamed Piece'}</div>
+          <div class="photo-card-sku">${UI.escapeHtml(item.sku || 'SKU-NONE')}</div>
+          <div class="photo-card-name">${UI.escapeHtml(item.name || 'Unnamed Piece')}</div>
         </div>
       `;
 
-      // Allow clicking the photo card to view details (by triggering view modal)
+      // Allow clicking the photo card to view details or add photo
       card.addEventListener('click', () => {
-        this.openJewelryDetailModal(item);
+        if (!item.image) {
+          document.getElementById('jewelry-modal-title').textContent = "Edit Jewelry Piece & Add Photo";
+          UI.loadItemIntoForm(item);
+          UI.openModal('modal-jewelry-item');
+        } else {
+          this.openJewelryDetailModal(item);
+        }
       });
 
       gridContainer.appendChild(card);
@@ -604,9 +623,38 @@ const App = {
 
     // 1. Populate image and notes
     const imgEl = document.getElementById('detail-jewelry-image');
+    let placeholderEl = document.getElementById('detail-jewelry-image-placeholder');
+    
     if (imgEl) {
-      imgEl.src = item.image || '';
-      imgEl.style.display = item.image ? 'block' : 'none';
+      const parentContainer = imgEl.parentElement;
+      if (item.image) {
+        imgEl.src = item.image;
+        imgEl.style.display = 'block';
+        if (placeholderEl) placeholderEl.remove();
+      } else {
+        imgEl.style.display = 'none';
+        if (!placeholderEl) {
+          placeholderEl = document.createElement('div');
+          placeholderEl.id = 'detail-jewelry-image-placeholder';
+          placeholderEl.style.cssText = 'display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--text-muted); opacity: 0.7; cursor: pointer; height: 100%; width: 100%;';
+          placeholderEl.innerHTML = `
+            <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+            <span style="font-size: 12px; font-weight: 600; text-transform: uppercase;">No Photo Attached</span>
+            <button type="button" class="btn btn-secondary btn-small" id="btn-detail-add-photo" style="font-size: 11px;">+ Upload Photo</button>
+          `;
+          parentContainer.appendChild(placeholderEl);
+          placeholderEl.querySelector('#btn-detail-add-photo').addEventListener('click', () => {
+            UI.closeModal('modal-jewelry-detail');
+            document.getElementById('jewelry-modal-title').textContent = "Edit Jewelry Piece & Add Photo";
+            UI.loadItemIntoForm(item);
+            UI.openModal('modal-jewelry-item');
+          });
+        }
+      }
     }
 
     const descEl = document.getElementById('detail-jewelry-description');
