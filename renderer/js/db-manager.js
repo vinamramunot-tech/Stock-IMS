@@ -107,6 +107,9 @@ const DBManager = {
     }
   },
 
+  _isSaving: false,
+  _savePending: false,
+
   /**
    * Serialize and write the current database state as pretty-printed JSON.
    */
@@ -114,6 +117,13 @@ const DBManager = {
     if (!this.isLoaded || !this.database) {
       throw new Error("No active database loaded; cannot save.");
     }
+
+    if (this._isSaving) {
+      this._savePending = true;
+      return true;
+    }
+
+    this._isSaving = true;
 
     try {
       // Compress JSON (no indentation) to improve save performance and minimize memory/disk I/O overhead.
@@ -124,6 +134,12 @@ const DBManager = {
       console.error("Failed to save database:", error);
       const errMsg = (error && error.message) || error;
       throw new Error("Failed to write to database: " + errMsg);
+    } finally {
+      this._isSaving = false;
+      if (this._savePending) {
+        this._savePending = false;
+        setTimeout(() => this.saveVault(), 50);
+      }
     }
   },
 

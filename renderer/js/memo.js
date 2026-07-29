@@ -594,10 +594,10 @@ const MemoController = {
     );
 
     try {
-      await DBManager.saveVault();
       UI.closeModal('modal-create-memo');
       UI.showToast(`Memo ${memoNumber} issued to ${brokerName} — ${totalCarats.toFixed(2)} cts`);
       App.refreshAllDisplays();
+      await DBManager.saveVault();
     } catch (err) {
       UI.showToast(err.message, true);
     }

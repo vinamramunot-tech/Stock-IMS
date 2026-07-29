@@ -310,10 +310,10 @@ const JewelryMemoController = {
     );
 
     try {
-      await DBManager.saveVault();
       UI.closeModal('modal-create-jewelry-memo');
       UI.showToast(`Jewelry Memo ${memoNumber} issued to ${brokerName}`);
       App.refreshAllDisplays();
+      await DBManager.saveVault();
     } catch (err) {
       UI.showToast(err.message, true);
     }
@@ -518,10 +518,10 @@ const JewelryMemoController = {
       );
 
       try {
-        await DBManager.saveVault();
         UI.showToast(`Marked ${item.sku} as ${action}.`);
         App.refreshAllDisplays();
         this.openMemoDetail(memo.id);
+        await DBManager.saveVault();
       } catch (err) {
         UI.showToast(err.message, true);
       }
@@ -562,10 +562,10 @@ const JewelryMemoController = {
         );
 
         try {
-          await DBManager.saveVault();
           UI.closeModal('modal-jewelry-memo-detail');
           UI.showToast(`Memo ${memo.memoNumber} fully closed.`);
           App.refreshAllDisplays();
+          await DBManager.saveVault();
         } catch (err) {
           UI.showToast(err.message, true);
         }

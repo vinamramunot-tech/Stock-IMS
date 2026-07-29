@@ -237,45 +237,77 @@ const App = {
   },
 
   /**
-   * Refresh views
+   * Refresh views (Active tab rendered synchronously, background tabs deferred)
    */
   refreshAllDisplays() {
+    const tab = this.activeTab || 'tab-catalog';
+
+    // 1. Immediately render active tab & top header metrics for instant UI response
     Catalog.renderDashboard();
-    Catalog.renderCatalogGrid();
-    if (window.EmeraldController) {
-      EmeraldController.renderEmeraldGrid();
-      EmeraldController.populateGroupAutocomplete();
-      EmeraldController.populateShapeAutocomplete();
-      EmeraldController.populateMmAutocomplete();
+
+    if (tab === 'tab-catalog') {
+      Catalog.renderCatalogGrid();
+    } else if (tab === 'tab-jewelry-photos') {
+      this.renderJewelryPhotos();
+    } else if (tab === 'tab-jewelry-memos') {
+      if (window.JewelryMemoController) JewelryMemoController.renderMemoList();
+    } else if (tab === 'tab-emerald-catalog') {
+      if (window.EmeraldController) {
+        EmeraldController.renderEmeraldGrid();
+        EmeraldController.populateGroupAutocomplete();
+        EmeraldController.populateShapeAutocomplete();
+        EmeraldController.populateMmAutocomplete();
+      }
+    } else if (tab === 'tab-emerald-photos') {
+      this.renderEmeraldPhotos();
+    } else if (tab === 'tab-emerald-analysis') {
+      if (window.EmeraldDashboardController) EmeraldDashboardController.renderDashboard();
+    } else if (tab === 'tab-memos') {
+      if (window.MemoController) MemoController.renderMemoList();
+    } else if (tab === 'tab-stone-catalog') {
+      if (window.StoneController) {
+        StoneController.renderStoneGrid();
+        StoneController.populateGroupAutocomplete();
+        StoneController.populateShapeAutocomplete();
+        StoneController.populateMmAutocomplete();
+        StoneController.populateGradeAutocomplete();
+      }
+    } else if (tab === 'tab-jewel-stone-memos') {
+      if (window.JewelStoneMemoController) JewelStoneMemoController.renderMemoList();
+    } else if (tab === 'tab-sales' || tab === 'tab-emerald-sales') {
+      if (window.SalesController) SalesController.renderSalesList();
+    } else if (tab === 'tab-logs') {
+      this.renderActivityLogs();
     }
-    if (window.EmeraldDashboardController) {
-      EmeraldDashboardController.renderDashboard();
-    }
-    if (window.MemoController) {
-      MemoController.renderMemoList();
-    }
-    if (window.StoneController) {
-      StoneController.renderStoneGrid();
-      StoneController.populateGroupAutocomplete();
-      StoneController.populateShapeAutocomplete();
-      StoneController.populateMmAutocomplete();
-      StoneController.populateGradeAutocomplete();
-    }
-    if (window.JewelStoneMemoController) {
-      JewelStoneMemoController.renderMemoList();
-    }
-    if (window.JewelryMemoController) {
-      JewelryMemoController.renderMemoList();
-    }
-    if (window.SalesController) {
-      SalesController.renderSalesList();
-    }
-    this.renderActivityLogs();
-    this.renderJewelryPhotos();
-    this.renderEmeraldPhotos();
-    
-    // Update settings tab path display
-    document.getElementById('settings-vault-path').textContent = DBManager.activePath || '';
+
+    const pathEl = document.getElementById('settings-vault-path');
+    if (pathEl) pathEl.textContent = DBManager.activePath || '';
+
+    // 2. Defer background non-active tab rendering to avoid UI thread lag
+    setTimeout(() => {
+      if (tab !== 'tab-catalog') Catalog.renderCatalogGrid();
+      if (tab !== 'tab-jewelry-photos') this.renderJewelryPhotos();
+      if (tab !== 'tab-jewelry-memos' && window.JewelryMemoController) JewelryMemoController.renderMemoList();
+      if (tab !== 'tab-emerald-catalog' && window.EmeraldController) {
+        EmeraldController.renderEmeraldGrid();
+        EmeraldController.populateGroupAutocomplete();
+        EmeraldController.populateShapeAutocomplete();
+        EmeraldController.populateMmAutocomplete();
+      }
+      if (tab !== 'tab-emerald-photos') this.renderEmeraldPhotos();
+      if (tab !== 'tab-emerald-analysis' && window.EmeraldDashboardController) EmeraldDashboardController.renderDashboard();
+      if (tab !== 'tab-memos' && window.MemoController) MemoController.renderMemoList();
+      if (tab !== 'tab-stone-catalog' && window.StoneController) {
+        StoneController.renderStoneGrid();
+        StoneController.populateGroupAutocomplete();
+        StoneController.populateShapeAutocomplete();
+        StoneController.populateMmAutocomplete();
+        StoneController.populateGradeAutocomplete();
+      }
+      if (tab !== 'tab-jewel-stone-memos' && window.JewelStoneMemoController) JewelStoneMemoController.renderMemoList();
+      if (tab !== 'tab-sales' && tab !== 'tab-emerald-sales' && window.SalesController) SalesController.renderSalesList();
+      if (tab !== 'tab-logs') this.renderActivityLogs();
+    }, 50);
   },
 
   switchTab(tabId) {

@@ -436,10 +436,10 @@ const JewelStoneMemoController = {
     );
 
     try {
-      await DBManager.saveVault();
       UI.closeModal('modal-create-jewel-stone-memo');
       UI.showToast(`Jewel Stone Memo ${memoNumber} issued to ${manufacturerName}`);
       App.refreshAllDisplays();
+      await DBManager.saveVault();
     } catch (err) {
       UI.showToast(err.message, true);
     }
@@ -794,7 +794,6 @@ const JewelStoneMemoController = {
     );
 
     try {
-      await DBManager.saveVault();
       UI.closeModal('modal-jewel-stone-memo-action-input');
 
       if (isDeleted) {
@@ -805,6 +804,7 @@ const JewelStoneMemoController = {
       }
 
       App.refreshAllDisplays();
+      await DBManager.saveVault();
 
       if (!isDeleted && itemIndex !== null && itemIndex !== undefined) {
         this.openMemoDetail(memo.id);
@@ -883,7 +883,6 @@ const JewelStoneMemoController = {
         );
 
         try {
-          await DBManager.saveVault();
           if (isDeleted) {
             UI.closeModal('modal-jewel-stone-memo-detail');
             UI.showToast(`Jewel Stone Memo ${memo.memoNumber} fully returned and deleted.`);
@@ -891,6 +890,7 @@ const JewelStoneMemoController = {
             UI.showToast(`Jewel Stone Memo ${memo.memoNumber} closed successfully.`);
           }
           App.refreshAllDisplays();
+          await DBManager.saveVault();
         } catch (err) {
           UI.showToast(err.message, true);
         }

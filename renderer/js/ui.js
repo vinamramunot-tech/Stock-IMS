@@ -146,16 +146,55 @@ const UI = {
   },
 
   /**
-   * Reads an uploaded image as a completely uncompressed, original quality base64 Data URL.
+   * Reads an uploaded image and compresses it using Canvas (max 1200px, 82% quality) to optimize memory and disk I/O.
    */
   processImageUpload(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = function(event) {
-        resolve(event.target.result);
+      reader.onload = (event) => {
+        const rawBase64 = event.target.result;
+        this.compressBase64Image(rawBase64, 1200, 0.82)
+          .then(compressed => resolve(compressed))
+          .catch(() => resolve(rawBase64));
       };
       reader.onerror = () => reject(new Error("Failed to read image file."));
       reader.readAsDataURL(file);
+    });
+  },
+
+  /**
+   * Helper to compress base64 image strings to limit maximum payload size
+   */
+  compressBase64Image(base64Str, maxDim = 1200, quality = 0.82) {
+    if (!base64Str || typeof base64Str !== 'string' || !base64Str.startsWith('data:image/')) {
+      return Promise.resolve(base64Str);
+    }
+    if (base64Str.length < 400000) {
+      return Promise.resolve(base64Str);
+    }
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => resolve(base64Str);
+      img.src = base64Str;
     });
   },
 

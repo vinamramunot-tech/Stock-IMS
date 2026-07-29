@@ -533,9 +533,14 @@ const Catalog = {
         UI.showToast("New jewelry piece added successfully!");
       }
 
-      await DBManager.saveVault();
+      // Ensure image is compressed to prevent heavy JSON stringification
+      if (savedItem.image) {
+        savedItem.image = await UI.compressBase64Image(savedItem.image);
+      }
+
       UI.closeModal('modal-jewelry-item');
       App.refreshAllDisplays();
+      await DBManager.saveVault();
     } catch (err) {
       UI.showToast(err.message, true);
     }
@@ -551,9 +556,9 @@ const Catalog = {
           DBManager.database.items.splice(index, 1);
         }
 
-        await DBManager.saveVault();
-        UI.showToast("Item deleted from stock.");
         App.refreshAllDisplays();
+        UI.showToast("Item deleted from stock.");
+        await DBManager.saveVault();
       } catch (err) {
         UI.showToast(err.message, true);
       }

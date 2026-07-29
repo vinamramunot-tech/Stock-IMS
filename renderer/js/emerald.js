@@ -1832,6 +1832,13 @@ const EmeraldController = {
     }
 
     try {
+      // Ensure image is compressed
+      for (const p of savedPudias) {
+        if (p.image) {
+          p.image = await UI.compressBase64Image(p.image);
+        }
+      }
+
       if (isEdit) {
         // Edit flow
         const updatedPudia = savedPudias[0];
@@ -1856,9 +1863,9 @@ const EmeraldController = {
         UI.showToast(`Successfully added ${savedPudias.length} Pudia(s) to Group "${group}"!`);
       }
 
-      await DBManager.saveVault();
       UI.closeModal('modal-emerald-item');
       App.refreshAllDisplays();
+      await DBManager.saveVault();
     } catch (err) {
       UI.showToast(err.message, true);
     }
@@ -1877,9 +1884,9 @@ const EmeraldController = {
           DBManager.database.emeralds.splice(index, 1);
         }
 
-        await DBManager.saveVault();
         UI.showToast("Emerald deleted from stock.");
         App.refreshAllDisplays();
+        await DBManager.saveVault();
       } catch (err) {
         UI.showToast(err.message, true);
       }
@@ -1894,9 +1901,9 @@ const EmeraldController = {
         const deletedCount = initialCount - DBManager.database.emeralds.length;
 
         DBManager.addLog("DELETE", `group_${groupName}`, "Emerald Group", `Deleted emerald group "${groupName}" (${deletedCount} items)`, []);
-        await DBManager.saveVault();
         UI.showToast(`Deleted ${deletedCount} items from group "${groupName}".`);
         App.refreshAllDisplays();
+        await DBManager.saveVault();
       } catch (err) {
         UI.showToast(err.message, true);
       }
@@ -1915,9 +1922,9 @@ const EmeraldController = {
         const deletedCount = initialCount - DBManager.database.emeralds.length;
 
         DBManager.addLog("DELETE", `grade_${groupName}_${gradeName}`, "Emerald Grade", `Deleted emerald grade "${gradeName}" from group "${groupName}" (${deletedCount} items)`, []);
-        await DBManager.saveVault();
         UI.showToast(`Deleted ${deletedCount} items from grade "${gradeName}".`);
         App.refreshAllDisplays();
+        await DBManager.saveVault();
       } catch (err) {
         UI.showToast(err.message, true);
       }

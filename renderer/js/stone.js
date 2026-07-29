@@ -1100,9 +1100,9 @@ const StoneController = {
         }
       }
 
-      await DBManager.saveVault();
       UI.closeModal('modal-stone-item');
       App.refreshAllDisplays();
+      await DBManager.saveVault();
     } catch (err) {
       UI.showToast(err.message, true);
     }
@@ -1116,9 +1116,9 @@ const StoneController = {
           DBManager.database.stones.splice(index, 1);
         }
         DBManager.addLog("DELETE", stone.id, `${stone.type} #${stone.color}`, `Deleted loose stone stock`, []);
-        await DBManager.saveVault();
         UI.showToast("Stock item deleted.");
         App.refreshAllDisplays();
+        await DBManager.saveVault();
       } catch (err) {
         UI.showToast(err.message, true);
       }

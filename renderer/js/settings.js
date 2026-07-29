@@ -94,10 +94,10 @@ const Settings = {
     DBManager.addLog("GOLD_RATE_UPDATE", "gold_rate_24kt", "Universal Gold Rate", `Updated global gold price from ₹${oldRate.toLocaleString()} to ₹${newRate.toLocaleString()}`, changes);
 
     try {
-      await DBManager.saveVault();
       UI.closeModal('modal-gold-rate');
       UI.showToast("Valuation rates successfully rotated!");
       App.refreshAllDisplays();
+      await DBManager.saveVault();
     } catch (err) {
       UI.showToast(err.message, true);
     }
@@ -139,10 +139,10 @@ const Settings = {
     DBManager.addLog("GOLD_RATE_UPDATE", "usd_to_inr", "USD/INR Exchange Rate", `Updated USD/INR rate from ₹${oldRate.toLocaleString()} to ₹${newRate.toLocaleString()}`, changes);
 
     try {
-      await DBManager.saveVault();
       UI.closeModal('modal-usd-rate');
       UI.showToast("USD/INR exchange rate updated!");
       App.refreshAllDisplays();
+      await DBManager.saveVault();
     } catch (err) {
       UI.showToast(err.message, true);
     }
@@ -214,11 +214,10 @@ const Settings = {
     try {
       DBManager.database.logs = [];
       DBManager.addLog("ADD", "vault", "Vault", "Activity logs cleared by administrator.", []);
-      await DBManager.saveVault();
-      
       UI.closeModal('modal-clear-logs-confirm');
       UI.showToast("Audit logs successfully cleared.");
       App.refreshAllDisplays();
+      await DBManager.saveVault();
     } catch (err) {
       UI.closeModal('modal-clear-logs-confirm');
       UI.showToast(err.message, true);

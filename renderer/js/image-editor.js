@@ -277,19 +277,33 @@ const ImageEditor = {
       return;
     }
     
-    // Create temporary canvas to cut the selected rectangle
+    // Calculate target output dimensions (max 1200px for optimal speed and memory)
+    let targetW = cropW;
+    let targetH = cropH;
+    const maxDim = 1200;
+    if (targetW > maxDim || targetH > maxDim) {
+      if (targetW > targetH) {
+        targetH = Math.round((targetH * maxDim) / targetW);
+        targetW = maxDim;
+      } else {
+        targetW = Math.round((targetW * maxDim) / targetH);
+        targetH = maxDim;
+      }
+    }
+
+    // Create temporary canvas to cut and scale the selected rectangle
     const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = cropW;
-    tempCanvas.height = cropH;
+    tempCanvas.width = targetW;
+    tempCanvas.height = targetH;
     const tempCtx = tempCanvas.getContext('2d');
     
     tempCtx.drawImage(
       this.canvas,
       cropX, cropY, cropW, cropH,
-      0, 0, cropW, cropH
+      0, 0, targetW, targetH
     );
     
-    const croppedBase64 = tempCanvas.toDataURL('image/jpeg', 0.92);
+    const croppedBase64 = tempCanvas.toDataURL('image/jpeg', 0.85);
     if (this.onSave) {
       this.onSave(croppedBase64);
     }
