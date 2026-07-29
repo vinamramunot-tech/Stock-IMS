@@ -285,6 +285,13 @@ const UI = {
         promptContainer.classList.add('hidden');
         previewContainer.classList.remove('hidden');
         UI.activeItemState.image = compressedBase64;
+
+        if (window.ImageEditor) {
+          ImageEditor.open(compressedBase64, (croppedBase64) => {
+            previewImg.src = croppedBase64;
+            UI.activeItemState.image = croppedBase64;
+          });
+        }
       } catch (err) {
         UI.showToast(err.message, true);
       }

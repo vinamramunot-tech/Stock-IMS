@@ -987,7 +987,6 @@ const EmeraldController = {
       card.dataset.imageUrl = '';
     });
 
-    const self = this;
     async function handleImageFile(file) {
       if (!file.type.startsWith('image/')) {
         UI.showToast("Only image files are supported.", true);
@@ -999,6 +998,13 @@ const EmeraldController = {
         promptContainer.classList.add('hidden');
         previewContainer.classList.remove('hidden');
         card.dataset.imageUrl = compressedBase64;
+
+        if (window.ImageEditor) {
+          ImageEditor.open(compressedBase64, (croppedBase64) => {
+            previewImg.src = croppedBase64;
+            card.dataset.imageUrl = croppedBase64;
+          });
+        }
       } catch (err) {
         UI.showToast(err.message, true);
       }
