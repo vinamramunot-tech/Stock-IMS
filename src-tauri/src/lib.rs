@@ -413,86 +413,104 @@ fn parse_vault_bytes(raw_buffer: &[u8]) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn read_vault(handle: AppHandle, custom_path: String) -> Result<serde_json::Value, String> {
-    let file_path = std::path::Path::new(&custom_path);
-    if !file_path.exists() {
-        return Ok(serde_json::json!({ "exists": false, "data": null }));
-    }
+async fn read_vault(handle: AppHandle, custom_path: String) -> Result<serde_json::Value, String> {
+    let custom_path_clone = custom_path.clone();
+    let read_result = tokio::task::spawn_blocking(move || {
+        let file_path = std::path::Path::new(&custom_path_clone);
+        if !file_path.exists() {
+            return Ok(None);
+        }
 
-    let raw_buffer = std::fs::read(file_path)
-        .map_err(|e| format!("Failed to read file: {:?}", e))?;
+        let raw_buffer = std::fs::read(file_path)
+            .map_err(|e| format!("Failed to read file: {:?}", e))?;
 
-    let json_str = match parse_vault_bytes(&raw_buffer) {
-        Ok(data) => data,
-        Err(err) => {
-            // Automatic backup recovery attempt if main file is unreadable
-            let backup_path = format!("{}.bak", custom_path);
-            let b_path = std::path::Path::new(&backup_path);
-            if b_path.exists() {
-                if let Ok(b_buffer) = std::fs::read(b_path) {
-                    if let Ok(b_data) = parse_vault_bytes(&b_buffer) {
-                        // Successfully recovered from backup! Overwrite corrupted main file with backup.
-                        let _ = std::fs::copy(b_path, file_path);
-                        start_watching_db_file(handle, custom_path.clone());
-                        return Ok(serde_json::json!({
-                            "exists": true,
-                            "data": b_data,
-                            "path": custom_path
-                        }));
+        let json_str = match parse_vault_bytes(&raw_buffer) {
+            Ok(data) => data,
+            Err(err) => {
+                // Automatic backup recovery attempt if main file is unreadable
+                let backup_path = format!("{}.bak", custom_path_clone);
+                let b_path = std::path::Path::new(&backup_path);
+                if b_path.exists() {
+                    if let Ok(b_buffer) = std::fs::read(b_path) {
+                        if let Ok(b_data) = parse_vault_bytes(&b_buffer) {
+                            // Successfully recovered from backup! Overwrite corrupted main file with backup.
+                            let _ = std::fs::copy(b_path, file_path);
+                            return Ok(Some(b_data));
+                        }
                     }
                 }
+                return Err(err);
             }
-            return Err(err);
+        };
+
+        Ok(Some(json_str))
+    })
+    .await
+    .map_err(|e| format!("Task join error: {:?}", e))?;
+
+    match read_result? {
+        Some(json_str) => {
+            start_watching_db_file(handle, custom_path.clone());
+            Ok(serde_json::json!({
+                "exists": true,
+                "data": json_str,
+                "path": custom_path
+            }))
         }
-    };
-
-    start_watching_db_file(handle, custom_path.clone());
-
-    Ok(serde_json::json!({
-        "exists": true,
-        "data": json_str,
-        "path": custom_path
-    }))
+        None => {
+            Ok(serde_json::json!({ "exists": false, "data": null }))
+        }
+    }
 }
 
 #[tauri::command]
-fn write_vault(handle: AppHandle, payload: String, custom_path: String) -> Result<serde_json::Value, String> {
+async fn write_vault(handle: AppHandle, payload: String, custom_path: String) -> Result<serde_json::Value, String> {
     stop_watching_db_file();
     
-    let file_path = std::path::Path::new(&custom_path);
-    if let Some(parent) = file_path.parent() {
-        let _ = std::fs::create_dir_all(parent);
-    }
+    let custom_path_clone = custom_path.clone();
+    let write_result = tokio::task::spawn_blocking(move || {
+        let file_path = std::path::Path::new(&custom_path_clone);
+        if let Some(parent) = file_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        
+        let parsed: db::VaultDatabase = serde_json::from_str(&payload)
+            .map_err(|e| format!("Failed to parse database payload: {:?}", e))?;
+            
+        let binary_data = rmp_serde::to_vec(&parsed)
+            .map_err(|e| format!("Serialization error: {:?}", e))?;
+            
+        // Use fast compression to optimize save speed
+        let mut encoder = GzEncoder::new(Vec::new(), Compression::fast());
+        encoder.write_all(&binary_data)
+            .map_err(|e| format!("Compression failed: {:?}", e))?;
+        let compressed_data = encoder.finish()
+            .map_err(|e| format!("Compression finish failed: {:?}", e))?;
+            
+        let encrypted_buffer = encrypt_data_bytes(&compressed_data)?;
+        
+        let temp_path_str = format!("{}.tmp", custom_path_clone);
+        let temp_path = std::path::Path::new(&temp_path_str);
+        
+        std::fs::write(temp_path, &encrypted_buffer)
+            .map_err(|e| format!("Failed to write temp file: {:?}", e))?;
+            
+        if file_path.exists() {
+            let backup_path_str = format!("{}.bak", custom_path_clone);
+            let backup_path = std::path::Path::new(&backup_path_str);
+            let _ = std::fs::copy(file_path, backup_path);
+        }
+        
+        std::fs::rename(temp_path, file_path)
+            .map_err(|e| format!("Failed to complete write atomically: {:?}", e))?;
+            
+        Ok::<(), String>(())
+    })
+    .await
+    .map_err(|e| format!("Task join error: {:?}", e))?;
     
-    let parsed: db::VaultDatabase = serde_json::from_str(&payload)
-        .map_err(|e| format!("Failed to parse database payload: {:?}", e))?;
-        
-    let binary_data = rmp_serde::to_vec(&parsed)
-        .map_err(|e| format!("Serialization error: {:?}", e))?;
-        
-    let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-    encoder.write_all(&binary_data)
-        .map_err(|e| format!("Compression failed: {:?}", e))?;
-    let compressed_data = encoder.finish()
-        .map_err(|e| format!("Compression finish failed: {:?}", e))?;
-        
-    let encrypted_buffer = encrypt_data_bytes(&compressed_data)?;
+    write_result?;
     
-    let temp_path_str = format!("{}.tmp", custom_path);
-    let temp_path = std::path::Path::new(&temp_path_str);
-    
-    std::fs::write(temp_path, &encrypted_buffer)
-        .map_err(|e| format!("Failed to write temp file: {:?}", e))?;
-        
-    if file_path.exists() {
-        let backup_path_str = format!("{}.bak", custom_path);
-        let backup_path = std::path::Path::new(&backup_path_str);
-        let _ = std::fs::copy(file_path, backup_path);
-    }
-    
-    std::fs::rename(temp_path, file_path)
-        .map_err(|e| format!("Failed to complete write atomically: {:?}", e))?;
-        
     start_watching_db_file(handle, custom_path.clone());
     
     Ok(serde_json::json!({
@@ -502,60 +520,81 @@ fn write_vault(handle: AppHandle, payload: String, custom_path: String) -> Resul
 }
 
 #[tauri::command]
-fn import_db_file(handle: AppHandle, base64_data: String, custom_path: String) -> Result<bool, String> {
-    use base64::{Engine as _, engine::general_purpose};
-    
-    let buffer = general_purpose::STANDARD.decode(&base64_data)
-        .map_err(|e| format!("Failed to decode base64: {:?}", e))?;
+async fn import_db_file(handle: AppHandle, base64_data: String, custom_path: String) -> Result<bool, String> {
+    let base64_data_clone = base64_data.clone();
+    let decompressed_result = tokio::task::spawn_blocking(move || {
+        use base64::{Engine as _, engine::general_purpose};
         
-    let decrypted = match decrypt_data_bytes(&buffer) {
-        Ok(bytes) => bytes,
-        Err(_) => buffer.clone()
-    };
-    
-    let decompressed = if decrypted.len() >= 2 && decrypted[0] == 0x1f && decrypted[1] == 0x8b {
-        let mut decoder = GzDecoder::new(&decrypted[..]);
-        let mut decompressed_bytes = Vec::new();
-        if decoder.read_to_end(&mut decompressed_bytes).is_ok() {
-            decompressed_bytes
+        let buffer = general_purpose::STANDARD.decode(&base64_data_clone)
+            .map_err(|e| format!("Failed to decode base64: {:?}", e))?;
+            
+        let decrypted = match decrypt_data_bytes(&buffer) {
+            Ok(bytes) => bytes,
+            Err(_) => buffer.clone()
+        };
+        
+        let decompressed = if decrypted.len() >= 2 && decrypted[0] == 0x1f && decrypted[1] == 0x8b {
+            let mut decoder = GzDecoder::new(&decrypted[..]);
+            let mut decompressed_bytes = Vec::new();
+            if decoder.read_to_end(&mut decompressed_bytes).is_ok() {
+                decompressed_bytes
+            } else {
+                decrypted
+            }
         } else {
             decrypted
-        }
-    } else {
-        decrypted
-    };
-    
-    let is_valid = if rmp_serde::from_slice::<db::VaultDatabase>(&decompressed).is_ok() {
-        true
-    } else if let Ok(utf8_str) = std::str::from_utf8(&decompressed) {
-        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(utf8_str) {
-            parsed.get("settings").is_some() && parsed.get("items").is_some()
+        };
+        
+        Ok::<Vec<u8>, String>(decompressed)
+    })
+    .await
+    .map_err(|e| format!("Task join error: {:?}", e))??;
+
+    let handle_clone = handle.clone();
+    let custom_path_clone = custom_path.clone();
+    let save_result = tokio::task::spawn_blocking(move || {
+        let is_valid = if rmp_serde::from_slice::<db::VaultDatabase>(&decompressed_result).is_ok() {
+            true
+        } else if let Ok(utf8_str) = std::str::from_utf8(&decompressed_result) {
+            if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(utf8_str) {
+                parsed.get("settings").is_some() && parsed.get("items").is_some()
+            } else {
+                false
+            }
         } else {
             false
+        };
+        
+        if is_valid {
+            let json_str = if let Ok(bin_db) = rmp_serde::from_slice::<db::VaultDatabase>(&decompressed_result) {
+                serde_json::to_string(&bin_db)
+                    .map_err(|e| format!("Serialization error: {:?}", e))?
+            } else if let Ok(utf8_str) = std::str::from_utf8(&decompressed_result) {
+                utf8_str.to_string()
+            } else {
+                return Err("Invalid database format".to_string());
+            };
+            Ok(json_str)
+        } else {
+            Err("The selected file is not a valid Mava Gems database.".to_string())
         }
-    } else {
-        false
-    };
-    
-    if is_valid {
-        if let Ok(bin_db) = rmp_serde::from_slice::<db::VaultDatabase>(&decompressed) {
-            let json_str = serde_json::to_string(&bin_db)
-                .map_err(|e| format!("Serialization error: {:?}", e))?;
-            write_vault(handle, json_str, custom_path)?;
-        } else if let Ok(utf8_str) = std::str::from_utf8(&decompressed) {
-            write_vault(handle, utf8_str.to_string(), custom_path)?;
-        }
-        Ok(true)
-    } else {
-        Err("The selected file is not a valid Mava Gems database.".to_string())
-    }
+    })
+    .await
+    .map_err(|e| format!("Task join error: {:?}", e))??;
+
+    write_vault(handle_clone, save_result, custom_path_clone).await?;
+    Ok(true)
 }
 
 #[tauri::command]
-fn copy_file(source_path: String, dest_path: String) -> Result<bool, String> {
-    std::fs::copy(&source_path, &dest_path)
-        .map_err(|e| format!("Failed to copy file: {:?}", e))?;
-    Ok(true)
+async fn copy_file(source_path: String, dest_path: String) -> Result<bool, String> {
+    tokio::task::spawn_blocking(move || {
+        std::fs::copy(&source_path, &dest_path)
+            .map_err(|e| format!("Failed to copy file: {:?}", e))?;
+        Ok::<bool, String>(true)
+    })
+    .await
+    .map_err(|e| format!("Task join error: {:?}", e))?
 }
 
 #[tauri::command]
@@ -591,13 +630,17 @@ fn save_file_dialog(_handle: AppHandle, _default_name: String) -> Option<String>
 }
 
 #[tauri::command]
-fn save_pdf_file(base64_data: String, path: String) -> Result<bool, String> {
-    use base64::{Engine as _, engine::general_purpose};
-    let buffer = general_purpose::STANDARD.decode(&base64_data)
-        .map_err(|e| format!("Failed to decode base64: {:?}", e))?;
-    std::fs::write(path, buffer)
-        .map_err(|e| format!("Failed to save PDF file: {:?}", e))?;
-    Ok(true)
+async fn save_pdf_file(base64_data: String, path: String) -> Result<bool, String> {
+    tokio::task::spawn_blocking(move || {
+        use base64::{Engine as _, engine::general_purpose};
+        let buffer = general_purpose::STANDARD.decode(&base64_data)
+            .map_err(|e| format!("Failed to decode base64: {:?}", e))?;
+        std::fs::write(path, buffer)
+            .map_err(|e| format!("Failed to save PDF file: {:?}", e))?;
+        Ok::<bool, String>(true)
+    })
+    .await
+    .map_err(|e| format!("Task join error: {:?}", e))?
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -630,4 +673,90 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Instant;
+
+    #[test]
+    fn test_db_compression_and_encryption() {
+        // Create a mock large database payload (settings + items + logs)
+        let mut items = Vec::new();
+        for i in 0..50000 {
+            items.push(serde_json::json!({
+                "id": format!("item_{}", i),
+                "name": "Luxury Diamond Ring 18K Gold",
+                "price": 25000 + i,
+                "weight": 4.5,
+                "status": "In Stock",
+                "details": {
+                    "clarity": "VVS1",
+                    "color": "D",
+                    "cut": "Excellent"
+                }
+            }));
+        }
+
+        let database = db::VaultDatabase {
+            settings: serde_json::json!({
+                "currency": "₹",
+                "goldRate24kt": {
+                    "ratePerGram": 6500.0,
+                    "effectiveDate": "2026-07-30"
+                }
+            }),
+            items,
+            emeralds: vec![],
+            memos: vec![],
+            stones: vec![],
+            jewel_stone_memos: vec![],
+            jewelry_memos: vec![],
+            logs: vec![],
+        };
+
+        // Serialize to MessagePack
+        let start_rmp = Instant::now();
+        let binary_data = rmp_serde::to_vec(&database).unwrap();
+        let elapsed_rmp = start_rmp.elapsed();
+        println!("MsgPack serialization took: {:?}", elapsed_rmp);
+
+        // Compare Compression::default() vs Compression::fast()
+        let start_comp_default = Instant::now();
+        let mut encoder_default = GzEncoder::new(Vec::new(), flate2::Compression::default());
+        encoder_default.write_all(&binary_data).unwrap();
+        let compressed_default = encoder_default.finish().unwrap();
+        let elapsed_comp_default = start_comp_default.elapsed();
+
+        let start_comp_fast = Instant::now();
+        let mut encoder_fast = GzEncoder::new(Vec::new(), flate2::Compression::fast());
+        encoder_fast.write_all(&binary_data).unwrap();
+        let compressed_fast = encoder_fast.finish().unwrap();
+        let elapsed_comp_fast = start_comp_fast.elapsed();
+
+        println!("Compression::default() took: {:?} (size: {} bytes)", elapsed_comp_default, compressed_default.len());
+        println!("Compression::fast() took: {:?} (size: {} bytes)", elapsed_comp_fast, compressed_fast.len());
+
+        // Encrypt with our AES implementation
+        let start_enc = Instant::now();
+        let encrypted = encrypt_data_bytes(&compressed_fast).unwrap();
+        let elapsed_enc = start_enc.elapsed();
+        println!("Encryption took: {:?}", elapsed_enc);
+
+        // Decrypt and decompress
+        let start_dec = Instant::now();
+        let decrypted = decrypt_data_bytes(&encrypted).unwrap();
+        let mut decoder = GzDecoder::new(&decrypted[..]);
+        let mut decompressed = Vec::new();
+        decoder.read_to_end(&mut decompressed).unwrap();
+        let elapsed_dec = start_dec.elapsed();
+        println!("Decryption & Decompression took: {:?}", elapsed_dec);
+
+        assert_eq!(decompressed, binary_data);
+
+        // Deserialize back to VaultDatabase
+        let deserialized: db::VaultDatabase = rmp_serde::from_slice(&decompressed).unwrap();
+        assert_eq!(deserialized.items.len(), 50000);
+    }
 }
