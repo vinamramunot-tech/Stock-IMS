@@ -343,7 +343,9 @@ const EmeraldController = {
 
     const self = this;
     async function handleImageFile(file) {
-      if (!file.type.startsWith('image/')) {
+      const filename = (file.name || '').toLowerCase();
+      const isHeic = filename.endsWith('.heic') || filename.endsWith('.heif') || file.type === 'image/heic' || file.type === 'image/heif';
+      if (!file.type.startsWith('image/') && !isHeic) {
         UI.showToast("Only image files are supported.", true);
         return;
       }
@@ -988,7 +990,9 @@ const EmeraldController = {
     });
 
     async function handleImageFile(file) {
-      if (!file.type.startsWith('image/')) {
+      const filename = (file.name || '').toLowerCase();
+      const isHeic = filename.endsWith('.heic') || filename.endsWith('.heif') || file.type === 'image/heic' || file.type === 'image/heif';
+      if (!file.type.startsWith('image/') && !isHeic) {
         UI.showToast("Only image files are supported.", true);
         return;
       }

@@ -151,8 +151,26 @@ const UI = {
   processImageUpload(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = (event) => {
-        const rawBase64 = event.target.result;
+      reader.onload = async (event) => {
+        let rawBase64 = event.target.result;
+        const filename = (file.name || '').toLowerCase();
+        if (
+          file.type === 'image/heic' || 
+          file.type === 'image/heif' || 
+          filename.endsWith('.heic') || 
+          filename.endsWith('.heif') ||
+          rawBase64.startsWith('data:image/heic') ||
+          rawBase64.startsWith('data:image/heif') ||
+          rawBase64.startsWith('data:application/octet-stream')
+        ) {
+          try {
+            if (window.__TAURI__ && window.__TAURI__.core) {
+              rawBase64 = await window.__TAURI__.core.invoke('convert_heic_to_jpeg', { base64Heic: rawBase64 });
+            }
+          } catch (e) {
+            console.warn("HEIC conversion via Tauri failed:", e);
+          }
+        }
         this.compressBase64Image(rawBase64, 1200, 0.82)
           .then(compressed => resolve(compressed))
           .catch(() => resolve(rawBase64));
@@ -275,7 +293,9 @@ const UI = {
     });
 
     async function handleImageFile(file) {
-      if (!file.type.startsWith('image/')) {
+      const filename = (file.name || '').toLowerCase();
+      const isHeic = filename.endsWith('.heic') || filename.endsWith('.heif') || file.type === 'image/heic' || file.type === 'image/heif';
+      if (!file.type.startsWith('image/') && !isHeic) {
         UI.showToast("Only image files are supported.", true);
         return;
       }
