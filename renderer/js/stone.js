@@ -848,16 +848,28 @@ const StoneController = {
       groupHeader.style.cssText = 'cursor: pointer; padding: 12px 16px; background-color: var(--bg-card);';
       
       groupHeader.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
-          <span class="group-expand-icon" style="font-family: monospace; font-size: 12px; width: 12px; color: var(--text-muted); flex-shrink: 0;">▶</span>
-          <span style="font-weight: 700; font-size: 15px; color: var(--text-main); font-family: var(--font-serif);">${UI.escapeHtml(group.name)}</span>
-        </div>
-        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-left: 22px;">
-          <span style="background-color: var(--bg-base); padding: 2px 8px; border-radius: 10px; font-size: 11px; color: var(--text-muted);">Weight: <strong style="color: var(--text-main);">${group.totalWeight.toFixed(3)} cts</strong></span>
-          <span style="background-color: var(--bg-base); padding: 2px 8px; border-radius: 10px; font-size: 11px; color: var(--text-muted);">Value: <strong style="color: var(--text-gold-dark);">₹${group.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
-          <span style="background-color: var(--bg-base); padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; color: var(--text-main);">${group.itemCount} Packets</span>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+              <span class="group-expand-icon" style="font-family: monospace; font-size: 12px; width: 12px; color: var(--text-muted); flex-shrink: 0;">▶</span>
+              <span style="font-weight: 700; font-size: 15px; color: var(--text-main); font-family: var(--font-serif);">${UI.escapeHtml(group.name)}</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-left: 22px;">
+              <span style="background-color: var(--bg-base); padding: 2px 8px; border-radius: 10px; font-size: 11px; color: var(--text-muted);">Weight: <strong style="color: var(--text-main);">${group.totalWeight.toFixed(3)} cts</strong></span>
+              <span style="background-color: var(--bg-base); padding: 2px 8px; border-radius: 10px; font-size: 11px; color: var(--text-muted);">Value: <strong style="color: var(--text-gold-dark);">₹${group.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
+              <span style="background-color: var(--bg-base); padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; color: var(--text-main);">${group.itemCount} Packets</span>
+            </div>
+          </div>
+          <button type="button" class="btn btn-danger btn-small btn-delete-group" style="font-size: 11px; padding: 4px 10px; margin-right: 5px;">Delete Group</button>
         </div>
       `;
+
+      const deleteGroupBtn = groupHeader.querySelector('.btn-delete-group');
+      deleteGroupBtn.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent toggling the accordion collapse
+        this.handleDeleteGroup(group.name);
+      });
+
       groupCard.appendChild(groupHeader);
 
       const groupBody = document.createElement('div');
@@ -1121,6 +1133,27 @@ const StoneController = {
         await DBManager.saveVault();
       } catch (err) {
         UI.showToast(err.message, true);
+      }
+    });
+  },
+
+  async handleDeleteGroup(groupName) {
+    UI.confirm(`Are you sure you want to delete the entire group "${groupName}"?\n\nThis will permanently delete all packets belonging to this group.`, async () => {
+      try {
+        const initialCount = DBManager.getStones().length;
+        DBManager.database.stones = DBManager.database.stones.filter(st => {
+          const stGroup = (st.group && st.group.trim()) ? st.group.trim() : "Unassigned Group";
+          return stGroup !== groupName;
+        });
+
+        const deletedCount = initialCount - DBManager.database.stones.length;
+        DBManager.addLog("DELETE", "group_" + groupName, groupName, `Deleted entire stone group "${groupName}" containing ${deletedCount} packets`, []);
+        UI.showToast(`Group "${groupName}" deleted along with ${deletedCount} packets.`);
+        
+        App.refreshAllDisplays();
+        await DBManager.saveVault();
+      } catch (err) {
+        UI.showToast("Failed to delete group: " + err.message, true);
       }
     });
   },
