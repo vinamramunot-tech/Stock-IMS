@@ -4,7 +4,7 @@
  */
 
 const App = {
-  activeTab: 'tab-catalog',
+  activeTab: 'tab-jewelry-analyzer',
 
   async init() {
     // 1. Initialize Modules
@@ -164,7 +164,7 @@ const App = {
         const action = item.getAttribute('data-action');
         mobileMenuOverlay.classList.add('hidden');
 
-        if (action === 'tab-catalog' || action === 'tab-emerald-catalog' || action === 'tab-memos' || action === 'tab-logs' || action === 'tab-settings' || action === 'tab-stone-catalog' || action === 'tab-jewel-stone-memos' || action === 'tab-jewelry-memos' || action === 'tab-jewelry-photos' || action === 'tab-emerald-photos') {
+        if (action === 'tab-jewelry-analyzer' || action === 'tab-catalog' || action === 'tab-emerald-catalog' || action === 'tab-memos' || action === 'tab-logs' || action === 'tab-settings' || action === 'tab-stone-catalog' || action === 'tab-jewel-stone-memos' || action === 'tab-jewelry-memos' || action === 'tab-jewelry-photos' || action === 'tab-emerald-photos') {
           this.switchTab(action);
         } else if (action === 'add-jewelry') {
           const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
@@ -843,7 +843,7 @@ const App = {
       const action = item.getAttribute('data-action');
       let show = false;
       if (appName === 'jewelry') {
-        show = ['tab-catalog', 'tab-jewelry-photos', 'tab-jewelry-memos', 'tab-logs', 'tab-settings', 'add-jewelry', 'add-jewelry-memo'].includes(action);
+        show = ['tab-jewelry-analyzer', 'tab-catalog', 'tab-jewelry-photos', 'tab-jewelry-memos', 'tab-logs', 'tab-settings', 'add-jewelry', 'add-jewelry-memo'].includes(action);
       } else if (appName === 'emerald') {
         show = ['tab-emerald-catalog', 'tab-emerald-analysis', 'tab-emerald-photos', 'tab-memos', 'tab-emerald-sales', 'tab-logs', 'tab-settings', 'add-emerald', 'add-memo'].includes(action);
       } else if (appName === 'stone') {
@@ -858,7 +858,7 @@ const App = {
     });
 
     // Automatically boot into the first/default tab of the selected app suite
-    let defaultTab = 'tab-catalog';
+    let defaultTab = 'tab-jewelry-analyzer';
     if (appName === 'emerald') {
       defaultTab = 'tab-emerald-catalog';
     } else if (appName === 'stone') {

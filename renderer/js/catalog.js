@@ -48,6 +48,15 @@ const Catalog = {
     if (bulkDeleteBtn) {
       bulkDeleteBtn.addEventListener('click', () => this.handleBulkDelete());
     }
+
+    // Bulk Unselect Button Listener
+    const bulkUnselectBtn = document.getElementById('btn-bulk-unselect');
+    if (bulkUnselectBtn) {
+      bulkUnselectBtn.addEventListener('click', () => {
+        this.selectedItemIds.clear();
+        this.renderCatalogGrid();
+      });
+    }
     
     const openAddModal = () => {
       const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
@@ -1352,12 +1361,10 @@ const Catalog = {
   },
 
   updateBulkSelectionUI(filteredItems) {
-    const bulkBar = document.getElementById('catalog-bulk-actions');
     const selectCountEl = document.getElementById('bulk-select-count');
     const selectAllCheckbox = document.getElementById('bulk-select-all');
     const bulkDeleteBtn = document.getElementById('btn-bulk-delete');
-
-    if (!bulkBar) return;
+    const bulkUnselectBtn = document.getElementById('btn-bulk-unselect');
 
     // Clean up selectedItemIds to only include visible/filtered ones
     const filteredIds = new Set(filteredItems.map(i => i.id));
@@ -1370,7 +1377,7 @@ const Catalog = {
     const selectedCount = this.selectedItemIds.size;
 
     if (selectCountEl) {
-      selectCountEl.textContent = `${selectedCount} item${selectedCount === 1 ? '' : 's'} selected`;
+      selectCountEl.textContent = `${selectedCount} Selected`;
     }
 
     const allSelected = filteredItems.length > 0 && filteredItems.every(i => this.selectedItemIds.has(i.id));
@@ -1380,6 +1387,10 @@ const Catalog = {
 
     if (bulkDeleteBtn) {
       bulkDeleteBtn.disabled = (selectedCount === 0);
+    }
+
+    if (bulkUnselectBtn) {
+      bulkUnselectBtn.disabled = (selectedCount === 0);
     }
   },
 
