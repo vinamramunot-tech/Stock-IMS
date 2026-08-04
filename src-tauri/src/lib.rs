@@ -337,7 +337,98 @@ fn import_backup_dialog() -> Option<String> {
 }
 
 #[tauri::command]
-fn parse_vault_bytes(raw_buffer: &[u8]) -> Result<String, String> {
+fn convert_heic_to_jpeg(base64_heic: String) -> Result<String, String> {
+    use base64::{Engine as _, engine::general_purpose};
+    let base64_str = if let Some(pos) = base64_heic.find(",") {
+        &base64_heic[pos + 1..]
+    } else {
+        &base64_heic
+    };
+    let heic_bytes = general_purpose::STANDARD.decode(base64_str)
+        .map_err(|e| format!("Failed to decode base64: {:?}", e))?;
+    let jpg_bytes = convert_heic_bytes_to_jpeg_bytes(&heic_bytes)?;
+    Ok(format!("data:image/jpeg;base64,{}", general_purpose::STANDARD.encode(&jpg_bytes)))
+}
+
+fn convert_heic_bytes_to_jpeg_bytes(heic_bytes: &[u8]) -> Result<Vec<u8>, String> {
+    let temp_dir = std::env::temp_dir();
+    let unique_id = format!("{}_{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos());
+    let temp_heic = temp_dir.join(format!("input_{}.heic", unique_id));
+    let temp_jpg = temp_dir.join(format!("output_{}.jpg", unique_id));
+
+    std::fs::write(&temp_heic, heic_bytes)
+        .map_err(|e| format!("Failed to write temp HEIC file: {:?}", e))?;
+
+    let output = std::process::Command::new("sips")
+        .arg("-s")
+        .arg("format")
+        .arg("jpeg")
+        .arg("-s")
+        .arg("formatOptions")
+        .arg("90")
+        .arg("-z")
+        .arg("1200")
+        .arg("1200")
+        .arg(&temp_heic)
+        .arg("--out")
+        .arg(&temp_jpg)
+        .output();
+
+    let _ = std::fs::remove_file(&temp_heic);
+
+    let output = match output {
+        Ok(out) => out,
+        Err(e) => {
+            let _ = std::fs::remove_file(&temp_jpg);
+            return Err(format!("Failed to execute sips: {:?}", e));
+        }
+    };
+
+    if !output.status.success() {
+        let _ = std::fs::remove_file(&temp_jpg);
+        let err_msg = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("sips conversion failed: {}", err_msg));
+    }
+
+    let jpg_bytes = std::fs::read(&temp_jpg)
+        .map_err(|e| format!("Failed to read temp JPEG file: {:?}", e))?;
+
+    let _ = std::fs::remove_file(&temp_jpg);
+    Ok(jpg_bytes)
+}
+
+fn convert_db_heic_images(val: &mut serde_json::Value) {
+    use base64::{Engine as _, engine::general_purpose};
+    if let Some(obj) = val.as_object_mut() {
+        for array_key in &["items", "emeralds", "stones"] {
+            if let Some(arr) = obj.get_mut(*array_key).and_then(|v| v.as_array_mut()) {
+                for item in arr {
+                    if let Some(item_obj) = item.as_object_mut() {
+                        if let Some(img_val) = item_obj.get_mut("image") {
+                            if let Some(s) = img_val.as_str() {
+                                if s.starts_with("data:image/heic") || s.starts_with("data:image/heif") {
+                                    let base64_str = if let Some(pos) = s.find(",") {
+                                        &s[pos + 1..]
+                                    } else {
+                                        s
+                                    };
+                                    if let Ok(heic_bytes) = general_purpose::STANDARD.decode(base64_str) {
+                                        if let Ok(jpg_bytes) = convert_heic_bytes_to_jpeg_bytes(&heic_bytes) {
+                                            let jpg_base64 = general_purpose::STANDARD.encode(&jpg_bytes);
+                                            *img_val = serde_json::Value::String(format!("data:image/jpeg;base64,{}", jpg_base64));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+pub fn parse_vault_bytes(raw_buffer: &[u8]) -> Result<String, String> {
     if raw_buffer.is_empty() {
         return Ok(serde_json::json!({
             "settings": {},
@@ -369,44 +460,57 @@ fn parse_vault_bytes(raw_buffer: &[u8]) -> Result<String, String> {
         decrypted
     };
 
+    let mut raw_json_val: Option<serde_json::Value> = None;
+
     // 1. Try UTF-8 string from decompressed bytes (plain or Gzip JSON string)
     if let Ok(s) = String::from_utf8(decompressed.clone()) {
         let trimmed = s.trim();
         if trimmed.starts_with('{') && trimmed.ends_with('}') {
             if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(trimmed) {
                 if json_val.is_object() {
-                    return Ok(trimmed.to_string());
+                    raw_json_val = Some(json_val);
                 }
             }
         }
     }
 
     // 2. Try MessagePack deserialization into VaultDatabase struct
-    if let Ok(bin_db) = rmp_serde::from_slice::<db::VaultDatabase>(&decompressed) {
-        if let Ok(json_str) = serde_json::to_string(&bin_db) {
-            return Ok(json_str);
+    if raw_json_val.is_none() {
+        if let Ok(bin_db) = rmp_serde::from_slice::<db::VaultDatabase>(&decompressed) {
+            if let Ok(json_val) = serde_json::to_value(&bin_db) {
+                if json_val.is_object() {
+                    raw_json_val = Some(json_val);
+                }
+            }
         }
     }
 
     // 3. Try MessagePack deserialization into generic serde_json::Value (must be a JSON Object)
-    if let Ok(bin_val) = rmp_serde::from_slice::<serde_json::Value>(&decompressed) {
-        if bin_val.is_object() {
-            if let Ok(json_str) = serde_json::to_string(&bin_val) {
-                return Ok(json_str);
+    if raw_json_val.is_none() {
+        if let Ok(bin_val) = rmp_serde::from_slice::<serde_json::Value>(&decompressed) {
+            if bin_val.is_object() {
+                raw_json_val = Some(bin_val);
             }
         }
     }
 
     // 4. Try UTF-8 string from raw unencrypted buffer
-    if let Ok(s) = String::from_utf8(raw_buffer.to_vec()) {
-        let trimmed = s.trim();
-        if trimmed.starts_with('{') && trimmed.ends_with('}') {
-            if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(trimmed) {
-                if json_val.is_object() {
-                    return Ok(trimmed.to_string());
+    if raw_json_val.is_none() {
+        if let Ok(s) = String::from_utf8(raw_buffer.to_vec()) {
+            let trimmed = s.trim();
+            if trimmed.starts_with('{') && trimmed.ends_with('}') {
+                if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(trimmed) {
+                    if json_val.is_object() {
+                        raw_json_val = Some(json_val);
+                    }
                 }
             }
         }
+    }
+
+    if let Some(mut val) = raw_json_val {
+        convert_db_heic_images(&mut val);
+        return Ok(val.to_string());
     }
 
     Err("Database payload is unreadable (neither MessagePack nor valid JSON)".to_string())
@@ -669,7 +773,8 @@ pub fn run() {
             copy_file,
             import_db_file,
             save_file_dialog,
-            save_pdf_file
+            save_pdf_file,
+            convert_heic_to_jpeg
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

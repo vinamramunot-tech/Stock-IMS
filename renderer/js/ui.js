@@ -16,7 +16,7 @@ const UI = {
 
   debounce(func, delay = 250) {
     let timeoutId;
-    return function(...args) {
+    return function (...args) {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
         func.apply(this, args);
@@ -29,20 +29,20 @@ const UI = {
     const toast = document.getElementById('toast-alert');
     const msgEl = document.getElementById('toast-message');
     msgEl.textContent = message;
-    
+
     if (isError) {
       toast.style.backgroundColor = 'var(--danger-red)';
     } else {
       toast.style.backgroundColor = 'var(--border-dark)';
     }
-    
+
     toast.classList.remove('hidden');
-    
+
     // Play a gentle notification sound/vibration if supported
     if (window.navigator.vibrate) {
       window.navigator.vibrate(50);
     }
-    
+
     setTimeout(() => {
       toast.classList.add('hidden');
     }, 3000);
@@ -52,27 +52,27 @@ const UI = {
   confirm(message, callback) {
     const modal = document.getElementById('modal-generic-confirm');
     if (!modal) return;
-    
+
     const msgEl = document.getElementById('generic-confirm-msg');
     if (msgEl) msgEl.textContent = message;
-    
+
     // Explicitly bind all buttons using onclick to overwrite any existing handlers and ensure they work
     const btnCancel = modal.querySelector('.btn-secondary');
     const btnConfirm = modal.querySelector('.btn-danger');
     const btnClose = modal.querySelector('.btn-close');
-    
+
     const closeAndCleanup = () => {
       this.closeModal('modal-generic-confirm');
     };
-    
+
     if (btnCancel) {
       btnCancel.onclick = closeAndCleanup;
     }
-    
+
     if (btnClose) {
       btnClose.onclick = closeAndCleanup;
     }
-    
+
     if (btnConfirm) {
       btnConfirm.onclick = () => {
         closeAndCleanup();
@@ -82,7 +82,7 @@ const UI = {
         }, 50);
       };
     }
-    
+
     this.openModal('modal-generic-confirm');
   },
 
@@ -107,12 +107,12 @@ const UI = {
     tabs.forEach(tab => {
       tab.addEventListener('click', () => {
         const targetTab = tab.getAttribute('data-tab');
-        
+
         // Deactivate all
         tabs.forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.modal-tab-content').forEach(c => c.classList.remove('active', 'hidden'));
         document.querySelectorAll('.modal-tab-content').forEach(c => c.classList.add('hidden'));
-        
+
         // Activate current
         tab.classList.add('active');
         const content = document.getElementById(targetTab);
@@ -151,8 +151,26 @@ const UI = {
   processImageUpload(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = (event) => {
-        const rawBase64 = event.target.result;
+      reader.onload = async (event) => {
+        let rawBase64 = event.target.result;
+        const filename = (file.name || '').toLowerCase();
+        if (
+          file.type === 'image/heic' || 
+          file.type === 'image/heif' || 
+          filename.endsWith('.heic') || 
+          filename.endsWith('.heif') ||
+          rawBase64.startsWith('data:image/heic') ||
+          rawBase64.startsWith('data:image/heif') ||
+          rawBase64.startsWith('data:application/octet-stream')
+        ) {
+          try {
+            if (window.__TAURI__ && window.__TAURI__.core) {
+              rawBase64 = await window.__TAURI__.core.invoke('convert_heic_to_jpeg', { base64Heic: rawBase64 });
+            }
+          } catch (e) {
+            console.warn("HEIC conversion via Tauri failed:", e);
+          }
+        }
         this.compressBase64Image(rawBase64, 1200, 0.82)
           .then(compressed => resolve(compressed))
           .catch(() => resolve(rawBase64));
@@ -275,7 +293,9 @@ const UI = {
     });
 
     async function handleImageFile(file) {
-      if (!file.type.startsWith('image/')) {
+      const filename = (file.name || '').toLowerCase();
+      const isHeic = filename.endsWith('.heic') || filename.endsWith('.heif') || file.type === 'image/heic' || file.type === 'image/heif';
+      if (!file.type.startsWith('image/') && !isHeic) {
         UI.showToast("Only image files are supported.", true);
         return;
       }
@@ -423,7 +443,7 @@ const UI = {
     const weightInput = card.querySelector('.stone-weight');
     const rateInput = card.querySelector('.stone-rate');
     const totalInput = card.querySelector('.stone-total-val');
-    
+
     // Bidirectional Calculation: Changing weight or rate updates total
     [piecesInput, weightInput, rateInput].forEach(inp => {
       inp.addEventListener('input', () => {
@@ -504,7 +524,7 @@ const UI = {
       const weight = Number(row.querySelector('.stone-weight').value || 0);
       const ratePerCarat = Number(row.querySelector('.stone-rate').value || 0);
       const totalValue = Number(row.querySelector('.stone-total-val').value || 0);
-      
+
       const component = { type, shape, pieces, weight, ratePerCarat, totalValue };
       if (type === 'Diamond' || type === 'Polki') {
         currentItem.diamondsPolki.push(component);
@@ -523,7 +543,7 @@ const UI = {
     const combinedStonesVal = evalResult.stoneSubtotal + evalResult.diamondSubtotal;
     document.getElementById('summary-stone-subtotal').textContent = `₹${combinedStonesVal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
     document.getElementById('summary-labour-subtotal').textContent = `₹${evalResult.subtotal ? currentItem.labourCost.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '0.00'}`;
-    
+
     document.getElementById('summary-subtotal').textContent = `₹${evalResult.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
 
     // Commission Slab indicator text
@@ -545,7 +565,7 @@ const UI = {
     }
 
     document.getElementById('summary-grand-total').textContent = `₹${evalResult.marketCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
-    
+
     // Home Cost display condition
     const homeCostCard = document.getElementById('home-cost-card');
     if (evalResult.hasEmerald) {
@@ -568,13 +588,13 @@ const UI = {
       commission: { value: 0, isManual: false },
       profitPercentage: 40
     };
-    
+
     document.getElementById('jewelry-form').reset();
     document.getElementById('item-wastage').value = '15.00';
     document.getElementById('item-profit-pct').value = '40.0';
     document.getElementById('metals-list-container').replaceChildren();
     document.getElementById('stones-list-container').replaceChildren();
-    
+
     // Reset image uploader display
     document.getElementById('item-image-file').value = '';
     document.getElementById('uploaded-img-el').src = '';
@@ -597,7 +617,7 @@ const UI = {
    */
   loadItemIntoForm(item) {
     this.resetForm();
-    
+
     // De-reference values to prevent direct mutation of state before save
     this.activeItemState = JSON.parse(JSON.stringify(item));
 
@@ -727,7 +747,7 @@ const UI = {
         helperEl.appendChild(skuSpan);
         const countText = ` (${count} ${category}${count === 1 ? '' : 's'} exist) — Click to apply`;
         helperEl.appendChild(document.createTextNode(countText));
-        
+
         skuSpan.addEventListener('click', () => {
           skuInput.value = suggestedSku;
           this.showToast(`Applied SKU: ${suggestedSku}`);
