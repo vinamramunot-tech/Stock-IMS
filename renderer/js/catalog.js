@@ -5,11 +5,49 @@
 
 const Catalog = {
   init() {
+    this.selectedItemIds = new Set();
+
     // Search & Filter event listeners
     document.getElementById('search-input').addEventListener('input', UI.debounce(() => this.renderCatalogGrid(), 200));
     document.getElementById('filter-category').addEventListener('change', () => this.renderCatalogGrid());
     document.getElementById('filter-karat').addEventListener('change', () => this.renderCatalogGrid());
     document.getElementById('sort-items').addEventListener('change', () => this.renderCatalogGrid());
+
+    // Bulk Select All Listener
+    const selectAllCheckbox = document.getElementById('bulk-select-all');
+    if (selectAllCheckbox) {
+      selectAllCheckbox.addEventListener('change', (e) => {
+        const query = document.getElementById('search-input').value.toLowerCase().trim();
+        const filterCat = document.getElementById('filter-category').value;
+        const filterKarat = document.getElementById('filter-karat').value;
+        const allItems = DBManager.getItems();
+
+        const visibleItems = allItems.filter(item => {
+          const matchesSearch = !query || 
+            (item.name || '').toLowerCase().includes(query) || 
+            (item.sku || '').toLowerCase().includes(query) || 
+            (item.description || '').toLowerCase().includes(query) ||
+            (item.metals || []).some(m => (m.name || '').toLowerCase().includes(query));
+          const matchesCat = !filterCat || item.category === filterCat;
+          const matchesKarat = !filterKarat || (item.metals || []).some(m => m.karat == filterKarat);
+          return matchesSearch && matchesCat && matchesKarat;
+        });
+
+        if (e.target.checked) {
+          visibleItems.forEach(item => this.selectedItemIds.add(item.id));
+        } else {
+          visibleItems.forEach(item => this.selectedItemIds.delete(item.id));
+        }
+        
+        this.renderCatalogGrid();
+      });
+    }
+
+    // Bulk Delete Button Listener
+    const bulkDeleteBtn = document.getElementById('btn-bulk-delete');
+    if (bulkDeleteBtn) {
+      bulkDeleteBtn.addEventListener('click', () => this.handleBulkDelete());
+    }
     
     const openAddModal = () => {
       const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
@@ -373,7 +411,13 @@ const Catalog = {
              </div>
            </div>`;
 
+      const isSelected = this.selectedItemIds && this.selectedItemIds.has(item.id);
+      const checkboxHtml = `<label class="catalog-select-label" style="position: absolute; top: 10px; left: 10px; z-index: 10; cursor: pointer; padding: 4px; background: var(--bg-card); border-radius: 4px; border: 1px solid var(--border-light); display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <input type="checkbox" class="catalog-item-select" data-item-id="${item.id}" ${isSelected ? 'checked' : ''} style="cursor: pointer; width: 14px; height: 14px; margin: 0; accent-color: var(--text-gold-dark);">
+      </label>`;
+
       card.innerHTML = `
+        ${checkboxHtml}
         ${badgeStatusHtml}
         ${imgHtml}
         <div class="product-body">
@@ -427,8 +471,23 @@ const Catalog = {
         this.handleDeleteItem(item);
       });
 
+      const checkbox = card.querySelector('.catalog-item-select');
+      if (checkbox) {
+        checkbox.addEventListener('change', (e) => {
+          if (e.target.checked) {
+            this.selectedItemIds.add(item.id);
+          } else {
+            this.selectedItemIds.delete(item.id);
+          }
+          this.updateBulkSelectionUI(filtered);
+        });
+      }
+
       gridContainer.appendChild(card);
     });
+
+    // Update Bulk action bar visibility and status
+    this.updateBulkSelectionUI(filtered);
   },
 
   async handleSaveJewelryPiece() {
@@ -1290,6 +1349,61 @@ const Catalog = {
     XLSX.utils.book_append_sheet(wb, wsTk, 'rates tk');
 
     return XLSX.write(wb, { bookType: 'xlsx', type: 'base64', cellStyles: true });
+  },
+
+  updateBulkSelectionUI(filteredItems) {
+    const bulkBar = document.getElementById('catalog-bulk-actions');
+    const selectCountEl = document.getElementById('bulk-select-count');
+    const selectAllCheckbox = document.getElementById('bulk-select-all');
+    const bulkDeleteBtn = document.getElementById('btn-bulk-delete');
+
+    if (!bulkBar) return;
+
+    // Clean up selectedItemIds to only include visible/filtered ones
+    const filteredIds = new Set(filteredItems.map(i => i.id));
+    for (let id of this.selectedItemIds) {
+      if (!filteredIds.has(id)) {
+        this.selectedItemIds.delete(id);
+      }
+    }
+
+    const selectedCount = this.selectedItemIds.size;
+
+    if (selectCountEl) {
+      selectCountEl.textContent = `${selectedCount} item${selectedCount === 1 ? '' : 's'} selected`;
+    }
+
+    const allSelected = filteredItems.length > 0 && filteredItems.every(i => this.selectedItemIds.has(i.id));
+    if (selectAllCheckbox) {
+      selectAllCheckbox.checked = allSelected;
+    }
+
+    if (bulkDeleteBtn) {
+      bulkDeleteBtn.disabled = (selectedCount === 0);
+    }
+  },
+
+  async handleBulkDelete() {
+    const count = this.selectedItemIds.size;
+    if (count === 0) return;
+
+    UI.confirm(`Are you sure you want to delete all ${count} selected jewelry piece(s) from stock?`, async () => {
+      try {
+        const initialCount = DBManager.database.items.length;
+        DBManager.database.items = DBManager.database.items.filter(item => !this.selectedItemIds.has(item.id));
+        const deletedCount = initialCount - DBManager.database.items.length;
+
+        // Log deletion
+        DBManager.addLog("DELETE", "bulk_delete", "Multiple Pieces", `Bulk deleted ${deletedCount} jewelry piece(s) from stock`, []);
+        UI.showToast(`Successfully deleted ${deletedCount} stock item(s).`);
+
+        this.selectedItemIds.clear();
+        App.refreshAllDisplays();
+        await DBManager.saveVault();
+      } catch (err) {
+        UI.showToast("Failed to complete bulk deletion: " + err.message, true);
+      }
+    });
   }
 };
 
