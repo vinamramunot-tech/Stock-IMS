@@ -1570,7 +1570,7 @@ datalist option {
 }
 
 .metal-part-entry-card {
-  grid-template-columns: 2fr 1fr 1fr auto;
+  grid-template-columns: 2fr 1fr 1fr 1fr auto;
 }
 
 .stone-entry-card,

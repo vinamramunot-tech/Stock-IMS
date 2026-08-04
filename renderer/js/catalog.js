@@ -1057,19 +1057,29 @@ const Catalog = {
     let sNo = 1;
 
     filteredItems.forEach(item => {
+      const evaluation = Calc.evaluateItem(item, goldRate);
       const metals   = item.metals || [];
       const stones   = item.stones || [];
       const diamonds = item.diamondsPolki || [];
       const labour   = Number(item.labourCost || 0);
       const wastage  = Number(item.wastage !== undefined ? item.wastage : 15);
-      const wFactor  = 1 + wastage / 100;
-      const createdDate = item.createdAt
-        ? new Date(item.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' })
-        : '';
 
       const totalGrossWt  = metals.reduce((s, m) => s + Number(m.weight || 0), 0);
       const mainKarat     = metals.length > 0 ? Number(metals[0].karat) : 18;
       const totalStoneCts = [...stones, ...diamonds].reduce((s, x) => s + Number(x.weight || 0), 0);
+
+      // Compute effective wastage factor for Excel formulas
+      const stoneWeightGrams = totalStoneCts * 0.2;
+      const netWt = Math.max(0, totalGrossWt - stoneWeightGrams);
+      const baseMetalVal = netWt * (goldRate * (mainKarat / 24));
+      
+      let wFactor = 1 + wastage / 100;
+      if (baseMetalVal > 0 && evaluation && evaluation.metalSubtotal) {
+        wFactor = evaluation.metalSubtotal / baseMetalVal;
+      }
+      const createdDate = item.createdAt
+        ? new Date(item.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' })
+        : '';
 
       const mtlR   = rowIdx;
       const mtlRow = $(rowIdx); // 1-based Excel row

@@ -118,11 +118,12 @@ const Calc = {
 
     // 1. Metal values
     let metalTotal = 0;
-    const wastage = Number(itemData.wastage !== undefined ? itemData.wastage : 15);
+    const globalWastage = Number(itemData.wastage !== undefined ? itemData.wastage : 15);
     netMetals.forEach(part => {
-      metalTotal += this.calculateMetalValue(part.netWeight, part.karat, goldRate24kt);
+      const partVal = this.calculateMetalValue(part.netWeight, part.karat, goldRate24kt);
+      const partWastage = (part.wastage !== undefined && part.wastage !== null && part.wastage !== '') ? Number(part.wastage) : globalWastage;
+      metalTotal += partVal * (1 + partWastage / 100);
     });
-    metalTotal = metalTotal * (1 + wastage / 100);
 
     // 2. Stone values
     let stoneTotal = 0;

@@ -103,6 +103,8 @@ const App = {
     document.getElementById('item-wastage').addEventListener('input', () => {
       // Recompute individual metal part rows with new wastage percentage
       document.querySelectorAll('.metal-part-entry-card').forEach(row => {
+        const wastageInput = row.querySelector('.metal-part-wastage');
+        if (wastageInput) wastageInput.value = document.getElementById('item-wastage').value;
         UI.updatePartValuation(row);
       });
       UI.updateFormCalculations();
