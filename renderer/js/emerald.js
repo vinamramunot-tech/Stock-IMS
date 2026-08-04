@@ -1789,15 +1789,15 @@ const EmeraldController = {
 
       const dbDuplicates = DBManager.getEmeralds().filter(e => {
         // Must match the new group and new color (pudia number)
-        const isSameGroupAndColor = (e.group || 'Default').toLowerCase() === group.toLowerCase() && 
-                                    Number(e.color || 0) === Number(color || 0);
+        const isSameGroupAndColor = (e.group || 'Default').toLowerCase() === group.toLowerCase() &&
+          Number(e.color || 0) === Number(color || 0);
         if (!isSameGroupAndColor) return false;
 
         // If we are editing, exclude the item currently being edited
         if (isEdit && this.activeEmeraldState) {
           const isSameItem = (e.id && this.activeEmeraldState.id && String(e.id) === String(this.activeEmeraldState.id)) ||
-                             ((e.group || 'Default').toLowerCase() === (this.activeEmeraldState.group || 'Default').toLowerCase() && 
-                              Number(e.color || 0) === Number(this.activeEmeraldState.color || 0));
+            ((e.group || 'Default').toLowerCase() === (this.activeEmeraldState.group || 'Default').toLowerCase() &&
+              Number(e.color || 0) === Number(this.activeEmeraldState.color || 0));
           if (isSameItem) return false;
         }
 
