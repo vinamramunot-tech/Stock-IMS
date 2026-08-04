@@ -1193,8 +1193,6 @@ const Catalog = {
       const stoneJCells  = stoneRows.map(s => `${col(C.J)}${s.rowExcel}`).join('+');
       const netWtFormula = stoneJCells.length > 0
         ? `${col(C.F)}${mtlRow}-((${stoneJCells})/5)` : `${col(C.F)}${mtlRow}`;
-      const stoneWtGrams = totalStoneCts * 0.2;
-      const netWt = Math.max(0, totalGrossWt - stoneWtGrams);
       F(mtlR, C.G, netWtFormula, netWt, { alignment: AL, border: B.all });
 
       // Metal Total L = G * wastage_factor * K
