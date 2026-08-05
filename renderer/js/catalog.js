@@ -506,9 +506,13 @@ const Catalog = {
     const description = document.getElementById('item-description').value.trim();
     const labourCost = Number(document.getElementById('item-labour').value || 0);
 
-    const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
+    // Read the per-item gold rate from the form field (set on Summary tab)
+    const globalGoldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
+    const itemGoldRateEl = document.getElementById('item-gold-rate-24kt');
+    const goldRateAtAddition = (itemGoldRateEl && Number(itemGoldRateEl.value) > 0) ? Number(itemGoldRateEl.value) : globalGoldRate;
+    const goldRate = goldRateAtAddition;
     if (!goldRate || goldRate <= 0) {
-      UI.showToast("Please set the Universal 24KT Gold Rate at the top of the screen before saving jewelry pieces.", true);
+      UI.showToast("Please set the 24KT Gold Rate in the Summary tab (or the global rate) before saving.", true);
       return;
     }
 
@@ -538,8 +542,9 @@ const Catalog = {
       stones: [],
       diamondsPolki: [],
       labourCost,
-      wastage: Number(document.getElementById('item-wastage').value || 0),
+      wastage: Number(document.getElementById('item-wastage')?.value || 0),
       profitPercentage: Number(document.getElementById('item-profit-pct').value || 40),
+      goldRateAtAddition: goldRate,
       commission: {
         value: Number(document.getElementById('item-commission').value || 0),
         isManual: UI.activeItemState.commission ? UI.activeItemState.commission.isManual : false

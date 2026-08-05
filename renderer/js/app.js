@@ -97,18 +97,23 @@ const App = {
       }
     });
 
-    // Labour cost, profit percentage, and metal wastage input change listener
+    // Labour cost, profit percentage, and per-item gold rate change listeners
     document.getElementById('item-labour').addEventListener('input', () => UI.updateFormCalculations());
     document.getElementById('item-profit-pct').addEventListener('input', () => UI.updateFormCalculations());
-    document.getElementById('item-wastage').addEventListener('input', () => {
-      // Recompute individual metal part rows with new wastage percentage
-      document.querySelectorAll('.metal-part-entry-card').forEach(row => {
-        const wastageInput = row.querySelector('.metal-part-wastage');
-        if (wastageInput) wastageInput.value = document.getElementById('item-wastage').value;
-        UI.updatePartValuation(row);
+    document.getElementById('item-gold-rate-24kt').addEventListener('input', () => UI.updateFormCalculations());
+    // Global wastage field is hidden (wastage is set per-metal-row individually).
+    // Guard against element being absent in future refactors.
+    const _wastageEl = document.getElementById('item-wastage');
+    if (_wastageEl) {
+      _wastageEl.addEventListener('input', () => {
+        document.querySelectorAll('.metal-part-entry-card').forEach(row => {
+          const wastageInput = row.querySelector('.metal-part-wastage');
+          if (wastageInput) wastageInput.value = _wastageEl.value;
+          UI.updatePartValuation(row);
+        });
+        UI.updateFormCalculations();
       });
-      UI.updateFormCalculations();
-    });
+    }
 
     // Auto reset commission button click
     document.getElementById('btn-toggle-manual-commission').addEventListener('click', () => {
@@ -120,6 +125,17 @@ const App = {
         UI.updateFormCalculations();
       }
     });
+
+    // Per-item gold rate: reset button restores global rate
+    const _btnResetGoldRate = document.getElementById('btn-reset-gold-rate');
+    const _itemGoldRateEl = document.getElementById('item-gold-rate-24kt');
+    if (_btnResetGoldRate && _itemGoldRateEl) {
+      _btnResetGoldRate.addEventListener('click', () => {
+        const globalRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
+        _itemGoldRateEl.value = globalRate > 0 ? globalRate : '';
+        UI.updateFormCalculations();
+      });
+    }
 
     // Listen for external database changes to support instant hot-reloading
     window.electronAPI.onDatabaseChanged((filePath) => this.handleExternalDbChange(filePath));

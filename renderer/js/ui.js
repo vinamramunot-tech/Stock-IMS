@@ -489,12 +489,15 @@ const UI = {
    * Real-time form calculator
    */
   updateFormCalculations() {
-    const goldRate24kt = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
+    // Use the per-item gold rate field (falls back to global settings if empty)
+    const globalRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
+    const itemRateEl = document.getElementById('item-gold-rate-24kt');
+    const goldRate24kt = (itemRateEl && Number(itemRateEl.value) > 0) ? Number(itemRateEl.value) : globalRate;
 
     // Gathers items state on the fly
     const currentItem = {
       labourCost: Number(document.getElementById('item-labour').value || 0),
-      wastage: Number(document.getElementById('item-wastage').value || 0),
+      wastage: Number(document.getElementById('item-wastage')?.value || 0),
       profitPercentage: Number(document.getElementById('item-profit-pct').value || 100),
       commission: {
         value: Number(document.getElementById('item-commission').value || 0),
@@ -590,8 +593,12 @@ const UI = {
     };
 
     document.getElementById('jewelry-form').reset();
-    document.getElementById('item-wastage').value = '15.00';
+    const _formWastageEl = document.getElementById('item-wastage'); if (_formWastageEl) _formWastageEl.value = '15.00';
     document.getElementById('item-profit-pct').value = '40.0';
+    // Pre-fill the per-item gold rate from the current global rate
+    const _globalRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
+    const _goldRateEl = document.getElementById('item-gold-rate-24kt');
+    if (_goldRateEl) _goldRateEl.value = _globalRate > 0 ? _globalRate : '';
     document.getElementById('metals-list-container').replaceChildren();
     document.getElementById('stones-list-container').replaceChildren();
 
@@ -643,7 +650,11 @@ const UI = {
     document.getElementById('item-sku').value = item.sku || '';
     document.getElementById('item-category').value = item.category || 'Ring';
     document.getElementById('item-labour').value = item.labourCost || '';
-    document.getElementById('item-wastage').value = item.wastage !== undefined ? Number(item.wastage).toFixed(2) : '15.00';
+    const _editWastageEl = document.getElementById('item-wastage'); if (_editWastageEl) _editWastageEl.value = item.wastage !== undefined ? Number(item.wastage).toFixed(2) : '15.00';
+    // Load the saved per-item gold rate (fallback to global if not set)
+    const _savedRate = item.goldRateAtAddition || Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
+    const _editGoldRateEl = document.getElementById('item-gold-rate-24kt');
+    if (_editGoldRateEl) _editGoldRateEl.value = _savedRate > 0 ? _savedRate : '';
     document.getElementById('item-profit-pct').value = item.profitPercentage !== undefined ? Number(item.profitPercentage).toFixed(1) : '40.0';
     document.getElementById('item-description').value = item.description || '';
 

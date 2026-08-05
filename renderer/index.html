@@ -1639,7 +1639,7 @@
                 global gold rate.</p>
             </div>
 
-            <div class="input-group" style="margin-bottom: 20px; max-width: 240px;">
+            <div class="input-group" style="display: none;">
               <label for="item-wastage">Metal Wastage (%)</label>
               <input type="number" id="item-wastage" step="0.01" min="0" placeholder="15.00" value="15.00"
                 class="recalc-trigger">
@@ -1735,7 +1735,20 @@
 
               <!-- Right side: final valuation & commission inputs -->
               <div class="summary-commission-col">
+                <!-- Per-item 24KT Gold Rate -->
                 <div class="commission-calculator-box">
+                  <div class="comm-header">
+                    <label for="item-gold-rate-24kt">24KT Gold Rate (₹/g)</label>
+                    <button type="button" id="btn-reset-gold-rate" class="btn-text btn-small" title="Reset to current global rate">↺ Reset</button>
+                  </div>
+                  <div class="commission-input-row">
+                    <input type="number" id="item-gold-rate-24kt" step="0.01" min="0" placeholder="e.g. 7500.00" class="recalc-trigger">
+                    <span class="percentage-badge" style="white-space:nowrap; font-size:11px;">per gram</span>
+                  </div>
+                  <span class="help-text block-help">Rate on date of addition. Auto-filled from global rate — override if different.</span>
+                </div>
+
+                <div class="commission-calculator-box" style="margin-top: 15px;">
                   <div class="comm-header">
                     <label for="item-commission">Commission (₹)</label>
                     <button type="button" id="btn-toggle-manual-commission" class="btn-text btn-small hidden">Reset to

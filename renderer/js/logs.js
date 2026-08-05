@@ -31,7 +31,7 @@ const Logs = {
       { key: 'category', label: 'Category' },
       { key: 'description', label: 'Description' },
       { key: 'labourCost', label: 'Labour Cost', isCurrency: true },
-      { key: 'wastage', label: 'Metal Wastage', isPercentage: true },
+      { key: 'goldRateAtAddition', label: 'Gold Rate at Addition', isCurrency: true },
       { key: 'profitPercentage', label: 'Profit Percentage', isPercentage: true }
     ];
 
