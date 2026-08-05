@@ -1874,6 +1874,7 @@ const EmeraldController = {
       }
 
       UI.closeModal('modal-emerald-item');
+      this.resetForm();
       App.refreshAllDisplays();
       await DBManager.saveVault();
     } catch (err) {

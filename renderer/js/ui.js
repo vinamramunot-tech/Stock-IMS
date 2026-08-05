@@ -185,33 +185,53 @@ const UI = {
    */
   compressBase64Image(base64Str, maxDim = 1200, quality = 0.82) {
     if (!base64Str || typeof base64Str !== 'string' || !base64Str.startsWith('data:image/')) {
-      return Promise.resolve(base64Str);
+      return Promise.resolve(base64Str || null);
     }
     if (base64Str.length < 400000) {
       return Promise.resolve(base64Str);
     }
     return new Promise((resolve) => {
+      let resolved = false;
+      const timeoutId = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          resolve(base64Str);
+        }
+      }, 1000);
+
       const img = new Image();
       img.onload = () => {
-        let width = img.width;
-        let height = img.height;
-        if (width > maxDim || height > maxDim) {
-          if (width > height) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          } else {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(timeoutId);
+        try {
+          let width = img.width || 1;
+          let height = img.height || 1;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
           }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } catch (e) {
+          resolve(base64Str);
         }
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', quality));
       };
-      img.onerror = () => resolve(base64Str);
+      img.onerror = () => {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(timeoutId);
+        resolve(base64Str);
+      };
       img.src = base64Str;
     });
   },
@@ -700,17 +720,17 @@ const UI = {
     const category = categorySelect.value;
     const isEdit = this.activeItemState && this.activeItemState.id !== undefined;
 
-    // Prefixes mapping
+    // Prefixes mapping — must match exact category strings stored in DB
     const prefixes = {
-      'Ring': 'RING-',
-      'Necklace': 'NECK-',
-      'Earrings': 'EAR-',
-      'Bracelet': 'BRAC-',
-      'Pendant': 'PEND-',
-      'Other': 'JW-'
+      'Earrings':  'EAR-',
+      'Rings':     'RNG-',
+      'Necklaces': 'NCK-',
+      'Bracelets': 'BRC-',
+      'Pendants':  'PND-',
+      'Other':     'JWL-'
     };
 
-    const prefix = prefixes[category] || 'JW-';
+    const prefix = prefixes[category] || 'JWL-';
     const allItems = DBManager.getItems();
     const categoryItems = allItems.filter(item => item.category === category);
     const count = categoryItems.length;
@@ -730,7 +750,7 @@ const UI = {
     });
 
     const nextNum = maxNum > 0 ? maxNum + 1 : count + 1;
-    const formattedNum = String(nextNum).padStart(3, '0');
+    const formattedNum = String(nextNum).padStart(2, '0');
     const suggestedSku = `${prefix}${formattedNum}`;
 
     const skuInput = document.getElementById('item-sku');

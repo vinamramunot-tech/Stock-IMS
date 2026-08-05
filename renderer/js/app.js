@@ -48,6 +48,7 @@ const App = {
     closeTriggers.forEach(btn => {
       btn.addEventListener('click', () => {
         UI.closeModal('modal-jewelry-item');
+        UI.resetForm();
         UI.closeModal('modal-gold-rate');
         UI.closeModal('modal-usd-rate');
         UI.closeModal('modal-erase-confirm');

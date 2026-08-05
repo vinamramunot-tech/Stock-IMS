@@ -1113,6 +1113,7 @@ const StoneController = {
       }
 
       UI.closeModal('modal-stone-item');
+      this.resetForm();
       App.refreshAllDisplays();
       await DBManager.saveVault();
     } catch (err) {

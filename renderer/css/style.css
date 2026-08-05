@@ -3308,3 +3308,48 @@ datalist option {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ==================== EXCEL IMPORT PREVIEW STYLES ==================== */
+.import-item-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 14px 16px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.import-item-card:hover {
+  border-color: var(--border-gold);
+}
+.import-item-card.is-duplicate {
+  background: rgba(255, 193, 7, 0.05);
+  border-color: rgba(255, 193, 7, 0.4);
+}
+.import-item-card.is-selected {
+  border-color: var(--gold-accent);
+}
+.badge-import-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.badge-import-new {
+  background: rgba(46, 125, 50, 0.15);
+  color: #2e7d32;
+  border: 1px solid rgba(46, 125, 50, 0.3);
+}
+.badge-import-duplicate {
+  background: rgba(230, 81, 0, 0.15);
+  color: #e65100;
+  border: 1px solid rgba(230, 81, 0, 0.3);
+}
+.badge-import-invalid {
+  background: rgba(198, 40, 40, 0.15);
+  color: #c62828;
+  border: 1px solid rgba(198, 40, 40, 0.3);
+}

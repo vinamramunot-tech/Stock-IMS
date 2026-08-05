@@ -1196,6 +1196,15 @@
                 </svg>
                 Export Excel
               </button>
+              <button type="button" id="btn-import-excel-jewelry-catalog" class="btn btn-secondary"
+                style="height: 42px; margin-left: 6px;">
+                <svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align: middle; margin-right: 6px;">
+                  <path fill="currentColor"
+                    d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z" />
+                </svg>
+                Import Excel
+              </button>
+              <input type="file" id="input-import-excel-file" accept=".xlsx, .xls" style="display: none;" />
               <button type="button" id="btn-add-jewelry-piece-main" class="btn btn-primary"
                 style="height: 42px; margin-left: 8px;">
                 + Add Piece
@@ -1208,6 +1217,12 @@
               <button type="button" id="btn-bulk-unselect" class="btn btn-secondary" style="height: 42px; font-size: 11px; font-weight: 600; margin-left: 6px; box-sizing: border-box;" disabled>Unselect All</button>
               <span id="bulk-select-count" class="btn btn-secondary" style="height: 42px; display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; color: var(--text-muted); cursor: default; padding: 0 14px; pointer-events: none; border-color: var(--border-light); margin-left: 6px; box-sizing: border-box;">0 Selected</span>
               <button type="button" id="btn-bulk-delete" class="btn btn-danger" style="height: 42px; font-size: 11px; font-weight: 600; margin-left: 6px; box-sizing: border-box;" disabled>Delete Selected</button>
+              <button type="button" id="btn-share-presentation" class="btn btn-secondary" style="height: 42px; font-size: 11px; font-weight: 600; margin-left: 6px; box-sizing: border-box; display: inline-flex; align-items: center; gap: 6px; border-color: var(--text-gold-dark); color: var(--text-gold-dark);" disabled>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+                Presentation / Share
+              </button>
             </div>
           </div>
 
@@ -3241,6 +3256,52 @@
     </div>
   </div>
 
+  <!-- ==================== MODAL: EXCEL IMPORT PREVIEW & VERIFICATION ==================== -->
+  <div id="modal-import-excel-preview" class="modal-overlay hidden" style="z-index: 1100;">
+    <div class="modal-card" style="max-width: 960px; width: 95vw; max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="modal-header" style="flex-shrink: 0;">
+        <h3 style="display: flex; align-items: center; gap: 8px;">
+          <svg viewBox="0 0 24 24" width="20" height="20" style="vertical-align: middle;">
+            <path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM9 16h6v-6h4l-7-7-7 7h4z"/>
+          </svg>
+          Import & Verify Jewelry Items from Excel
+        </h3>
+        <button type="button" class="btn-close" id="btn-close-excel-import-modal">&times;</button>
+      </div>
+      <div class="modal-body" style="overflow-y: auto; flex: 1; padding: 16px 24px;">
+        <!-- STATS & DUPLICATE SUMMARY BANNER -->
+        <div id="excel-import-stats-banner" style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 8px; padding: 14px 18px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+          <!-- Populated dynamically -->
+        </div>
+
+        <!-- FILTER TABS & BULK CONTROLS -->
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; border-bottom: 1px solid var(--border-light); padding-bottom: 10px;">
+          <div style="display: flex; gap: 6px;">
+            <button type="button" id="tab-excel-import-all" class="btn btn-secondary active" style="padding: 6px 14px; font-size: 12px;">All Parsed (<span id="count-import-all">0</span>)</button>
+            <button type="button" id="tab-excel-import-new" class="btn btn-secondary" style="padding: 6px 14px; font-size: 12px;">Ready to Add (<span id="count-import-new">0</span>)</button>
+            <button type="button" id="tab-excel-import-duplicates" class="btn btn-secondary" style="padding: 6px 14px; font-size: 12px;">Duplicates Skipped (<span id="count-import-duplicates">0</span>)</button>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" id="btn-excel-import-select-all-new" class="btn-text" style="font-size: 12px; font-weight: 600;">Select All New</button>
+            <button type="button" id="btn-excel-import-deselect-all" class="btn-text" style="font-size: 12px; font-weight: 600;">Deselect All</button>
+          </div>
+        </div>
+
+        <!-- ITEM LIST CONTAINER -->
+        <div id="excel-import-items-container" style="display: flex; flex-direction: column; gap: 10px;">
+          <!-- Dynamically populated cards/rows -->
+        </div>
+      </div>
+      <div class="modal-footer" style="flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;">
+        <span id="excel-import-selection-count" style="font-size: 13px; font-weight: 600; color: var(--text-muted);">0 items selected for import</span>
+        <div style="display: flex; gap: 10px;">
+          <button type="button" class="btn btn-secondary" id="btn-excel-import-cancel">Cancel</button>
+          <button type="button" class="btn btn-primary" id="btn-excel-import-confirm" style="height: 42px; min-width: 180px;">Confirm & Import Items</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ==================== MODAL: EMERALD PRINT SELECTION ==================== -->
   <div id="modal-print-emerald" class="modal-overlay hidden">
     <div class="modal-card">
@@ -3364,6 +3425,121 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary modal-close-trigger-bulk-share-emerald">Cancel</button>
         <button type="button" id="btn-submit-bulk-share-emerald" class="btn btn-primary">Export All Selected</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: JEWELRY PRESENTATION & SHARE ==================== -->
+  <div id="modal-jewelry-presentation" class="modal-overlay hidden">
+    <div class="modal-card" style="max-width: 680px;">
+      <div class="modal-header">
+        <h3 style="display: flex; align-items: center; gap: 8px;">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-gold);">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+          Jewelry Client Presentation & Share
+        </h3>
+        <button type="button" class="btn-close modal-close-trigger-jewelry-presentation">&times;</button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+        <p class="modal-instructions">Create an interactive presentation or export a PDF catalog of selected jewelry items for your client.</p>
+
+        <div class="input-group">
+          <label for="presentation-title">Presentation Title / Client Name</label>
+          <input type="text" id="presentation-title" placeholder="e.g. Exclusive Showcase for Client Name" value="Jewelry Collection Showcase" />
+        </div>
+
+        <div class="form-grid-row">
+          <div class="form-col-6">
+            <div class="input-group">
+              <label for="presentation-price-mode">Pricing Display Mode</label>
+              <select id="presentation-price-mode" class="filter-select">
+                <option value="selling">Selling Price Only</option>
+                <option value="custom">Custom Multiplier / Margin</option>
+                <option value="hide">Hide All Prices (Photos & Specs Only)</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-col-6" id="group-presentation-multiplier" style="display: none;">
+            <div class="input-group">
+              <label for="presentation-price-multiplier">Price Multiplier (e.g. 1.15 = +15%)</label>
+              <input type="number" id="presentation-price-multiplier" step="0.01" value="1.00" placeholder="1.0" />
+            </div>
+          </div>
+        </div>
+
+        <div class="form-grid-row">
+          <div class="form-col-6">
+            <div class="input-group">
+              <label for="presentation-theme">Presentation Theme</label>
+              <select id="presentation-theme" class="filter-select">
+                <option value="gold">Luxury Dark Gold (Dark)</option>
+                <option value="emerald">Royal Emerald (Dark)</option>
+                <option value="ivory">Classic Ivory (Light)</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-col-6">
+            <div class="input-group">
+              <label for="presentation-item-count">Selected Items</label>
+              <input type="text" id="presentation-item-count" readonly style="background: var(--bg-base); color: var(--text-gold-dark); font-weight: 700;" value="0 items selected" />
+            </div>
+          </div>
+        </div>
+
+        <div class="input-group" style="margin-top: 5px;">
+          <label style="display: flex; align-items: center; justify-content: space-between;">
+            <span>Included Items</span>
+            <span style="font-size: 11px; color: var(--text-muted);" id="presentation-items-summary-count">0 items</span>
+          </label>
+          <div id="presentation-items-list-container" style="max-height: 180px; overflow-y: auto; border: 1px solid var(--border-light); background-color: var(--bg-base); padding: 8px 12px; border-radius: 4px; display: flex; flex-direction: column; gap: 6px;">
+            <!-- Dynamic item list -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-secondary modal-close-trigger-jewelry-presentation">Cancel</button>
+        <button type="button" id="btn-export-presentation-pdf" class="btn btn-secondary" style="display: inline-flex; align-items: center; gap: 6px;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"></path>
+          </svg>
+          Export Presentation PDF
+        </button>
+        <button type="button" id="btn-start-slideshow" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 6px;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+          Launch Interactive Presentation
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: FULLSCREEN SLIDESHOW PRESENTATION ==================== -->
+  <div id="modal-jewelry-slideshow" class="modal-overlay hidden" style="z-index: 2000; background: #070707;">
+    <div style="width: 100vw; height: 100vh; display: flex; flex-direction: column; color: #f0f0f0; overflow: hidden; position: relative;" id="slideshow-container">
+      
+      <!-- Top Presentation Header -->
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 15px 30px; border-bottom: 1px solid rgba(212, 175, 55, 0.25); background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); z-index: 10;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="font-family: var(--font-serif); font-size: 20px; font-weight: 700; color: #d4af37; letter-spacing: 0.05em;" id="slideshow-header-title">Jewelry Presentation</span>
+          <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; background: rgba(212,175,55,0.15); border: 1px solid rgba(212,175,55,0.4); color: #d4af37; padding: 3px 10px; border-radius: 20px;" id="slideshow-counter">1 / 1</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <button type="button" id="btn-slideshow-prev" class="btn btn-secondary" style="font-size: 12px; padding: 6px 16px; border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); color: #fff;">← Previous</button>
+          <button type="button" id="btn-slideshow-next" class="btn btn-primary" style="font-size: 12px; padding: 6px 20px;">Next →</button>
+          <button type="button" id="btn-slideshow-close" class="btn btn-secondary" style="font-size: 14px; padding: 6px 14px; margin-left: 10px; border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: #fff;" title="Exit Presentation">&times; Close</button>
+        </div>
+      </div>
+
+      <!-- Slideshow Stage -->
+      <div style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 30px; overflow: hidden; position: relative;" id="slideshow-stage">
+        <!-- Dynamic Slide Content rendered here -->
+      </div>
+
+      <!-- Bottom Slide Thumbnails Bar -->
+      <div style="display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px; background: rgba(0,0,0,0.8); border-top: 1px solid rgba(255,255,255,0.1); overflow-x: auto; max-height: 80px;" id="slideshow-thumbs-bar">
+        <!-- Dynamic Slide Thumbnails -->
       </div>
     </div>
   </div>
