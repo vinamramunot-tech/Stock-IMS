@@ -111,24 +111,37 @@ const Calc = {
   /**
    * Complete item valuation calculator
    * @param {Object} itemData - Raw, un-saved or parsed item state
-   * @param {number} goldRate24kt - Active 24KT rate per gram
+   * @param {number} goldRate24kt - Global 24KT rate per gram (used for Market Cost Price & Selling Price)
+   * @param {number} [mfgGoldRate24kt] - 24KT rate per gram on Date of Mfg (used for Home Cost Price)
    */
-  evaluateItem(itemData, goldRate24kt) {
+  evaluateItem(itemData, goldRate24kt, mfgGoldRate24kt) {
     const netMetals = this.getNetMetals(itemData);
 
-    // 1. Metal values
-    let metalTotal = 0;
-    const globalWastage = Number(itemData.wastage !== undefined ? itemData.wastage : 15);
+    const globalRate = Number(goldRate24kt || 0);
+    const mfgRate = (mfgGoldRate24kt !== undefined && mfgGoldRate24kt !== null && Number(mfgGoldRate24kt) > 0)
+      ? Number(mfgGoldRate24kt)
+      : Number(itemData?.mfgGoldRate24kt || itemData?.goldRateAtAddition || globalRate);
+
+    const globalWastage = Number(itemData?.wastage !== undefined ? itemData.wastage : 15);
+
+    // 1. Metal values (Global rate & Mfg date rate)
+    let metalTotalGlobal = 0;
+    let metalTotalMfg = 0;
     netMetals.forEach(part => {
-      const partVal = this.calculateMetalValue(part.netWeight, part.karat, goldRate24kt);
       const partWastage = (part.wastage !== undefined && part.wastage !== null && part.wastage !== '') ? Number(part.wastage) : globalWastage;
-      metalTotal += partVal * (1 + partWastage / 100);
+      const wastageFactor = 1 + partWastage / 100;
+
+      const partValGlobal = this.calculateMetalValue(part.netWeight, part.karat, globalRate);
+      metalTotalGlobal += partValGlobal * wastageFactor;
+
+      const partValMfg = this.calculateMetalValue(part.netWeight, part.karat, mfgRate);
+      metalTotalMfg += partValMfg * wastageFactor;
     });
 
     // 2. Stone values
     let stoneTotal = 0;
     let emeraldTotal = 0;
-    const stones = itemData.stones || [];
+    const stones = itemData?.stones || [];
     stones.forEach(stone => {
       const val = Number(stone.totalValue || 0);
       stoneTotal += val;
@@ -139,44 +152,59 @@ const Calc = {
 
     // 3. Diamonds & Polki values
     let diamondPolkiTotal = 0;
-    const diamondsPolki = itemData.diamondsPolki || [];
+    const diamondsPolki = itemData?.diamondsPolki || [];
     diamondsPolki.forEach(dp => {
       diamondPolkiTotal += Number(dp.totalValue || 0);
     });
 
     // 4. Labour Cost
-    const labour = Number(itemData.labourCost || 0);
+    const labour = Number(itemData?.labourCost || 0);
 
-    // 5. Compute subtotal
-    const subtotal = Number((metalTotal + stoneTotal + diamondPolkiTotal + labour).toFixed(2));
+    // 5. Compute subtotals
+    const subtotalGlobal = Number((metalTotalGlobal + stoneTotal + diamondPolkiTotal + labour).toFixed(2));
+    const subtotalMfg = Number((metalTotalMfg + stoneTotal + diamondPolkiTotal + labour).toFixed(2));
 
-    // 6. Commission
-    const autoComm = this.calculateCommission(subtotal);
-    let finalCommValue = autoComm.value;
+    // 6. Commission calculations
+    const autoCommGlobal = this.calculateCommission(subtotalGlobal);
+    const autoCommMfg = this.calculateCommission(subtotalMfg);
+
+    let finalCommValueGlobal = autoCommGlobal.value;
+    let finalCommValueMfg = autoCommMfg.value;
     let isManual = false;
 
-    if (itemData.commission && itemData.commission.isManual) {
-      finalCommValue = Number(itemData.commission.value || 0);
+    if (itemData?.commission && itemData.commission.isManual) {
+      finalCommValueGlobal = Number(itemData.commission.value || 0);
+      finalCommValueMfg = Number(itemData.commission.value || 0);
       isManual = true;
     }
 
-    // 7. Overall Grand Total (Market Cost Price)
-    const grandTotal = Number((subtotal + finalCommValue).toFixed(2));
-    const profitPct = Number(itemData.profitPercentage !== undefined ? itemData.profitPercentage : 40);
+    // 7. Overall Grand Totals
+    // Market Cost Price calculated using Global Gold Rate
+    const marketCostPrice = Number((subtotalGlobal + finalCommValueGlobal).toFixed(2));
+
+    // Home Cost Price calculated using Mfg Date 24KT Gold Rate
+    const grandTotalMfg = Number((subtotalMfg + finalCommValueMfg).toFixed(2));
+    const homeCostPrice = Number((grandTotalMfg - (emeraldTotal * 0.5)).toFixed(2));
+
+    const profitPct = Number(itemData?.profitPercentage !== undefined ? itemData.profitPercentage : 40);
+    const sellingPrice = Number((((marketCostPrice - emeraldTotal) * (1 + profitPct / 100)) + emeraldTotal).toFixed(2));
 
     return {
-      metalSubtotal: Number(metalTotal.toFixed(2)),
+      metalSubtotal: Number(metalTotalGlobal.toFixed(2)),
+      mfgMetalSubtotal: Number(metalTotalMfg.toFixed(2)),
       stoneSubtotal: Number(stoneTotal.toFixed(2)),
       diamondSubtotal: Number(diamondPolkiTotal.toFixed(2)),
-      subtotal: subtotal,
-      commissionValue: finalCommValue,
-      commissionPercentage: isManual ? Number(((finalCommValue / subtotal) * 100 || 0).toFixed(1)) : autoComm.percentage,
+      subtotal: subtotalGlobal,
+      mfgSubtotal: subtotalMfg,
+      commissionValue: finalCommValueGlobal,
+      commissionPercentage: isManual ? Number(((finalCommValueGlobal / subtotalGlobal) * 100 || 0).toFixed(1)) : autoCommGlobal.percentage,
       isManualCommission: isManual,
-      grandTotal: grandTotal,
-      marketCostPrice: grandTotal,
-      homeCostPrice: Number((grandTotal - (emeraldTotal * 0.5)).toFixed(2)),
+      grandTotal: marketCostPrice,
+      marketCostPrice: marketCostPrice,
+      mfgGrandTotal: grandTotalMfg,
+      homeCostPrice: homeCostPrice,
       emeraldTotal: emeraldTotal,
-      sellingPrice: Number((((grandTotal - emeraldTotal) * (1 + profitPct / 100)) + emeraldTotal).toFixed(2)),
+      sellingPrice: sellingPrice,
       hasEmerald: emeraldTotal > 0,
       totalGrossWeight: Number(netMetals.reduce((sum, m) => sum + m.grossWeight, 0).toFixed(3)),
       totalNetMetalWeight: Number(netMetals.reduce((sum, m) => sum + m.netWeight, 0).toFixed(3))

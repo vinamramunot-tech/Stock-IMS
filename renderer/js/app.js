@@ -43,6 +43,7 @@ const App = {
       });
     });
 
+
     // 3. Modal close elements wire up
     const closeTriggers = document.querySelectorAll('.modal-close-trigger');
     closeTriggers.forEach(btn => {
@@ -238,7 +239,9 @@ const App = {
     if (btnSidebarSwitchApp) {
       btnSidebarSwitchApp.addEventListener('click', () => this.showLauncher());
     }
+
   },
+
 
   async handleExternalDbChange(filePath) {
     if (!DBManager.isLoaded || DBManager.activePath !== filePath) return;
@@ -764,6 +767,13 @@ const App = {
     document.getElementById('detail-jewelry-gross-wt').textContent = totalGrossWeight.toFixed(3);
     document.getElementById('detail-jewelry-net-wt').textContent = netMetalWeight.toFixed(3);
     document.getElementById('detail-jewelry-gem-wt').textContent = totalGemWeight.toFixed(2);
+
+    const mfgDateEl = document.getElementById('detail-jewelry-mfg-date');
+    if (mfgDateEl) mfgDateEl.textContent = item.mfgDate || (item.createdAt ? item.createdAt.split('T')[0] : 'N/A');
+
+    const mfgRate = item.mfgGoldRate24kt || item.goldRateAtAddition || 0;
+    const mfgGoldRateEl = document.getElementById('detail-jewelry-mfg-gold-rate');
+    if (mfgGoldRateEl) mfgGoldRateEl.textContent = mfgRate > 0 ? `₹${mfgRate.toLocaleString()}/g` : 'N/A';
 
     // 6. Gemstones Breakdown
     const gemCard = document.getElementById('detail-jewelry-gemstones-card');

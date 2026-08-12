@@ -226,7 +226,7 @@
           <span class="rate-label">24KT GOLD:</span>
           <span class="rate-value" id="header-gold-rate">₹0.00 / g</span>
           <span class="rate-date" id="header-gold-date">No date set</span>
-          <button type="button" id="btn-edit-gold-rate" class="btn-icon" title="Update universal 24KT gold rate">
+          <button type="button" id="btn-edit-gold-rate" class="btn-icon" title="Set 24KT gold rate">
             <svg viewBox="0 0 24 24" width="16" height="16">
               <path fill="currentColor"
                 d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
@@ -1100,13 +1100,29 @@
 
         <!-- ==================== TAB: JEWELRY ANALYZER ==================== -->
         <div id="tab-jewelry-analyzer" class="tab-content active">
+          <!-- GOLD RATE BANNER ON JEWELRY PAGE -->
+          <div class="live-gold-rate-banner" style="margin-top: 10px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; background: var(--bg-card); padding: 12px 18px; border-radius: 8px; border: 1px solid var(--border-light); box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+              <strong style="font-size: 13px; letter-spacing: 0.05em; color: var(--text-muted); text-transform: uppercase;">24KT Gold Rate:</strong>
+              <span id="jewelry-page-live-gold-rate" style="font-size: 18px; font-weight: 800; color: var(--text-gold-dark);">₹0.00 / g</span>
+              <span id="jewelry-page-live-gold-time" style="font-size: 11px; color: var(--text-muted); font-style: italic;"></span>
+            </div>
+            <button type="button" class="btn btn-secondary btn-small" style="display: flex; align-items: center; gap: 6px;" onclick="document.getElementById('btn-edit-gold-rate').click()">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+              Set Gold Rate
+            </button>
+          </div>
           <!-- JEWELRY METRICS SUMMARY ROW -->
           <section class="metrics-bar" style="margin-top: 10px;">
-            <!-- Line 1: Valuation, Pieces, Gold Weight -->
-            <div class="metrics-line-1">
+            <!-- Line 1: Sale Value, Cost Valuation, Pieces, Gold Weight -->
+            <div class="metrics-line-1" style="grid-template-columns: repeat(4, 1fr);">
               <div class="metric-card gold-border">
-                <span class="metric-label">TOTAL JEWELRY STOCK VALUATION</span>
-                <span class="metric-value text-gold" id="metric-total-valuation">₹0.00</span>
+                <span class="metric-label">TOTAL STOCK SALE VALUE (LIVE)</span>
+                <span class="metric-value text-gold" id="metric-total-selling-value">₹0.00</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">TOTAL STOCK COST (MFG RATE)</span>
+                <span class="metric-value" id="metric-total-valuation">₹0.00</span>
               </div>
               <div class="metric-card">
                 <span class="metric-label">TOTAL PIECES</span>
@@ -1120,7 +1136,7 @@
 
             <!-- Line 2: Jewelry Gemstones with Horizontal Breakdown -->
             <div class="metrics-line-2">
-              <div class="metric-card" style="grid-column: span 3;">
+              <div class="metric-card" style="grid-column: span 4;">
                 <span class="metric-label">JEWELRY GEMSTONES</span>
                 <div style="display: flex; align-items: center; gap: 25px; flex-wrap: wrap; margin-top: 8px;">
                   <span class="metric-value" id="metric-gem-weight" style="font-size: 24px; margin-bottom: 0;">0.00
@@ -1135,6 +1151,18 @@
 
         <!-- ==================== TAB: CATALOG ==================== -->
         <div id="tab-catalog" class="tab-content">
+          <!-- GOLD RATE BANNER ON CATALOG PAGE -->
+          <div class="live-gold-rate-banner" style="margin-top: 10px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; background: var(--bg-card); padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border-light); box-shadow: 0 2px 4px rgba(0,0,0,0.03);">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <strong style="font-size: 12px; letter-spacing: 0.05em; color: var(--text-muted); text-transform: uppercase;">24KT Gold Rate:</strong>
+              <span id="catalog-page-live-gold-rate" style="font-size: 15px; font-weight: 800; color: var(--text-gold-dark);">₹0.00 / g</span>
+              <span id="catalog-page-live-gold-time" style="font-size: 11px; color: var(--text-muted); font-style: italic;"></span>
+            </div>
+            <button type="button" class="btn btn-secondary btn-small" style="display: flex; align-items: center; gap: 6px;" onclick="document.getElementById('btn-edit-gold-rate').click()">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+              Set Gold Rate
+            </button>
+          </div>
 
           <!-- SEARCH & FILTERS -->
           <div class="filter-bar">
@@ -1391,6 +1419,7 @@
         <p class="modal-instructions">Input the current market price for 24KT pure gold. All stock valuations will
           immediately recompute based on this rate.</p>
 
+
         <div class="input-group">
           <label for="gold-rate-input">Price (₹ per Gram)</label>
           <input type="number" id="gold-rate-input" step="0.01" min="0" placeholder="e.g. 7500">
@@ -1495,6 +1524,8 @@
                   <div><strong>Gross Weight:</strong> <span id="detail-jewelry-gross-wt"></span> g</div>
                   <div><strong>Net Metal Weight:</strong> <span id="detail-jewelry-net-wt"></span> g</div>
                   <div><strong>Gemstones Weight:</strong> <span id="detail-jewelry-gem-wt"></span> cts</div>
+                  <div><strong>Date of Mfg:</strong> <span id="detail-jewelry-mfg-date"></span></div>
+                  <div><strong>Mfg 24KT Gold Rate:</strong> <span id="detail-jewelry-mfg-gold-rate"></span></div>
                 </div>
               </div>
             </div>
@@ -1602,6 +1633,10 @@
                   <input type="text" id="item-sku" placeholder="e.g. RING-EM-002" required>
                   <div id="sku-helper-text" class="form-helper-text"
                     style="font-size: 11px; color: var(--text-muted); margin-top: 5px; text-align: left;"></div>
+                </div>
+                <div class="input-group">
+                  <label for="item-mfg-date">Date of Manufacturing (Mfg Date)</label>
+                  <input type="date" id="item-mfg-date" class="recalc-trigger">
                 </div>
                 <div class="input-group">
                   <label for="item-labour">Labour Cost (₹)</label>
@@ -1753,14 +1788,14 @@
                 <!-- Per-item 24KT Gold Rate -->
                 <div class="commission-calculator-box">
                   <div class="comm-header">
-                    <label for="item-gold-rate-24kt">24KT Gold Rate (₹/g)</label>
-                    <button type="button" id="btn-reset-gold-rate" class="btn-text btn-small" title="Reset to current global rate">↺ Reset</button>
+                    <label for="item-gold-rate-24kt">24KT Gold Rate on Date of Mfg (₹/g)</label>
+                    <button type="button" id="btn-reset-gold-rate" class="btn-text btn-small" title="Reset to current global rate">↺ Reset to Global</button>
                   </div>
                   <div class="commission-input-row">
                     <input type="number" id="item-gold-rate-24kt" step="0.01" min="0" placeholder="e.g. 7500.00" class="recalc-trigger">
                     <span class="percentage-badge" style="white-space:nowrap; font-size:11px;">per gram</span>
                   </div>
-                  <span class="help-text block-help">Rate on date of addition. Auto-filled from global rate — override if different.</span>
+                  <span class="help-text block-help">Used for Home Cost calculation. Defaults to current global rate.</span>
                 </div>
 
                 <div class="commission-calculator-box" style="margin-top: 15px;">

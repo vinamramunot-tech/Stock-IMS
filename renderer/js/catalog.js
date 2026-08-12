@@ -171,13 +171,27 @@ const Catalog = {
   },
 
   renderDashboard() {
-    const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
+    const goldSettings = DBManager.getSettings().goldRate24kt;
+    const goldRate = goldSettings ? goldSettings.ratePerGram : 0;
     const items = DBManager.getItems();
 
     // Rates header rendering
-    const dateStr = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.effectiveDate : '';
+    const dateStr = goldSettings ? goldSettings.effectiveDate : '';
+    const formattedDate = dateStr ? new Date(dateStr).toLocaleDateString('en-IN', {day: '2-digit', month: 'short', year: 'numeric'}) : '';
+
     document.getElementById('header-gold-rate').textContent = goldRate > 0 ? `₹${goldRate.toLocaleString()}/g` : '₹0.00/g';
-    document.getElementById('header-gold-date').textContent = dateStr ? `Effective: ${new Date(dateStr).toLocaleDateString('en-IN', {day: '2-digit', month: 'short', year: 'numeric'})}` : 'No date set';
+    document.getElementById('header-gold-date').textContent = formattedDate ? `Effective: ${formattedDate}` : 'No date set';
+
+    // Update Banners on Jewelry Analyzer and Catalog pages
+    const jLiveRate = document.getElementById('jewelry-page-live-gold-rate');
+    if (jLiveRate) jLiveRate.textContent = goldRate > 0 ? `₹${goldRate.toLocaleString()}/g` : '₹0.00/g';
+    const jLiveTime = document.getElementById('jewelry-page-live-gold-time');
+    if (jLiveTime) jLiveTime.textContent = formattedDate ? `(Effective: ${formattedDate})` : '';
+
+    const cLiveRate = document.getElementById('catalog-page-live-gold-rate');
+    if (cLiveRate) cLiveRate.textContent = goldRate > 0 ? `₹${goldRate.toLocaleString()}/g` : '₹0.00/g';
+    const cLiveTime = document.getElementById('catalog-page-live-gold-time');
+    if (cLiveTime) cLiveTime.textContent = formattedDate ? `(Effective: ${formattedDate})` : '';
 
     // USD/INR rate header rendering
     const usdRate = DBManager.getSettings().usdToInr ? DBManager.getSettings().usdToInr.rate : 0;
@@ -186,6 +200,7 @@ const Catalog = {
     document.getElementById('header-usd-date').textContent = usdDateStr ? `Effective: ${new Date(usdDateStr).toLocaleDateString('en-IN', {day: '2-digit', month: 'short', year: 'numeric'})}` : 'No date set';
 
     let totalPortfolioValuation = 0;
+    let totalPortfolioSellingValue = 0;
     let totalGoldWeight = 0;
     let totalJewelryGemWeight = 0;
     let totalLooseEmeraldWeight = 0;
@@ -195,6 +210,7 @@ const Catalog = {
     items.forEach(item => {
       const evaluation = Calc.evaluateItem(item, goldRate);
       totalPortfolioValuation += evaluation.marketCostPrice;
+      totalPortfolioSellingValue += evaluation.sellingPrice;
 
       // Sum metals weight (net)
       const netMetals = Calc.getNetMetals(item);
@@ -241,7 +257,14 @@ const Catalog = {
     const totalLooseEmeraldValuationUSD = usdRate > 0 ? (totalLooseEmeraldValuationINR / usdRate) : 0;
 
     // Render Metrics Box
-    document.getElementById('metric-total-valuation').textContent = `₹${totalPortfolioValuation.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    const totalSellingValEl = document.getElementById('metric-total-selling-value');
+    if (totalSellingValEl) {
+      totalSellingValEl.textContent = `₹${totalPortfolioSellingValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    }
+    const totalValEl = document.getElementById('metric-total-valuation');
+    if (totalValEl) {
+      totalValEl.textContent = `₹${totalPortfolioValuation.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    }
     document.getElementById('metric-total-pieces').textContent = items.length;
     document.getElementById('metric-gold-weight').textContent = `${totalGoldWeight.toFixed(3)} g`;
     document.getElementById('metric-gem-weight').textContent = `${totalJewelryGemWeight.toFixed(2)} cts`;
@@ -371,7 +394,8 @@ const Catalog = {
     emptyState.classList.add('hidden');
     gridContainer.classList.remove('hidden');
 
-    filtered.forEach(item => {
+    filtered.forEach((item, index) => {
+      const serialNumber = index + 1;
       const card = document.createElement('div');
       
       const status = item.status || 'In Stock';
@@ -437,7 +461,8 @@ const Catalog = {
         ${imgHtml}
         <div class="product-body">
           <div class="product-meta">
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap;">
+              <span class="product-sno-badge" style="font-family: var(--font-mono); font-weight: 800; font-size: 11px; background: var(--bg-gold-subtle, rgba(212, 175, 55, 0.15)); color: var(--text-gold-dark, #b8860b); border: 1px solid var(--border-gold-subtle, rgba(212, 175, 55, 0.3)); padding: 2px 7px; border-radius: 4px;" title="Serial Number #${serialNumber}">S.No: ${serialNumber}</span>
               <div class="product-sku">${UI.escapeHtml(item.sku || 'SKU-NONE')}</div>
               <span style="font-size: 9px; font-weight: 700; text-transform: uppercase; background-color: var(--bg-base); border: 1px solid var(--border-light); padding: 2px 6px; border-radius: 4px; letter-spacing: 0.05em; color: var(--text-muted);">${UI.escapeHtml(item.category || 'Jewelry')}</span>
             </div>
@@ -511,13 +536,15 @@ const Catalog = {
     const category = document.getElementById('item-category').value;
     const description = document.getElementById('item-description').value.trim();
     const labourCost = Number(document.getElementById('item-labour').value || 0);
+    const mfgDate = document.getElementById('item-mfg-date')?.value || new Date().toISOString().split('T')[0];
 
-    // Read the per-item gold rate from the form field (set on Summary tab)
+    // Read global gold rate and per-item mfg gold rate from the form field
     const globalGoldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
-    const itemGoldRateEl = document.getElementById('item-gold-rate-24kt');
-    const goldRateAtAddition = (itemGoldRateEl && Number(itemGoldRateEl.value) > 0) ? Number(itemGoldRateEl.value) : globalGoldRate;
-    const goldRate = goldRateAtAddition;
-    if (!goldRate || goldRate <= 0) {
+    const itemRateEl = document.getElementById('item-gold-rate-24kt');
+    const mfgGoldRate24kt = (itemRateEl && Number(itemRateEl.value) > 0) ? Number(itemRateEl.value) : globalGoldRate;
+    const goldRateAtAddition = mfgGoldRate24kt;
+
+    if (!globalGoldRate && (!mfgGoldRate24kt || mfgGoldRate24kt <= 0)) {
       UI.showToast("Please set the 24KT Gold Rate in the Summary tab (or the global rate) before saving.", true);
       return;
     }
@@ -543,6 +570,9 @@ const Catalog = {
       sku,
       category,
       description,
+      mfgDate,
+      mfgGoldRate24kt,
+      goldRateAtAddition,
       image: UI.activeItemState.image || null,
       metals: [],
       stones: [],
@@ -550,7 +580,6 @@ const Catalog = {
       labourCost,
       wastage: Number(document.getElementById('item-wastage')?.value || 0),
       profitPercentage: Number(document.getElementById('item-profit-pct').value || 40),
-      goldRateAtAddition: goldRate,
       commission: {
         value: Number(document.getElementById('item-commission').value || 0),
         isManual: UI.activeItemState.commission ? UI.activeItemState.commission.isManual : false
@@ -588,7 +617,7 @@ const Catalog = {
     });
 
     // Recalculate dynamic subtotals for logging
-    const evaluation = Calc.evaluateItem(savedItem, goldRate);
+    const evaluation = Calc.evaluateItem(savedItem, globalGoldRate, mfgGoldRate24kt);
     savedItem.commission.value = evaluation.commissionValue; // Cache calculated commission in JSON
 
     try {
@@ -749,13 +778,14 @@ const Catalog = {
       return;
     }
 
-    filtered.forEach(item => {
+    filtered.forEach((item, index) => {
+      const serialNumber = index + 1;
       const evaluation = Calc.evaluateItem(item, goldRate);
       const label = document.createElement('label');
       label.className = 'print-pudia-checkbox-label';
       label.innerHTML = `
         <input type="checkbox" class="jewelry-print-item-checkbox" value="${item.id}" checked>
-        ${UI.escapeHtml(item.sku)} — ${UI.escapeHtml(item.name || 'Unnamed')} (${item.category || '—'}) · ₹${evaluation.marketCostPrice.toLocaleString()}
+        <strong style="color: var(--text-gold-dark); margin-right: 4px;">S.No: ${serialNumber}</strong> · ${UI.escapeHtml(item.sku)} — ${UI.escapeHtml(item.name || 'Unnamed')} (${item.category || '—'}) · ₹${evaluation.marketCostPrice.toLocaleString()}
       `;
       container.appendChild(label);
     });
@@ -2448,7 +2478,8 @@ const Catalog = {
     const container = document.getElementById('presentation-items-list-container');
     if (container) {
       container.replaceChildren();
-      selectedItems.forEach((item) => {
+      selectedItems.forEach((item, index) => {
+        const serialNumber = index + 1;
         const row = document.createElement('div');
         row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 4px; font-size: 12px;';
         
@@ -2459,7 +2490,8 @@ const Catalog = {
         const sp = Math.round(item.evaluation ? item.evaluation.sellingPrice : 0);
 
         row.innerHTML = `
-          <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+          <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+            <span style="font-weight: 800; font-size: 11px; color: var(--text-gold-dark); background: var(--bg-base); border: 1px solid var(--border-light); padding: 2px 6px; border-radius: 4px; flex-shrink: 0;">S.No: ${serialNumber}</span>
             ${thumbHtml}
             <div style="min-width: 0; flex: 1;">
               <div style="font-weight: 700; color: var(--text-gold-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${UI.escapeHtml(item.sku || '')} — <span style="color: var(--text-main); font-weight: 600;">${UI.escapeHtml(item.name || '')}</span></div>

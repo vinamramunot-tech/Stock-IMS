@@ -509,13 +509,17 @@ const UI = {
    * Real-time form calculator
    */
   updateFormCalculations() {
-    // Use the per-item gold rate field (falls back to global settings if empty)
+    // Use global gold rate for Market Cost & Selling Price, and per-item mfg rate for Home Cost
     const globalRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
     const itemRateEl = document.getElementById('item-gold-rate-24kt');
-    const goldRate24kt = (itemRateEl && Number(itemRateEl.value) > 0) ? Number(itemRateEl.value) : globalRate;
+    const mfgGoldRate24kt = (itemRateEl && Number(itemRateEl.value) > 0) ? Number(itemRateEl.value) : globalRate;
+    const mfgDate = document.getElementById('item-mfg-date')?.value || new Date().toISOString().split('T')[0];
 
     // Gathers items state on the fly
     const currentItem = {
+      mfgDate: mfgDate,
+      mfgGoldRate24kt: mfgGoldRate24kt,
+      goldRateAtAddition: mfgGoldRate24kt,
       labourCost: Number(document.getElementById('item-labour').value || 0),
       wastage: Number(document.getElementById('item-wastage')?.value || 0),
       profitPercentage: Number(document.getElementById('item-profit-pct').value || 100),
@@ -556,8 +560,8 @@ const UI = {
       }
     });
 
-    // Perform Evaluation
-    const evalResult = Calc.evaluateItem(currentItem, goldRate24kt);
+    // Perform Evaluation (globalRate for market cost/selling price, mfgGoldRate24kt for home cost)
+    const evalResult = Calc.evaluateItem(currentItem, globalRate, mfgGoldRate24kt);
 
     // Update Form View
     document.getElementById('summary-metal-subtotal').textContent = `₹${evalResult.metalSubtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
@@ -615,7 +619,9 @@ const UI = {
     document.getElementById('jewelry-form').reset();
     const _formWastageEl = document.getElementById('item-wastage'); if (_formWastageEl) _formWastageEl.value = '15.00';
     document.getElementById('item-profit-pct').value = '40.0';
-    // Pre-fill the per-item gold rate from the current global rate
+    const _mfgDateEl = document.getElementById('item-mfg-date');
+    if (_mfgDateEl) _mfgDateEl.value = new Date().toISOString().split('T')[0];
+    // Pre-fill the per-item mfg gold rate from the current global rate
     const _globalRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
     const _goldRateEl = document.getElementById('item-gold-rate-24kt');
     if (_goldRateEl) _goldRateEl.value = _globalRate > 0 ? _globalRate : '';
@@ -670,9 +676,11 @@ const UI = {
     document.getElementById('item-sku').value = item.sku || '';
     document.getElementById('item-category').value = item.category || 'Ring';
     document.getElementById('item-labour').value = item.labourCost || '';
+    const _editMfgDateEl = document.getElementById('item-mfg-date');
+    if (_editMfgDateEl) _editMfgDateEl.value = item.mfgDate || (item.createdAt ? item.createdAt.split('T')[0] : new Date().toISOString().split('T')[0]);
     const _editWastageEl = document.getElementById('item-wastage'); if (_editWastageEl) _editWastageEl.value = item.wastage !== undefined ? Number(item.wastage).toFixed(2) : '15.00';
-    // Load the saved per-item gold rate (fallback to global if not set)
-    const _savedRate = item.goldRateAtAddition || Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
+    // Load the saved per-item mfg gold rate (fallback to goldRateAtAddition or global if not set)
+    const _savedRate = item.mfgGoldRate24kt || item.goldRateAtAddition || Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
     const _editGoldRateEl = document.getElementById('item-gold-rate-24kt');
     if (_editGoldRateEl) _editGoldRateEl.value = _savedRate > 0 ? _savedRate : '';
     document.getElementById('item-profit-pct').value = item.profitPercentage !== undefined ? Number(item.profitPercentage).toFixed(1) : '40.0';
