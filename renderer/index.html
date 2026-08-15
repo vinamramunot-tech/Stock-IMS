@@ -1114,15 +1114,27 @@
           </div>
           <!-- JEWELRY METRICS SUMMARY ROW -->
           <section class="metrics-bar" style="margin-top: 10px;">
-            <!-- Line 1: Sale Value, Cost Valuation, Pieces, Gold Weight -->
-            <div class="metrics-line-1" style="grid-template-columns: repeat(4, 1fr);">
+            <!-- Line 1: Sale Value, Mfg Cost, Market Cost -->
+            <div class="metrics-line-1" style="grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 15px;">
               <div class="metric-card gold-border">
                 <span class="metric-label">TOTAL STOCK SALE VALUE (LIVE)</span>
                 <span class="metric-value text-gold" id="metric-total-selling-value">₹0.00</span>
               </div>
               <div class="metric-card">
                 <span class="metric-label">TOTAL STOCK COST (MFG RATE)</span>
+                <span class="metric-value" id="metric-total-mfg-cost">₹0.00</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">TOTAL STOCK COST (MARKET RATE)</span>
                 <span class="metric-value" id="metric-total-valuation">₹0.00</span>
+              </div>
+            </div>
+
+            <!-- Line 2: Inventory P/L, Pieces, Gold Weight -->
+            <div class="metrics-line-1" style="grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 15px;">
+              <div class="metric-card">
+                <span class="metric-label">TOTAL INVENTORY GAIN / LOSS (P/L)</span>
+                <span class="metric-value" id="metric-total-inventory-pl" style="font-size: 20px;">0.00%</span>
               </div>
               <div class="metric-card">
                 <span class="metric-label">TOTAL PIECES</span>
@@ -1134,9 +1146,9 @@
               </div>
             </div>
 
-            <!-- Line 2: Jewelry Gemstones with Horizontal Breakdown -->
+            <!-- Line 3: Jewelry Gemstones with Horizontal Breakdown -->
             <div class="metrics-line-2">
-              <div class="metric-card" style="grid-column: span 4;">
+              <div class="metric-card" style="grid-column: span 3;">
                 <span class="metric-label">JEWELRY GEMSTONES</span>
                 <div style="display: flex; align-items: center; gap: 25px; flex-wrap: wrap; margin-top: 8px;">
                   <span class="metric-value" id="metric-gem-weight" style="font-size: 24px; margin-bottom: 0;">0.00

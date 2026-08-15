@@ -200,6 +200,7 @@ const Catalog = {
     document.getElementById('header-usd-date').textContent = usdDateStr ? `Effective: ${new Date(usdDateStr).toLocaleDateString('en-IN', {day: '2-digit', month: 'short', year: 'numeric'})}` : 'No date set';
 
     let totalPortfolioValuation = 0;
+    let totalPortfolioMfgCost = 0;
     let totalPortfolioSellingValue = 0;
     let totalGoldWeight = 0;
     let totalJewelryGemWeight = 0;
@@ -210,6 +211,7 @@ const Catalog = {
     items.forEach(item => {
       const evaluation = Calc.evaluateItem(item, goldRate);
       totalPortfolioValuation += evaluation.marketCostPrice;
+      totalPortfolioMfgCost += (evaluation.mfgGrandTotal || evaluation.marketCostPrice);
       totalPortfolioSellingValue += evaluation.sellingPrice;
 
       // Sum metals weight (net)
@@ -256,14 +258,34 @@ const Catalog = {
 
     const totalLooseEmeraldValuationUSD = usdRate > 0 ? (totalLooseEmeraldValuationINR / usdRate) : 0;
 
+    const totalPLDiff = totalPortfolioValuation - totalPortfolioMfgCost;
+    const totalPLPct = totalPortfolioMfgCost > 0 ? (totalPLDiff / totalPortfolioMfgCost) * 100 : 0;
+    const totalPLSign = totalPLPct > 0 ? '+' : (totalPLPct < 0 ? '-' : '');
+    const totalPLFormatted = `${totalPLSign}${Math.abs(totalPLPct).toFixed(2)}% (${totalPLDiff >= 0 ? '+' : ''}₹${totalPLDiff.toLocaleString(undefined, { minimumFractionDigits: 2 })})`;
+
     // Render Metrics Box
     const totalSellingValEl = document.getElementById('metric-total-selling-value');
     if (totalSellingValEl) {
       totalSellingValEl.textContent = `₹${totalPortfolioSellingValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
     }
+    const totalMfgCostEl = document.getElementById('metric-total-mfg-cost');
+    if (totalMfgCostEl) {
+      totalMfgCostEl.textContent = `₹${totalPortfolioMfgCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    }
     const totalValEl = document.getElementById('metric-total-valuation');
     if (totalValEl) {
       totalValEl.textContent = `₹${totalPortfolioValuation.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    }
+    const totalPLEl = document.getElementById('metric-total-inventory-pl');
+    if (totalPLEl) {
+      totalPLEl.textContent = totalPLFormatted;
+      if (totalPLPct > 0) {
+        totalPLEl.style.color = '#22c55e';
+      } else if (totalPLPct < 0) {
+        totalPLEl.style.color = '#ef4444';
+      } else {
+        totalPLEl.style.color = 'var(--text-muted)';
+      }
     }
     document.getElementById('metric-total-pieces').textContent = items.length;
     document.getElementById('metric-gold-weight').textContent = `${totalGoldWeight.toFixed(3)} g`;
@@ -416,17 +438,28 @@ const Catalog = {
 
       // Build specs preview string
       const netMetals = Calc.getNetMetals(item);
-      const metalsStr = netMetals.map(m => `${m.karat}KT (Net: ${m.netWeight.toFixed(2)}g)`).join(', ');
+      const uniqueKarats = [...new Set(netMetals.map(m => `${m.karat}KT`))];
+      const metalsStr = uniqueKarats.length > 0 ? `${uniqueKarats.join(', ')} Gold` : (item.karat ? `${item.karat}KT Gold` : 'None added');
       
-      let totalMetalWeight = 0;
-      (item.metals || []).forEach(m => totalMetalWeight += Number(m.weight || 0));
-
       let stonesSum = 0;
       (item.stones || []).forEach(s => stonesSum += Number(s.weight || 0));
       (item.diamondsPolki || []).forEach(d => stonesSum += Number(d.weight || 0));
 
-      const grossWeight = totalMetalWeight;
-      const netMetalWeight = Math.max(0, totalMetalWeight - (stonesSum * 0.2));
+      const grossWeight = (item.evaluation && item.evaluation.totalGrossWeight !== undefined)
+        ? item.evaluation.totalGrossWeight
+        : (Number(item.grossWeight || 0) || netMetals.reduce((sum, m) => sum + Number(m.grossWeight || 0), 0));
+      const netMetalWeight = (item.evaluation && item.evaluation.totalNetMetalWeight !== undefined)
+        ? item.evaluation.totalNetMetalWeight
+        : netMetals.reduce((sum, m) => sum + Number(m.netWeight || 0), 0);
+
+      const mfgCost = item.evaluation.mfgGrandTotal || item.evaluation.marketCostPrice;
+      const marketCost = item.evaluation.marketCostPrice;
+      let plPct = 0;
+      if (mfgCost > 0) {
+        plPct = ((marketCost - mfgCost) / mfgCost) * 100;
+      }
+      const plSign = plPct > 0 ? '+' : (plPct < 0 ? '-' : '');
+      const plFormatted = plPct !== 0 ? `${plSign}${Math.abs(plPct).toFixed(2)}%` : '0.00%';
 
       const homeCostHtml = item.evaluation.hasEmerald
         ? `<div class="price-lbl">HOME COST PRICE</div>
@@ -474,16 +507,16 @@ const Catalog = {
             <div class="specs-line"><strong>Gemstones:</strong> ${stonesSum > 0 ? stonesSum.toFixed(2) + ' cts total' : 'None added'}</div>
             <div class="specs-line"><strong>Gross Weight:</strong> ${grossWeight.toFixed(3)} g</div>
             <div class="specs-line"><strong>Net Metal Wt:</strong> ${netMetalWeight.toFixed(3)} g</div>
-            <div class="specs-line" style="margin-bottom:0;" title="${UI.escapeHtml(item.description || '')}"><strong>Notes:</strong> ${UI.escapeHtml(item.description || 'No description')}</div>
+            <div class="specs-line" title="${UI.escapeHtml(item.description || '')}"><strong>Notes:</strong> ${UI.escapeHtml(item.description || 'No description')}</div>
+            <div class="specs-line" style="margin-bottom:0;"><strong>Mfg Cost:</strong> ₹${(item.evaluation.mfgGrandTotal || item.evaluation.marketCostPrice).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
           </div>
           
           <div class="product-price-row">
-            <div>
-              <div class="price-lbl">MARKET COST PRICE</div>
-              <div class="price-val" style="font-size: 15px; color: var(--text-muted); margin-bottom: 8px;">₹${item.evaluation.marketCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
-              ${homeCostHtml}
-              <div class="price-lbl">SELLING PRICE</div>
-              <div class="price-val">₹${item.evaluation.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+            <div style="display: flex; flex-direction: column; gap: 3px; font-size: 12px; line-height: 1.6; color: var(--text-muted);">
+              <div class="specs-line"><strong>Market Cost:</strong> ₹${item.evaluation.marketCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+              ${item.evaluation.hasEmerald ? `<div class="specs-line"><strong>Home Cost:</strong> ₹${item.evaluation.homeCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>` : ''}
+              <div class="specs-line"><strong>Selling Price:</strong> ₹${item.evaluation.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+              <div class="specs-line" style="margin-bottom:0;"><strong>P/L:</strong> ${plFormatted}</div>
             </div>
             <div class="product-actions">
               <button type="button" class="btn btn-secondary btn-small btn-edit" title="Edit details">Edit</button>
@@ -2601,7 +2634,9 @@ const Catalog = {
     }
 
     // Metal details string
-    const metalsStr = (item.metals || []).map(m => `${m.karat}KT (${(m.weight || 0).toFixed(3)}g)`).join(', ') || '18KT Gold';
+    const netMetalsSlide = Calc.getNetMetals(item);
+    const uniqueKaratsSlide = [...new Set(netMetalsSlide.map(m => `${m.karat}KT`))];
+    const metalsStr = uniqueKaratsSlide.length > 0 ? `${uniqueKaratsSlide.join(', ')} Gold` : (item.karat ? `${item.karat}KT Gold` : '18KT Gold');
     
     // Stone details string
     const allStones = [...(item.stones || []), ...(item.diamondsPolki || [])];
@@ -2636,8 +2671,8 @@ const Catalog = {
 
           <div style="display: flex; flex-direction: column; gap: 8px; background: rgba(255,255,255,0.04); border: 1px solid ${borderAccent}; padding: 16px; border-radius: 8px; font-size: 13px; color: ${textMutedColor};">
             <div><strong style="color: ${textMainColor};">Metal:</strong> ${UI.escapeHtml(metalsStr)}</div>
-            <div><strong style="color: ${textMainColor};">Gross Weight:</strong> ${(item.grossWt || item.metals?.[0]?.weight || 0).toFixed(3)} grams</div>
-            <div><strong style="color: ${textMainColor};">Net Weight:</strong> ${(item.netWt || 0).toFixed(3)} grams</div>
+            <div><strong style="color: ${textMainColor};">Gross Weight:</strong> ${(item.evaluation?.totalGrossWeight || item.grossWeight || (item.metals || []).reduce((s, m) => s + Number(m.weight || 0), 0)).toFixed(3)} grams</div>
+            <div><strong style="color: ${textMainColor};">Net Weight:</strong> ${(item.evaluation?.totalNetMetalWeight || item.grossWeight || 0).toFixed(3)} grams</div>
             ${totalStoneCts > 0 ? `<div><strong style="color: ${textMainColor};">Stones:</strong> ${totalStoneCts.toFixed(2)} cts total (${UI.escapeHtml(stoneStr)})</div>` : ''}
             ${item.description ? `<div><strong style="color: ${textMainColor};">Notes:</strong> ${UI.escapeHtml(item.description)}</div>` : ''}
           </div>
@@ -2755,9 +2790,9 @@ const Catalog = {
         doc.setFont("helvetica", "normal");
         doc.setTextColor(80, 80, 80);
         
-        const metalsStr = (item.metals || []).map(m => `${m.karat}KT (${(m.weight || 0).toFixed(3)}g)`).join(', ') || '18KT Gold';
-        doc.text(`Category: ${item.category || 'Jewelry'} | Metal: ${metalsStr}`, textX, y + 20);
-        doc.text(`Gross Weight: ${(item.grossWt || item.metals?.[0]?.weight || 0).toFixed(3)}g  |  Net Weight: ${(item.netWt || 0).toFixed(3)}g`, textX, y + 26);
+        const grossVal = (evalRes?.totalGrossWeight || item.grossWeight || (item.metals || []).reduce((s, m) => s + Number(m.weight || 0), 0)).toFixed(3);
+        const netVal = (evalRes?.totalNetMetalWeight || 0).toFixed(3);
+        doc.text(`Gross Weight: ${grossVal}g  |  Net Weight: ${netVal}g`, textX, y + 26);
 
         const allStones = [...(item.stones || []), ...(item.diamondsPolki || [])];
         const totalStoneCts = allStones.reduce((sum, s) => sum + (Number(s.weight) || 0), 0);
