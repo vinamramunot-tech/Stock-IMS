@@ -1114,19 +1114,22 @@
           </div>
           <!-- JEWELRY METRICS SUMMARY ROW -->
           <section class="metrics-bar" style="margin-top: 10px;">
-            <!-- Line 1: Sale Value, Mfg Cost, Market Cost -->
+            <!-- Line 1: Mfg Cost, Market Cost, Sale Value -->
             <div class="metrics-line-1" style="grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 15px;">
-              <div class="metric-card gold-border">
-                <span class="metric-label">TOTAL STOCK SALE VALUE (LIVE)</span>
-                <span class="metric-value text-gold" id="metric-total-selling-value">₹0.00</span>
-              </div>
               <div class="metric-card">
                 <span class="metric-label">TOTAL STOCK COST (MFG RATE)</span>
                 <span class="metric-value" id="metric-total-mfg-cost">₹0.00</span>
+                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.3;">Actual historical production & acquisition cost of inventory</span>
               </div>
               <div class="metric-card">
                 <span class="metric-label">TOTAL STOCK COST (MARKET RATE)</span>
                 <span class="metric-value" id="metric-total-valuation">₹0.00</span>
+                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.3;">Current replacement & remaking cost at live gold rate</span>
+              </div>
+              <div class="metric-card gold-border">
+                <span class="metric-label">TOTAL STOCK SALE VALUE (LIVE)</span>
+                <span class="metric-value text-gold" id="metric-total-selling-value">₹0.00</span>
+                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.3;">Estimated total retail revenue with current profit margins</span>
               </div>
             </div>
 
@@ -1135,14 +1138,17 @@
               <div class="metric-card">
                 <span class="metric-label">TOTAL INVENTORY GAIN / LOSS (P/L)</span>
                 <span class="metric-value" id="metric-total-inventory-pl" style="font-size: 20px;">0.00%</span>
+                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.3;">Net inventory value shift from date of manufacture</span>
               </div>
               <div class="metric-card">
                 <span class="metric-label">TOTAL PIECES</span>
                 <span class="metric-value" id="metric-total-pieces">0</span>
+                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.3;">Total active pieces in stock inventory</span>
               </div>
               <div class="metric-card">
                 <span class="metric-label">TOTAL GOLD WEIGHT</span>
                 <span class="metric-value" id="metric-gold-weight">0.00 g</span>
+                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.3;">Net metal weight across all stock</span>
               </div>
             </div>
 
@@ -1155,6 +1161,22 @@
                     cts</span>
                   <div class="metric-breakdown" id="metric-gem-breakdown"
                     style="flex-grow: 1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Line 4: Price Range Distribution Analysis -->
+            <div class="metrics-line-2" style="margin-top: 15px;">
+              <div class="metric-card" style="grid-column: span 3; padding: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                  <div>
+                    <span class="metric-label" style="font-size: 11px; letter-spacing: 0.1em;">PRICE RANGE & VALUATION DISTRIBUTION</span>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Inventory concentration by retail price bracket (ranges with 0 items are hidden)</div>
+                  </div>
+                  <span id="price-distribution-active-count" style="font-size: 11px; font-weight: 700; color: var(--text-gold-dark); background: var(--bg-gold-subtle, rgba(212, 175, 55, 0.12)); border: 1px solid var(--border-gold-subtle, rgba(212, 175, 55, 0.25)); padding: 3px 10px; border-radius: 4px;">0 Active Brackets</span>
+                </div>
+                <div id="price-range-distribution-container" style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+                  <!-- Dynamic active price range status bars render here -->
                 </div>
               </div>
             </div>

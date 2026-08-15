@@ -341,6 +341,118 @@ const Catalog = {
       }
       breakdownEl.innerHTML = breakdownHtml;
     }
+
+    // Render Price Range & Valuation Distribution Analysis
+    const priceDistContainer = document.getElementById('price-range-distribution-container');
+    const priceDistCountEl = document.getElementById('price-distribution-active-count');
+    
+    if (priceDistContainer) {
+      const priceBands = [
+        { min: 0, max: 49999.99, label: '₹0 – ₹49,999 (0 - 50K)' },
+        { min: 50000, max: 99999.99, label: '₹50,000 – ₹99,999 (50K - 1L)' }
+      ];
+
+      // 1L to 10L in 1 Lakh steps
+      for (let l = 1; l < 10; l++) {
+        const min = l * 100000;
+        const max = (l + 1) * 100000 - 0.01;
+        priceBands.push({ min, max, label: `₹${l} Lakh – ₹${l + 1} Lakh (${l}L - ${l + 1}L)` });
+      }
+
+      // 10L to 25L in 5 Lakh steps
+      for (let l = 10; l < 25; l += 5) {
+        const min = l * 100000;
+        const max = (l + 5) * 100000 - 0.01;
+        priceBands.push({ min, max, label: `₹${l} Lakh – ₹${l + 5} Lakh (${l}L - ${l + 5}L)` });
+      }
+
+      // 25L to 1 Crore in 25 Lakh steps
+      for (let l = 25; l < 100; l += 25) {
+        const min = l * 100000;
+        const max = (l + 25) * 100000 - 0.01;
+        const minLabel = l < 100 ? `${l} Lakh` : `${l / 100} Cr`;
+        const nextL = l + 25;
+        const maxLabel = nextL < 100 ? `${nextL} Lakh` : `${nextL / 100} Cr`;
+        priceBands.push({ min, max, label: `₹${minLabel} – ₹${maxLabel}` });
+      }
+
+      // 1 Cr to 10 Cr in 1 Crore steps
+      for (let cr = 1; cr < 10; cr++) {
+        const min = cr * 10000000;
+        const max = (cr + 1) * 10000000 - 0.01;
+        priceBands.push({ min, max, label: `₹${cr} Crore – ₹${cr + 1} Crore (${cr} Cr - ${cr + 1} Cr)` });
+      }
+
+      // 10 Cr to 25 Cr in 5 Crore steps
+      for (let cr = 10; cr < 25; cr += 5) {
+        const min = cr * 10000000;
+        const max = (cr + 5) * 10000000 - 0.01;
+        priceBands.push({ min, max, label: `₹${cr} Crore – ₹${cr + 5} Crore (${cr} Cr - ${cr + 5} Cr)` });
+      }
+
+      // 25 Cr to 50 Cr in 25 Crore step
+      priceBands.push({ min: 250000000, max: 500000000, label: '₹25 Crore – ₹50 Crore (25 Cr - 50 Cr)' });
+      priceBands.push({ min: 500000000.01, max: Infinity, label: '₹50 Crore+ (Above 50 Cr)' });
+
+      const bandStats = priceBands.map(b => ({
+        ...b,
+        count: 0,
+        totalSellingPrice: 0,
+        totalMarketCost: 0,
+        items: []
+      }));
+
+      items.forEach(item => {
+        const evaluation = item.evaluation || Calc.evaluateItem(item, goldRate);
+        const price = Number(evaluation.sellingPrice || 0);
+        const matchedBand = bandStats.find(b => price >= b.min && price <= b.max);
+        if (matchedBand) {
+          matchedBand.count++;
+          matchedBand.totalSellingPrice += price;
+          matchedBand.totalMarketCost += Number(evaluation.marketCostPrice || 0);
+          matchedBand.items.push(item);
+        }
+      });
+
+      // Filter out empty bands (Hide ranges with 0 items)
+      const activeBands = bandStats.filter(b => b.count > 0);
+
+      if (priceDistCountEl) {
+        priceDistCountEl.textContent = `${activeBands.length} Active ${activeBands.length === 1 ? 'Bracket' : 'Brackets'}`;
+      }
+
+      if (activeBands.length === 0) {
+        priceDistContainer.innerHTML = `<div style="color: var(--text-muted); font-style: italic; font-size: 12px; padding: 8px 0;">No active stock items to analyze.</div>`;
+      } else {
+        const maxCount = Math.max(...activeBands.map(b => b.count), 1);
+        const totalItemsCount = items.length || 1;
+
+        priceDistContainer.innerHTML = activeBands.map(band => {
+          const countPct = ((band.count / totalItemsCount) * 100).toFixed(1);
+          const barFillWidth = Math.max(8, ((band.count / maxCount) * 100));
+
+          return `
+            <div style="background: var(--bg-card); border: 1px solid var(--border-light); padding: 12px 16px; border-radius: 6px; display: flex; flex-direction: column; gap: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                  <strong style="color: var(--text-main); font-size: 13px;">${band.label}</strong>
+                  <span style="font-size: 11px; font-weight: 700; background: var(--bg-base); border: 1px solid var(--border-light); padding: 2px 8px; border-radius: 4px; color: var(--text-gold-dark, #d4af37);">
+                    ${band.count} ${band.count === 1 ? 'piece' : 'pieces'} (${countPct}% of stock)
+                  </span>
+                </div>
+                <div style="text-align: right; font-size: 13px;">
+                  <span style="color: var(--text-muted); font-size: 11px; margin-right: 6px;">Total Retail:</span>
+                  <strong style="color: var(--text-gold, #d4af37);">₹${band.totalSellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>
+                </div>
+              </div>
+              <div style="width: 100%; height: 7px; background: var(--bg-base, #1c1a17); border-radius: 4px; overflow: hidden; border: 1px solid var(--border-light);">
+                <div style="width: ${barFillWidth}%; height: 100%; background: linear-gradient(90deg, var(--text-gold-dark, #b8860b), var(--text-gold, #d4af37)); border-radius: 3px; transition: width 0.4s ease;"></div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
   },
 
   renderCatalogGrid() {
