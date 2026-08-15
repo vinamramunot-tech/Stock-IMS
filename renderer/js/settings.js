@@ -208,14 +208,27 @@ const Settings = {
   },
 
   /**
-   * Clear logs
+   * Clear logs (supporting suite-specific or global clearing)
    */
   async handleClearLogs() {
     try {
-      DBManager.database.logs = [];
-      DBManager.addLog("ADD", "vault", "Vault", "Activity logs cleared by administrator.", []);
+      const scope = document.getElementById('clear-logs-scope-select')?.value || 'current';
+      const targetSuite = scope === 'current' ? (window.App?.selectedLogSuite || window.App?.activeApp || 'all') : 'all';
+
+      if (!DBManager.database.logs) DBManager.database.logs = [];
+
+      if (targetSuite === 'all') {
+        DBManager.database.logs = [];
+        DBManager.addLog("ADD", "vault", "Vault", "All activity logs cleared by administrator.", [], 'system');
+        UI.showToast("All activity logs successfully cleared.");
+      } else {
+        const suiteName = targetSuite.toUpperCase();
+        DBManager.database.logs = DBManager.database.logs.filter(l => (l.suite || DBManager.inferSuite(l)) !== targetSuite);
+        DBManager.addLog("ADD", "vault", "Vault", `${suiteName} Suite activity logs cleared by administrator.`, [], targetSuite);
+        UI.showToast(`${suiteName} Suite activity logs cleared.`);
+      }
+
       UI.closeModal('modal-clear-logs-confirm');
-      UI.showToast("Audit logs successfully cleared.");
       App.refreshAllDisplays();
       await DBManager.saveVault();
     } catch (err) {

@@ -36,6 +36,7 @@ const App = {
     if (window.SalesController) {
       SalesController.init();
     }
+    this.initLogs();
 
     // 2. Tab switching navigation listeners
     const navItems = document.querySelectorAll('.nav-item[data-target]');
@@ -375,40 +376,171 @@ const App = {
     this.refreshAllDisplays();
   },
 
+  selectedLogSuite: 'all',
+
+  initLogs() {
+    const tabsContainer = document.getElementById('suite-log-tabs-container');
+    if (tabsContainer) {
+      tabsContainer.addEventListener('click', (e) => {
+        const btn = e.target.closest('.suite-log-tab');
+        if (!btn) return;
+        const suite = btn.getAttribute('data-suite') || 'all';
+        this.selectedLogSuite = suite;
+        tabsContainer.querySelectorAll('.suite-log-tab').forEach(b => {
+          if (b === btn) b.classList.add('active');
+          else b.classList.remove('active');
+        });
+        this.renderActivityLogs();
+      });
+    }
+
+    const searchInp = document.getElementById('logs-search-input');
+    if (searchInp) {
+      searchInp.addEventListener('input', UI.debounce(() => this.renderActivityLogs(), 200));
+    }
+
+    const actionFilter = document.getElementById('logs-filter-action');
+    if (actionFilter) {
+      actionFilter.addEventListener('change', () => this.renderActivityLogs());
+    }
+
+    const dateFrom = document.getElementById('logs-filter-date-from');
+    if (dateFrom) {
+      dateFrom.addEventListener('change', () => this.renderActivityLogs());
+    }
+
+    const dateTo = document.getElementById('logs-filter-date-to');
+    if (dateTo) {
+      dateTo.addEventListener('change', () => this.renderActivityLogs());
+    }
+
+    const clearFilterBtn = document.getElementById('logs-filter-clear');
+    if (clearFilterBtn) {
+      clearFilterBtn.addEventListener('click', () => {
+        if (searchInp) searchInp.value = '';
+        if (actionFilter) actionFilter.value = '';
+        if (dateFrom) dateFrom.value = '';
+        if (dateTo) dateTo.value = '';
+        this.renderActivityLogs();
+      });
+    }
+
+    const printBtn = document.getElementById('btn-print-logs');
+    if (printBtn) {
+      printBtn.addEventListener('click', () => this.printLogsReport());
+    }
+
+    const exportBtn = document.getElementById('btn-export-excel-logs');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', () => this.exportLogsExcel());
+    }
+  },
+
   /**
    * Activity logs table rendering
    */
   renderActivityLogs() {
     const tbody = document.getElementById('logs-tbody');
     const emptyState = document.getElementById('logs-empty-state');
-    const logs = DBManager.getLogs();
+    if (!tbody) return;
+
+    const allLogs = DBManager.getLogs('all');
+
+    // 1. Calculate & update suite counts
+    const countAll = allLogs.length;
+    const countJewelry = allLogs.filter(l => l.suite === 'jewelry').length;
+    const countEmerald = allLogs.filter(l => l.suite === 'emerald').length;
+    const countStone = allLogs.filter(l => l.suite === 'stone').length;
+    const countSystem = allLogs.filter(l => l.suite === 'system').length;
+
+    const cAllEl = document.getElementById('log-count-all');
+    const cJewelryEl = document.getElementById('log-count-jewelry');
+    const cEmeraldEl = document.getElementById('log-count-emerald');
+    const cStoneEl = document.getElementById('log-count-stone');
+    const cSystemEl = document.getElementById('log-count-system');
+
+    if (cAllEl) cAllEl.textContent = countAll;
+    if (cJewelryEl) cJewelryEl.textContent = countJewelry;
+    if (cEmeraldEl) cEmeraldEl.textContent = countEmerald;
+    if (cStoneEl) cStoneEl.textContent = countStone;
+    if (cSystemEl) cSystemEl.textContent = countSystem;
+
+    // 2. Filter logs
+    const searchInp = document.getElementById('logs-search-input');
+    const query = (searchInp?.value || '').toLowerCase().trim();
+    const actionFilter = document.getElementById('logs-filter-action')?.value || '';
+    const dateFrom = document.getElementById('logs-filter-date-from')?.value || '';
+    const dateTo = document.getElementById('logs-filter-date-to')?.value || '';
+
+    const filtered = allLogs.filter(log => {
+      // Suite filter
+      if (this.selectedLogSuite && this.selectedLogSuite !== 'all') {
+        if (log.suite !== this.selectedLogSuite) return false;
+      }
+
+      // Action filter
+      if (actionFilter && log.action !== actionFilter) {
+        return false;
+      }
+
+      // Date filter
+      const lDate = log.timestamp ? log.timestamp.split('T')[0] : '';
+      if (dateFrom && lDate < dateFrom) return false;
+      if (dateTo && lDate > dateTo) return false;
+
+      // Query search
+      if (query) {
+        const match =
+          (log.targetName || '').toLowerCase().includes(query) ||
+          (log.targetId || '').toLowerCase().includes(query) ||
+          (log.details || '').toLowerCase().includes(query) ||
+          (log.action || '').toLowerCase().includes(query) ||
+          (log.changes || []).some(c => (c.field || '').toLowerCase().includes(query) || String(c.old).toLowerCase().includes(query) || String(c.new).toLowerCase().includes(query));
+        if (!match) return false;
+      }
+
+      return true;
+    });
 
     tbody.innerHTML = '';
 
-    if (logs.length === 0) {
+    if (filtered.length === 0) {
       tbody.parentElement.classList.add('hidden');
-      emptyState.classList.remove('hidden');
+      if (emptyState) emptyState.classList.remove('hidden');
       return;
     }
 
-    emptyState.classList.add('hidden');
+    if (emptyState) emptyState.classList.add('hidden');
     tbody.parentElement.classList.remove('hidden');
 
-    logs.forEach(log => {
+    filtered.forEach(log => {
       const row = document.createElement('tr');
       
       const badgeClass = log.action.toLowerCase() === 'gold_rate_update' ? 'gold' : log.action.toLowerCase();
-      const actionLabel = log.action.replace('_', ' ');
+      const actionLabel = log.action.replace(/_/g, ' ');
 
       const timeFormatted = new Date(log.timestamp).toLocaleString('en-IN', {
         day: '2-digit', month: 'short', year: 'numeric',
         hour: '2-digit', minute: '2-digit', second: '2-digit'
       });
 
+      // Suite badge mapping
+      let suiteBadgeHtml = '';
+      const suite = log.suite || 'jewelry';
+      if (suite === 'jewelry') {
+        suiteBadgeHtml = `<span class="badge-suite jewelry">💍 Jewelry</span>`;
+      } else if (suite === 'emerald') {
+        suiteBadgeHtml = `<span class="badge-suite emerald">🟢 Emerald</span>`;
+      } else if (suite === 'stone') {
+        suiteBadgeHtml = `<span class="badge-suite stone">💎 Stones</span>`;
+      } else {
+        suiteBadgeHtml = `<span class="badge-suite system">⚙️ System</span>`;
+      }
+
       // Diff visual rendering if edits exist
       let diffHtml = '';
       if (log.changes && log.changes.length > 0) {
-        diffHtml = `<div class="log-diff-box">`;
+        diffHtml = `<div class="log-diff-box" style="margin-top:6px;">`;
         log.changes.forEach(c => {
           diffHtml += `
             <div class="log-diff-item">
@@ -423,17 +555,104 @@ const App = {
       }
 
       row.innerHTML = `
-        <td class="log-time">${timeFormatted}</td>
+        <td class="log-time" style="font-size:12px;color:var(--text-muted);white-space:nowrap;">${timeFormatted}</td>
+        <td>${suiteBadgeHtml}</td>
         <td><span class="badge-action ${badgeClass}">${actionLabel}</span></td>
-        <td class="log-target">${log.targetName || 'Vault'}</td>
+        <td class="log-target" style="font-weight:600;color:var(--text-main);">${UI.escapeHtml(log.targetName || 'Vault')}</td>
         <td>
-          <div class="log-summary">${log.details || ''}</div>
+          <div class="log-summary" style="font-size:13px;color:var(--text-main);">${UI.escapeHtml(log.details || '')}</div>
           ${diffHtml}
         </td>
       `;
 
       tbody.appendChild(row);
     });
+  },
+
+  exportLogsExcel() {
+    const logs = DBManager.getLogs(this.selectedLogSuite);
+    if (logs.length === 0) {
+      UI.showToast('No activity logs to export.', true);
+      return;
+    }
+
+    if (typeof XLSX === 'undefined') {
+      UI.showToast('Excel library not loaded.', true);
+      return;
+    }
+
+    const data = logs.map(l => ({
+      'Timestamp': new Date(l.timestamp).toLocaleString('en-IN'),
+      'Suite': (l.suite || 'jewelry').toUpperCase(),
+      'Action': l.action || '',
+      'Affected Record': l.targetName || '',
+      'Record ID': l.targetId || '',
+      'Details': l.details || '',
+      'Changes': (l.changes || []).map(c => `${c.field}: ${c.old} -> ${c.new}`).join('; ')
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Audit Logs');
+    XLSX.writeFile(wb, `Audit_Logs_${this.selectedLogSuite || 'all'}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    UI.showToast('Activity logs exported to Excel.');
+  },
+
+  printLogsReport() {
+    const logs = DBManager.getLogs(this.selectedLogSuite);
+    if (logs.length === 0) {
+      UI.showToast('No logs to print.', true);
+      return;
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('landscape');
+
+    doc.setFont("georgia", "bold");
+    doc.setFontSize(16);
+    const suiteName = (this.selectedLogSuite === 'jewelry' ? 'JEWELRY SUITE' : (this.selectedLogSuite === 'emerald' ? 'EMERALD SUITE' : (this.selectedLogSuite === 'stone' ? 'LOOSE STONES SUITE' : 'ALL SUITES')));
+    doc.text(`MAVA GEMS - AUDIT TRAIL & ACTIVITY LOGS (${suiteName})`, 14, 20);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleDateString('en-IN')}`, 14, 28);
+    doc.text(`Total Records: ${logs.length}`, 14, 34);
+
+    doc.setDrawColor(200);
+    doc.line(14, 38, 282, 38);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text("Timestamp", 14, 44);
+    doc.text("Suite", 54, 44);
+    doc.text("Action", 84, 44);
+    doc.text("Affected Record", 116, 44);
+    doc.text("Details & Summary", 170, 44);
+
+    doc.line(14, 47, 282, 47);
+
+    let y = 53;
+    doc.setFont("helvetica", "normal");
+
+    logs.forEach(l => {
+      if (y > 185) {
+        doc.addPage();
+        y = 20;
+      }
+      const timeFmt = new Date(l.timestamp).toLocaleDateString('en-IN') + ' ' + new Date(l.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+      doc.text(timeFmt, 14, y);
+      doc.text((l.suite || 'jewelry').toUpperCase(), 54, y);
+      doc.text(l.action || '', 84, y);
+      doc.text((l.targetName || '').substring(0, 24), 116, y);
+      doc.text((l.details || '').substring(0, 56), 170, y);
+      y += 7;
+    });
+
+    const iframe = document.getElementById('print-preview-iframe');
+    if (iframe) {
+      iframe.src = doc.output('datauristring');
+    }
+    UI.openModal('modal-print-preview');
   },
 
   initTheme() {

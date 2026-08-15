@@ -1194,3 +1194,92 @@
 .outcome-partial-input.input-error {
   border-color: var(--danger-red);
 }
+
+/* ==================== AUDIT TRAIL & ACTIVITY LOGS SUITE STYLES ==================== */
+.suite-log-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.suite-log-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.suite-log-tab:hover {
+  border-color: var(--border-gold-subtle, rgba(212, 175, 55, 0.4));
+  color: var(--text-main);
+}
+
+.suite-log-tab.active {
+  background: var(--bg-gold-subtle, rgba(212, 175, 55, 0.12));
+  border-color: var(--gold-accent, #d4af37);
+  color: var(--text-gold-dark, #d4af37);
+}
+
+.suite-log-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 12px;
+  background: var(--bg-base);
+  border: 1px solid var(--border-light);
+  color: var(--text-muted);
+}
+
+.suite-log-tab.active .suite-log-count {
+  background: var(--bg-base);
+  border-color: rgba(212, 175, 55, 0.35);
+  color: var(--text-gold-dark, #d4af37);
+}
+
+.badge-suite {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.badge-suite.jewelry {
+  background: rgba(212, 175, 55, 0.15);
+  color: #d4af37;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+}
+
+.badge-suite.emerald {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.badge-suite.stone {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+.badge-suite.system {
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+}
+

@@ -146,14 +146,63 @@ const DBManager = {
   },
 
   /**
+   * Helper to infer suite from log properties
+   */
+  inferSuite(log) {
+    if (log.suite) return log.suite;
+    const tId = String(log.targetId || '').toLowerCase();
+    const tName = String(log.targetName || '').toLowerCase();
+    const act = String(log.action || '').toUpperCase();
+    const det = String(log.details || '').toLowerCase();
+
+    if (act === 'GOLD_RATE_UPDATE' || tId === 'gold_rate_24kt') return 'jewelry';
+    if (tId === 'usd_to_inr' || tId === 'vault') return 'system';
+
+    if (
+      tId.includes('emerald') ||
+      tName.includes('emerald') ||
+      tId.startsWith('pudia_') ||
+      tName.includes('pudia') ||
+      tId.startsWith('memo_') ||
+      det.includes('emerald')
+    ) {
+      return 'emerald';
+    }
+    if (
+      tId.includes('jewel_stone') ||
+      tId.startsWith('stone_') ||
+      tName.includes('stone') ||
+      tId.startsWith('jsm_') ||
+      det.includes('loose stone')
+    ) {
+      return 'stone';
+    }
+    if (
+      tId.startsWith('item_') ||
+      tId.startsWith('jm_') ||
+      tId.startsWith('jsale_') ||
+      tId.startsWith('jewelry_') ||
+      det.includes('jewelry') ||
+      det.includes('piece')
+    ) {
+      return 'jewelry';
+    }
+
+    return (window.App && window.App.activeApp) ? window.App.activeApp : 'jewelry';
+  },
+
+  /**
    * Helper to write an activity log
    */
-  addLog(action, targetId, targetName, details, changes = []) {
+  addLog(action, targetId, targetName, details, changes = [], suite = null) {
     if (!this.database) return;
+
+    const detectedSuite = suite || (window.App && window.App.activeApp) || this.inferSuite({ action, targetId, targetName, details });
     
     const newLog = {
       id: "log_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
       timestamp: new Date().toISOString(),
+      suite: detectedSuite, // "jewelry", "emerald", "stone", "system"
       action: action, // "ADD", "EDIT", "DELETE", "GOLD_RATE_UPDATE"
       targetId: targetId,
       targetName: targetName,
@@ -165,9 +214,9 @@ const DBManager = {
       this.database.logs = [];
     }
 
-    // Keep logs sorted: newest first, max 1000 items
+    // Keep logs sorted: newest first, max 2000 items
     this.database.logs.unshift(newLog);
-    if (this.database.logs.length > 1000) {
+    if (this.database.logs.length > 2000) {
       this.database.logs.pop();
     }
   },
@@ -189,8 +238,17 @@ const DBManager = {
   /**
    * Retrieve active database logs
    */
-  getLogs() {
-    return this.database ? this.database.logs || [] : [];
+  getLogs(suiteFilter = null) {
+    if (!this.database || !this.database.logs) return [];
+    const logs = this.database.logs.map(l => {
+      if (!l.suite) l.suite = this.inferSuite(l);
+      return l;
+    });
+
+    if (!suiteFilter || suiteFilter === 'all') {
+      return logs;
+    }
+    return logs.filter(l => l.suite === suiteFilter);
   },
 
   /**
