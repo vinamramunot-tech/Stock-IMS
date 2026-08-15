@@ -590,19 +590,22 @@ const Catalog = {
              <img src="${item.image}" alt="${UI.escapeHtml(item.name || 'Jewelry Photo')}" class="product-img">
            </div>`
         : `<div class="product-img-box product-img-box-placeholder" style="cursor: pointer;" title="Click to view details or add photo">
-             <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--text-muted); opacity: 0.6; height: 100%;">
-               <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5">
-                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+             <div class="product-img-placeholder-content">
+               <svg class="product-img-placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                 <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
                  <circle cx="8.5" cy="8.5" r="1.5"/>
-                 <polyline points="21 15 16 10 5 21"/>
+                 <path d="M21 15l-5-5L5 21"/>
                </svg>
-               <span style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">No Photo</span>
+               <span class="product-img-placeholder-text">NO PHOTO</span>
              </div>
            </div>`;
 
       const isSelected = this.selectedItemIds && this.selectedItemIds.has(item.id);
-      const checkboxHtml = `<label class="catalog-select-label" style="position: absolute; top: 10px; left: 10px; z-index: 10; cursor: pointer; padding: 4px; background: var(--bg-card); border-radius: 4px; border: 1px solid var(--border-light); display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <input type="checkbox" class="catalog-item-select" data-item-id="${item.id}" ${isSelected ? 'checked' : ''} style="cursor: pointer; width: 14px; height: 14px; margin: 0; accent-color: var(--text-gold-dark);">
+      if (isSelected) card.classList.add('is-selected');
+
+      const checkboxHtml = `<label class="catalog-select-label" title="Select piece">
+        <input type="checkbox" class="catalog-item-select" data-item-id="${item.id}" ${isSelected ? 'checked' : ''}>
+        <span class="catalog-custom-checkbox"></span>
       </label>`;
 
       card.innerHTML = `
@@ -629,7 +632,7 @@ const Catalog = {
           </div>
           
           <div class="product-price-row">
-            <div style="display: flex; flex-direction: column; gap: 3px; font-size: 12px; line-height: 1.6; color: var(--text-muted);">
+            <div class="product-price-specs">
               <div class="specs-line"><strong>Market Cost:</strong> ₹${item.evaluation.marketCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
               ${item.evaluation.hasEmerald ? `<div class="specs-line"><strong>Home Cost:</strong> ₹${item.evaluation.homeCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>` : ''}
               <div class="specs-line"><strong>Selling Price:</strong> ₹${item.evaluation.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
@@ -666,8 +669,10 @@ const Catalog = {
         checkbox.addEventListener('change', (e) => {
           if (e.target.checked) {
             this.selectedItemIds.add(item.id);
+            card.classList.add('is-selected');
           } else {
             this.selectedItemIds.delete(item.id);
+            card.classList.remove('is-selected');
           }
           this.updateBulkSelectionUI(filtered);
         });

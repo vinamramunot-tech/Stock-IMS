@@ -407,16 +407,6 @@ const App = {
         this.renderActivityLogs();
       });
     }
-
-    const printBtn = document.getElementById('btn-print-logs');
-    if (printBtn) {
-      printBtn.addEventListener('click', () => this.printLogsReport());
-    }
-
-    const exportBtn = document.getElementById('btn-export-excel-logs');
-    if (exportBtn) {
-      exportBtn.addEventListener('click', () => this.exportLogsExcel());
-    }
   },
 
   /**
@@ -530,97 +520,6 @@ const App = {
 
       tbody.appendChild(row);
     });
-  },
-
-  exportLogsExcel() {
-    const currentSuite = this.activeApp || 'jewelry';
-    const logs = DBManager.getLogs(currentSuite);
-    if (logs.length === 0) {
-      UI.showToast('No activity logs to export for this suite.', true);
-      return;
-    }
-
-    if (typeof XLSX === 'undefined') {
-      UI.showToast('Excel library not loaded.', true);
-      return;
-    }
-
-    const data = logs.map(l => ({
-      'Timestamp': new Date(l.timestamp).toLocaleString('en-IN'),
-      'Suite': currentSuite.toUpperCase(),
-      'Action': l.action || '',
-      'Affected Record': l.targetName || '',
-      'Record ID': l.targetId || '',
-      'Details': l.details || '',
-      'Changes': (l.changes || []).map(c => `${c.field}: ${c.old} -> ${c.new}`).join('; ')
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    const sheetName = `${currentSuite.toUpperCase()} Logs`;
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
-    XLSX.writeFile(wb, `${currentSuite.toUpperCase()}_Audit_Logs_${new Date().toISOString().split('T')[0]}.xlsx`);
-    UI.showToast('Suite activity logs exported to Excel.');
-  },
-
-  printLogsReport() {
-    const currentSuite = this.activeApp || 'jewelry';
-    const logs = DBManager.getLogs(currentSuite);
-    if (logs.length === 0) {
-      UI.showToast('No logs to print for this suite.', true);
-      return;
-    }
-
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF('landscape');
-
-    doc.setFont("georgia", "bold");
-    doc.setFontSize(16);
-    const suiteTitles = {
-      jewelry: 'JEWELRY SUITE AUDIT TRAIL',
-      emerald: 'EMERALD SUITE AUDIT TRAIL',
-      stone: 'LOOSE STONES SUITE AUDIT TRAIL'
-    };
-    doc.text(`MAVA GEMS - ${suiteTitles[currentSuite] || 'AUDIT TRAIL & ACTIVITY LOGS'}`, 14, 20);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.text(`Generated: ${new Date().toLocaleDateString('en-IN')}`, 14, 28);
-    doc.text(`Total Records: ${logs.length}`, 14, 34);
-
-    doc.setDrawColor(200);
-    doc.line(14, 38, 282, 38);
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text("Timestamp", 14, 44);
-    doc.text("Action", 60, 44);
-    doc.text("Affected Record", 95, 44);
-    doc.text("Details & Summary", 155, 44);
-
-    doc.line(14, 47, 282, 47);
-
-    let y = 53;
-    doc.setFont("helvetica", "normal");
-
-    logs.forEach(l => {
-      if (y > 185) {
-        doc.addPage();
-        y = 20;
-      }
-      const timeFmt = new Date(l.timestamp).toLocaleDateString('en-IN') + ' ' + new Date(l.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-      doc.text(timeFmt, 14, y);
-      doc.text(l.action || '', 60, y);
-      doc.text((l.targetName || '').substring(0, 26), 95, y);
-      doc.text((l.details || '').substring(0, 70), 155, y);
-      y += 7;
-    });
-
-    const iframe = document.getElementById('print-preview-iframe');
-    if (iframe) {
-      iframe.src = doc.output('datauristring');
-    }
-    UI.openModal('modal-print-preview');
   },
 
   initTheme() {

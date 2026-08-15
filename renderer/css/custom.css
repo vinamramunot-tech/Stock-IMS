@@ -135,10 +135,28 @@
 }
 
 .specs-line {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-muted);
   margin-bottom: 3px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.specs-line strong {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.product-price-specs {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-muted);
 }
 
 .product-price-row {
@@ -1282,4 +1300,127 @@
   color: #94a3b8;
   border: 1px solid rgba(148, 163, 184, 0.35);
 }
+
+/* ==========================================================================
+   PREMIUM CATALOG CHECKBOX & THUMBNAIL PLACEHOLDER STYLES
+   ========================================================================== */
+
+/* Sleek frosted checkbox container in Grid View */
+.catalog-select-label {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 12;
+  cursor: pointer;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: rgba(18, 18, 20, 0.82);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1.5px solid rgba(255, 255, 255, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.catalog-select-label:hover {
+  border-color: var(--text-gold-light, #d4af37);
+  background: rgba(26, 26, 30, 0.95);
+  transform: scale(1.08);
+}
+
+.catalog-select-label:has(input:checked),
+.catalog-select-label.is-checked {
+  background: linear-gradient(135deg, #d4af37, #b8860b);
+  border-color: #fef08a;
+  box-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
+}
+
+.catalog-item-select {
+  cursor: pointer;
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--text-gold-dark, #b8860b);
+  opacity: 0.95;
+}
+
+/* In List View: Position checkbox inline to the left of the image, NEVER overlapping */
+.catalog-grid-container.list-view .product-card {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+}
+
+.catalog-grid-container.list-view .catalog-select-label {
+  position: static !important;
+  top: auto !important;
+  left: auto !important;
+  flex-shrink: 0;
+  margin: 0 2px 0 0;
+  background: var(--bg-card);
+  border-color: var(--border-medium, rgba(255, 255, 255, 0.15));
+}
+
+.catalog-grid-container.list-view .catalog-select-label:has(input:checked) {
+  background: linear-gradient(135deg, #d4af37, #b8860b);
+  border-color: #fef08a;
+}
+
+/* Highlight for selected item card */
+.product-card.is-selected {
+  border-color: var(--text-gold-light, #d4af37) !important;
+  box-shadow: 0 0 14px rgba(212, 175, 55, 0.22) !important;
+  background: linear-gradient(180deg, rgba(212, 175, 55, 0.04) 0%, var(--bg-card) 100%) !important;
+}
+
+/* Luxury No Photo Placeholder */
+.product-img-box-placeholder {
+  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.04) 0%, rgba(12, 12, 15, 0.7) 100%) !important;
+  border-bottom: 1px solid var(--border-light);
+  transition: all 0.3s ease;
+}
+
+.product-img-box-placeholder:hover {
+  background: radial-gradient(circle at center, rgba(212, 175, 55, 0.08) 0%, rgba(15, 15, 20, 0.85) 100%) !important;
+}
+
+.product-img-placeholder-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: var(--text-muted);
+  opacity: 0.65;
+  transition: all 0.25s ease;
+  user-select: none;
+}
+
+.product-img-box-placeholder:hover .product-img-placeholder-content {
+  opacity: 1;
+  color: var(--text-gold-light, #d4af37);
+  transform: translateY(-2px);
+}
+
+.product-img-placeholder-icon {
+  width: 34px;
+  height: 34px;
+  stroke-width: 1.5;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35));
+}
+
+.product-img-placeholder-text {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-family: var(--font-mono, monospace);
+}
+
 
