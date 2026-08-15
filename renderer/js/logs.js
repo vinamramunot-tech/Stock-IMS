@@ -66,7 +66,10 @@ const Logs = {
     if (JSON.stringify(oldMetals) !== JSON.stringify(newMetals)) {
       const formatMetals = (arr) => {
         if (arr.length === 0) return 'None';
-        return arr.map(m => `${m.name || 'Body'} (${m.karat}KT, ${m.weight}g)`).join(' | ');
+        return arr.map(m => {
+          const wasteStr = (m.wastage !== undefined && m.wastage !== null && m.wastage !== '') ? `, ${m.wastage}% wastage` : '';
+          return `${m.name || 'Body'} (${m.karat}KT, ${m.weight}g${wasteStr})`;
+        }).join(' | ');
       };
       changes.push({
         field: 'Metal Components',

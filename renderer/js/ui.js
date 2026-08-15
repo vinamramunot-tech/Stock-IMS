@@ -520,11 +520,13 @@ const UI = {
       mfgDate: mfgDate,
       mfgGoldRate24kt: mfgGoldRate24kt,
       goldRateAtAddition: mfgGoldRate24kt,
-      labourCost: Number(document.getElementById('item-labour').value || 0),
+      grossWeight: Number(document.getElementById('item-gross-weight')?.value || 0),
+      karat: Number(document.getElementById('item-karat')?.value || 18),
       wastage: Number(document.getElementById('item-wastage')?.value || 0),
-      profitPercentage: Number(document.getElementById('item-profit-pct').value || 100),
+      labourCost: Number(document.getElementById('item-labour')?.value || 0),
+      profitPercentage: Number(document.getElementById('item-profit-pct')?.value || 40),
       commission: {
-        value: Number(document.getElementById('item-commission').value || 0),
+        value: Number(document.getElementById('item-commission')?.value || 0),
         isManual: this.activeItemState && this.activeItemState.commission ? this.activeItemState.commission.isManual : false
       },
       metals: [],
@@ -532,13 +534,14 @@ const UI = {
       diamondsPolki: []
     };
 
-    // Metals
+    // Additional Metals
     const metalRows = document.querySelectorAll('.metal-part-entry-card');
     metalRows.forEach(row => {
-      const name = row.querySelector('.metal-part-name').value || 'Body Part';
+      const name = row.querySelector('.metal-part-name').value || 'Additional Part';
       const karat = Number(row.querySelector('.metal-part-karat').value);
       const weight = Number(row.querySelector('.metal-part-weight').value || 0);
-      const wastage = row.querySelector('.metal-part-wastage') ? Number(row.querySelector('.metal-part-wastage').value || 0) : null;
+      const wastageVal = row.querySelector('.metal-part-wastage')?.value;
+      const wastage = (wastageVal !== undefined && wastageVal !== null && wastageVal.trim() !== '') ? Number(wastageVal) : null;
       currentItem.metals.push({ name, karat, weight, wastage });
     });
 
@@ -563,19 +566,19 @@ const UI = {
     // Perform Evaluation (globalRate for market cost/selling price, mfgGoldRate24kt for home cost)
     const evalResult = Calc.evaluateItem(currentItem, globalRate, mfgGoldRate24kt);
 
-    // Update Form View
-    document.getElementById('summary-metal-subtotal').textContent = `₹${evalResult.metalSubtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    // Update Form View: Metal subtotal and subtotal dynamically reflect the 24KT Gold Rate set in the form
+    document.getElementById('summary-metal-subtotal').textContent = `₹${evalResult.mfgMetalSubtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
     document.getElementById('summary-total-gross-weight').textContent = `${evalResult.totalGrossWeight.toFixed(3)} g`;
     document.getElementById('summary-total-net-weight').textContent = `${evalResult.totalNetMetalWeight.toFixed(3)} g`;
     const combinedStonesVal = evalResult.stoneSubtotal + evalResult.diamondSubtotal;
     document.getElementById('summary-stone-subtotal').textContent = `₹${combinedStonesVal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
-    document.getElementById('summary-labour-subtotal').textContent = `₹${evalResult.subtotal ? currentItem.labourCost.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '0.00'}`;
+    document.getElementById('summary-labour-subtotal').textContent = `₹${evalResult.mfgSubtotal ? currentItem.labourCost.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '0.00'}`;
 
-    document.getElementById('summary-subtotal').textContent = `₹${evalResult.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    document.getElementById('summary-subtotal').textContent = `₹${evalResult.mfgSubtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
 
     // Commission Slab indicator text
     const commSlabIndicator = document.getElementById('slab-indicator');
-    commSlabIndicator.textContent = `Commission Slab: ${evalResult.commissionPercentage}% bracket (Subtotal: ₹${evalResult.subtotal.toLocaleString()})`;
+    commSlabIndicator.textContent = `Commission Slab: ${evalResult.commissionPercentage}% bracket (Subtotal: ₹${evalResult.mfgSubtotal.toLocaleString()})`;
 
     // Check commission overrides
     const commInput = document.getElementById('item-commission');
@@ -592,6 +595,11 @@ const UI = {
     }
 
     document.getElementById('summary-grand-total').textContent = `₹${evalResult.marketCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+
+    const mfgCostEl = document.getElementById('summary-mfg-cost');
+    if (mfgCostEl) {
+      mfgCostEl.textContent = `₹${evalResult.mfgGrandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    }
 
     // Home Cost display condition
     const homeCostCard = document.getElementById('home-cost-card');
@@ -617,6 +625,8 @@ const UI = {
     };
 
     document.getElementById('jewelry-form').reset();
+    const _grossWtEl = document.getElementById('item-gross-weight'); if (_grossWtEl) _grossWtEl.value = '';
+    const _karatEl = document.getElementById('item-karat'); if (_karatEl) _karatEl.value = '18';
     const _formWastageEl = document.getElementById('item-wastage'); if (_formWastageEl) _formWastageEl.value = '15.00';
     document.getElementById('item-profit-pct').value = '40.0';
     const _mfgDateEl = document.getElementById('item-mfg-date');
@@ -636,6 +646,9 @@ const UI = {
 
     // No checkboxes to uncheck
 
+    // Populate dynamic karat datalist with presets and past inventory karats
+    this.populateKaratDatalist();
+
     // Default metals/stones (can start empty)
     this.resetModalTabs();
     this.updateFormCalculations();
@@ -646,10 +659,43 @@ const UI = {
   },
 
   /**
+   * Populate Gold Karat datalist dynamically from presets and past records
+   */
+  populateKaratDatalist() {
+    const datalist = document.getElementById('jewelry-karat-options');
+    if (!datalist) return;
+
+    const baseKarats = [24, 22, 18, 14, 10, 9];
+    const usedKarats = new Set(baseKarats);
+
+    const allItems = DBManager.getItems();
+    allItems.forEach(item => {
+      if (item.karat && Number(item.karat) > 0) {
+        usedKarats.add(Number(item.karat));
+      }
+      (item.metals || []).forEach(m => {
+        if (m.karat && Number(m.karat) > 0) {
+          usedKarats.add(Number(m.karat));
+        }
+      });
+    });
+
+    const sortedKarats = Array.from(usedKarats).sort((a, b) => b - a);
+    datalist.innerHTML = '';
+    sortedKarats.forEach(k => {
+      const opt = document.createElement('option');
+      opt.value = k;
+      opt.textContent = `${k} KT`;
+      datalist.appendChild(opt);
+    });
+  },
+
+  /**
    * Pre-fill the form with item data for editing
    */
   loadItemIntoForm(item) {
     this.resetForm();
+    this.populateKaratDatalist();
 
     // De-reference values to prevent direct mutation of state before save
     this.activeItemState = JSON.parse(JSON.stringify(item));
@@ -678,7 +724,33 @@ const UI = {
     document.getElementById('item-labour').value = item.labourCost || '';
     const _editMfgDateEl = document.getElementById('item-mfg-date');
     if (_editMfgDateEl) _editMfgDateEl.value = item.mfgDate || (item.createdAt ? item.createdAt.split('T')[0] : new Date().toISOString().split('T')[0]);
-    const _editWastageEl = document.getElementById('item-wastage'); if (_editWastageEl) _editWastageEl.value = item.wastage !== undefined ? Number(item.wastage).toFixed(2) : '15.00';
+
+    // Gross weight, Karat & Wastage on General Tab
+    const grossWtEl = document.getElementById('item-gross-weight');
+    const karatEl = document.getElementById('item-karat');
+    const wastageEl = document.getElementById('item-wastage');
+
+    let loadedGrossWeight = item.grossWeight;
+    let loadedKarat = item.karat;
+    let loadedWastage = item.wastage !== undefined ? item.wastage : 15;
+
+    // Backward compatibility: If older item had metals array but no root grossWeight
+    let additionalMetals = item.metals || [];
+    if ((loadedGrossWeight === undefined || loadedGrossWeight === null || Number(loadedGrossWeight) <= 0) && additionalMetals.length > 0) {
+      // First metal part can be populated into the General tab
+      const firstPart = additionalMetals[0];
+      loadedGrossWeight = firstPart.weight;
+      loadedKarat = firstPart.karat || 18;
+      if (firstPart.wastage !== undefined && firstPart.wastage !== null) {
+        loadedWastage = firstPart.wastage;
+      }
+      additionalMetals = additionalMetals.slice(1);
+    }
+
+    if (grossWtEl) grossWtEl.value = loadedGrossWeight !== undefined && loadedGrossWeight !== null ? loadedGrossWeight : '';
+    if (karatEl) karatEl.value = String(loadedKarat || 18);
+    if (wastageEl) wastageEl.value = loadedWastage !== undefined ? Number(loadedWastage).toFixed(2) : '15.00';
+
     // Load the saved per-item mfg gold rate (fallback to goldRateAtAddition or global if not set)
     const _savedRate = item.mfgGoldRate24kt || item.goldRateAtAddition || Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
     const _editGoldRateEl = document.getElementById('item-gold-rate-24kt');
@@ -693,9 +765,8 @@ const UI = {
       document.getElementById('uploader-preview').classList.remove('hidden');
     }
 
-    // Metals Load
-    const metals = item.metals || [];
-    metals.forEach(part => this.createMetalPartRow(part));
+    // Additional Metals Load
+    additionalMetals.forEach(part => this.createMetalPartRow(part));
 
     // Stones Load
     const stones = item.stones || [];

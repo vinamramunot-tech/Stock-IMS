@@ -38,27 +38,64 @@ const Calc = {
 
   /**
    * Helper to calculate proportional net weight of each metal part
+   * Returns breakdown of Main Piece + any Additional Metal Parts
    */
   getNetMetals(itemData) {
-    const metals = itemData.metals || [];
+    if (!itemData) return [];
     const stoneWeightGrams = this.getStoneWeightInGrams(itemData);
-    const totalGrossWeight = metals.reduce((sum, m) => sum + Number(m.weight || 0), 0);
+    const mainGrossWeight = Number(itemData.grossWeight || 0);
+    const mainKarat = Number(itemData.karat || 18);
+    const mainWastage = Number(itemData.wastage !== undefined && itemData.wastage !== null && itemData.wastage !== '' ? itemData.wastage : 15);
+    const additionalMetals = itemData.metals || [];
 
-    if (totalGrossWeight <= 0) {
-      return metals.map(m => ({ ...m, netWeight: 0, grossWeight: Number(m.weight || 0) }));
+    const result = [];
+
+    // If main piece gross weight is specified
+    if (mainGrossWeight > 0) {
+      const mainNetWeight = Math.max(0, Number((mainGrossWeight - stoneWeightGrams).toFixed(4)));
+      result.push({
+        name: 'Main Piece',
+        karat: mainKarat,
+        grossWeight: mainGrossWeight,
+        netWeight: mainNetWeight,
+        wastage: mainWastage,
+        isMain: true
+      });
     }
 
-    return metals.map(m => {
-      const gross = Number(m.weight || 0);
-      const proportion = totalGrossWeight > 0 ? (gross / totalGrossWeight) : 0;
-      const deduction = stoneWeightGrams * proportion;
-      const netWeight = Math.max(0, gross - deduction);
-      return {
+    // Additional metal components (e.g. chain, clasp)
+    additionalMetals.forEach((m, idx) => {
+      const w = Number(m.weight || 0);
+      const k = Number(m.karat || mainKarat);
+      const was = (m.wastage !== undefined && m.wastage !== null && m.wastage !== '') ? Number(m.wastage) : mainWastage;
+      result.push({
         ...m,
-        grossWeight: gross,
-        netWeight: Number(netWeight.toFixed(4))
-      };
+        name: m.name || `Metal Part #${idx + 1}`,
+        karat: k,
+        grossWeight: w,
+        netWeight: w, // Additional components do not have stone deduction
+        wastage: was,
+        isMain: false
+      });
     });
+
+    // Fallback for legacy items that only had metals array without root grossWeight
+    if (result.length === 0 && additionalMetals.length > 0) {
+      const totalGross = additionalMetals.reduce((sum, m) => sum + Number(m.weight || 0), 0);
+      return additionalMetals.map(m => {
+        const gross = Number(m.weight || 0);
+        const prop = totalGross > 0 ? (gross / totalGross) : 0;
+        const ded = stoneWeightGrams * prop;
+        return {
+          ...m,
+          grossWeight: gross,
+          netWeight: Number(Math.max(0, gross - ded).toFixed(4)),
+          wastage: (m.wastage !== undefined && m.wastage !== null) ? Number(m.wastage) : mainWastage
+        };
+      });
+    }
+
+    return result;
   },
 
   /**
@@ -122,14 +159,15 @@ const Calc = {
       ? Number(mfgGoldRate24kt)
       : Number(itemData?.mfgGoldRate24kt || itemData?.goldRateAtAddition || globalRate);
 
-    const globalWastage = Number(itemData?.wastage !== undefined ? itemData.wastage : 15);
+    const defaultWastage = Number(itemData?.wastage !== undefined && itemData.wastage !== null && itemData.wastage !== '' ? itemData.wastage : 15);
 
     // 1. Metal values (Global rate & Mfg date rate)
     let metalTotalGlobal = 0;
     let metalTotalMfg = 0;
+
     netMetals.forEach(part => {
-      const partWastage = (part.wastage !== undefined && part.wastage !== null && part.wastage !== '') ? Number(part.wastage) : globalWastage;
-      const wastageFactor = 1 + partWastage / 100;
+      const partWastage = (part.wastage !== undefined && part.wastage !== null && part.wastage !== '') ? Number(part.wastage) : defaultWastage;
+      const wastageFactor = 1 + (partWastage / 100);
 
       const partValGlobal = this.calculateMetalValue(part.netWeight, part.karat, globalRate);
       metalTotalGlobal += partValGlobal * wastageFactor;
@@ -182,12 +220,15 @@ const Calc = {
     // Market Cost Price calculated using Global Gold Rate
     const marketCostPrice = Number((subtotalGlobal + finalCommValueGlobal).toFixed(2));
 
-    // Home Cost Price calculated using Mfg Date 24KT Gold Rate
+    // Home Cost Price / Manufacturing Grand Total calculated using Mfg Date 24KT Gold Rate
     const grandTotalMfg = Number((subtotalMfg + finalCommValueMfg).toFixed(2));
     const homeCostPrice = Number((grandTotalMfg - (emeraldTotal * 0.5)).toFixed(2));
 
     const profitPct = Number(itemData?.profitPercentage !== undefined ? itemData.profitPercentage : 40);
     const sellingPrice = Number((((marketCostPrice - emeraldTotal) * (1 + profitPct / 100)) + emeraldTotal).toFixed(2));
+
+    const totalGrossWeight = Number(netMetals.reduce((sum, m) => sum + Number(m.grossWeight || 0), 0).toFixed(3));
+    const totalNetMetalWeight = Number(netMetals.reduce((sum, m) => sum + Number(m.netWeight || 0), 0).toFixed(3));
 
     return {
       metalSubtotal: Number(metalTotalGlobal.toFixed(2)),
@@ -206,8 +247,8 @@ const Calc = {
       emeraldTotal: emeraldTotal,
       sellingPrice: sellingPrice,
       hasEmerald: emeraldTotal > 0,
-      totalGrossWeight: Number(netMetals.reduce((sum, m) => sum + m.grossWeight, 0).toFixed(3)),
-      totalNetMetalWeight: Number(netMetals.reduce((sum, m) => sum + m.netWeight, 0).toFixed(3))
+      totalGrossWeight: totalGrossWeight,
+      totalNetMetalWeight: totalNetMetalWeight
     };
   }
 };

@@ -549,8 +549,17 @@ const Catalog = {
       return;
     }
 
+    const grossWeight = Number(document.getElementById('item-gross-weight')?.value || 0);
+    const karat = Number(document.getElementById('item-karat')?.value || 18);
+    const wastage = Number(document.getElementById('item-wastage')?.value || 0);
+
     if (!name || !sku || !category) {
       UI.showToast("Please fill all required fields (*) in the General tab.", true);
+      return;
+    }
+
+    if (grossWeight <= 0) {
+      UI.showToast("Please enter a valid Gross Weight for the jewelry piece in the General tab.", true);
       return;
     }
 
@@ -573,12 +582,14 @@ const Catalog = {
       mfgDate,
       mfgGoldRate24kt,
       goldRateAtAddition,
+      grossWeight,
+      karat,
+      wastage,
       image: UI.activeItemState.image || null,
       metals: [],
       stones: [],
       diamondsPolki: [],
       labourCost,
-      wastage: Number(document.getElementById('item-wastage')?.value || 0),
       profitPercentage: Number(document.getElementById('item-profit-pct').value || 40),
       commission: {
         value: Number(document.getElementById('item-commission').value || 0),
@@ -589,13 +600,15 @@ const Catalog = {
     };
 
     // Gather components
-    // Metals
+    // Additional Metals
     const metalRows = document.querySelectorAll('.metal-part-entry-card');
     metalRows.forEach(row => {
-      const partName = row.querySelector('.metal-part-name').value.trim() || 'Body Component';
-      const karat = Number(row.querySelector('.metal-part-karat').value);
+      const partName = row.querySelector('.metal-part-name').value.trim() || 'Additional Part';
+      const partKarat = Number(row.querySelector('.metal-part-karat').value);
       const weight = Number(row.querySelector('.metal-part-weight').value || 0);
-      savedItem.metals.push({ name: partName, karat, weight });
+      const wastageVal = row.querySelector('.metal-part-wastage')?.value;
+      const partWastage = (wastageVal !== undefined && wastageVal !== null && wastageVal.trim() !== '') ? Number(wastageVal) : null;
+      savedItem.metals.push({ name: partName, karat: partKarat, weight, wastage: partWastage });
     });
 
     // Stones & Diamonds
@@ -1174,13 +1187,13 @@ const Catalog = {
       const labour   = Number(item.labourCost || 0);
       const wastage  = Number(item.wastage !== undefined ? item.wastage : 15);
 
-      const totalGrossWt  = metals.reduce((s, m) => s + Number(m.weight || 0), 0);
-      const mainKarat     = metals.length > 0 ? Number(metals[0].karat) : 18;
+      const totalGrossWt  = evaluation.totalGrossWeight !== undefined ? evaluation.totalGrossWeight : (Number(item.grossWeight || 0) + metals.reduce((s, m) => s + Number(m.weight || 0), 0));
+      const mainKarat     = Number(item.karat || (metals.length > 0 ? Number(metals[0].karat) : 18));
       const totalStoneCts = [...stones, ...diamonds].reduce((s, x) => s + Number(x.weight || 0), 0);
 
       // Compute effective wastage factor for Excel formulas
       const stoneWeightGrams = totalStoneCts * 0.2;
-      const netWt = Math.max(0, totalGrossWt - stoneWeightGrams);
+      const netWt = evaluation.totalNetMetalWeight !== undefined ? evaluation.totalNetMetalWeight : Math.max(0, totalGrossWt - stoneWeightGrams);
       const baseMetalVal = netWt * (goldRate * (mainKarat / 24));
       
       let wFactor = 1 + wastage / 100;

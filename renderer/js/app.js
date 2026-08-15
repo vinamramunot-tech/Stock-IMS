@@ -99,22 +99,28 @@ const App = {
       }
     });
 
-    // Labour cost, profit percentage, and per-item gold rate change listeners
+    // Labour cost, profit percentage, gross weight, karat, wastage, and per-item gold rate change listeners
     document.getElementById('item-labour').addEventListener('input', () => UI.updateFormCalculations());
     document.getElementById('item-profit-pct').addEventListener('input', () => UI.updateFormCalculations());
-    document.getElementById('item-gold-rate-24kt').addEventListener('input', () => UI.updateFormCalculations());
-    // Global wastage field is hidden (wastage is set per-metal-row individually).
-    // Guard against element being absent in future refactors.
+    const itemGoldRateInput = document.getElementById('item-gold-rate-24kt');
+    if (itemGoldRateInput) {
+      itemGoldRateInput.addEventListener('input', () => UI.updateFormCalculations());
+      itemGoldRateInput.addEventListener('change', () => UI.updateFormCalculations());
+      itemGoldRateInput.addEventListener('keyup', () => UI.updateFormCalculations());
+    }
+    
+    const grossWtInput = document.getElementById('item-gross-weight');
+    if (grossWtInput) {
+      grossWtInput.addEventListener('input', () => UI.updateFormCalculations());
+    }
+    const karatInput = document.getElementById('item-karat');
+    if (karatInput) {
+      karatInput.addEventListener('input', () => UI.updateFormCalculations());
+      karatInput.addEventListener('change', () => UI.updateFormCalculations());
+    }
     const _wastageEl = document.getElementById('item-wastage');
     if (_wastageEl) {
-      _wastageEl.addEventListener('input', () => {
-        document.querySelectorAll('.metal-part-entry-card').forEach(row => {
-          const wastageInput = row.querySelector('.metal-part-wastage');
-          if (wastageInput) wastageInput.value = _wastageEl.value;
-          UI.updatePartValuation(row);
-        });
-        UI.updateFormCalculations();
-      });
+      _wastageEl.addEventListener('input', () => UI.updateFormCalculations());
     }
 
     // Auto reset commission button click
@@ -740,29 +746,27 @@ const App = {
 
     // 4. Metals List
     const metalsList = document.getElementById('detail-jewelry-metals-list');
+    const netMetals = Calc.getNetMetals(item);
     if (metalsList) {
       metalsList.innerHTML = '';
-      const netMetals = Calc.getNetMetals(item);
       if (netMetals.length === 0) {
-        metalsList.innerHTML = '<div style="color: var(--text-muted);">No metal components added.</div>';
+        metalsList.innerHTML = '<div style="color: var(--text-muted);">No metal components recorded.</div>';
       } else {
         netMetals.forEach(m => {
           const div = document.createElement('div');
-          div.innerHTML = `<strong>${m.karat}KT Gold:</strong> Gross: ${Number(m.weight || 0).toFixed(3)}g (Net: ${m.netWeight.toFixed(3)}g)`;
+          div.innerHTML = `<strong>${m.name || 'Metal'} (${m.karat}KT Gold):</strong> Gross: ${Number(m.grossWeight || 0).toFixed(3)}g (Net: ${Number(m.netWeight || 0).toFixed(3)}g, Wastage: ${Number(m.wastage || 0).toFixed(2)}%)`;
           metalsList.appendChild(div);
         });
       }
     }
 
     // 5. Weight summary
-    let totalGrossWeight = 0;
-    (item.metals || []).forEach(m => totalGrossWeight += Number(m.weight || 0));
-    
     let totalGemWeight = 0;
     (item.stones || []).forEach(s => totalGemWeight += Number(s.weight || 0));
     (item.diamondsPolki || []).forEach(d => totalGemWeight += Number(d.weight || 0));
-    
-    const netMetalWeight = Math.max(0, totalGrossWeight - (totalGemWeight * 0.2));
+
+    const totalGrossWeight = netMetals.reduce((sum, m) => sum + Number(m.grossWeight || 0), 0);
+    const netMetalWeight = netMetals.reduce((sum, m) => sum + Number(m.netWeight || 0), 0);
 
     document.getElementById('detail-jewelry-gross-wt').textContent = totalGrossWeight.toFixed(3);
     document.getElementById('detail-jewelry-net-wt').textContent = netMetalWeight.toFixed(3);
@@ -816,6 +820,11 @@ const App = {
     const evaluation = Calc.evaluateItem(item, goldRate);
     
     document.getElementById('detail-jewelry-market-price').textContent = `₹${evaluation.marketCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    
+    const mfgPriceEl = document.getElementById('detail-jewelry-mfg-price');
+    if (mfgPriceEl) {
+      mfgPriceEl.textContent = `₹${evaluation.mfgGrandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    }
     
     const homeCostWrapper = document.getElementById('detail-jewelry-home-cost-wrapper');
     if (evaluation.hasEmerald) {

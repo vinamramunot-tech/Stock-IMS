@@ -1560,6 +1560,13 @@
                 <span id="detail-jewelry-market-price"
                   style="font-size: 18px; font-weight: 700; color: var(--text-main);"></span>
               </div>
+              <div id="detail-jewelry-mfg-cost-wrapper">
+                <span
+                  style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-gold); letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Mfg
+                  Cost Price</span>
+                <span id="detail-jewelry-mfg-price"
+                  style="font-size: 18px; font-weight: 700; color: var(--text-gold);"></span>
+              </div>
               <div id="detail-jewelry-home-cost-wrapper">
                 <span
                   style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Home
@@ -1642,6 +1649,35 @@
                   <label for="item-labour">Labour Cost (₹)</label>
                   <input type="number" id="item-labour" step="0.01" min="0" placeholder="0.00" class="recalc-trigger">
                 </div>
+
+                <div class="form-grid-row" style="margin-top: 5px;">
+                  <div class="form-col-4">
+                    <div class="input-group">
+                      <label for="item-gross-weight">Gross Weight (g) <span class="required">*</span></label>
+                      <input type="number" id="item-gross-weight" step="0.001" min="0" placeholder="0.000" class="recalc-trigger" required>
+                    </div>
+                  </div>
+                  <div class="form-col-4">
+                    <div class="input-group">
+                      <label for="item-karat">Gold Karat (KT) <span class="required">*</span></label>
+                      <input type="number" id="item-karat" list="jewelry-karat-options" step="0.01" min="1" max="24" placeholder="e.g. 18 or 22" class="recalc-trigger" required>
+                      <datalist id="jewelry-karat-options">
+                        <option value="24">24 KT</option>
+                        <option value="22">22 KT</option>
+                        <option value="18">18 KT</option>
+                        <option value="14">14 KT</option>
+                        <option value="10">10 KT</option>
+                        <option value="9">9 KT</option>
+                      </datalist>
+                    </div>
+                  </div>
+                  <div class="form-col-4">
+                    <div class="input-group">
+                      <label for="item-wastage">Wastage (%)</label>
+                      <input type="number" id="item-wastage" step="0.01" min="0" placeholder="15.00" value="15.00" class="recalc-trigger">
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div class="form-col-6">
@@ -1683,16 +1719,8 @@
           <!-- TAB 2: METAL DETAILS -->
           <div id="form-tab-metals" class="modal-tab-content hidden">
             <div class="tab-section-intro">
-              <h4>Metal Components Breakdown</h4>
-              <p>Add the individual metal components of the piece. Different parts of a single piece may use different
-                gold karats (e.g. Chain vs Body). Metal values will calculate automatically based on their karat and the
-                global gold rate.</p>
-            </div>
-
-            <div class="input-group" style="display: none;">
-              <label for="item-wastage">Metal Wastage (%)</label>
-              <input type="number" id="item-wastage" step="0.01" min="0" placeholder="15.00" value="15.00"
-                class="recalc-trigger">
+              <h4>Additional Metal Components (Chains, Hooks, Clasps, etc.)</h4>
+              <p>Add any additional separate metal items attached to this jewelry piece (e.g. Chain, Clasp, Hook). Their metal value will be calculated based on their individual weight, karat, and component wastage %.</p>
             </div>
 
             <div id="metals-list-container">
@@ -1703,7 +1731,7 @@
               <svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align:-3px; margin-right:4px;">
                 <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
               </svg>
-              Add Metal Component Part
+              Add Additional Metal Part
             </button>
           </div>
 
@@ -1824,6 +1852,11 @@
                 <div class="grand-total-card" style="margin-top: 15px;">
                   <span class="grand-total-lbl">MARKET COST PRICE</span>
                   <span class="grand-total-val" id="summary-grand-total">₹0.00</span>
+                </div>
+
+                <div class="grand-total-card" id="mfg-cost-card" style="margin-top: 15px; background: rgba(212, 175, 55, 0.08); border: 1px solid var(--border-gold);">
+                  <span class="grand-total-lbl" style="color: var(--text-gold);">MANUFACTURING COST (MFG COST)</span>
+                  <span class="grand-total-val" id="summary-mfg-cost" style="color: var(--text-gold);">₹0.00</span>
                 </div>
 
                 <div class="grand-total-card hidden" id="home-cost-card" style="margin-top: 15px;">
