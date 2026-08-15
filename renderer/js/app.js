@@ -30,6 +30,9 @@ const App = {
     if (window.JewelryMemoController) {
       JewelryMemoController.init();
     }
+    if (window.JewelrySalesController) {
+      JewelrySalesController.init();
+    }
     if (window.SalesController) {
       SalesController.init();
     }
@@ -188,7 +191,7 @@ const App = {
         const action = item.getAttribute('data-action');
         mobileMenuOverlay.classList.add('hidden');
 
-        if (action === 'tab-jewelry-analyzer' || action === 'tab-catalog' || action === 'tab-emerald-catalog' || action === 'tab-memos' || action === 'tab-logs' || action === 'tab-settings' || action === 'tab-stone-catalog' || action === 'tab-jewel-stone-memos' || action === 'tab-jewelry-memos' || action === 'tab-jewelry-photos' || action === 'tab-emerald-photos') {
+        if (action === 'tab-jewelry-analyzer' || action === 'tab-catalog' || action === 'tab-jewelry-sales' || action === 'tab-emerald-catalog' || action === 'tab-memos' || action === 'tab-logs' || action === 'tab-settings' || action === 'tab-stone-catalog' || action === 'tab-jewel-stone-memos' || action === 'tab-jewelry-memos' || action === 'tab-jewelry-photos' || action === 'tab-emerald-photos') {
           this.switchTab(action);
         } else if (action === 'add-jewelry') {
           const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
@@ -279,6 +282,8 @@ const App = {
       this.renderJewelryPhotos();
     } else if (tab === 'tab-jewelry-memos') {
       if (window.JewelryMemoController) JewelryMemoController.renderMemoList();
+    } else if (tab === 'tab-jewelry-sales') {
+      if (window.JewelrySalesController) JewelrySalesController.renderSalesList();
     } else if (tab === 'tab-emerald-catalog') {
       if (window.EmeraldController) {
         EmeraldController.renderEmeraldGrid();
@@ -316,6 +321,7 @@ const App = {
       if (tab !== 'tab-catalog') Catalog.renderCatalogGrid();
       if (tab !== 'tab-jewelry-photos') this.renderJewelryPhotos();
       if (tab !== 'tab-jewelry-memos' && window.JewelryMemoController) JewelryMemoController.renderMemoList();
+      if (tab !== 'tab-jewelry-sales' && window.JewelrySalesController) JewelrySalesController.renderSalesList();
       if (tab !== 'tab-emerald-catalog' && window.EmeraldController) {
         EmeraldController.renderEmeraldGrid();
         EmeraldController.populateGroupAutocomplete();
@@ -879,7 +885,7 @@ const App = {
       const action = item.getAttribute('data-action');
       let show = false;
       if (appName === 'jewelry') {
-        show = ['tab-jewelry-analyzer', 'tab-catalog', 'tab-jewelry-photos', 'tab-jewelry-memos', 'tab-logs', 'tab-settings', 'add-jewelry', 'add-jewelry-memo'].includes(action);
+        show = ['tab-jewelry-analyzer', 'tab-catalog', 'tab-jewelry-photos', 'tab-jewelry-memos', 'tab-jewelry-sales', 'tab-logs', 'tab-settings', 'add-jewelry', 'add-jewelry-memo'].includes(action);
       } else if (appName === 'emerald') {
         show = ['tab-emerald-catalog', 'tab-emerald-analysis', 'tab-emerald-photos', 'tab-memos', 'tab-emerald-sales', 'tab-logs', 'tab-settings', 'add-emerald', 'add-memo'].includes(action);
       } else if (appName === 'stone') {

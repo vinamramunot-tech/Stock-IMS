@@ -1,12 +1,11 @@
 /**
  * Finished Jewelry Memos Controller Module
- * Manages issuing finished jewelry pieces to brokers.
- * Updates jewelry item statuses to "On Memo", "Sold", or reverts to "In Stock".
+ * Manages issuing finished jewelry pieces to people/clients with broker tracking.
+ * Updates jewelry item statuses to "Issued", "Sold", or reverts to "In Stock".
  */
 
 const JewelryMemoController = {
   selectedItems: [], // Array of jewelry item objects
-  activeActionContext: null,
   activePdfDocument: null,
 
   init() {
@@ -32,14 +31,9 @@ const JewelryMemoController = {
     document.querySelectorAll('.modal-close-trigger-jewelry-memo-detail').forEach(btn => {
       btn.addEventListener('click', () => UI.closeModal('modal-jewelry-memo-detail'));
     });
-    document.querySelectorAll('.modal-close-trigger-jewelry-memo-action').forEach(btn => {
-      btn.addEventListener('click', () => UI.closeModal('modal-jewelry-memo-action-input'));
+    document.querySelectorAll('.modal-close-trigger-jewelry-sale').forEach(btn => {
+      btn.addEventListener('click', () => UI.closeModal('modal-complete-jewelry-sale'));
     });
-
-    const btnSaveAction = document.getElementById('btn-save-jewelry-memo-action');
-    if (btnSaveAction) {
-      btnSaveAction.addEventListener('click', () => this.handleSaveMemoAction());
-    }
 
     // Create Modal Search/Filters
     const searchInp = document.getElementById('jewelry-memo-create-search');
@@ -65,6 +59,17 @@ const JewelryMemoController = {
     const searchInput = document.getElementById('jewelry-memo-search-input');
     if (searchInput) {
       searchInput.addEventListener('input', UI.debounce(() => this.renderMemoList(), 200));
+    }
+
+    // Wire up Confirm Sale Modal inputs
+    const finalPriceInp = document.getElementById('jewelry-sale-final-price');
+    if (finalPriceInp) {
+      finalPriceInp.addEventListener('input', () => this.updateSaleProfitCalculation());
+    }
+
+    const btnConfirmSale = document.getElementById('btn-confirm-jewelry-sale');
+    if (btnConfirmSale) {
+      btnConfirmSale.addEventListener('click', () => this.handleConfirmJewelrySale());
     }
   },
 
@@ -94,10 +99,14 @@ const JewelryMemoController = {
   },
 
   resetCreateMemoForm() {
+    const personInput = document.getElementById('jewelry-memo-person-name');
+    if (personInput) personInput.value = '';
     const brokerInput = document.getElementById('jewelry-memo-broker-name');
     if (brokerInput) brokerInput.value = '';
     const dateInput = document.getElementById('jewelry-memo-date');
     if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+    const returnDateInput = document.getElementById('jewelry-memo-return-date');
+    if (returnDateInput) returnDateInput.value = '';
     const notesInput = document.getElementById('jewelry-memo-notes');
     if (notesInput) notesInput.value = '';
 
@@ -152,7 +161,7 @@ const JewelryMemoController = {
     if (filtered.length === 0) {
       const opt = document.createElement('option');
       opt.value = '';
-      opt.textContent = '-- No available jewelry pieces --';
+      opt.textContent = '-- No available jewelry pieces in stock --';
       selectEl.appendChild(opt);
       return;
     }
@@ -160,7 +169,6 @@ const JewelryMemoController = {
     filtered.forEach(item => {
       const opt = document.createElement('option');
       opt.value = item.id;
-      // Get selling price
       const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
       const evaluation = Calc.evaluateItem(item, goldRate);
       opt.textContent = `${item.sku} - ${item.name} (Val: ₹${evaluation.sellingPrice.toLocaleString()})`;
@@ -249,14 +257,16 @@ const JewelryMemoController = {
   },
 
   async handleSaveMemo() {
+    const personName = (document.getElementById('jewelry-memo-person-name').value || '').trim();
     const brokerName = (document.getElementById('jewelry-memo-broker-name').value || '').trim();
     const date = document.getElementById('jewelry-memo-date').value;
+    const returnDate = document.getElementById('jewelry-memo-return-date').value;
     const notes = (document.getElementById('jewelry-memo-notes').value || '').trim();
 
-    if (!brokerName) { UI.showToast('Please enter a broker name.', true); return; }
-    if (!date) { UI.showToast('Please select a memo date.', true); return; }
+    if (!personName) { UI.showToast('Please enter the person / client name to whom the items are issued.', true); return; }
+    if (!date) { UI.showToast('Please select an issue date.', true); return; }
     if (this.selectedItems.length === 0) {
-      UI.showToast('Please add at least one jewelry piece to the memo.', true);
+      UI.showToast('Please add at least one jewelry piece to issue on memo.', true);
       return;
     }
 
@@ -265,12 +275,15 @@ const JewelryMemoController = {
 
     const memoItems = this.selectedItems.map(item => {
       const evalItem = Calc.evaluateItem(item, goldRate);
+      const mfgCost = (evalItem && evalItem.mfgGrandTotal) ? evalItem.mfgGrandTotal : (item.mfgCostPrice || evalItem.marketCostPrice || 0);
+
       return {
         itemId: item.id,
         sku: item.sku,
         name: item.name,
         category: item.category,
         image: item.image || null,
+        mfgCost,
         sellingPrice: evalItem.sellingPrice,
         status: 'open' // open | returned | sold
       };
@@ -281,8 +294,10 @@ const JewelryMemoController = {
     const memo = {
       id: 'jewelry_memo_' + Date.now(),
       memoNumber,
-      brokerName,
+      personName,
+      brokerName: brokerName || '—',
       date,
+      returnDate: returnDate || null,
       status: 'open', // open | closed
       createdAt: new Date().toISOString(),
       closedAt: null,
@@ -291,11 +306,14 @@ const JewelryMemoController = {
       totalValue
     };
 
-    // Update statuses of jewelry pieces in main items array
+    // Update statuses of jewelry pieces to 'Issued'
     this.selectedItems.forEach(sel => {
       const item = DBManager.database.items.find(i => i.id === sel.id);
       if (item) {
-        item.status = 'On Memo';
+        item.status = 'Issued';
+        item.issuedTo = personName;
+        item.issuedBroker = brokerName;
+        item.issuedMemoNumber = memoNumber;
         item.updatedAt = new Date().toISOString();
       }
     });
@@ -305,13 +323,13 @@ const JewelryMemoController = {
 
     DBManager.addLog(
       'ADD', memo.id, `Jewelry Memo ${memoNumber}`,
-      `Issued jewelry memo ${memoNumber} to broker ${brokerName}: ₹${totalValue.toLocaleString()} (${memoItems.length} pieces)`,
+      `Issued ${memoItems.length} pieces on Memo ${memoNumber} to ${personName} (Broker: ${brokerName || 'None'}): ₹${totalValue.toLocaleString()}`,
       []
     );
 
     try {
       UI.closeModal('modal-create-jewelry-memo');
-      UI.showToast(`Jewelry Memo ${memoNumber} issued to ${brokerName}`);
+      UI.showToast(`Jewelry Memo ${memoNumber} successfully issued to ${personName}`);
       App.refreshAllDisplays();
       await DBManager.saveVault();
     } catch (err) {
@@ -337,6 +355,7 @@ const JewelryMemoController = {
     let filtered = memos.filter(m => {
       const matchStatus = !filterVal || m.status === filterVal;
       const matchSearch = !query ||
+        (m.personName || '').toLowerCase().includes(query) ||
         (m.brokerName || '').toLowerCase().includes(query) ||
         (m.memoNumber || '').toLowerCase().includes(query);
       return matchStatus && matchSearch;
@@ -358,8 +377,8 @@ const JewelryMemoController = {
     tbody.closest('table').classList.remove('hidden');
 
     const statusStyle = {
-      open: { bg: 'rgba(74, 144, 226, 0.15)', color: 'var(--info-color)' },
-      closed: { bg: 'rgba(140,140,160,0.15)', color: 'var(--text-muted)' }
+      open: { bg: 'rgba(245, 158, 11, 0.18)', color: '#f59e0b', border: 'rgba(245, 158, 11, 0.35)' },
+      closed: { bg: 'rgba(140,140,160,0.15)', color: 'var(--text-muted)', border: 'transparent' }
     };
 
     filtered.forEach(memo => {
@@ -368,18 +387,22 @@ const JewelryMemoController = {
       });
       const st = statusStyle[memo.status] || statusStyle.closed;
 
+      const recipientDisplay = memo.personName
+        ? `<div><strong style="color:var(--text-main);">${UI.escapeHtml(memo.personName)}</strong>${memo.brokerName && memo.brokerName !== '—' ? `<br><span style="font-size:11px;color:var(--text-muted);">Broker: ${UI.escapeHtml(memo.brokerName)}</span>` : ''}</div>`
+        : UI.escapeHtml(memo.brokerName || '—');
+
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td style="font-weight:700;font-family:var(--font-serif);">${UI.escapeHtml(memo.memoNumber)}</td>
         <td>${dateFmt}</td>
-        <td style="font-weight:600;">${UI.escapeHtml(memo.brokerName)}</td>
-        <td style="text-align:right;font-weight:700;">₹${(memo.totalValue || 0).toLocaleString()}</td>
+        <td>${recipientDisplay}</td>
+        <td style="text-align:right;font-weight:700;color:var(--text-gold-dark);">₹${(memo.totalValue || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
         <td style="text-align:center;">${(memo.items || []).length}</td>
         <td>
           <span style="display:inline-block;padding:2px 10px;border-radius:20px;
             font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;
-            background:${st.bg};color:${st.color};">
-            ${memo.status}
+            background:${st.bg};color:${st.color};border:1px solid ${st.border};">
+            ${memo.status === 'open' ? 'ISSUED' : 'CLOSED'}
           </span>
         </td>
         <td>
@@ -387,7 +410,7 @@ const JewelryMemoController = {
             <button type="button" class="btn btn-secondary btn-small btn-view-memo">View</button>
             ${memo.status === 'open' ? `
               <button type="button" class="btn btn-secondary btn-small btn-return-memo" style="font-size:11px;">Return All</button>
-              <button type="button" class="btn btn-primary btn-small btn-sell-memo" style="font-size:11px;">Sell All</button>
+              <button type="button" class="btn btn-primary btn-small btn-sell-memo" style="font-size:11px;background:#22c55e;border-color:#22c55e;color:#fff;">Sell All</button>
             ` : ''}
           </div>
         </td>
@@ -396,8 +419,8 @@ const JewelryMemoController = {
       tr.querySelector('.btn-view-memo').addEventListener('click', () => this.openMemoDetail(memo.id));
       const retBtn = tr.querySelector('.btn-return-memo');
       const sellBtn = tr.querySelector('.btn-sell-memo');
-      if (retBtn) retBtn.addEventListener('click', () => this.handleCloseMemo(memo.id, 'returned'));
-      if (sellBtn) sellBtn.addEventListener('click', () => this.handleCloseMemo(memo.id, 'sold'));
+      if (retBtn) retBtn.addEventListener('click', () => this.handleBatchMemoAction(memo.id, 'returned'));
+      if (sellBtn) sellBtn.addEventListener('click', () => this.handleBatchMemoAction(memo.id, 'sold'));
 
       tbody.appendChild(tr);
     });
@@ -412,9 +435,11 @@ const JewelryMemoController = {
     });
 
     document.getElementById('jewelry-memo-detail-number').textContent = memo.memoNumber;
-    document.getElementById('jewelry-memo-detail-broker').textContent = memo.brokerName;
+    const personEl = document.getElementById('jewelry-memo-detail-person');
+    if (personEl) personEl.textContent = memo.personName || '—';
+    document.getElementById('jewelry-memo-detail-broker').textContent = memo.brokerName || '—';
     document.getElementById('jewelry-memo-detail-date').textContent = dateFmt;
-    document.getElementById('jewelry-memo-detail-status').textContent = memo.status.toUpperCase();
+    document.getElementById('jewelry-memo-detail-status').textContent = memo.status === 'open' ? 'ISSUED' : 'CLOSED';
     document.getElementById('jewelry-memo-detail-notes').textContent = memo.notes || '—';
     document.getElementById('jewelry-memo-detail-total-value').textContent = '₹' + (memo.totalValue || 0).toLocaleString(undefined, { minimumFractionDigits: 2 });
 
@@ -438,23 +463,27 @@ const JewelryMemoController = {
         ? `<img src="${imgSrc}" alt="${UI.escapeHtml(item.name)}" style="width:36px;height:36px;object-fit:cover;border-radius:4px;border:1px solid var(--border-light);cursor:pointer;" class="memo-detail-thumb-img">`
         : `<div style="width:36px;height:36px;border-radius:4px;border:1px solid var(--border-light);background:var(--bg-base);display:flex;align-items:center;justify-content:center;color:var(--text-muted);opacity:0.6;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>`;
 
+      const statusBadge = item.status === 'open'
+        ? `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;background:rgba(245,158,11,0.18);color:#f59e0b;border:1px solid rgba(245,158,11,0.35);">ISSUED</span>`
+        : item.status === 'returned'
+        ? `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;background:rgba(80,200,120,0.15);color:var(--success-color);">RETURNED</span>`
+        : `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;background:rgba(212,175,55,0.15);color:var(--text-gold-dark);">SOLD</span>`;
+
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td style="padding:6px 10px;text-align:center;">${imgHtml}</td>
         <td style="padding:8px 10px;font-weight:700;">${UI.escapeHtml(item.sku)}</td>
         <td style="padding:8px 10px;">${UI.escapeHtml(item.name)}</td>
         <td style="padding:8px 10px;">${UI.escapeHtml(item.category)}</td>
-        <td style="padding:8px 10px;text-align:right;font-weight:700;">₹${item.sellingPrice.toLocaleString()}</td>
+        <td style="padding:8px 10px;text-align:right;font-weight:700;color:var(--text-gold-dark);">₹${item.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
         <td style="padding:8px 10px;text-align:center;">
-          <span style="font-size:11px;font-weight:bold;text-transform:uppercase;color:${item.status === 'open' ? 'var(--info-color)' : item.status === 'returned' ? 'var(--text-muted)' : 'var(--text-gold-dark)'};">
-            ${item.status}
-          </span>
+          ${statusBadge}
         </td>
         <td style="padding:8px 10px;text-align:center;">
           ${memo.status === 'open' && item.status === 'open' ? `
-            <div style="display:flex;gap:4px;justify-content:center;">
-              <button type="button" class="btn btn-secondary btn-small btn-row-return" style="font-size:10px;padding:3px 6px;" data-index="${index}">Return</button>
-              <button type="button" class="btn btn-primary btn-small btn-row-sell" style="font-size:10px;padding:3px 6px;" data-index="${index}">Sold</button>
+            <div style="display:flex;gap:6px;justify-content:center;">
+              <button type="button" class="btn btn-secondary btn-small btn-row-return" style="font-size:11px;padding:3px 8px;" data-index="${index}">Return to Stock</button>
+              <button type="button" class="btn btn-primary btn-small btn-row-sell" style="font-size:11px;padding:3px 8px;background:#22c55e;border-color:#22c55e;color:#fff;" data-index="${index}">Sell Item</button>
             </div>
           ` : '—'}
         </td>
@@ -468,12 +497,27 @@ const JewelryMemoController = {
       }
 
       if (memo.status === 'open' && item.status === 'open') {
-        tr.querySelector('.btn-row-return').addEventListener('click', () => this.handleSaveMemoAction(memo.id, index, 'returned'));
-        tr.querySelector('.btn-row-sell').addEventListener('click', () => this.handleSaveMemoAction(memo.id, index, 'sold'));
+        tr.querySelector('.btn-row-return').addEventListener('click', () => this.handleReturnMemoItem(memo.id, index));
+        tr.querySelector('.btn-row-sell').addEventListener('click', () => this.openCompleteSaleModal(memo.id, index));
       }
 
       tbody.appendChild(tr);
     });
+
+    // Wire Batch Actions in footer
+    const actionsFooter = document.getElementById('jewelry-memo-detail-actions');
+    if (actionsFooter) {
+      if (memo.status === 'open') {
+        actionsFooter.innerHTML = `
+          <button type="button" class="btn btn-secondary" id="btn-memo-detail-return-all">Return All to Stock</button>
+          <button type="button" class="btn btn-primary" id="btn-memo-detail-sell-all" style="background:#22c55e;border-color:#22c55e;color:#fff;">Sell All Pieces</button>
+        `;
+        document.getElementById('btn-memo-detail-return-all').onclick = () => this.handleBatchMemoAction(memo.id, 'returned');
+        document.getElementById('btn-memo-detail-sell-all').onclick = () => this.handleBatchMemoAction(memo.id, 'sold');
+      } else {
+        actionsFooter.innerHTML = '';
+      }
+    }
 
     // Print Receipt button wire up
     const btnPrintReceipt = document.getElementById('btn-jewelry-memo-print-receipt');
@@ -484,25 +528,29 @@ const JewelryMemoController = {
     UI.openModal('modal-jewelry-memo-detail');
   },
 
-  async handleSaveMemoAction(memoId, index, action) {
+  // ── Handle Return Item Back to Inventory ────────────────────────────────────
+
+  async handleReturnMemoItem(memoId, index) {
     const memo = DBManager.getJewelryMemos().find(m => m.id === memoId);
     if (!memo) return;
 
     const item = memo.items[index];
     if (!item || item.status !== 'open') return;
 
-    // Confirm action
-    UI.confirm(`Are you sure you want to mark SKU: ${item.sku} as ${action}?`, async () => {
-      item.status = action;
+    UI.confirm(`Take SKU: ${item.sku} back to inventory stock?`, async () => {
+      item.status = 'returned';
 
-      // Update in main database
+      // Revert piece in main inventory back to 'In Stock'
       const mainItem = DBManager.database.items.find(i => i.id === item.itemId);
       if (mainItem) {
-        mainItem.status = action === 'returned' ? 'In Stock' : 'Sold';
+        mainItem.status = 'In Stock';
+        mainItem.issuedTo = null;
+        mainItem.issuedBroker = null;
+        mainItem.issuedMemoNumber = null;
         mainItem.updatedAt = new Date().toISOString();
       }
 
-      // Check if all items in memo are processed
+      // Check if all items in memo are resolved
       const allDone = memo.items.every(it => it.status !== 'open');
       if (allDone) {
         memo.status = 'closed';
@@ -510,15 +558,13 @@ const JewelryMemoController = {
       }
 
       DBManager.addLog(
-        action === 'sold' ? 'EDIT' : 'EDIT',
-        memo.id,
-        `Jewelry Memo ${memo.memoNumber}`,
-        `Marked SKU: ${item.sku} as ${action} on Memo ${memo.memoNumber}`,
+        'EDIT', memo.id, `Jewelry Memo ${memo.memoNumber}`,
+        `Returned SKU: ${item.sku} back to stock from Memo ${memo.memoNumber}`,
         []
       );
 
       try {
-        UI.showToast(`Marked ${item.sku} as ${action}.`);
+        UI.showToast(`Piece ${item.sku} returned to stock.`);
         App.refreshAllDisplays();
         this.openMemoDetail(memo.id);
         await DBManager.saveVault();
@@ -528,49 +574,260 @@ const JewelryMemoController = {
     });
   },
 
-  handleCloseMemo(memoId, action) {
-    const memos = DBManager.getJewelryMemos();
-    const memo = memos.find(m => m.id === memoId);
+  // ── Complete Sale Modal & Execution ────────────────────────────────────────
+
+  openCompleteSaleModal(memoId, index) {
+    const memo = DBManager.getJewelryMemos().find(m => m.id === memoId);
+    if (!memo) return;
+
+    const memoItem = memo.items[index];
+    if (!memoItem || memoItem.status !== 'open') return;
+
+    const mainItem = DBManager.getItems().find(i => i.id === memoItem.itemId);
+
+    document.getElementById('jewelry-sale-memo-id').value = memo.id;
+    document.getElementById('jewelry-sale-item-index').value = index;
+    document.getElementById('jewelry-sale-item-id').value = memoItem.itemId;
+
+    document.getElementById('jewelry-sale-piece-name').textContent = memoItem.name;
+    document.getElementById('jewelry-sale-piece-sku').textContent = `SKU: ${memoItem.sku} | Category: ${memoItem.category}`;
+
+    document.getElementById('jewelry-sale-customer-name').value = memo.personName || '';
+    document.getElementById('jewelry-sale-broker-name').value = (memo.brokerName && memo.brokerName !== '—') ? memo.brokerName : '';
+
+    const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
+    const evalItem = mainItem ? Calc.evaluateItem(mainItem, goldRate) : null;
+    const mfgCost = (evalItem && evalItem.mfgGrandTotal) ? evalItem.mfgGrandTotal : (memoItem.mfgCost || 0);
+
+    document.getElementById('jewelry-sale-mfg-cost').value = `₹${mfgCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    document.getElementById('jewelry-sale-mfg-cost').dataset.mfgCost = mfgCost;
+
+    document.getElementById('jewelry-sale-final-price').value = memoItem.sellingPrice || (evalItem ? evalItem.sellingPrice : 0);
+    document.getElementById('jewelry-sale-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('jewelry-sale-notes').value = '';
+
+    this.updateSaleProfitCalculation();
+    UI.openModal('modal-complete-jewelry-sale');
+  },
+
+  updateSaleProfitCalculation() {
+    const mfgCost = parseFloat(document.getElementById('jewelry-sale-mfg-cost')?.dataset.mfgCost || 0);
+    const finalPrice = parseFloat(document.getElementById('jewelry-sale-final-price')?.value || 0);
+    const displayEl = document.getElementById('jewelry-sale-profit-display');
+    if (!displayEl) return;
+
+    const profit = finalPrice - mfgCost;
+    const marginPct = mfgCost > 0 ? ((profit / mfgCost) * 100).toFixed(2) : 0.00;
+    const sign = profit >= 0 ? '+' : '';
+    const color = profit >= 0 ? '#22c55e' : '#ef4444';
+
+    displayEl.textContent = `₹${profit.toLocaleString(undefined, { minimumFractionDigits: 2 })} (${sign}${marginPct}%)`;
+    displayEl.style.color = color;
+  },
+
+  async handleConfirmJewelrySale() {
+    const memoId = document.getElementById('jewelry-sale-memo-id').value;
+    const index = parseInt(document.getElementById('jewelry-sale-item-index').value, 10);
+    const customerName = (document.getElementById('jewelry-sale-customer-name').value || '').trim();
+    const brokerName = (document.getElementById('jewelry-sale-broker-name').value || '').trim();
+    const finalSoldPrice = parseFloat(document.getElementById('jewelry-sale-final-price').value || 0);
+    const saleDate = document.getElementById('jewelry-sale-date').value;
+    const notes = (document.getElementById('jewelry-sale-notes').value || '').trim();
+
+    if (!customerName) {
+      UI.showToast('Please enter the customer / client name.', true);
+      return;
+    }
+    if (isNaN(finalSoldPrice) || finalSoldPrice <= 0) {
+      UI.showToast('Please enter a valid final sold price.', true);
+      return;
+    }
+    if (!saleDate) {
+      UI.showToast('Please select the sale date.', true);
+      return;
+    }
+
+    const memo = DBManager.getJewelryMemos().find(m => m.id === memoId);
+    if (!memo) return;
+
+    const memoItem = memo.items[index];
+    if (!memoItem) return;
+
+    const mainItem = DBManager.database.items.find(i => i.id === memoItem.itemId);
+    const mfgCost = parseFloat(document.getElementById('jewelry-sale-mfg-cost')?.dataset.mfgCost || 0);
+    const profit = finalSoldPrice - mfgCost;
+    const marginPct = mfgCost > 0 ? (profit / mfgCost) * 100 : 0;
+
+    const mfgDate = (mainItem && mainItem.mfgDate)
+      ? mainItem.mfgDate
+      : (mainItem && mainItem.createdAt ? mainItem.createdAt.split('T')[0] : saleDate);
+    const mfgTime = new Date(mfgDate + 'T00:00:00').getTime();
+    const saleTime = new Date(saleDate + 'T00:00:00').getTime();
+    const diffMs = Math.max(0, saleTime - mfgTime);
+    const daysElapsed = Math.round(diffMs / (1000 * 60 * 60 * 24));
+    const monthsElapsed = Math.max(0.1, Number((daysElapsed / 30.4375).toFixed(2)));
+    const monthlyProfitPct = Number((marginPct / monthsElapsed).toFixed(2));
+
+    // 1. Create Sale Record in jewelrySales
+    if (!DBManager.database.jewelrySales) DBManager.database.jewelrySales = [];
+    const saleRecord = {
+      id: 'jsale_' + Date.now(),
+      saleNumber: 'JS-' + String(DBManager.database.jewelrySales.length + 1).padStart(4, '0'),
+      saleDate,
+      mfgDate,
+      daysElapsed,
+      monthsElapsed,
+      memoId: memo.id,
+      memoNumber: memo.memoNumber,
+      itemId: memoItem.itemId,
+      sku: memoItem.sku,
+      name: memoItem.name,
+      category: memoItem.category,
+      customerName,
+      brokerName: brokerName || '—',
+      mfgCost,
+      soldPrice: finalSoldPrice,
+      profit,
+      marginPct,
+      monthlyProfitPct,
+      notes,
+      createdAt: new Date().toISOString()
+    };
+
+    DBManager.database.jewelrySales.push(saleRecord);
+
+    // 2. Mark item as Sold in main catalog
+    if (mainItem) {
+      mainItem.status = 'Sold';
+      mainItem.soldPrice = finalSoldPrice;
+      mainItem.soldDate = saleDate;
+      mainItem.soldTo = customerName;
+      mainItem.soldBroker = brokerName;
+      mainItem.updatedAt = new Date().toISOString();
+    }
+
+    // 3. Mark item as sold in memo
+    memoItem.status = 'sold';
+    memoItem.soldPrice = finalSoldPrice;
+
+    // Check if memo is fully resolved
+    const allDone = memo.items.every(it => it.status !== 'open');
+    if (allDone) {
+      memo.status = 'closed';
+      memo.closedAt = new Date().toISOString();
+    }
+
+    DBManager.addLog(
+      'EDIT', memo.id, `Jewelry Sale ${saleRecord.saleNumber}`,
+      `Sold ${memoItem.sku} to ${customerName} (Broker: ${brokerName || 'None'}) for ₹${finalSoldPrice.toLocaleString()} (Profit: ₹${profit.toLocaleString()})`,
+      []
+    );
+
+    try {
+      UI.closeModal('modal-complete-jewelry-sale');
+      UI.showToast(`Sale recorded for SKU: ${memoItem.sku} to ${customerName}!`);
+      App.refreshAllDisplays();
+      if (window.JewelrySalesController) window.JewelrySalesController.renderSalesList();
+      this.openMemoDetail(memo.id);
+      await DBManager.saveVault();
+    } catch (err) {
+      UI.showToast(err.message, true);
+    }
+  },
+
+  // ── Batch Process All Items on a Memo ──────────────────────────────────────
+
+  async handleBatchMemoAction(memoId, action) {
+    const memo = DBManager.getJewelryMemos().find(m => m.id === memoId);
     if (!memo || memo.status !== 'open') return;
 
     const actionLabel = action === 'sold'
       ? 'mark ALL remaining pieces as Sold'
-      : 'mark ALL remaining pieces as Returned to Stock';
+      : 'return ALL remaining pieces back to In Stock inventory';
 
-    UI.confirm(
-      `Are you sure you want to ${actionLabel} for Memo ${memo.memoNumber}?`,
-      async () => {
-        memo.status = 'closed';
-        memo.closedAt = new Date().toISOString();
+    UI.confirm(`Are you sure you want to ${actionLabel} for Memo ${memo.memoNumber}?`, async () => {
+      const saleDate = new Date().toISOString().split('T')[0];
+      if (!DBManager.database.jewelrySales) DBManager.database.jewelrySales = [];
 
-        (memo.items || []).forEach(item => {
-          if (item.status === 'open') {
-            item.status = action === 'sold' ? 'sold' : 'returned';
+      (memo.items || []).forEach(item => {
+        if (item.status === 'open') {
+          item.status = action === 'sold' ? 'sold' : 'returned';
 
-            const mainItem = DBManager.database.items.find(i => i.id === item.itemId);
-            if (mainItem) {
-              mainItem.status = action === 'sold' ? 'Sold' : 'In Stock';
-              mainItem.updatedAt = new Date().toISOString();
+          const mainItem = DBManager.database.items.find(i => i.id === item.itemId);
+          if (mainItem) {
+            mainItem.status = action === 'sold' ? 'Sold' : 'In Stock';
+            if (action === 'sold') {
+              mainItem.soldPrice = item.sellingPrice;
+              mainItem.soldDate = saleDate;
+              mainItem.soldTo = memo.personName;
+              mainItem.soldBroker = memo.brokerName;
+
+              // Record sale
+              const mfgCost = item.mfgCost || 0;
+              const profit = item.sellingPrice - mfgCost;
+              const marginPct = mfgCost > 0 ? (profit / mfgCost) * 100 : 0;
+              const mfgDate = (mainItem && mainItem.mfgDate)
+                ? mainItem.mfgDate
+                : (mainItem && mainItem.createdAt ? mainItem.createdAt.split('T')[0] : saleDate);
+              const mfgTime = new Date(mfgDate + 'T00:00:00').getTime();
+              const saleTime = new Date(saleDate + 'T00:00:00').getTime();
+              const diffMs = Math.max(0, saleTime - mfgTime);
+              const daysElapsed = Math.round(diffMs / (1000 * 60 * 60 * 24));
+              const monthsElapsed = Math.max(0.1, Number((daysElapsed / 30.4375).toFixed(2)));
+              const monthlyProfitPct = Number((marginPct / monthsElapsed).toFixed(2));
+
+              DBManager.database.jewelrySales.push({
+                id: 'jsale_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                saleNumber: 'JS-' + String(DBManager.database.jewelrySales.length + 1).padStart(4, '0'),
+                saleDate,
+                mfgDate,
+                daysElapsed,
+                monthsElapsed,
+                memoId: memo.id,
+                memoNumber: memo.memoNumber,
+                itemId: item.itemId,
+                sku: item.sku,
+                name: item.name,
+                category: item.category,
+                customerName: memo.personName,
+                brokerName: memo.brokerName || '—',
+                mfgCost,
+                soldPrice: item.sellingPrice,
+                profit,
+                marginPct,
+                monthlyProfitPct,
+                notes: memo.notes || '',
+                createdAt: new Date().toISOString()
+              });
+            } else {
+              mainItem.issuedTo = null;
+              mainItem.issuedBroker = null;
+              mainItem.issuedMemoNumber = null;
             }
+            mainItem.updatedAt = new Date().toISOString();
           }
-        });
-
-        DBManager.addLog(
-          'EDIT', memo.id, `Jewelry Memo ${memo.memoNumber}`,
-          `Fully closed Memo ${memo.memoNumber} (All remaining marked as ${action})`,
-          []
-        );
-
-        try {
-          UI.closeModal('modal-jewelry-memo-detail');
-          UI.showToast(`Memo ${memo.memoNumber} fully closed.`);
-          App.refreshAllDisplays();
-          await DBManager.saveVault();
-        } catch (err) {
-          UI.showToast(err.message, true);
         }
+      });
+
+      memo.status = 'closed';
+      memo.closedAt = new Date().toISOString();
+
+      DBManager.addLog(
+        'EDIT', memo.id, `Jewelry Memo ${memo.memoNumber}`,
+        `Closed Memo ${memo.memoNumber} (${action === 'sold' ? 'Sold All' : 'Returned All to Stock'})`,
+        []
+      );
+
+      try {
+        UI.closeModal('modal-jewelry-memo-detail');
+        UI.showToast(`Memo ${memo.memoNumber} marked as ${action === 'sold' ? 'Sold' : 'Returned to Stock'}.`);
+        App.refreshAllDisplays();
+        if (window.JewelrySalesController) window.JewelrySalesController.renderSalesList();
+        await DBManager.saveVault();
+      } catch (err) {
+        UI.showToast(err.message, true);
       }
-    );
+    });
   },
 
   // ── Print PDF Receipt ──────────────────────────────────────────────────────
@@ -599,26 +856,27 @@ const JewelryMemoController = {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.text(`Memo Number: ${memo.memoNumber}`, 14, 33);
-    doc.text(`Broker / Party: ${memo.brokerName}`, 14, 38);
-    doc.text(`Memo Date: ${new Date(memo.date).toLocaleDateString('en-IN')}`, 14, 43);
-    doc.text(`Status: ${memo.status.toUpperCase()}`, 14, 48);
+    doc.text(`Issued To: ${memo.personName || '—'}`, 14, 38);
+    doc.text(`Broker: ${memo.brokerName || '—'}`, 14, 43);
+    doc.text(`Issue Date: ${new Date(memo.date).toLocaleDateString('en-IN')}`, 14, 48);
+    doc.text(`Status: ${memo.status === 'open' ? 'ISSUED' : 'CLOSED'}`, 14, 53);
 
     doc.setDrawColor(200);
     doc.setLineWidth(0.3);
-    doc.line(14, 52, 196, 52);
+    doc.line(14, 57, 196, 57);
 
     // Table Header
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
-    doc.text("SKU", 14, 58);
-    doc.text("Description", 45, 58);
-    doc.text("Category", 110, 58);
-    doc.text("Item Status", 140, 58);
-    doc.text("Selling Price", 170, 58);
+    doc.text("SKU", 14, 63);
+    doc.text("Description", 45, 63);
+    doc.text("Category", 110, 63);
+    doc.text("Status", 140, 63);
+    doc.text("Selling Price", 170, 63);
 
-    doc.line(14, 61, 196, 61);
+    doc.line(14, 66, 196, 66);
 
-    let y = 67;
+    let y = 72;
     doc.setFont("helvetica", "normal");
 
     (memo.items || []).forEach(item => {

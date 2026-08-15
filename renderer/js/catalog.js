@@ -453,6 +453,11 @@ const Catalog = {
         }).join('');
       }
     }
+
+    // Also update Realized Sales, Holding Time & Profit Velocity on Analyzer
+    if (window.JewelrySalesController && typeof window.JewelrySalesController.renderSalesList === 'function') {
+      window.JewelrySalesController.renderSalesList();
+    }
   },
 
   renderCatalogGrid() {
@@ -536,10 +541,10 @@ const Catalog = {
       let statusClass = 'stock';
       let statusLabel = 'In Stock';
       let cardStatusClass = '';
-      if (status === 'On Memo') {
-        statusClass = 'memo';
-        statusLabel = 'On Memo';
-        cardStatusClass = 'on-memo';
+      if (status === 'On Memo' || status === 'Issued') {
+        statusClass = 'issued';
+        statusLabel = 'Issued';
+        cardStatusClass = 'issued';
       } else if (status === 'Sold') {
         statusClass = 'sold';
         statusLabel = 'Sold';

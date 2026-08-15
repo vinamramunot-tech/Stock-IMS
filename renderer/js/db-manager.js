@@ -31,6 +31,7 @@ const DBManager = {
       stoneMemos: [],
       jewelStoneMemos: [],
       jewelryMemos: [],
+      jewelrySales: [],
       logs: []
     };
   },
@@ -89,6 +90,7 @@ const DBManager = {
       if (!db.stones) db.stones = [];
       if (!db.jewelStoneMemos) db.jewelStoneMemos = db.stoneMemos || [];
       if (!db.jewelryMemos) db.jewelryMemos = [];
+      if (!db.jewelrySales) db.jewelrySales = [];
       if (!db.logs) db.logs = [];
 
       // Successful load
@@ -231,6 +233,13 @@ const DBManager = {
    */
   getJewelryMemos() {
     return this.database ? this.database.jewelryMemos || [] : [];
+  },
+
+  /**
+   * Retrieve all finished jewelry sales records
+   */
+  getJewelrySales() {
+    return this.database ? this.database.jewelrySales || [] : [];
   },
 
   /**

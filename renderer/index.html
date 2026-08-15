@@ -284,34 +284,41 @@
           <!-- Jewelry App Nav -->
           <div class="sidebar-app-group" data-app-group="jewelry">
             <div
-              style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px; padding-left:12px; letter-spacing:0.05em;">
+              style="font-size:20px; font-weight:800; text-transform:uppercase; color:var(--text-main); margin-bottom:10px; padding-left:12px; letter-spacing:0.05em;">
               Jewelry Suite</div>
             <button type="button" class="nav-item active" data-target="tab-jewelry-analyzer">
               <svg viewBox="0 0 24 24" width="18" height="18">
                 <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
               </svg>
-              Jewelry Analyzer
+              Analyzer
             </button>
             <button type="button" class="nav-item" data-target="tab-catalog">
               <svg viewBox="0 0 24 24" width="18" height="18">
                 <path fill="currentColor"
                   d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z" />
               </svg>
-              Jewelry Catalog
+              Catalog
             </button>
             <button type="button" class="nav-item" data-target="tab-jewelry-photos">
               <svg viewBox="0 0 24 24" width="18" height="18">
                 <path fill="currentColor"
                   d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />
               </svg>
-              Jewelry Photos
+              Photos
             </button>
             <button type="button" class="nav-item" data-target="tab-jewelry-memos">
               <svg viewBox="0 0 24 24" width="18" height="18">
                 <path fill="currentColor"
                   d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zm0 5h-2V5h2v3zM4 19h16v2H4z" />
               </svg>
-              Jewelry Memos
+              Memos
+            </button>
+            <button type="button" class="nav-item" data-target="tab-jewelry-sales">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path fill="currentColor"
+                  d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z" />
+              </svg>
+              Sales
             </button>
           </div>
 
@@ -689,10 +696,76 @@
           </div>
         </div>
 
+        <!-- ==================== TAB: JEWELRY SALES ==================== -->
+        <div id="tab-jewelry-sales" class="tab-content hidden">
+
+          <!-- SEARCH & FILTERS -->
+          <div class="filter-bar" style="margin-top: 10px;">
+            <div class="search-box">
+              <input type="text" id="jewelry-sales-search-input" placeholder="Search by SKU, Name, Customer, Broker...">
+              <svg viewBox="0 0 24 24" width="18" height="18" class="search-icon">
+                <path fill="currentColor"
+                  d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+              </svg>
+            </div>
+
+            <div class="filters-group" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+              <input type="date" id="jewelry-sales-filter-date-from" class="filter-select" style="height: 42px; padding: 0 10px;" title="From Date">
+              <input type="date" id="jewelry-sales-filter-date-to" class="filter-select" style="height: 42px; padding: 0 10px;" title="To Date">
+
+              <button type="button" id="jewelry-sales-filter-clear" class="btn btn-secondary" style="height: 42px;">
+                Clear
+              </button>
+
+              <button type="button" id="btn-print-jewelry-sales" class="btn btn-secondary" style="height: 42px;">
+                <svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align: middle; margin-right: 6px;">
+                  <path fill="currentColor"
+                    d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z" />
+                </svg>
+                Print
+              </button>
+              <button type="button" id="btn-export-excel-jewelry-sales" class="btn btn-secondary" style="height: 42px;">
+                <svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align: middle; margin-right: 6px;">
+                  <path fill="currentColor"
+                    d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM8 11h8v1H8zm0 2h8v1H8zm0 2h6v1H8z" />
+                </svg>
+                Export Excel
+              </button>
+            </div>
+          </div>
+
+          <!-- JEWELRY SALES TABLE -->
+          <div class="logs-container">
+            <table class="logs-table">
+              <thead>
+                <tr>
+                  <th style="width: 10%;">SALE DATE</th>
+                  <th style="width: 10%;">SKU</th>
+                  <th style="width: 16%;">PIECE NAME</th>
+                  <th style="width: 9%;">MFG DATE</th>
+                  <th style="width: 10%;">TIME ELAPSED</th>
+                  <th style="width: 13%;">SOLD TO (CUSTOMER)</th>
+                  <th style="width: 9%; text-align:right;">MFG COST</th>
+                  <th style="width: 9%; text-align:right;">SOLD PRICE</th>
+                  <th style="width: 11%; text-align:right;">TOTAL PROFIT</th>
+                  <th style="width: 11%; text-align:right;">PROFIT % / MO</th>
+                </tr>
+              </thead>
+              <tbody id="jewelry-sales-list-tbody">
+                <!-- Sales render here -->
+              </tbody>
+            </table>
+
+            <div id="jewelry-sales-empty-state" class="empty-state-card hidden">
+              <h2 class="empty-title">No Jewelry Sales Recorded Yet</h2>
+              <p class="empty-description">When you process an issued memo item as "Sold", the transaction ledger will appear here.</p>
+            </div>
+          </div>
+        </div>
+
         <!-- ==================== TAB: EMERALD CATALOG ==================== -->
         <div id="tab-emerald-catalog" class="tab-content hidden">
 
-          <!-- EMERALD METRICS SUMMARY ROW -->
           <section class="metrics-bar">
             <div class="metrics-line-1">
               <div class="metric-card">
@@ -1170,13 +1243,94 @@
               <div class="metric-card" style="grid-column: span 3; padding: 20px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
                   <div>
-                    <span class="metric-label" style="font-size: 11px; letter-spacing: 0.1em;">PRICE RANGE & VALUATION DISTRIBUTION</span>
-                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Inventory concentration by retail price bracket (ranges with 0 items are hidden)</div>
+                    <span class="metric-label" style="font-size: 11px; letter-spacing: 0.1em;">CURRENT STOCK: PRICE RANGE & VALUATION DISTRIBUTION</span>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Active inventory concentration by retail price bracket (ranges with 0 items are hidden)</div>
                   </div>
                   <span id="price-distribution-active-count" style="font-size: 11px; font-weight: 700; color: var(--text-gold-dark); background: var(--bg-gold-subtle, rgba(212, 175, 55, 0.12)); border: 1px solid var(--border-gold-subtle, rgba(212, 175, 55, 0.25)); padding: 3px 10px; border-radius: 4px;">0 Active Brackets</span>
                 </div>
                 <div id="price-range-distribution-container" style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
                   <!-- Dynamic active price range status bars render here -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Line 5: Realized Sales, Holding Time & Velocity Analytics -->
+            <div class="metrics-line-2" style="margin-top: 20px;">
+              <div class="metric-card gold-border" style="grid-column: span 3; padding: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                  <div>
+                    <span class="metric-label" style="font-size: 12px; letter-spacing: 0.1em; color: var(--text-gold-dark);">REALIZED SALES, HOLDING PERIOD & PROFIT VELOCITY</span>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Portfolio performance metrics from manufacturing date to date of sale</div>
+                  </div>
+                  <span id="analyzer-sales-active-ranges-badge" style="font-size: 11px; font-weight: 700; color: var(--text-gold-dark); background: var(--bg-gold-subtle, rgba(212, 175, 55, 0.12)); border: 1px solid var(--border-gold-subtle, rgba(212, 175, 55, 0.25)); padding: 3px 10px; border-radius: 4px;">0 Sold Brackets</span>
+                </div>
+
+                <!-- 5-Metric Cards Row -->
+                <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 16px;">
+                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Total Sales Revenue</div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--text-gold-dark); margin-top: 4px;" id="analyzer-sales-metric-revenue">₹0.00</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Cumulative realized revenue</div>
+                  </div>
+
+                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Total Realized Profit</div>
+                    <div style="font-size: 18px; font-weight: 800; color: #22c55e; margin-top: 4px;" id="analyzer-sales-metric-profit">+₹0.00</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Net margin over Mfg Cost</div>
+                  </div>
+
+                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Total Pieces Sold</div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--text-main); margin-top: 4px;" id="analyzer-sales-metric-count">0</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Completed transactions</div>
+                  </div>
+
+                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Avg Holding Period</div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--info-color, #38bdf8); margin-top: 4px;" id="analyzer-sales-metric-time-elapsed">0 Days</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Avg time from Mfg to Sale</div>
+                  </div>
+
+                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Avg Profit % / Month</div>
+                    <div style="font-size: 18px; font-weight: 800; color: #22c55e; margin-top: 4px;" id="analyzer-sales-metric-monthly-roi">+0.00%/mo</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Capital velocity / monthly yield</div>
+                  </div>
+                </div>
+
+                <!-- 3 Performance Highlights Grid -->
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px;">
+                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div style="display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-gold-dark); margin-bottom: 4px;">
+                      <span>🏆</span> MOST SOLD PRICE RANGE
+                    </div>
+                    <div style="font-size: 14px; font-weight: 700; color: var(--text-main);" id="analyzer-sales-insight-most-sold">—</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;" id="analyzer-sales-insight-most-sold-sub">Highest transaction volume</div>
+                  </div>
+
+                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div style="display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: #22c55e; margin-bottom: 4px;">
+                      <span>🚀</span> HIGHEST PROFIT % / MONTH
+                    </div>
+                    <div style="font-size: 14px; font-weight: 700; color: #22c55e;" id="analyzer-sales-insight-highest-monthly-roi">—</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;" id="analyzer-sales-insight-highest-monthly-roi-sub">Fastest monthly ROI velocity</div>
+                  </div>
+
+                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div style="display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--info-color, #38bdf8); margin-bottom: 4px;">
+                      <span>💎</span> HIGHEST TOTAL PROFIT RANGE
+                    </div>
+                    <div style="font-size: 14px; font-weight: 700; color: var(--text-main);" id="analyzer-sales-insight-most-profitable">—</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;" id="analyzer-sales-insight-most-profitable-sub">Highest cumulative realized profit</div>
+                  </div>
+                </div>
+
+                <!-- Price Range Sales Breakdown Bars Container -->
+                <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; letter-spacing: 0.05em;">
+                  PRICE RANGE BREAKDOWN & TURNOVER
+                </div>
+                <div id="analyzer-sales-price-range-container" style="display: flex; flex-direction: column; gap: 8px;">
+                  <!-- Dynamic sold price range bars -->
                 </div>
               </div>
             </div>
@@ -2925,21 +3079,38 @@
       </div>
       <div class="modal-body form-modal-body">
 
-        <!-- Broker + Date row -->
+        <!-- Person + Broker + Date row -->
         <div class="form-grid-row">
           <div class="form-col-6">
             <div class="input-group">
-              <label for="jewelry-memo-broker-name">Broker / Party Name <span class="required">*</span></label>
-              <input type="text" id="jewelry-memo-broker-name" list="jewelry-memo-brokers-list"
-                placeholder="e.g. Ramesh Gems" autocomplete="off"
-                style="width:100%;height:38px;padding:6px 12px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);">
-              <datalist id="jewelry-memo-brokers-list"></datalist>
+              <label for="jewelry-memo-person-name">Issued To (Person / Client) <span class="required">*</span></label>
+              <input type="text" id="jewelry-memo-person-name"
+                placeholder="e.g. Anand Mehra" autocomplete="off"
+                style="width:100%;height:38px;padding:6px 12px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);" required>
             </div>
           </div>
           <div class="form-col-6">
             <div class="input-group">
-              <label for="jewelry-memo-date">Memo Date <span class="required">*</span></label>
+              <label for="jewelry-memo-broker-name">Broker Name</label>
+              <input type="text" id="jewelry-memo-broker-name" list="jewelry-memo-brokers-list"
+                placeholder="e.g. Ramesh Gems (Optional)" autocomplete="off"
+                style="width:100%;height:38px;padding:6px 12px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);">
+              <datalist id="jewelry-memo-brokers-list"></datalist>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-grid-row">
+          <div class="form-col-6">
+            <div class="input-group">
+              <label for="jewelry-memo-date">Issue Date <span class="required">*</span></label>
               <input type="date" id="jewelry-memo-date">
+            </div>
+          </div>
+          <div class="form-col-6">
+            <div class="input-group">
+              <label for="jewelry-memo-return-date">Expected Return Date</label>
+              <input type="date" id="jewelry-memo-return-date">
             </div>
           </div>
         </div>
@@ -2980,53 +3151,25 @@
               <select id="jewelry-memo-create-select"
                 style="width:100%;height:38px;padding:6px 12px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);cursor:pointer;"></select>
             </div>
-            <button type="button" id="btn-jewelry-memo-add-item" class="btn btn-primary"
-              style="height:38px;padding:0 24px;">Add Piece</button>
+            <button type="button" id="btn-jewelry-memo-add-item" class="btn btn-secondary" style="height:38px;">Add
+              Piece</button>
           </div>
-        </div>
 
-        <!-- Selected Pieces Table -->
-        <div style="margin-top:20px;">
-          <div
-            style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:10px;">
-            SELECTED JEWELRY PIECES
-          </div>
-          <div
-            style="overflow-x:auto;max-height:200px;overflow-y:auto;border:1px solid var(--border-light);border-radius:4px;">
-            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <!-- Selected Items Table -->
+          <div style="margin-top:16px;max-height:160px;overflow-y:auto;border:1px solid var(--border-light);border-radius:4px;">
+            <table style="width:100%;border-collapse:collapse;font-size:12px;">
               <thead>
-                <tr style="background:var(--bg-card);">
-                  <th
-                    style="padding:8px 12px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border-light);width:50px;">
-                    Photo</th>
-                  <th
-                    style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border-light);">
-                    SKU</th>
-                  <th
-                    style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border-light);">
-                    Piece Name</th>
-                  <th
-                    style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border-light);">
-                    Category</th>
-                  <th
-                    style="padding:8px 12px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border-light);">
-                    Selling Value</th>
-                  <th
-                    style="padding:8px 12px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border-light);width:60px;">
-                    Action</th>
+                <tr style="background:var(--bg-base);">
+                  <th style="padding:6px 10px;text-align:center;width:40px;">Photo</th>
+                  <th style="padding:6px 10px;text-align:left;">SKU</th>
+                  <th style="padding:6px 10px;text-align:left;">Piece Name</th>
+                  <th style="padding:6px 10px;text-align:left;">Category</th>
+                  <th style="padding:6px 10px;text-align:right;">Selling Price</th>
+                  <th style="padding:6px 10px;text-align:center;width:60px;">Action</th>
                 </tr>
               </thead>
               <tbody id="jewelry-memo-selected-tbody"></tbody>
             </table>
-          </div>
-
-          <div
-            style="display:flex;align-items:center;gap:20px;margin-top:12px;padding:10px 14px;background:var(--bg-card);border:1px solid var(--border-light);border-radius:4px;font-size:13px;">
-            <span style="color:var(--text-muted);">Selected:</span>
-            <span><strong id="jewelry-memo-item-count" style="color:var(--text-main);">0</strong> pieces</span>
-            <span>|</span>
-            <span><strong id="jewelry-memo-total-value"
-                style="color:var(--text-gold-dark);font-size:16px;">₹0.00</strong> total</span>
           </div>
         </div>
 
@@ -3050,7 +3193,7 @@
 
   <!-- ==================== MODAL: JEWELRY MEMO DETAIL ==================== -->
   <div id="modal-jewelry-memo-detail" class="modal-overlay hidden">
-    <div class="modal-card normal" style="max-width:580px;">
+    <div class="modal-card normal" style="max-width:680px;">
       <div class="modal-header">
         <h3>Jewelry Memo Details</h3>
         <button type="button" class="btn-close modal-close-trigger-jewelry-memo-detail">&times;</button>
@@ -3074,17 +3217,22 @@
           <div style="background:var(--bg-base);border:1px solid var(--border-light);border-radius:4px;padding:12px;">
             <div
               style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:4px;">
-              Broker / Party</div>
+              Issued To (Person / Client)</div>
+            <div style="font-size:14px;font-weight:600;color:var(--text-main);" id="jewelry-memo-detail-person">—</div>
+          </div>
+          <div style="background:var(--bg-base);border:1px solid var(--border-light);border-radius:4px;padding:12px;">
+            <div
+              style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:4px;">
+              Broker</div>
             <div style="font-size:14px;font-weight:600;color:var(--text-main);" id="jewelry-memo-detail-broker">—</div>
           </div>
           <div style="background:var(--bg-base);border:1px solid var(--border-light);border-radius:4px;padding:12px;">
             <div
               style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:4px;">
-              Date</div>
+              Issue Date</div>
             <div style="font-size:14px;font-weight:600;color:var(--text-main);" id="jewelry-memo-detail-date">—</div>
           </div>
-          <div
-            style="background:var(--bg-base);border:1px solid var(--border-light);border-radius:4px;padding:12px; grid-column: span 2;">
+          <div style="background:var(--bg-base);border:1px solid var(--border-light);border-radius:4px;padding:12px;">
             <div
               style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:4px;">
               Total Value</div>
@@ -3110,7 +3258,7 @@
           style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:8px;">
           PIECES ISSUED</div>
         <div style="border:1px solid var(--border-light);border-radius:4px;overflow-x:auto;">
-          <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:480px;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:540px;">
             <thead>
               <tr style="background:var(--bg-card);">
                 <th
@@ -3130,9 +3278,9 @@
                   Selling Price</th>
                 <th
                   style="padding:8px 10px;text-align:center;font-size:10px;text-transform:uppercase;color:var(--text-muted);">
-                  Item Status</th>
+                  Status</th>
                 <th
-                  style="padding:8px 10px;text-align:center;font-size:10px;text-transform:uppercase;color:var(--text-muted);min-width:110px;">
+                  style="padding:8px 10px;text-align:center;font-size:10px;text-transform:uppercase;color:var(--text-muted);min-width:140px;">
                   Actions</th>
               </tr>
             </thead>
@@ -3151,6 +3299,78 @@
         </button>
         <div id="jewelry-memo-detail-actions" style="display:flex;gap:12px;"></div>
         <button type="button" class="btn btn-secondary modal-close-trigger-jewelry-memo-detail">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: COMPLETE JEWELRY SALE ==================== -->
+  <div id="modal-complete-jewelry-sale" class="modal-overlay hidden">
+    <div class="modal-card normal" style="max-width:550px;">
+      <div class="modal-header">
+        <h3>Complete Jewelry Sale</h3>
+        <button type="button" class="btn-close modal-close-trigger-jewelry-sale">&times;</button>
+      </div>
+      <div class="modal-body form-modal-body">
+        <input type="hidden" id="jewelry-sale-memo-id">
+        <input type="hidden" id="jewelry-sale-item-index">
+        <input type="hidden" id="jewelry-sale-item-id">
+        
+        <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px 16px; margin-bottom: 16px;">
+          <div style="font-size: 10px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em;">Piece Selected</div>
+          <div style="font-size: 16px; font-weight: 700; color: var(--text-main); margin-top: 2px;" id="jewelry-sale-piece-name">—</div>
+          <div style="font-size: 12px; color: var(--text-muted);" id="jewelry-sale-piece-sku">—</div>
+        </div>
+
+        <div class="form-grid-row">
+          <div class="form-col-6">
+            <div class="input-group">
+              <label for="jewelry-sale-customer-name">Sold To (Customer / Client) <span class="required">*</span></label>
+              <input type="text" id="jewelry-sale-customer-name" placeholder="Client Name" required style="width:100%;height:38px;padding:6px 12px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);">
+            </div>
+          </div>
+          <div class="form-col-6">
+            <div class="input-group">
+              <label for="jewelry-sale-broker-name">Broker Name</label>
+              <input type="text" id="jewelry-sale-broker-name" placeholder="Broker (Optional)" style="width:100%;height:38px;padding:6px 12px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-grid-row">
+          <div class="form-col-6">
+            <div class="input-group">
+              <label for="jewelry-sale-mfg-cost">Mfg Cost Price (₹)</label>
+              <input type="text" id="jewelry-sale-mfg-cost" readonly style="width:100%;height:38px;padding:6px 12px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);opacity:0.85;font-weight:600;">
+            </div>
+          </div>
+          <div class="form-col-6">
+            <div class="input-group">
+              <label for="jewelry-sale-final-price">Final Sold Price (₹) <span class="required">*</span></label>
+              <input type="number" id="jewelry-sale-final-price" step="0.01" min="0" placeholder="0.00" required style="width:100%;height:38px;padding:6px 12px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-gold-dark);font-weight:700;font-size:15px;">
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Profit Calculation Card -->
+        <div style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px 16px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Realized Profit / Margin</div>
+            <div style="font-size: 18px; font-weight: 800; color: #22c55e;" id="jewelry-sale-profit-display">₹0.00 (+0.00%)</div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 2px;">Sale Date</div>
+            <input type="date" id="jewelry-sale-date" style="height: 32px; font-size: 12px; padding: 4px 8px; border: 1px solid var(--border-light); border-radius: 4px; background: var(--bg-base); color: var(--text-main);">
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label for="jewelry-sale-notes">Sales Notes / Invoice Reference</label>
+          <textarea id="jewelry-sale-notes" rows="2" placeholder="e.g. Invoice #104, Paid via Bank Transfer"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary modal-close-trigger-jewelry-sale">Cancel</button>
+        <button type="button" id="btn-confirm-jewelry-sale" class="btn btn-primary" style="background: #22c55e; border-color: #22c55e; color: #fff;">Confirm & Finalize Sale</button>
       </div>
     </div>
   </div>
@@ -3738,6 +3958,13 @@
           </svg>
           Jewelry Memos
         </button>
+        <button type="button" class="mobile-menu-item" data-action="tab-jewelry-sales">
+          <svg viewBox="0 0 24 24" width="18" height="18">
+            <path fill="currentColor"
+              d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z" />
+          </svg>
+          Jewelry Sales
+        </button>
 
         <div class="mobile-menu-section-header">System</div>
         <button type="button" class="mobile-menu-item" data-action="tab-logs">
@@ -3872,6 +4099,7 @@
   <script src="js/stone.js"></script>
   <script src="js/jewel-stone-memo.js"></script>
   <script src="js/jewelry-memo.js"></script>
+  <script src="js/jewelry-sales.js"></script>
   <script src="js/emerald-sales.js"></script>
   <script src="js/image-editor.js"></script>
   <script src="js/app.js"></script>
