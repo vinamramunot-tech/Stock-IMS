@@ -312,7 +312,8 @@
                   d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zm0 5h-2V5h2v3zM4 19h16v2H4z" />
               </svg>
               Memos
-            </bu            <button type="button" class="nav-item" data-target="tab-jewelry-sales">
+            </button>
+            <button type="button" class="nav-item" data-target="tab-jewelry-sales">
               <svg viewBox="0 0 24 24" width="18" height="18">
                 <path fill="currentColor"
                   d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z" />
@@ -1526,12 +1527,12 @@
         <div id="tab-logs" class="tab-content hidden">
           <div class="tab-header-row" style="margin-bottom: 12px;">
             <div>
-              <h2 class="section-title" style="margin-bottom: 2px;">Audit Trail & Activity Logs</h2>
-              <div style="font-size: 12px; color: var(--text-muted);">Comprehensive tracking of inventory modifications, memos, sales, and system updates across suites</div>
+              <h2 class="section-title" id="logs-suite-title" style="margin-bottom: 2px;">Jewelry Suite Audit & Activity Logs</h2>
+              <div id="logs-suite-desc" style="font-size: 12px; color: var(--text-muted);">Change history and inventory audit trail for the Jewelry Suite.</div>
             </div>
             <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
               <button type="button" id="btn-clear-logs" class="btn btn-secondary btn-small">
-                Clear History...
+                Clear Suite History...
               </button>
               <button type="button" id="btn-print-logs" class="btn btn-secondary btn-small">
                 <svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align: middle; margin-right: 4px;">
@@ -1548,30 +1549,6 @@
                 Export Excel
               </button>
             </div>
-          </div>
-
-          <!-- SUITE SWITCHER TABS -->
-          <div class="suite-log-tabs" id="suite-log-tabs-container">
-            <button type="button" class="suite-log-tab active" data-suite="all">
-              All Activity
-              <span class="suite-log-count" id="log-count-all">0</span>
-            </button>
-            <button type="button" class="suite-log-tab" data-suite="jewelry">
-              💍 Jewelry Suite
-              <span class="suite-log-count" id="log-count-jewelry">0</span>
-            </button>
-            <button type="button" class="suite-log-tab" data-suite="emerald">
-              🟢 Emerald Suite
-              <span class="suite-log-count" id="log-count-emerald">0</span>
-            </button>
-            <button type="button" class="suite-log-tab" data-suite="stone">
-              💎 Loose Stones Suite
-              <span class="suite-log-count" id="log-count-stone">0</span>
-            </button>
-            <button type="button" class="suite-log-tab" data-suite="system">
-              ⚙️ System
-              <span class="suite-log-count" id="log-count-system">0</span>
-            </button>
           </div>
 
           <!-- SEARCH & FILTERS -->
@@ -1607,11 +1584,10 @@
             <table class="logs-table">
               <thead>
                 <tr>
-                  <th style="width: 14%;">TIMESTAMP</th>
-                  <th style="width: 13%;">SUITE</th>
-                  <th style="width: 11%;">ACTION</th>
-                  <th style="width: 22%;">AFFECTED RECORD</th>
-                  <th style="width: 40%;">DETAILS & CHANGES</th>
+                  <th style="width: 15%;">TIMESTAMP</th>
+                  <th style="width: 12%;">ACTION</th>
+                  <th style="width: 25%;">AFFECTED RECORD</th>
+                  <th style="width: 48%;">DETAILS & CHANGES</th>
                 </tr>
               </thead>
               <tbody id="logs-tbody">
@@ -1621,7 +1597,7 @@
 
             <div id="logs-empty-state" class="empty-state-card hidden">
               <h2 class="empty-title">No Activity Logs Found</h2>
-              <p class="empty-description">No activity logs recorded for the selected suite or filter criteria.</p>
+              <p class="empty-description">No activity logs recorded for this suite matching your filter criteria.</p>
             </div>
           </div>
         </div>

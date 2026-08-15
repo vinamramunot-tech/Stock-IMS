@@ -376,24 +376,7 @@ const App = {
     this.refreshAllDisplays();
   },
 
-  selectedLogSuite: 'all',
-
   initLogs() {
-    const tabsContainer = document.getElementById('suite-log-tabs-container');
-    if (tabsContainer) {
-      tabsContainer.addEventListener('click', (e) => {
-        const btn = e.target.closest('.suite-log-tab');
-        if (!btn) return;
-        const suite = btn.getAttribute('data-suite') || 'all';
-        this.selectedLogSuite = suite;
-        tabsContainer.querySelectorAll('.suite-log-tab').forEach(b => {
-          if (b === btn) b.classList.add('active');
-          else b.classList.remove('active');
-        });
-        this.renderActivityLogs();
-      });
-    }
-
     const searchInp = document.getElementById('logs-search-input');
     if (searchInp) {
       searchInp.addEventListener('input', UI.debounce(() => this.renderActivityLogs(), 200));
@@ -437,47 +420,41 @@ const App = {
   },
 
   /**
-   * Activity logs table rendering
+   * Activity logs table rendering strictly scoped to the active suite
    */
   renderActivityLogs() {
     const tbody = document.getElementById('logs-tbody');
     const emptyState = document.getElementById('logs-empty-state');
     if (!tbody) return;
 
-    const allLogs = DBManager.getLogs('all');
+    const currentSuite = this.activeApp || 'jewelry';
+    const suiteTitles = {
+      jewelry: 'Jewelry Suite Audit & Activity Logs',
+      emerald: 'Emerald Suite Audit & Activity Logs',
+      stone: 'Loose Stones Suite Audit & Activity Logs'
+    };
+    const suiteDescs = {
+      jewelry: 'Change history and inventory audit trail for the Jewelry Suite.',
+      emerald: 'Change history and lot activity audit trail for the Emerald Suite.',
+      stone: 'Change history and stone stock audit trail for the Loose Stones Suite.'
+    };
 
-    // 1. Calculate & update suite counts
-    const countAll = allLogs.length;
-    const countJewelry = allLogs.filter(l => l.suite === 'jewelry').length;
-    const countEmerald = allLogs.filter(l => l.suite === 'emerald').length;
-    const countStone = allLogs.filter(l => l.suite === 'stone').length;
-    const countSystem = allLogs.filter(l => l.suite === 'system').length;
+    const titleEl = document.getElementById('logs-suite-title');
+    const descEl = document.getElementById('logs-suite-desc');
+    if (titleEl) titleEl.textContent = suiteTitles[currentSuite] || 'Audit Trail & Activity Logs';
+    if (descEl) descEl.textContent = suiteDescs[currentSuite] || 'Audit trail and activity log history.';
 
-    const cAllEl = document.getElementById('log-count-all');
-    const cJewelryEl = document.getElementById('log-count-jewelry');
-    const cEmeraldEl = document.getElementById('log-count-emerald');
-    const cStoneEl = document.getElementById('log-count-stone');
-    const cSystemEl = document.getElementById('log-count-system');
+    // Fetch logs strictly for active suite
+    const suiteLogs = DBManager.getLogs(currentSuite);
 
-    if (cAllEl) cAllEl.textContent = countAll;
-    if (cJewelryEl) cJewelryEl.textContent = countJewelry;
-    if (cEmeraldEl) cEmeraldEl.textContent = countEmerald;
-    if (cStoneEl) cStoneEl.textContent = countStone;
-    if (cSystemEl) cSystemEl.textContent = countSystem;
-
-    // 2. Filter logs
+    // Filter logs
     const searchInp = document.getElementById('logs-search-input');
     const query = (searchInp?.value || '').toLowerCase().trim();
     const actionFilter = document.getElementById('logs-filter-action')?.value || '';
     const dateFrom = document.getElementById('logs-filter-date-from')?.value || '';
     const dateTo = document.getElementById('logs-filter-date-to')?.value || '';
 
-    const filtered = allLogs.filter(log => {
-      // Suite filter
-      if (this.selectedLogSuite && this.selectedLogSuite !== 'all') {
-        if (log.suite !== this.selectedLogSuite) return false;
-      }
-
+    const filtered = suiteLogs.filter(log => {
       // Action filter
       if (actionFilter && log.action !== actionFilter) {
         return false;
@@ -524,19 +501,6 @@ const App = {
         hour: '2-digit', minute: '2-digit', second: '2-digit'
       });
 
-      // Suite badge mapping
-      let suiteBadgeHtml = '';
-      const suite = log.suite || 'jewelry';
-      if (suite === 'jewelry') {
-        suiteBadgeHtml = `<span class="badge-suite jewelry">💍 Jewelry</span>`;
-      } else if (suite === 'emerald') {
-        suiteBadgeHtml = `<span class="badge-suite emerald">🟢 Emerald</span>`;
-      } else if (suite === 'stone') {
-        suiteBadgeHtml = `<span class="badge-suite stone">💎 Stones</span>`;
-      } else {
-        suiteBadgeHtml = `<span class="badge-suite system">⚙️ System</span>`;
-      }
-
       // Diff visual rendering if edits exist
       let diffHtml = '';
       if (log.changes && log.changes.length > 0) {
@@ -556,7 +520,6 @@ const App = {
 
       row.innerHTML = `
         <td class="log-time" style="font-size:12px;color:var(--text-muted);white-space:nowrap;">${timeFormatted}</td>
-        <td>${suiteBadgeHtml}</td>
         <td><span class="badge-action ${badgeClass}">${actionLabel}</span></td>
         <td class="log-target" style="font-weight:600;color:var(--text-main);">${UI.escapeHtml(log.targetName || 'Vault')}</td>
         <td>
@@ -570,9 +533,10 @@ const App = {
   },
 
   exportLogsExcel() {
-    const logs = DBManager.getLogs(this.selectedLogSuite);
+    const currentSuite = this.activeApp || 'jewelry';
+    const logs = DBManager.getLogs(currentSuite);
     if (logs.length === 0) {
-      UI.showToast('No activity logs to export.', true);
+      UI.showToast('No activity logs to export for this suite.', true);
       return;
     }
 
@@ -583,7 +547,7 @@ const App = {
 
     const data = logs.map(l => ({
       'Timestamp': new Date(l.timestamp).toLocaleString('en-IN'),
-      'Suite': (l.suite || 'jewelry').toUpperCase(),
+      'Suite': currentSuite.toUpperCase(),
       'Action': l.action || '',
       'Affected Record': l.targetName || '',
       'Record ID': l.targetId || '',
@@ -593,15 +557,17 @@ const App = {
 
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Audit Logs');
-    XLSX.writeFile(wb, `Audit_Logs_${this.selectedLogSuite || 'all'}_${new Date().toISOString().split('T')[0]}.xlsx`);
-    UI.showToast('Activity logs exported to Excel.');
+    const sheetName = `${currentSuite.toUpperCase()} Logs`;
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    XLSX.writeFile(wb, `${currentSuite.toUpperCase()}_Audit_Logs_${new Date().toISOString().split('T')[0]}.xlsx`);
+    UI.showToast('Suite activity logs exported to Excel.');
   },
 
   printLogsReport() {
-    const logs = DBManager.getLogs(this.selectedLogSuite);
+    const currentSuite = this.activeApp || 'jewelry';
+    const logs = DBManager.getLogs(currentSuite);
     if (logs.length === 0) {
-      UI.showToast('No logs to print.', true);
+      UI.showToast('No logs to print for this suite.', true);
       return;
     }
 
@@ -610,8 +576,12 @@ const App = {
 
     doc.setFont("georgia", "bold");
     doc.setFontSize(16);
-    const suiteName = (this.selectedLogSuite === 'jewelry' ? 'JEWELRY SUITE' : (this.selectedLogSuite === 'emerald' ? 'EMERALD SUITE' : (this.selectedLogSuite === 'stone' ? 'LOOSE STONES SUITE' : 'ALL SUITES')));
-    doc.text(`MAVA GEMS - AUDIT TRAIL & ACTIVITY LOGS (${suiteName})`, 14, 20);
+    const suiteTitles = {
+      jewelry: 'JEWELRY SUITE AUDIT TRAIL',
+      emerald: 'EMERALD SUITE AUDIT TRAIL',
+      stone: 'LOOSE STONES SUITE AUDIT TRAIL'
+    };
+    doc.text(`MAVA GEMS - ${suiteTitles[currentSuite] || 'AUDIT TRAIL & ACTIVITY LOGS'}`, 14, 20);
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
@@ -624,10 +594,9 @@ const App = {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.text("Timestamp", 14, 44);
-    doc.text("Suite", 54, 44);
-    doc.text("Action", 84, 44);
-    doc.text("Affected Record", 116, 44);
-    doc.text("Details & Summary", 170, 44);
+    doc.text("Action", 60, 44);
+    doc.text("Affected Record", 95, 44);
+    doc.text("Details & Summary", 155, 44);
 
     doc.line(14, 47, 282, 47);
 
@@ -641,10 +610,9 @@ const App = {
       }
       const timeFmt = new Date(l.timestamp).toLocaleDateString('en-IN') + ' ' + new Date(l.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
       doc.text(timeFmt, 14, y);
-      doc.text((l.suite || 'jewelry').toUpperCase(), 54, y);
-      doc.text(l.action || '', 84, y);
-      doc.text((l.targetName || '').substring(0, 24), 116, y);
-      doc.text((l.details || '').substring(0, 56), 170, y);
+      doc.text(l.action || '', 60, y);
+      doc.text((l.targetName || '').substring(0, 26), 95, y);
+      doc.text((l.details || '').substring(0, 70), 155, y);
       y += 7;
     });
 
