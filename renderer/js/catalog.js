@@ -1670,16 +1670,19 @@ const Catalog = {
       commE.alignment = ALIGN_CENTER_WRAP;
       commE.border = BORDER_ALL;
 
-      const lRefs  = [`${colLetter(C.L)}${mtlR}`, ...stoneRows.map(s => `${colLetter(C.L)}${s.rowExcel}`)];
-      const subFml = `SUM(${lRefs.join(',')},${colLetter(C.F)}${labR})`;
-      const commResult    = Calc.calculateCommission(item.evaluation.subtotal);
-      const commCachedVal = (commResult && typeof commResult === 'object') ? commResult.value : (commResult || 0);
+      // TK Commission value directly as a number (no formula / no rates tk sheet)
+      const commResult = Calc.calculateCommission(item.evaluation.subtotal, item.commission);
+      let commVal = 0;
+      if (item.commission && item.commission.value !== undefined && item.commission.value !== null) {
+        commVal = Number(item.commission.value);
+      } else if (commResult && typeof commResult === 'object') {
+        commVal = Number(commResult.value || 0);
+      } else {
+        commVal = Number(commResult || 0);
+      }
 
       const commF = ws.getCell(commR, C.F);
-      commF.value = {
-        formula: `ROUND(${subFml}*VLOOKUP(${subFml},'rates tk'!$B$5:$C$10,2,TRUE), 2)`,
-        result: Number(commCachedVal.toFixed(2))
-      };
+      commF.value = Number(Number(commVal || 0).toFixed(2));
       commF.numFmt = '#,##0.00';
       commF.alignment = ALIGN_CENTER;
       commF.border = BORDER_ALL;
@@ -1719,6 +1722,7 @@ const Catalog = {
       cellL.alignment = ALIGN_CENTER;
       cellL.border = BORDER_ALL;
 
+      const lRefs    = [`${colLetter(C.L)}${mtlR}`, ...stoneRows.map(s => `${colLetter(C.L)}${s.rowExcel}`)];
       const labFRef  = `${colLetter(C.F)}${labR}`;
       const commFRef = `${colLetter(C.F)}${commR}`;
       const emeraldLRefs    = stoneRows.filter(s => s.isEmerald).map(s => `${colLetter(C.L)}${s.rowExcel}`);
@@ -1870,32 +1874,6 @@ const Catalog = {
     gtO.font = { bold: true, name: 'Calibri' };
     gtO.numFmt = '#,##0.00';
     gtO.border = BORDER_ALL;
-
-    // Rates TK Worksheet
-    const wsTk = wb.addWorksheet('rates tk', {
-      views: [{ showGridLines: true }]
-    });
-    wsTk.columns = [{ width: 4 }, { width: 14 }, { width: 14 }];
-
-    const tkData = [
-      ['rates TK', ''],
-      ['range', 'percentage'],
-      [0, 0.10],
-      [25000, 0.08],
-      [50000, 0.06],
-      [150000, 0.04],
-      [300000, 0.03],
-      [500000, 0.02]
-    ];
-
-    tkData.forEach((row, ri) => {
-      const r = ri + 3;
-      wsTk.getCell(r, 2).value = row[0];
-      wsTk.getCell(r, 3).value = row[1];
-      if (typeof row[1] === 'number') {
-        wsTk.getCell(r, 3).numFmt = '0.00%';
-      }
-    });
 
     const buffer = await wb.xlsx.writeBuffer();
     let binary = '';
