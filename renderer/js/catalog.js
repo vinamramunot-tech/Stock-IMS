@@ -824,7 +824,7 @@ const Catalog = {
 
       savedItem.metals.push({
         name: partName,
-        karat: partKarat || 18,
+        karat: partKarat || savedItem.karat || 18,
         weight,
         wastage: partWastage,
         directValue,

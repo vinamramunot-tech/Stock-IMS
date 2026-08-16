@@ -432,18 +432,19 @@ const UI = {
   /**
    * Colored Gemstone Components UI Builders
    */
-  createStoneRow(stone = { type: 'Emerald', shape: '', weight: '', ratePerCarat: '', totalValue: '', pieces: '' }) {
+  createStoneRow(stone = null) {
     const container = document.getElementById('stones-list-container');
+    const stoneData = stone || { type: 'Emerald', shape: '', weight: '', ratePerCarat: '', totalValue: '', pieces: '' };
     const stoneId = 'stone_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
-    const safeStoneType = this.escapeHtml(stone.type || '');
-    const safeStoneShape = this.escapeHtml(stone.shape || '');
-    const safeStonePieces = this.escapeHtml(stone.pieces || '');
-    const safeStoneWeight = this.escapeHtml(stone.weight || '');
+    const safeStoneType = this.escapeHtml(stoneData.type || 'Emerald');
+    const safeStoneShape = this.escapeHtml(stoneData.shape || '');
+    const safeStonePieces = this.escapeHtml(stoneData.pieces || '');
+    const safeStoneWeight = this.escapeHtml(stoneData.weight || '');
 
     const card = document.createElement('div');
     card.className = 'stone-entry-card';
     card.id = stoneId;
-    card.setAttribute('data-stone-type', stone.type);
+    card.setAttribute('data-stone-type', stoneData.type || 'Emerald');
 
     card.innerHTML = `
       <div class="input-group" style="margin-bottom:0;">
@@ -460,11 +461,11 @@ const UI = {
       </div>
       <div class="input-group" style="margin-bottom:0;">
         <label>Rate / Carat (@/ct)</label>
-        <input type="number" class="stone-rate recalc-trigger" step="0.01" min="0" placeholder="0.00" value="${stone.ratePerCarat || ''}">
+        <input type="number" class="stone-rate recalc-trigger" step="0.01" min="0" placeholder="0.00" value="${stoneData.ratePerCarat || ''}">
       </div>
       <div class="input-group" style="margin-bottom:0;">
         <label>Total Stone Value (₹)</label>
-        <input type="number" class="stone-total-val" step="0.01" min="0" placeholder="0.00" value="${stone.totalValue || ''}">
+        <input type="number" class="stone-total-val" step="0.01" min="0" placeholder="0.00" value="${stoneData.totalValue || ''}">
       </div>
       <div class="entry-card-btn-col" style="padding-bottom:0;">
         <span style="font-size:11px; color:var(--text-muted); cursor:pointer;" class="btn-remove-stone-card">&times; Erase</span>
@@ -550,9 +551,10 @@ const UI = {
     // Additional Metals
     const metalRows = document.querySelectorAll('.metal-part-entry-card');
     metalRows.forEach(row => {
-      const name = row.querySelector('.metal-part-name').value || 'Additional Part';
-      const karat = Number(row.querySelector('.metal-part-karat').value);
-      const weight = Number(row.querySelector('.metal-part-weight').value || 0);
+      const name = row.querySelector('.metal-part-name')?.value || 'Additional Part';
+      const karatVal = Number(row.querySelector('.metal-part-karat')?.value);
+      const karat = karatVal > 0 ? karatVal : (currentItem.karat || 18);
+      const weight = Number(row.querySelector('.metal-part-weight')?.value || 0);
       const wastageVal = row.querySelector('.metal-part-wastage')?.value;
       const wastage = (wastageVal !== undefined && wastageVal !== null && wastageVal.trim() !== '') ? Number(wastageVal) : null;
       const directValStr = row.querySelector('.metal-part-direct-value')?.value;
