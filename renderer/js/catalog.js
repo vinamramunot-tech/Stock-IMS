@@ -460,9 +460,22 @@ const Catalog = {
     }
   },
 
+  getItemSno(item, allItems = null) {
+    if (item && item.sno) return item.sno;
+    const items = allItems || DBManager.getItems();
+    const chronological = [...items].sort((a, b) => {
+      const tA = a.createdAt ? new Date(a.createdAt).getTime() : Number(a.id?.split('_')[1] || 0);
+      const tB = b.createdAt ? new Date(b.createdAt).getTime() : Number(b.id?.split('_')[1] || 0);
+      return tA - tB;
+    });
+    const index = chronological.findIndex(i => i.id === item?.id);
+    return index !== -1 ? index + 1 : 1;
+  },
+
   renderCatalogGrid() {
     const gridContainer = document.getElementById('catalog-grid');
     const emptyState = document.getElementById('catalog-empty-state');
+    if (!gridContainer || !emptyState) return;
     
     if (this.viewType === 'list') {
       gridContainer.classList.add('list-view');
@@ -481,6 +494,17 @@ const Catalog = {
 
     const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
     const allItems = DBManager.getItems();
+
+    // Canonical chronological S.No map for all items in the database
+    const chronological = [...allItems].sort((a, b) => {
+      const tA = a.createdAt ? new Date(a.createdAt).getTime() : Number(a.id?.split('_')[1] || 0);
+      const tB = b.createdAt ? new Date(b.createdAt).getTime() : Number(b.id?.split('_')[1] || 0);
+      return tA - tB;
+    });
+    const itemSnoMap = new Map();
+    chronological.forEach((it, idx) => {
+      itemSnoMap.set(it.id, it.sno || (idx + 1));
+    });
 
     // Clear grid
     gridContainer.innerHTML = '';
@@ -514,7 +538,11 @@ const Catalog = {
     });
 
     // Sort Items
-    if (sortVal === 'newest') {
+    if (sortVal === 'sno-asc' || !sortVal) {
+      filtered.sort((a, b) => (itemSnoMap.get(a.id) || a.sno || 0) - (itemSnoMap.get(b.id) || b.sno || 0));
+    } else if (sortVal === 'sno-desc') {
+      filtered.sort((a, b) => (itemSnoMap.get(b.id) || b.sno || 0) - (itemSnoMap.get(a.id) || a.sno || 0));
+    } else if (sortVal === 'newest') {
       filtered.sort((a, b) => Number(b.id.split('_')[1] || 0) - Number(a.id.split('_')[1] || 0));
     } else if (sortVal === 'val-high') {
       filtered.sort((a, b) => b.calculatedTotal - a.calculatedTotal);
@@ -534,7 +562,7 @@ const Catalog = {
     gridContainer.classList.remove('hidden');
 
     filtered.forEach((item, index) => {
-      const serialNumber = index + 1;
+      const serialNumber = item.sno || itemSnoMap.get(item.id) || (index + 1);
       const card = document.createElement('div');
       
       const status = item.status || 'In Stock';
@@ -718,18 +746,19 @@ const Catalog = {
       return;
     }
 
-    // Check duplicate SKUs (only if new, or modified on existing)
-    const isEdit = UI.activeItemState && UI.activeItemState.id;
-    const allItems = DBManager.getItems();
-    const isSkuDuplicate = allItems.some(i => i.sku === sku && (!isEdit || i.id !== UI.activeItemState.id));
-    if (isSkuDuplicate) {
-      UI.showToast(`The SKU code "${sku}" is already in use by another piece.`, true);
-      return;
+    // Assign permanent S.No
+    let sno = 1;
+    if (isEdit) {
+      sno = UI.activeItemState.sno || this.getItemSno(UI.activeItemState, allItems);
+    } else {
+      const maxSno = allItems.reduce((max, it) => Math.max(max, it.sno || 0), 0);
+      sno = (maxSno > 0) ? maxSno + 1 : (allItems.length + 1);
     }
 
     // Reconstruct updated / new item
     const savedItem = {
       id: isEdit ? UI.activeItemState.id : 'item_' + Date.now(),
+      sno,
       name,
       sku,
       category,
@@ -947,7 +976,7 @@ const Catalog = {
     }
 
     filtered.forEach((item, index) => {
-      const serialNumber = index + 1;
+      const serialNumber = item.sno || this.getItemSno(item, allItems);
       const evaluation = Calc.evaluateItem(item, goldRate);
       const label = document.createElement('label');
       label.className = 'print-pudia-checkbox-label';
@@ -2647,7 +2676,7 @@ const Catalog = {
     if (container) {
       container.replaceChildren();
       selectedItems.forEach((item, index) => {
-        const serialNumber = index + 1;
+        const serialNumber = item.sno || this.getItemSno(item);
         const row = document.createElement('div');
         row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 4px; font-size: 12px;';
         
