@@ -1438,7 +1438,7 @@ const Catalog = {
     //  Header Row (Row 7)
     // =========================================================
     const headers = [
-      'S No.', 'Description by 5', 'Date of MFG', 'Grading', 'Type',
+      'S No.', 'Description', 'Date of MFG', 'Grading', 'Type',
       'Gross WT', 'Net WT', 'Stone Description', 'Pieces', 'CTS', '@', 'Total',
       'market C.P', 'home C.P', 'SP for market', '', 'Photo'
     ];
@@ -1546,16 +1546,115 @@ const Catalog = {
       cellJ.alignment = ALIGN_CENTER;
       cellJ.border = BORDER_ALL;
 
+      const itemMfgRate24kt = Number(item.mfgGoldRate24kt || item.goldRateAtAddition || (goldRate ? goldRate * 10 / 10 : 0) || (GOLD_RATE_PER_10G / 10));
+      const mfgKaratRate    = Number(((itemMfgRate24kt / 24) * mainKarat).toFixed(2));
+
       const cellK = ws.getCell(mtlR, C.K);
-      cellK.value = {
-        formula: `ROUND(($B$2/(10*24))*${colLetter(C.D)}${mtlR}, 2)`,
-        result: Number(((GOLD_RATE_PER_10G / 240) * mainKarat).toFixed(2))
-      };
+      cellK.value = mfgKaratRate;
       cellK.numFmt = '#,##0.00';
       cellK.alignment = ALIGN_CENTER;
       cellK.border = BORDER_ALL;
 
       rowIdx++;
+
+      // ===================== ADDITIONAL METAL ROWS =====================
+      const addMtlRows = [];
+      const additionalMetals = item.metals || [];
+
+      additionalMetals.forEach((m) => {
+        const aR = rowIdx;
+        ws.getRow(aR).height = 22;
+        const mKarat = Number(m.karat || mainKarat);
+        const mWt    = Number(Number(m.weight || 0).toFixed(3));
+        const mName  = m.name || 'Additional Metal';
+        const hasDirectVal = (m.directValue !== undefined && m.directValue !== null && m.directValue !== '') ||
+                             (m.totalValue !== undefined && m.totalValue !== null && m.totalValue !== '');
+        const directValNum = hasDirectVal ? Number(m.directValue || m.totalValue || 0) : 0;
+        const mWastage     = 1 + Number(m.wastage !== undefined && m.wastage !== null && m.wastage !== '' ? m.wastage : GLOBAL_WASTAGE) / 100;
+        const mfgPartKaratRate = Number(((itemMfgRate24kt / 24) * mKarat).toFixed(2));
+
+        ['A', 'B', 'C', 'M', 'N', 'O', 'Q'].forEach(k => {
+          const c = ws.getCell(aR, C[k]);
+          c.border = { left: BORDER_THIN, right: BORDER_THIN };
+        });
+
+        const cD = ws.getCell(aR, C.D);
+        cD.value = mKarat;
+        cD.numFmt = '0.00';
+        cD.fill = FILL_ORANGE;
+        cD.alignment = ALIGN_CENTER;
+        cD.border = BORDER_ALL;
+
+        const cE = ws.getCell(aR, C.E);
+        cE.value = mName;
+        cE.alignment = ALIGN_CENTER_WRAP;
+        cE.border = BORDER_ALL;
+
+        const cF = ws.getCell(aR, C.F);
+        cF.value = '-';
+        cF.alignment = ALIGN_CENTER;
+        cF.border = BORDER_ALL;
+
+        const cG = ws.getCell(aR, C.G);
+        cG.value = mWt;
+        cG.numFmt = '0.000';
+        cG.alignment = ALIGN_CENTER;
+        cG.border = BORDER_ALL;
+
+        const cH = ws.getCell(aR, C.H);
+        cH.value = '';
+        cH.border = BORDER_ALL;
+
+        const cI = ws.getCell(aR, C.I);
+        cI.value = '';
+        cI.border = BORDER_ALL;
+
+        const cJ = ws.getCell(aR, C.J);
+        cJ.value = '-';
+        cJ.alignment = ALIGN_CENTER;
+        cJ.border = BORDER_ALL;
+
+        const cK = ws.getCell(aR, C.K);
+        if (hasDirectVal) {
+          cK.value = '-';
+          cK.alignment = ALIGN_CENTER;
+          cK.border = BORDER_ALL;
+        } else {
+          cK.value = mfgPartKaratRate;
+          cK.numFmt = '#,##0.00';
+          cK.alignment = ALIGN_CENTER;
+          cK.border = BORDER_ALL;
+        }
+
+        const cL = ws.getCell(aR, C.L);
+        if (hasDirectVal) {
+          cL.value = Number(directValNum.toFixed(2));
+          cL.numFmt = '#,##0.00';
+          cL.alignment = ALIGN_CENTER;
+          cL.border = BORDER_ALL;
+        } else {
+          const calcVal = mWt * mWastage * mfgPartKaratRate;
+          cL.value = {
+            formula: `ROUND(${colLetter(C.G)}${aR}*${mWastage.toFixed(4)}*${colLetter(C.K)}${aR}, 2)`,
+            result: Number(calcVal.toFixed(2))
+          };
+          cL.numFmt = '#,##0.00';
+          cL.alignment = ALIGN_CENTER;
+          cL.border = BORDER_ALL;
+        }
+
+        addMtlRows.push({
+          rowExcel: aR,
+          weight: mWt,
+          karat: mKarat,
+          hasDirectVal,
+          wastageFactor: mWastage,
+          totalRef: `${colLetter(C.L)}${aR}`,
+          weightRef: `${colLetter(C.G)}${aR}`
+        });
+
+        rowIdx++;
+      });
 
       // Stone/Diamond Rows
       const stoneRows = [];
@@ -1696,12 +1795,23 @@ const Catalog = {
 
       // Deferred MTL Calculations
       const totalStoneCTS = stoneRows.reduce((acc, s) => acc + s.cts, 0);
-      const netMetalsResult = Calc.getNetMetals(item.metals || [{ karat: mainKarat, weight: totalGrossWt }], totalStoneCTS);
-      const netWt = netMetalsResult.mainNetWeight || (totalGrossWt - (totalStoneCTS * 0.2));
+      const netMetalsResult = Calc.getNetMetals(item);
+      const mainNetPiece = Array.isArray(netMetalsResult) ? netMetalsResult.find(m => m.isMain) : null;
+      const netWt = mainNetPiece ? mainNetPiece.netWeight : Math.max(0, totalGrossWt - (totalStoneCTS * 0.2) - addMtlRows.reduce((s, m) => s + m.weight, 0));
 
       const stoneJCells  = stoneRows.map(s => `${colLetter(C.J)}${s.rowExcel}`).join('+');
-      const netWtFormula = stoneJCells.length > 0
-        ? `ROUND(${colLetter(C.F)}${mtlR}-((${stoneJCells})/5), 3)` : `ROUND(${colLetter(C.F)}${mtlR}, 3)`;
+      const addMtlGCells = addMtlRows.map(m => m.weightRef).join('+');
+
+      let netWtFormula = `${colLetter(C.F)}${mtlR}`;
+      if (stoneJCells.length > 0 && addMtlGCells.length > 0) {
+        netWtFormula = `ROUND(${colLetter(C.F)}${mtlR}-((${stoneJCells})/5)-(${addMtlGCells}), 3)`;
+      } else if (stoneJCells.length > 0) {
+        netWtFormula = `ROUND(${colLetter(C.F)}${mtlR}-((${stoneJCells})/5), 3)`;
+      } else if (addMtlGCells.length > 0) {
+        netWtFormula = `ROUND(${colLetter(C.F)}${mtlR}-(${addMtlGCells}), 3)`;
+      } else {
+        netWtFormula = `ROUND(${colLetter(C.F)}${mtlR}, 3)`;
+      }
 
       const cellG = ws.getCell(mtlR, C.G);
       cellG.value = {
@@ -1712,59 +1822,93 @@ const Catalog = {
       cellG.alignment = ALIGN_CENTER;
       cellG.border = BORDER_ALL;
 
-      const metalTotal = netWt * wFactor * ((GOLD_RATE_PER_10G / 240) * mainKarat);
+      const mfgMetalTotal = netWt * wFactor * mfgKaratRate;
       const cellL = ws.getCell(mtlR, C.L);
       cellL.value = {
         formula: `ROUND(${colLetter(C.G)}${mtlR}*${wFactor.toFixed(4)}*${colLetter(C.K)}${mtlR}, 2)`,
-        result: Number(metalTotal.toFixed(2))
+        result: Number(mfgMetalTotal.toFixed(2))
       };
       cellL.numFmt = '#,##0.00';
       cellL.alignment = ALIGN_CENTER;
       cellL.border = BORDER_ALL;
 
-      const lRefs    = [`${colLetter(C.L)}${mtlR}`, ...stoneRows.map(s => `${colLetter(C.L)}${s.rowExcel}`)];
+      const lRefs    = [
+        `${colLetter(C.L)}${mtlR}`,
+        ...addMtlRows.map(m => m.totalRef),
+        ...stoneRows.map(s => `${colLetter(C.L)}${s.rowExcel}`)
+      ];
       const labFRef  = `${colLetter(C.F)}${labR}`;
       const commFRef = `${colLetter(C.F)}${commR}`;
       const emeraldLRefs    = stoneRows.filter(s => s.isEmerald).map(s => `${colLetter(C.L)}${s.rowExcel}`);
-      const nonEmeraldLRefs = [`${colLetter(C.L)}${mtlR}`,
-                               ...stoneRows.filter(s => !s.isEmerald).map(s => `${colLetter(C.L)}${s.rowExcel}`)];
+      const nonEmeraldLRefs = [
+        `${colLetter(C.L)}${mtlR}`,
+        ...addMtlRows.map(m => m.totalRef),
+        ...stoneRows.filter(s => !s.isEmerald).map(s => `${colLetter(C.L)}${s.rowExcel}`)
+      ];
+
+      // =========================================================
+      //  Column M: Market Cost Price (Uses Global 24K Rate in $B$2)
+      // =========================================================
+      const stoneAndDirectRefs = [
+        ...addMtlRows.filter(m => m.hasDirectVal).map(m => m.totalRef),
+        ...stoneRows.map(s => `${colLetter(C.L)}${s.rowExcel}`),
+        labFRef,
+        commFRef
+      ];
+      const dynamicMetalMarketFormulas = [
+        `(${colLetter(C.G)}${mtlR}*${wFactor.toFixed(4)}*($B$2/240)*${colLetter(C.D)}${mtlR})`,
+        ...addMtlRows.filter(m => !m.hasDirectVal).map(m => `(${m.weightRef}*${m.wastageFactor.toFixed(4)}*($B$2/240)*${colLetter(C.D)}${m.rowExcel})`)
+      ];
+
+      const marketCPFormula = stoneAndDirectRefs.length > 0
+        ? `ROUND(SUM(${stoneAndDirectRefs.join(',')})+${dynamicMetalMarketFormulas.join('+')}, 2)`
+        : `ROUND(${dynamicMetalMarketFormulas.join('+')}, 2)`;
 
       const cellM = ws.getCell(mtlR, C.M);
       cellM.value = {
-        formula: `ROUND(SUM(${lRefs.join(',')},${labFRef},${commFRef})/5, 2)`,
+        formula: marketCPFormula,
         result: Number(item.evaluation.marketCostPrice.toFixed(2))
       };
       cellM.numFmt = '#,##0.00';
       cellM.alignment = ALIGN_CENTER;
       cellM.border = BORDER_ALL;
 
+      // =========================================================
+      //  Column N: Home Cost Price (Uses Mfg Date rate + 50% Emerald discount)
+      // =========================================================
       const cellN = ws.getCell(mtlR, C.N);
-      const cellO = ws.getCell(mtlR, C.O);
-
       if (emeraldLRefs.length > 0) {
         const mParts = [...nonEmeraldLRefs, ...emeraldLRefs.map(r => `(${r}*0.5)`), labFRef, commFRef];
         cellN.value = {
-          formula: `ROUND(SUM(${mParts.join(',')})/5, 2)`,
+          formula: `ROUND(SUM(${mParts.join(',')}), 2)`,
           result: Number(item.evaluation.homeCostPrice.toFixed(2))
-        };
-        cellO.value = {
-          formula: `ROUND(((SUM(${[...nonEmeraldLRefs, labFRef, commFRef].join(',')})*1.4)+(${emeraldLRefs.join('+')}))/5, 2)`,
-          result: Number(item.evaluation.sellingPrice.toFixed(2))
         };
       } else {
         cellN.value = {
-          formula: `ROUND(SUM(${lRefs.join(',')},${labFRef},${commFRef})/5, 2)`,
+          formula: `ROUND(SUM(${lRefs.join(',')},${labFRef},${commFRef}), 2)`,
           result: Number(item.evaluation.homeCostPrice.toFixed(2))
-        };
-        cellO.value = {
-          formula: `ROUND((SUM(${[...nonEmeraldLRefs, labFRef, commFRef].join(',')})*1.4)/5, 2)`,
-          result: Number(item.evaluation.sellingPrice.toFixed(2))
         };
       }
       cellN.numFmt = '#,##0.00';
       cellN.alignment = ALIGN_CENTER;
       cellN.border = BORDER_ALL;
 
+      // =========================================================
+      //  Column O: SP for Market (1.4x markup on Market CP non-emeralds + Emeralds)
+      // =========================================================
+      const cellO = ws.getCell(mtlR, C.O);
+      if (emeraldLRefs.length > 0) {
+        const emSum = emeraldLRefs.join('+');
+        cellO.value = {
+          formula: `ROUND(((${colLetter(C.M)}${mtlR}-(${emSum}))*1.4)+(${emSum}), 2)`,
+          result: Number(item.evaluation.sellingPrice.toFixed(2))
+        };
+      } else {
+        cellO.value = {
+          formula: `ROUND(${colLetter(C.M)}${mtlR}*1.4, 2)`,
+          result: Number(item.evaluation.sellingPrice.toFixed(2))
+        };
+      }
       cellO.numFmt = '#,##0.00';
       cellO.alignment = ALIGN_CENTER;
       cellO.border = BORDER_ALL;
