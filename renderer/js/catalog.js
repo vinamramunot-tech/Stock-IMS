@@ -1347,12 +1347,14 @@ const Catalog = {
       N: 14, // Home CP
       O: 15, // SP for Market
       P: 16, // Spacer
-      Q: 17  // Photo
+      P: 16, // SP for market
+      Q: 17, // Spacer
+      R: 18  // Photo
     };
 
     ws.columns = [
       { key: 'A', width: 22 }, // S.No
-      { key: 'B', width: 34 }, // Description by 5
+      { key: 'B', width: 34 }, // Description
       { key: 'C', width: 15 }, // Date of MFG
       { key: 'D', width: 11 }, // Grading (karat)
       { key: 'E', width: 16 }, // Type
@@ -1363,11 +1365,12 @@ const Catalog = {
       { key: 'J', width: 10 }, // CTS
       { key: 'K', width: 14 }, // @ Rate
       { key: 'L', width: 15 }, // Total
-      { key: 'M', width: 15 }, // Market CP
-      { key: 'N', width: 15 }, // Home CP
-      { key: 'O', width: 15 }, // SP for Market
-      { key: 'P', width: 4 },  // Spacer
-      { key: 'Q', width: 24 }  // Photo
+      { key: 'M', width: 15 }, // market C.P
+      { key: 'N', width: 15 }, // mfg cost
+      { key: 'O', width: 15 }, // home C.P
+      { key: 'P', width: 15 }, // SP for market
+      { key: 'Q', width: 4 },  // Spacer
+      { key: 'R', width: 24 }  // Photo
     ];
 
     const GLOBAL_WASTAGE    = (filteredItems[0] ? Number(filteredItems[0].wastage || 15) : 15);
@@ -1440,12 +1443,12 @@ const Catalog = {
     const headers = [
       'S No.', 'Description', 'Date of MFG', 'Grading', 'Type',
       'Gross WT', 'Net WT', 'Stone Description', 'Pieces', 'CTS', '@', 'Total',
-      'market C.P', 'home C.P', 'SP for market', '', 'Photo'
+      'market C.P', 'mfg cost', 'home C.P', 'SP for market', '', 'Photo'
     ];
     const headerRow = ws.getRow(7);
     headerRow.height = 24;
     headers.forEach((h, idx) => {
-      if (idx + 1 === C.P) return; // leave spacer blank
+      if (idx + 1 === C.Q) return; // leave spacer blank
       const cell = headerRow.getCell(idx + 1);
       cell.value = h;
       cell.font = { bold: true, size: 10, name: 'Calibri' };
@@ -1573,7 +1576,7 @@ const Catalog = {
         const mWastage     = 1 + Number(m.wastage !== undefined && m.wastage !== null && m.wastage !== '' ? m.wastage : GLOBAL_WASTAGE) / 100;
         const mfgPartKaratRate = Number(((itemMfgRate24kt / 24) * mKarat).toFixed(2));
 
-        ['A', 'B', 'C', 'M', 'N', 'O', 'Q'].forEach(k => {
+        ['A', 'B', 'C', 'M', 'N', 'O', 'P', 'R'].forEach(k => {
           const c = ws.getCell(aR, C[k]);
           c.border = { left: BORDER_THIN, right: BORDER_THIN };
         });
@@ -1671,7 +1674,7 @@ const Catalog = {
         const rate = Number(Number(comp.ratePerCarat || 0).toFixed(2));
         const tv   = Number(Number(comp.totalValue || cts * rate || 0).toFixed(2));
 
-        ['A', 'B', 'C', 'M', 'N', 'O', 'Q'].forEach(k => {
+        ['A', 'B', 'C', 'M', 'N', 'O', 'P', 'R'].forEach(k => {
           const c = ws.getCell(cR, C[k]);
           c.border = { left: BORDER_THIN, right: BORDER_THIN };
         });
@@ -1732,7 +1735,7 @@ const Catalog = {
       const labR = rowIdx;
       ws.getRow(labR).height = 22;
 
-      ['A', 'B', 'C', 'M', 'N', 'O', 'Q'].forEach(k => {
+      ['A', 'B', 'C', 'M', 'N', 'O', 'P', 'R'].forEach(k => {
         const c = ws.getCell(labR, C[k]);
         c.border = { left: BORDER_THIN, right: BORDER_THIN };
       });
@@ -1759,7 +1762,7 @@ const Catalog = {
       const commR = rowIdx;
       ws.getRow(commR).height = 22;
 
-      ['A', 'B', 'C', 'M', 'N', 'O', 'Q'].forEach(k => {
+      ['A', 'B', 'C', 'M', 'N', 'O', 'P', 'R'].forEach(k => {
         const c = ws.getCell(commR, C[k]);
         c.border = { bottom: BORDER_THIN, left: BORDER_THIN, right: BORDER_THIN };
       });
@@ -1874,44 +1877,58 @@ const Catalog = {
       cellM.border = BORDER_ALL;
 
       // =========================================================
-      //  Column N: Home Cost Price (Uses Mfg Date rate + 50% Emerald discount)
+      //  Column N: Manufacturing Cost (mfg cost = sum of Col L + Labour + Commission)
       // =========================================================
       const cellN = ws.getCell(mtlR, C.N);
-      if (emeraldLRefs.length > 0) {
-        const mParts = [...nonEmeraldLRefs, ...emeraldLRefs.map(r => `(${r}*0.5)`), labFRef, commFRef];
-        cellN.value = {
-          formula: `ROUND(SUM(${mParts.join(',')}), 2)`,
-          result: Number(item.evaluation.homeCostPrice.toFixed(2))
-        };
-      } else {
-        cellN.value = {
-          formula: `ROUND(SUM(${lRefs.join(',')},${labFRef},${commFRef}), 2)`,
-          result: Number(item.evaluation.homeCostPrice.toFixed(2))
-        };
-      }
+      const mfgCostFormula = `ROUND(SUM(${lRefs.join(',')},${labFRef},${commFRef}), 2)`;
+      const mfgCostVal = (item.evaluation.mfgGrandTotal || (item.evaluation.mfgSubtotal + (item.evaluation.commissionValue || 0)) || item.evaluation.homeCostPrice);
+      cellN.value = {
+        formula: mfgCostFormula,
+        result: Number(mfgCostVal.toFixed(2))
+      };
       cellN.numFmt = '#,##0.00';
       cellN.alignment = ALIGN_CENTER;
       cellN.border = BORDER_ALL;
 
       // =========================================================
-      //  Column O: SP for Market (1.4x markup on Market CP non-emeralds + Emeralds)
+      //  Column O: Home Cost Price (Uses Mfg Date rate + 50% Emerald discount)
       // =========================================================
       const cellO = ws.getCell(mtlR, C.O);
       if (emeraldLRefs.length > 0) {
-        const emSum = emeraldLRefs.join('+');
+        const mParts = [...nonEmeraldLRefs, ...emeraldLRefs.map(r => `(${r}*0.5)`), labFRef, commFRef];
         cellO.value = {
-          formula: `ROUND(((${colLetter(C.M)}${mtlR}-(${emSum}))*1.4)+(${emSum}), 2)`,
-          result: Number(item.evaluation.sellingPrice.toFixed(2))
+          formula: `ROUND(SUM(${mParts.join(',')}), 2)`,
+          result: Number(item.evaluation.homeCostPrice.toFixed(2))
         };
       } else {
         cellO.value = {
-          formula: `ROUND(${colLetter(C.M)}${mtlR}*1.4, 2)`,
-          result: Number(item.evaluation.sellingPrice.toFixed(2))
+          formula: `ROUND(${colLetter(C.N)}${mtlR}, 2)`,
+          result: Number(item.evaluation.homeCostPrice.toFixed(2))
         };
       }
       cellO.numFmt = '#,##0.00';
       cellO.alignment = ALIGN_CENTER;
       cellO.border = BORDER_ALL;
+
+      // =========================================================
+      //  Column P: SP for Market (1.4x markup on Market CP non-emeralds + Emeralds)
+      // =========================================================
+      const cellP = ws.getCell(mtlR, C.P);
+      if (emeraldLRefs.length > 0) {
+        const emSum = emeraldLRefs.join('+');
+        cellP.value = {
+          formula: `ROUND(((${colLetter(C.M)}${mtlR}-(${emSum}))*1.4)+(${emSum}), 2)`,
+          result: Number(item.evaluation.sellingPrice.toFixed(2))
+        };
+      } else {
+        cellP.value = {
+          formula: `ROUND(${colLetter(C.M)}${mtlR}*1.4, 2)`,
+          result: Number(item.evaluation.sellingPrice.toFixed(2))
+        };
+      }
+      cellP.numFmt = '#,##0.00';
+      cellP.alignment = ALIGN_CENTER;
+      cellP.border = BORDER_ALL;
 
       // =========================================================
       //  Merges for Item Block
@@ -1928,16 +1945,17 @@ const Catalog = {
         ws.mergeCells(mtlR, C.B, commR, C.B); // Description
         ws.mergeCells(mtlR, C.C, commR, C.C); // Date of MFG
         ws.mergeCells(mtlR, C.M, commR, C.M); // market C.P
-        ws.mergeCells(mtlR, C.N, commR, C.N); // home C.P
-        ws.mergeCells(mtlR, C.O, commR, C.O); // SP for market
-        ws.mergeCells(mtlR, C.Q, commR, C.Q); // Column Q: Photo across item rows
+        ws.mergeCells(mtlR, C.N, commR, C.N); // mfg cost
+        ws.mergeCells(mtlR, C.O, commR, C.O); // home C.P
+        ws.mergeCells(mtlR, C.P, commR, C.P); // SP for market
+        ws.mergeCells(mtlR, C.R, commR, C.R); // Column R: Photo across item rows
       }
 
-      // Column Q Photo Embedding
+      // Column R Photo Embedding
       for (let r = mtlR; r <= commR; r++) {
-        const qCell = ws.getCell(r, C.Q);
-        qCell.border = BORDER_ALL;
-        qCell.alignment = ALIGN_CENTER;
+        const rCell = ws.getCell(r, C.R);
+        rCell.border = BORDER_ALL;
+        rCell.alignment = ALIGN_CENTER;
       }
 
       if (item.image && typeof item.image === 'string' && item.image.length > 50) {
@@ -1949,18 +1967,18 @@ const Catalog = {
             extension: isPng ? 'png' : 'jpeg'
           });
           ws.addImage(imgId, {
-            tl: { col: 16, row: mtlR - 1 },
-            br: { col: 17, row: commR },
+            tl: { col: 17, row: mtlR - 1 },
+            br: { col: 18, row: commR },
             editAs: 'twoCell'
           });
         } catch (imgErr) {
           console.warn('Could not embed image in Excel for item:', item.sku, imgErr);
-          ws.getCell(mtlR, C.Q).value = 'No Photo';
-          ws.getCell(mtlR, C.Q).font = { italic: true, size: 9, color: { argb: 'FF888888' } };
+          ws.getCell(mtlR, C.R).value = 'No Photo';
+          ws.getCell(mtlR, C.R).font = { italic: true, size: 9, color: { argb: 'FF888888' } };
         }
       } else {
-        ws.getCell(mtlR, C.Q).value = 'No Photo';
-        ws.getCell(mtlR, C.Q).font = { italic: true, size: 9, color: { argb: 'FF888888' } };
+        ws.getCell(mtlR, C.R).value = 'No Photo';
+        ws.getCell(mtlR, C.R).font = { italic: true, size: 9, color: { argb: 'FF888888' } };
       }
 
       // Blank gap row between items
@@ -1974,6 +1992,7 @@ const Catalog = {
     const lastItemRow  = Math.max(firstItemRow, grandRow - 1);
 
     const totalMarketCP     = filteredItems.reduce((acc, i) => acc + (i.evaluation ? i.evaluation.marketCostPrice : 0), 0);
+    const totalMfgCost      = filteredItems.reduce((acc, i) => acc + (i.evaluation ? (i.evaluation.mfgGrandTotal || (i.evaluation.mfgSubtotal + (i.evaluation.commissionValue || 0)) || i.evaluation.homeCostPrice) : 0), 0);
     const totalHomeCP       = filteredItems.reduce((acc, i) => acc + (i.evaluation ? i.evaluation.homeCostPrice : 0), 0);
     const totalSellingPrice = filteredItems.reduce((acc, i) => acc + (i.evaluation ? i.evaluation.sellingPrice : 0), 0);
 
@@ -2004,7 +2023,7 @@ const Catalog = {
     const gtN = ws.getCell(grandRow, C.N);
     gtN.value = {
       formula: `ROUND(SUM(${colLetter(C.N)}${firstItemRow}:${colLetter(C.N)}${lastItemRow}), 2)`,
-      result: Number(totalHomeCP.toFixed(2))
+      result: Number(totalMfgCost.toFixed(2))
     };
     gtN.font = { bold: true, name: 'Calibri' };
     gtN.numFmt = '#,##0.00';
@@ -2013,11 +2032,20 @@ const Catalog = {
     const gtO = ws.getCell(grandRow, C.O);
     gtO.value = {
       formula: `ROUND(SUM(${colLetter(C.O)}${firstItemRow}:${colLetter(C.O)}${lastItemRow}), 2)`,
-      result: Number(totalSellingPrice.toFixed(2))
+      result: Number(totalHomeCP.toFixed(2))
     };
     gtO.font = { bold: true, name: 'Calibri' };
     gtO.numFmt = '#,##0.00';
     gtO.border = BORDER_ALL;
+
+    const gtP = ws.getCell(grandRow, C.P);
+    gtP.value = {
+      formula: `ROUND(SUM(${colLetter(C.P)}${firstItemRow}:${colLetter(C.P)}${lastItemRow}), 2)`,
+      result: Number(totalSellingPrice.toFixed(2))
+    };
+    gtP.font = { bold: true, name: 'Calibri' };
+    gtP.numFmt = '#,##0.00';
+    gtP.border = BORDER_ALL;
 
     const buffer = await wb.xlsx.writeBuffer();
     let binary = '';
