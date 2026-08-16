@@ -43,20 +43,27 @@ const Calc = {
   getNetMetals(itemData) {
     if (!itemData) return [];
     const stoneWeightGrams = this.getStoneWeightInGrams(itemData);
-    const mainGrossWeight = Number(itemData.grossWeight || 0);
+    const totalGrossWeight = Number(itemData.grossWeight || 0);
     const mainKarat = Number(itemData.karat || 18);
     const mainWastage = Number(itemData.wastage !== undefined && itemData.wastage !== null && itemData.wastage !== '' ? itemData.wastage : 15);
     const additionalMetals = itemData.metals || [];
 
     const result = [];
 
+    // Sum of additional metal component weights (which are already part of the total gross weight)
+    const additionalMetalsWeight = additionalMetals.reduce((sum, m) => sum + Number(m.weight || 0), 0);
+
     // If main piece gross weight is specified
-    if (mainGrossWeight > 0) {
-      const mainNetWeight = Math.max(0, Number((mainGrossWeight - stoneWeightGrams).toFixed(4)));
+    if (totalGrossWeight > 0) {
+      // Main piece gross weight = Total Gross Weight - additional component weights
+      const mainPieceGrossWeight = Math.max(0, Number((totalGrossWeight - additionalMetalsWeight).toFixed(4)));
+      // Main piece net weight = Main piece gross weight - gemstones weight
+      const mainNetWeight = Math.max(0, Number((mainPieceGrossWeight - stoneWeightGrams).toFixed(4)));
+
       result.push({
         name: 'Main Piece',
         karat: mainKarat,
-        grossWeight: mainGrossWeight,
+        grossWeight: mainPieceGrossWeight,
         netWeight: mainNetWeight,
         wastage: mainWastage,
         isMain: true
@@ -212,8 +219,9 @@ const Calc = {
     const profitPct = Number(itemData?.profitPercentage !== undefined ? itemData.profitPercentage : 40);
     const sellingPrice = Number((((marketCostPrice - emeraldTotal) * (1 + profitPct / 100)) + emeraldTotal).toFixed(2));
 
-    const totalGrossWeight = Number(netMetals.reduce((sum, m) => sum + Number(m.grossWeight || 0), 0).toFixed(3));
+    const totalGrossWeight = Number((itemData.grossWeight > 0 ? Number(itemData.grossWeight) : netMetals.reduce((sum, m) => sum + Number(m.grossWeight || 0), 0)).toFixed(3));
     const totalNetMetalWeight = Number(netMetals.reduce((sum, m) => sum + Number(m.netWeight || 0), 0).toFixed(3));
+    const mainNetWeight = Number((netMetals.find(m => m.isMain)?.netWeight || 0).toFixed(3));
 
     return {
       metalSubtotal: Number(metalTotalGlobal.toFixed(2)),
@@ -233,7 +241,8 @@ const Calc = {
       sellingPrice: sellingPrice,
       hasEmerald: emeraldTotal > 0,
       totalGrossWeight: totalGrossWeight,
-      totalNetMetalWeight: totalNetMetalWeight
+      totalNetMetalWeight: totalNetMetalWeight,
+      mainNetWeight: mainNetWeight
     };
   }
 };
