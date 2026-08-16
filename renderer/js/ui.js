@@ -436,7 +436,9 @@ const UI = {
     const container = document.getElementById('stones-list-container');
     const stoneData = stone || { type: 'Emerald', shape: '', weight: '', ratePerCarat: '', totalValue: '', pieces: '' };
     const stoneId = 'stone_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
-    const safeStoneType = this.escapeHtml(stoneData.type || 'Emerald');
+    const rawType = stoneData.type || 'Emerald';
+    const isOther = rawType === 'Other' || rawType === 'Other Stone' || (!['Emerald', 'Ruby', 'Sapphire', 'Diamond', 'Polki', 'Other Semi-Precious'].includes(rawType));
+    const safeStoneType = this.escapeHtml(rawType);
     const safeStoneShape = this.escapeHtml(stoneData.shape || '');
     const safeStonePieces = this.escapeHtml(stoneData.pieces || '');
     const safeStoneWeight = this.escapeHtml(stoneData.weight || '');
@@ -444,13 +446,25 @@ const UI = {
     const card = document.createElement('div');
     card.className = 'stone-entry-card';
     card.id = stoneId;
-    card.setAttribute('data-stone-type', stoneData.type || 'Emerald');
+    card.setAttribute('data-stone-type', rawType);
 
-    card.innerHTML = `
+    const firstColHtml = isOther ? `
+      <div class="input-group" style="margin-bottom:0;">
+        <label>Stone Name & Shape</label>
+        <div style="display: flex; gap: 6px;">
+          <input type="text" class="stone-custom-type recalc-trigger" placeholder="Stone (e.g. Tanzanite)" value="${(rawType === 'Other' || rawType === 'Other Stone') ? '' : safeStoneType}" style="flex: 1.2;">
+          <input type="text" class="stone-shape" placeholder="Shape (e.g. Oval)" value="${safeStoneShape}" style="flex: 1;">
+        </div>
+      </div>
+    ` : `
       <div class="input-group" style="margin-bottom:0;">
         <label>${safeStoneType} - Shape/Cut</label>
         <input type="text" class="stone-shape" placeholder="e.g. Oval Mixed" value="${safeStoneShape}">
       </div>
+    `;
+
+    card.innerHTML = `
+      ${firstColHtml}
       <div class="input-group" style="margin-bottom:0;">
         <label>Pieces</label>
         <input type="number" class="stone-pieces recalc-trigger" min="1" step="1" placeholder="1" value="${safeStonePieces}">
@@ -473,10 +487,24 @@ const UI = {
     `;
 
     // Wire up events
+    const customTypeInput = card.querySelector('.stone-custom-type');
+    const shapeInput = card.querySelector('.stone-shape');
     const piecesInput = card.querySelector('.stone-pieces');
     const weightInput = card.querySelector('.stone-weight');
     const rateInput = card.querySelector('.stone-rate');
     const totalInput = card.querySelector('.stone-total-val');
+
+    if (customTypeInput) {
+      customTypeInput.addEventListener('input', () => {
+        const val = customTypeInput.value.trim() || 'Other Stone';
+        card.setAttribute('data-stone-type', val);
+        this.updateFormCalculations();
+      });
+    }
+
+    if (shapeInput) {
+      shapeInput.addEventListener('input', () => this.updateFormCalculations());
+    }
 
     // Bidirectional Calculation: Changing weight or rate updates total
     [piecesInput, weightInput, rateInput].forEach(inp => {
@@ -566,7 +594,8 @@ const UI = {
     // Stones & Diamonds
     const stoneRows = document.querySelectorAll('.stone-entry-card');
     stoneRows.forEach(row => {
-      const type = row.getAttribute('data-stone-type') || 'Emerald';
+      const customTypeInput = row.querySelector('.stone-custom-type');
+      const type = customTypeInput ? (customTypeInput.value.trim() || 'Other Stone') : (row.getAttribute('data-stone-type') || 'Emerald');
       const shape = row.querySelector('.stone-shape').value || 'Mixed';
       const pieces = Number(row.querySelector('.stone-pieces').value || 0);
       const weight = Number(row.querySelector('.stone-weight').value || 0);
@@ -574,7 +603,7 @@ const UI = {
       const totalValue = Number(row.querySelector('.stone-total-val').value || 0);
 
       const component = { type, shape, pieces, weight, ratePerCarat, totalValue };
-      if (type === 'Diamond' || type === 'Polki') {
+      if (type.toLowerCase().includes('diamond') || type.toLowerCase().includes('polki')) {
         currentItem.diamondsPolki.push(component);
       } else {
         currentItem.stones.push(component);
