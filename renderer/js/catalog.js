@@ -933,6 +933,11 @@ const Catalog = {
       karatSel.addEventListener('change', () => this.populatePrintItemsChecklist());
     }
 
+    const searchInput = document.getElementById('jewelry-print-search-text');
+    if (searchInput) {
+      searchInput.addEventListener('input', () => this.populatePrintItemsChecklist());
+    }
+
     const btnAll = document.getElementById('btn-jewelry-print-select-all');
     if (btnAll) {
       btnAll.addEventListener('click', () => this.toggleAllPrintItems(true));
@@ -960,6 +965,10 @@ const Catalog = {
   },
 
   openPrintModal() {
+    const searchInput = document.getElementById('jewelry-print-search-text');
+    if (searchInput) searchInput.value = '';
+    const catSel = document.getElementById('jewelry-print-select-category');
+    if (catSel) catSel.value = '';
     this.populatePrintKaratFilter();
     this.populatePrintItemsChecklist();
     UI.openModal('modal-print-jewelry-catalog');
@@ -994,6 +1003,7 @@ const Catalog = {
 
     const selectedCategory = (document.getElementById('jewelry-print-select-category') || {}).value || '';
     const selectedKarat = (document.getElementById('jewelry-print-select-karat') || {}).value || '';
+    const searchText = (document.getElementById('jewelry-print-search-text')?.value || '').toLowerCase().trim();
 
     const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
     const allItems = DBManager.getItems();
@@ -1001,27 +1011,45 @@ const Catalog = {
     const filtered = allItems.filter(item => {
       const matchesCat = !selectedCategory || item.category === selectedCategory;
       const matchesKarat = !selectedKarat || (item.metals || []).some(m => Number(m.karat) === Number(selectedKarat));
-      return matchesCat && matchesKarat;
+      const matchesSearch = !searchText || (
+        (item.name || '').toLowerCase().includes(searchText) ||
+        (item.sku || '').toLowerCase().includes(searchText) ||
+        (item.category || '').toLowerCase().includes(searchText) ||
+        String(item.sno || this.getItemSno(item, allItems)).includes(searchText)
+      );
+      return matchesCat && matchesKarat && matchesSearch;
     });
 
-    // Sort by name for readability
-    filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    // Sort by S.No ascending
+    filtered.sort((a, b) => {
+      const snoA = a.sno || this.getItemSno(a, allItems);
+      const snoB = b.sno || this.getItemSno(b, allItems);
+      return snoA - snoB;
+    });
 
     if (filtered.length === 0) {
-      container.innerHTML = '<div style="font-size:12px; color:var(--text-muted); grid-column: 1/-1;">No items found for these criteria.</div>';
+      container.innerHTML = '<div style="font-size:12px; color:var(--text-muted); padding: 12px; text-align: center;">No items found for these criteria.</div>';
       return;
     }
 
-    filtered.forEach((item, index) => {
+    filtered.forEach((item) => {
       const serialNumber = item.sno || this.getItemSno(item, allItems);
       const evaluation = Calc.evaluateItem(item, goldRate);
-      const label = document.createElement('label');
-      label.className = 'print-pudia-checkbox-label';
-      label.innerHTML = `
-        <input type="checkbox" class="jewelry-print-item-checkbox" value="${item.id}" checked>
-        <strong style="color: var(--text-gold-dark); margin-right: 4px;">S.No: ${serialNumber}</strong> · ${UI.escapeHtml(item.sku)} — ${UI.escapeHtml(item.name || 'Unnamed')} (${item.category || '—'}) · ₹${evaluation.marketCostPrice.toLocaleString()}
+      const row = document.createElement('label');
+      row.className = 'jewelry-print-item-row';
+      row.innerHTML = `
+        <div class="jewelry-print-item-left">
+          <input type="checkbox" class="jewelry-print-item-checkbox" value="${item.id}" checked>
+          <span class="jewelry-print-sno-badge">S.No: ${serialNumber}</span>
+          <span class="jewelry-print-sku-tag">${UI.escapeHtml(item.sku || '')}</span>
+          <span class="jewelry-print-item-name" title="${UI.escapeHtml(item.name || 'Unnamed Piece')}">${UI.escapeHtml(item.name || 'Unnamed Piece')}</span>
+          <span class="jewelry-print-cat-badge">${UI.escapeHtml(item.category || '—')}</span>
+        </div>
+        <div class="jewelry-print-item-right">
+          <span class="jewelry-print-val-tag">₹${evaluation.marketCostPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+        </div>
       `;
-      container.appendChild(label);
+      container.appendChild(row);
     });
   },
 

@@ -3552,17 +3552,17 @@
 
   <!-- ==================== MODAL: JEWELRY CATALOG PRINT SELECTION ==================== -->
   <div id="modal-print-jewelry-catalog" class="modal-overlay hidden">
-    <div class="modal-card">
+    <div class="modal-card" style="width: 740px; max-width: 95vw; border-radius: 8px;">
       <div class="modal-header">
         <h3>Print Jewelry Catalog Report</h3>
         <button type="button" class="btn-close modal-close-trigger-print-jewelry-catalog">&times;</button>
       </div>
       <div class="modal-body">
-        <p class="modal-instructions">Filter and select the specific jewelry pieces you want to print.</p>
+        <p class="modal-instructions">Filter and select the specific jewelry pieces you want to print or export.</p>
 
-        <div class="form-grid-row">
-          <div class="form-col-6">
-            <div class="input-group">
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 12px; margin-bottom: 12px;">
+          <div>
+            <div class="input-group" style="margin-bottom: 0;">
               <label for="jewelry-print-select-category">Filter by Category</label>
               <select id="jewelry-print-select-category">
                 <option value="">All Categories</option>
@@ -3575,12 +3575,18 @@
               </select>
             </div>
           </div>
-          <div class="form-col-6">
-            <div class="input-group">
+          <div>
+            <div class="input-group" style="margin-bottom: 0;">
               <label for="jewelry-print-select-karat">Filter by Karat</label>
               <select id="jewelry-print-select-karat">
                 <option value="">All Karats</option>
               </select>
+            </div>
+          </div>
+          <div>
+            <div class="input-group" style="margin-bottom: 0;">
+              <label for="jewelry-print-search-text">Search Piece / SKU</label>
+              <input type="text" id="jewelry-print-search-text" placeholder="Search by name, SKU..." style="width: 100%;">
             </div>
           </div>
         </div>
@@ -3594,7 +3600,7 @@
               <button type="button" id="btn-jewelry-print-select-none" class="btn-text">Deselect All</button>
             </span>
           </label>
-          <div id="jewelry-print-items-container" class="print-pudias-checklist-container">
+          <div id="jewelry-print-items-container" class="jewelry-print-checklist-container">
             <!-- Checkbox list of jewelry pieces populated dynamically -->
           </div>
         </div>

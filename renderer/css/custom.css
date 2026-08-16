@@ -1566,5 +1566,117 @@
   white-space: nowrap;
 }
 
+/* ==========================================================================
+   JEWELRY CATALOG PRINT/EXPORT SELECTION CHECKLIST
+   ========================================================================== */
+
+.jewelry-print-checklist-container {
+  height: 280px;
+  min-height: 280px;
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid var(--border-light);
+  background-color: var(--bg-base);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-radius: 6px;
+}
+
+.jewelry-print-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  gap: 12px;
+}
+
+.jewelry-print-item-row:hover {
+  border-color: var(--border-gold-subtle, rgba(212, 175, 55, 0.4));
+  background: rgba(212, 175, 55, 0.05);
+}
+
+.jewelry-print-item-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.jewelry-print-item-left input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--text-gold, #d4af37);
+  cursor: pointer;
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.jewelry-print-sno-badge {
+  font-size: 11px;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  background: rgba(212, 175, 55, 0.12);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  color: var(--text-gold-light, #f3e5ab);
+  padding: 2px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.jewelry-print-sku-tag {
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text-main);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.jewelry-print-item-name {
+  font-size: 13px;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.jewelry-print-cat-badge {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-base);
+  border: 1px solid var(--border-light);
+  padding: 1px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.jewelry-print-item-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.jewelry-print-val-tag {
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text-gold, #d4af37);
+  white-space: nowrap;
+}
+
+
 
 
