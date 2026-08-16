@@ -680,18 +680,18 @@ const App = {
       
       const imgContent = item.image
         ? `<img src="${item.image}" alt="${UI.escapeHtml(item.name || 'Jewelry Photo')}" class="photo-card-img">`
-        : `<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 6px; color: var(--text-muted); opacity: 0.6; padding: 20px;">
-            <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-              <circle cx="8.5" cy="8.5" r="1.5"/>
-              <polyline points="21 15 16 10 5 21"/>
-            </svg>
-            <span style="font-size: 11px; font-weight: 600; text-transform: uppercase;">No Photo Attached</span>
-            <span style="font-size: 10px; text-decoration: underline;">Click to Add Photo</span>
+        : `<div class="product-img-placeholder-content" style="padding: 20px;">
+             <svg class="product-img-placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+               <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
+               <circle cx="8.5" cy="8.5" r="1.5"/>
+               <path d="M21 15l-5-5L5 21"/>
+             </svg>
+             <span class="product-img-placeholder-text">NO PHOTO</span>
+             <span style="font-size: 10px; color: var(--text-gold-light); text-decoration: underline; margin-top: 2px;">+ Add Photo</span>
            </div>`;
 
       card.innerHTML = `
-        <div class="photo-card-img-box">
+        <div class="photo-card-img-box ${!item.image ? 'product-img-box-placeholder' : ''}">
           ${imgContent}
         </div>
         <div class="photo-card-body">
