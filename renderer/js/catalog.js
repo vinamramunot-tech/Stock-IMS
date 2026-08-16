@@ -182,17 +182,6 @@ const Catalog = {
     document.getElementById('header-gold-rate').textContent = goldRate > 0 ? `₹${goldRate.toLocaleString()}/g` : '₹0.00/g';
     document.getElementById('header-gold-date').textContent = formattedDate ? `Effective: ${formattedDate}` : 'No date set';
 
-    // Update Banners on Jewelry Analyzer and Catalog pages
-    const jLiveRate = document.getElementById('jewelry-page-live-gold-rate');
-    if (jLiveRate) jLiveRate.textContent = goldRate > 0 ? `₹${goldRate.toLocaleString()}/g` : '₹0.00/g';
-    const jLiveTime = document.getElementById('jewelry-page-live-gold-time');
-    if (jLiveTime) jLiveTime.textContent = formattedDate ? `(Effective: ${formattedDate})` : '';
-
-    const cLiveRate = document.getElementById('catalog-page-live-gold-rate');
-    if (cLiveRate) cLiveRate.textContent = goldRate > 0 ? `₹${goldRate.toLocaleString()}/g` : '₹0.00/g';
-    const cLiveTime = document.getElementById('catalog-page-live-gold-time');
-    if (cLiveTime) cLiveTime.textContent = formattedDate ? `(Effective: ${formattedDate})` : '';
-
     // USD/INR rate header rendering
     const usdRate = DBManager.getSettings().usdToInr ? DBManager.getSettings().usdToInr.rate : 0;
     const usdDateStr = DBManager.getSettings().usdToInr ? DBManager.getSettings().usdToInr.effectiveDate : '';
