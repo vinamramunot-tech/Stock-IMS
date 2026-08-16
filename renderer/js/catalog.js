@@ -1891,18 +1891,18 @@ const Catalog = {
       cellN.border = BORDER_ALL;
 
       // =========================================================
-      //  Column O: Home Cost Price (Uses Mfg Date rate + 50% Emerald discount)
+      //  Column O: Home Cost Price (Uses Global Gold Rate via Market CP + 50% Emerald discount)
       // =========================================================
       const cellO = ws.getCell(mtlR, C.O);
       if (emeraldLRefs.length > 0) {
-        const mParts = [...nonEmeraldLRefs, ...emeraldLRefs.map(r => `(${r}*0.5)`), labFRef, commFRef];
+        const emSum = emeraldLRefs.join('+');
         cellO.value = {
-          formula: `ROUND(SUM(${mParts.join(',')}), 2)`,
+          formula: `ROUND(${colLetter(C.M)}${mtlR}-(${emSum})*0.5, 2)`,
           result: Number(item.evaluation.homeCostPrice.toFixed(2))
         };
       } else {
         cellO.value = {
-          formula: `ROUND(${colLetter(C.N)}${mtlR}, 2)`,
+          formula: `ROUND(${colLetter(C.M)}${mtlR}, 2)`,
           result: Number(item.evaluation.homeCostPrice.toFixed(2))
         };
       }

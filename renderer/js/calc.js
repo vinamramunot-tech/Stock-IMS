@@ -212,9 +212,10 @@ const Calc = {
     // Market Cost Price calculated using Global Gold Rate
     const marketCostPrice = Number((subtotalGlobal + finalCommValueGlobal).toFixed(2));
 
-    // Home Cost Price / Manufacturing Grand Total calculated using Mfg Date 24KT Gold Rate
+    // Home Cost Price / Manufacturing Grand Total
     const grandTotalMfg = Number((subtotalMfg + finalCommValueMfg).toFixed(2));
-    const homeCostPrice = Number((grandTotalMfg - (emeraldTotal * 0.5)).toFixed(2));
+    // Home Cost Price calculated using Global Gold Rate with 50% Emerald deduction
+    const homeCostPrice = Number((marketCostPrice - (emeraldTotal * 0.5)).toFixed(2));
 
     const profitPct = Number(itemData?.profitPercentage !== undefined ? itemData.profitPercentage : 40);
     const sellingPrice = Number((((marketCostPrice - emeraldTotal) * (1 + profitPct / 100)) + emeraldTotal).toFixed(2));
