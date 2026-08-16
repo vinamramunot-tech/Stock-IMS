@@ -746,6 +746,15 @@ const Catalog = {
       return;
     }
 
+    // Check duplicate SKUs (only if new, or modified on existing)
+    const isEdit = UI.activeItemState && UI.activeItemState.id;
+    const allItems = DBManager.getItems();
+    const isSkuDuplicate = allItems.some(i => i.sku === sku && (!isEdit || i.id !== UI.activeItemState.id));
+    if (isSkuDuplicate) {
+      UI.showToast(`The SKU code "${sku}" is already in use by another piece.`, true);
+      return;
+    }
+
     // Assign permanent S.No
     let sno = 1;
     if (isEdit) {

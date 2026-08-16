@@ -112,37 +112,16 @@ const Calc = {
   },
 
   /**
-   * Calculate commission based on subtotal progressive slabs
-   * Slab Table:
-   *   Below ₹25,000         -> 10%
-   *   ₹25,000 - ₹50,000     -> 8%
-   *   ₹50,000 - ₹1,50,000   -> 6%
-   *   ₹1,50,000 - ₹3,00,000 -> 4%
-   *   ₹3,00,000 - ₹5,00,000 -> 3%
-   *   Above ₹5,00,000       -> 2%
+  /**
+   * Manual commission helper (purely manual input)
    */
-  calculateCommission(subtotal) {
-    if (!subtotal || subtotal <= 0) return 0;
-    
-    let rate = 0;
-    if (subtotal < 25000) {
-      rate = 0.10;
-    } else if (subtotal < 50000) {
-      rate = 0.08;
-    } else if (subtotal < 150000) {
-      rate = 0.06;
-    } else if (subtotal < 300000) {
-      rate = 0.04;
-    } else if (subtotal < 500000) {
-      rate = 0.03;
-    } else {
-      rate = 0.02;
+  calculateCommission(subtotal, commission) {
+    let value = 0;
+    if (commission !== undefined && commission !== null) {
+      value = typeof commission === 'object' ? Number(commission.value || 0) : Number(commission || 0);
     }
-
-    return {
-      value: Number((subtotal * rate).toFixed(2)),
-      percentage: rate * 100
-    };
+    const pct = subtotal > 0 ? Number(((value / subtotal) * 100).toFixed(1)) : 0;
+    return { value, percentage: pct };
   },
 
   /**
@@ -202,19 +181,13 @@ const Calc = {
     const subtotalGlobal = Number((metalTotalGlobal + stoneTotal + diamondPolkiTotal + labour).toFixed(2));
     const subtotalMfg = Number((metalTotalMfg + stoneTotal + diamondPolkiTotal + labour).toFixed(2));
 
-    // 6. Commission calculations
-    const autoCommGlobal = this.calculateCommission(subtotalGlobal);
-    const autoCommMfg = this.calculateCommission(subtotalMfg);
-
-    let finalCommValueGlobal = autoCommGlobal.value;
-    let finalCommValueMfg = autoCommMfg.value;
-    let isManual = false;
-
-    if (itemData?.commission && itemData.commission.isManual) {
-      finalCommValueGlobal = Number(itemData.commission.value || 0);
-      finalCommValueMfg = Number(itemData.commission.value || 0);
-      isManual = true;
+    // 6. Commission calculations (Manual Input Only)
+    let finalCommValue = 0;
+    if (itemData?.commission !== undefined && itemData?.commission !== null) {
+      finalCommValue = typeof itemData.commission === 'object' ? Number(itemData.commission.value || 0) : Number(itemData.commission || 0);
     }
+    const finalCommValueGlobal = finalCommValue;
+    const finalCommValueMfg = finalCommValue;
 
     // 7. Overall Grand Totals
     // Market Cost Price calculated using Global Gold Rate
@@ -238,8 +211,8 @@ const Calc = {
       subtotal: subtotalGlobal,
       mfgSubtotal: subtotalMfg,
       commissionValue: finalCommValueGlobal,
-      commissionPercentage: isManual ? Number(((finalCommValueGlobal / subtotalGlobal) * 100 || 0).toFixed(1)) : autoCommGlobal.percentage,
-      isManualCommission: isManual,
+      commissionPercentage: subtotalGlobal > 0 ? Number(((finalCommValueGlobal / subtotalGlobal) * 100 || 0).toFixed(1)) : 0,
+      isManualCommission: true,
       grandTotal: marketCostPrice,
       marketCostPrice: marketCostPrice,
       mfgGrandTotal: grandTotalMfg,

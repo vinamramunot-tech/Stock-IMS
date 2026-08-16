@@ -91,17 +91,19 @@ const App = {
       UI.updateFormCalculations();
     });
 
-    // Manual commission override typing listener
+    // Commission manual typing listener
     const commInput = document.getElementById('item-commission');
-    commInput.addEventListener('input', () => {
-      if (UI.activeItemState) {
-        UI.activeItemState.commission = {
-          value: Number(commInput.value || 0),
-          isManual: true
-        };
+    if (commInput) {
+      commInput.addEventListener('input', () => {
+        if (UI.activeItemState) {
+          UI.activeItemState.commission = {
+            value: Number(commInput.value || 0),
+            isManual: true
+          };
+        }
         UI.updateFormCalculations();
-      }
-    });
+      });
+    }
 
     // Labour cost, profit percentage, gross weight, karat, wastage, and per-item gold rate change listeners
     document.getElementById('item-labour').addEventListener('input', () => UI.updateFormCalculations());
@@ -126,17 +128,6 @@ const App = {
     if (_wastageEl) {
       _wastageEl.addEventListener('input', () => UI.updateFormCalculations());
     }
-
-    // Auto reset commission button click
-    document.getElementById('btn-toggle-manual-commission').addEventListener('click', () => {
-      if (UI.activeItemState) {
-        UI.activeItemState.commission = {
-          value: 0,
-          isManual: false
-        };
-        UI.updateFormCalculations();
-      }
-    });
 
     // Per-item gold rate: reset button restores global rate
     const _btnResetGoldRate = document.getElementById('btn-reset-gold-rate');

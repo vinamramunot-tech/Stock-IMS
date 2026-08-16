@@ -576,24 +576,6 @@ const UI = {
 
     document.getElementById('summary-subtotal').textContent = `₹${evalResult.mfgSubtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
 
-    // Commission Slab indicator text
-    const commSlabIndicator = document.getElementById('slab-indicator');
-    commSlabIndicator.textContent = `Commission Slab: ${evalResult.commissionPercentage}% bracket (Subtotal: ₹${evalResult.mfgSubtotal.toLocaleString()})`;
-
-    // Check commission overrides
-    const commInput = document.getElementById('item-commission');
-    const commBadge = document.getElementById('comm-percentage-badge');
-    const resetCommBtn = document.getElementById('btn-toggle-manual-commission');
-
-    if (!evalResult.isManualCommission) {
-      commInput.value = evalResult.commissionValue > 0 ? evalResult.commissionValue : '';
-      commBadge.textContent = `${evalResult.commissionPercentage}%`;
-      resetCommBtn.classList.add('hidden');
-    } else {
-      commBadge.textContent = `Manual (${evalResult.commissionPercentage}%)`;
-      resetCommBtn.classList.remove('hidden');
-    }
-
     document.getElementById('summary-grand-total').textContent = `₹${evalResult.marketCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
 
     const mfgCostEl = document.getElementById('summary-mfg-cost');
@@ -776,9 +758,12 @@ const UI = {
     const dp = item.diamondsPolki || [];
     dp.forEach(d => this.createStoneRow({ ...d, type: d.type || 'Diamond' }));
 
-    // Commission Configuration
-    if (item.commission && item.commission.isManual) {
-      document.getElementById('item-commission').value = item.commission.value || '';
+    // Commission Configuration (Manual)
+    if (item.commission !== undefined && item.commission !== null) {
+      const commVal = typeof item.commission === 'object' ? item.commission.value : item.commission;
+      document.getElementById('item-commission').value = (commVal !== undefined && commVal !== null && commVal !== '') ? commVal : '';
+    } else {
+      document.getElementById('item-commission').value = '';
     }
 
     this.resetModalTabs();

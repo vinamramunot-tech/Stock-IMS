@@ -2030,11 +2030,6 @@
                   <span class="subtotal-lbl font-bold">SUBTOTAL (M+S+D+L):</span>
                   <span class="subtotal-val font-bold" id="summary-subtotal">₹0.00</span>
                 </div>
-
-                <!-- Slab display indicator -->
-                <div class="slab-badge-indicator" id="slab-indicator">
-                  Commission Bracket: Below ₹25,000 → 10%
-                </div>
               </div>
 
               <!-- Right side: final valuation & commission inputs -->
@@ -2055,15 +2050,11 @@
                 <div class="commission-calculator-box" style="margin-top: 15px;">
                   <div class="comm-header">
                     <label for="item-commission">Commission (₹)</label>
-                    <button type="button" id="btn-toggle-manual-commission" class="btn-text btn-small hidden">Reset to
-                      Auto</button>
                   </div>
                   <div class="commission-input-row">
                     <input type="number" id="item-commission" step="0.01" min="0" placeholder="0.00">
-                    <span id="comm-percentage-badge" class="percentage-badge">10%</span>
                   </div>
-                  <span class="help-text block-help">This field is auto-calculated based on slabs, but you can edit it
-                    directly to override.</span>
+                  <span class="help-text block-help">Manual commission amount in Rupees.</span>
                 </div>
 
                 <div class="commission-calculator-box" style="margin-top: 15px;">
