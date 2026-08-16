@@ -422,35 +422,53 @@ const Catalog = {
       }
 
       if (activeBands.length === 0) {
-        priceDistContainer.innerHTML = `<div style="color: var(--text-muted); font-style: italic; font-size: 12px; padding: 8px 0;">No active stock items to analyze.</div>`;
+        priceDistContainer.innerHTML = `<div style="color: var(--text-muted); font-style: italic; font-size: 12px; padding: 16px; text-align: center;">No active stock items to analyze.</div>`;
       } else {
         const maxCount = Math.max(...activeBands.map(b => b.count), 1);
         const totalItemsCount = items.length || 1;
 
-        priceDistContainer.innerHTML = activeBands.map(band => {
+        // Render Vertical Bar Columns
+        const barColumnsHtml = activeBands.map(band => {
           const countPct = ((band.count / totalItemsCount) * 100).toFixed(1);
-          const barFillWidth = Math.max(8, ((band.count / maxCount) * 100));
+          // Scale bar height proportionally between 40px and 160px
+          const barHeightPx = Math.max(38, Math.round((band.count / maxCount) * 155));
+          const shortLabel = band.label.includes('(') ? band.label.split('(')[1].replace(')', '').trim() : band.label;
+          const pieceNames = band.items.map(it => `${it.name || 'Piece'} (${it.sku || ''})`).join(', ');
 
           return `
-            <div style="background: var(--bg-card); border: 1px solid var(--border-light); padding: 12px 16px; border-radius: 6px; display: flex; flex-direction: column; gap: 8px;">
-              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                  <strong style="color: var(--text-main); font-size: 13px;">${band.label}</strong>
-                  <span style="font-size: 11px; font-weight: 700; background: var(--bg-base); border: 1px solid var(--border-light); padding: 2px 8px; border-radius: 4px; color: var(--text-gold-dark, #d4af37);">
-                    ${band.count} ${band.count === 1 ? 'piece' : 'pieces'} (${countPct}% of stock)
-                  </span>
-                </div>
-                <div style="text-align: right; font-size: 13px;">
-                  <span style="color: var(--text-muted); font-size: 11px; margin-right: 6px;">Total Retail:</span>
-                  <strong style="color: var(--text-gold, #d4af37);">₹${band.totalSellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>
-                </div>
+            <div class="analyzer-bar-col" title="${UI.escapeHtml(band.label)}: ${band.count} item(s) (${UI.escapeHtml(pieceNames)}) — Total Retail: ₹${band.totalSellingPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}">
+              <div class="analyzer-bar-metric-top">
+                <div class="analyzer-bar-count-badge">${band.count} ${band.count === 1 ? 'Pc' : 'Pcs'}</div>
+                <div class="analyzer-bar-pct">${countPct}%</div>
               </div>
-              <div style="width: 100%; height: 7px; background: var(--bg-base, #1c1a17); border-radius: 4px; overflow: hidden; border: 1px solid var(--border-light);">
-                <div style="width: ${barFillWidth}%; height: 100%; background: linear-gradient(90deg, var(--text-gold-dark, #b8860b), var(--text-gold, #d4af37)); border-radius: 3px; transition: width 0.4s ease;"></div>
+              <div class="analyzer-bar-pillar" style="height: ${barHeightPx}px;"></div>
+              <div class="analyzer-bar-axis-label">
+                <span class="analyzer-bar-range-text">${UI.escapeHtml(shortLabel)}</span>
+                <span class="analyzer-bar-retail-val">₹${band.totalSellingPrice.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
               </div>
             </div>
           `;
         }).join('');
+
+        // Grid lines calculation
+        const gridStep = maxCount <= 3 ? 1 : Math.ceil(maxCount / 3);
+        const gridCount = Math.min(3, maxCount);
+        let gridLinesHtml = '';
+        for (let i = 0; i <= gridCount; i++) {
+          const val = i * gridStep;
+          gridLinesHtml += `<div class="analyzer-chart-gridline"><span>${val}</span></div>`;
+        }
+
+        priceDistContainer.innerHTML = `
+          <div class="analyzer-chart-wrapper">
+            <div class="analyzer-chart-stage">
+              <div class="analyzer-chart-gridlines">
+                ${gridLinesHtml}
+              </div>
+              ${barColumnsHtml}
+            </div>
+          </div>
+        `;
       }
     }
 
@@ -1353,22 +1371,22 @@ const Catalog = {
     const HDR          = { font: { bold: true }, fill: FILL_HEADER, alignment: AL, border: B.all };
 
     // ---- Row 0 (Excel 1): Title ----
-    S(0, C.A, 'MAVA GEMS \u2014 JEWELRY LATEST PRICE', { font: { bold: true } });
-    S(0, C.C, `date: ${today}`, {});
+    S(0, C.A, 'MAVA GEMS — JEWELRY LATEST PRICE', { font: { bold: true, sz: 12 } });
+    S(0, C.D, `date: ${today}`, { font: { italic: true } });
 
     // ---- Row 1 (Excel 2): Gold rate ----
     S(1, C.A, 'MTL 24K (10g)', { font: { bold: true }, border: B.all });
-    N(1, C.B, GOLD_RATE_PER_10G, { font: { bold: true }, border: B.all });
-    S(1, C.C, goldDateFmt, {});
+    N(1, C.B, GOLD_RATE_PER_10G, { font: { bold: true }, border: B.all, numFmt: '#,##0.00' });
+    S(1, C.C, goldDateFmt, { alignment: AL, border: B.all });
 
     // ---- Row 2 (Excel 3): Wastage ----
     S(2, C.A, 'wastage', { font: { bold: true }, border: B.all });
-    N(2, C.B, WASTAGE_FACTOR, { font: { bold: true }, border: B.all });
+    N(2, C.B, WASTAGE_FACTOR, { font: { bold: true }, border: B.all, numFmt: '0.00' });
 
     // ---- Rows 3-4 (Excel 4-5): Legend ----
-    S(3, C.A, 'To fill compulsory', { font: { color: { rgb: 'FFFF0000' } }, border: B.all });
+    S(3, C.A, 'To fill compulsory', { font: { bold: true, color: { rgb: 'FFFF0000' } }, border: B.all });
     S(3, C.B, '', { border: B.all });
-    S(4, C.A, 'If required',         { font: { color: { rgb: 'FF0000FF' } }, border: B.all });
+    S(4, C.A, 'If required',         { font: { bold: true, color: { rgb: 'FF0000FF' } }, border: B.all });
     S(4, C.B, '', { border: B.all });
 
     // ---- Row 6 (Excel 7): Column headers ----
@@ -1381,6 +1399,9 @@ const Catalog = {
     // ---- Per-item blocks (start at row 7 = Excel row 8) ----
     let rowIdx = 7;
     let sNo = 1;
+    const merges = [
+      { s: { r: 0, c: C.A }, e: { r: 0, c: C.C } } // Merge Title across A1:C1
+    ];
 
     filteredItems.forEach(item => {
       const evaluation = Calc.evaluateItem(item, goldRate);
@@ -1403,9 +1424,34 @@ const Catalog = {
       if (baseMetalVal > 0 && evaluation && evaluation.metalSubtotal) {
         wFactor = evaluation.metalSubtotal / baseMetalVal;
       }
-      const createdDate = item.createdAt
-        ? new Date(item.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' })
-        : '';
+      
+      // Format Date of MFG (e.g. 28.7.26)
+      let mfgDateStr = '';
+      const rawDate = item.mfgDate || (item.createdAt ? item.createdAt.split('T')[0] : '');
+      if (rawDate) {
+        if (/^\d{4}-\d{2}-\d{2}/.test(rawDate)) {
+          const [y, m, d] = rawDate.split('T')[0].split('-');
+          mfgDateStr = `${parseInt(d, 10)}.${parseInt(m, 10)}.${y.slice(-2)}`;
+        } else if (/^\d{1,2}[./-]\d{1,2}[./-]\d{2,4}$/.test(rawDate)) {
+          const parts = rawDate.split(/[./-]/);
+          const d = parseInt(parts[0], 10);
+          const m = parseInt(parts[1], 10);
+          let y = parts[2];
+          if (y.length === 4) y = y.slice(-2);
+          mfgDateStr = `${d}.${m}.${y}`;
+        } else {
+          try {
+            const dt = new Date(rawDate);
+            if (!isNaN(dt.getTime())) {
+              mfgDateStr = `${dt.getDate()}.${dt.getMonth() + 1}.${String(dt.getFullYear()).slice(-2)}`;
+            } else {
+              mfgDateStr = String(rawDate);
+            }
+          } catch (e) {
+            mfgDateStr = String(rawDate);
+          }
+        }
+      }
 
       const mtlR   = rowIdx;
       const mtlRow = $(rowIdx); // 1-based Excel row
@@ -1417,16 +1463,16 @@ const Catalog = {
       // ===================== MTL ROW =====================
       N(mtlR, C.A, sNo++,           { font: { bold: true }, alignment: AL,  border: B.all });
       S(mtlR, C.B, item.name || 'Unnamed Piece', { alignment: ALW, border: B.all });
-      S(mtlR, C.C, createdDate,     { alignment: AL,  border: B.all });
-      N(mtlR, C.D, mainKarat,       { fill: FILL_ORANGE, alignment: AL, border: B.tbr });  // orange, no left
+      S(mtlR, C.C, mfgDateStr,      { alignment: AL,  border: B.all });
+      N(mtlR, C.D, mainKarat,       { fill: FILL_ORANGE, alignment: AL, border: B.tbr, numFmt: '0.00' });  // orange, no left
       S(mtlR, C.E, 'MTL',           { alignment: AL,  border: B.all });
-      N(mtlR, C.F, totalGrossWt,    { fill: FILL_ORANGE, alignment: AL, border: B.all }); // orange
+      N(mtlR, C.F, Number(totalGrossWt.toFixed(3)), { fill: FILL_ORANGE, alignment: AL, border: B.all, numFmt: '0.000' }); // orange
       // G: Net WT — deferred after we know stone rows
       S(mtlR, C.H, '',              { alignment: AL,  border: B.all }); // stone desc empty on MTL
       S(mtlR, C.I, '',              { alignment: AL,  border: B.all }); // pieces empty on MTL
       S(mtlR, C.J, '-',             { alignment: AL,  border: B.all }); // CTS dash on MTL
-      F(mtlR, C.K, `($B$2/(10*24))*${col(C.D)}${mtlRow}`,
-        (GOLD_RATE_PER_10G / 240) * mainKarat, { alignment: AL, border: B.all }); // @ rate formula
+      F(mtlR, C.K, `ROUND(($B$2/(10*24))*${col(C.D)}${mtlRow}, 2)`,
+        Number(((GOLD_RATE_PER_10G / 240) * mainKarat).toFixed(2)), { alignment: AL, border: B.all, numFmt: '#,##0.00' }); // @ rate formula
       // L: metal total — deferred
       // M, N, O: CP/SP — deferred
       rowIdx++;
@@ -1441,9 +1487,9 @@ const Catalog = {
         const cR   = rowIdx;
         const cXl  = $(rowIdx);
         const isEm = (comp.type || '').toLowerCase() === 'emerald';
-        const cts  = Number(comp.weight || 0);
-        const rate = Number(comp.ratePerCarat || 0);
-        const tv   = Number(comp.totalValue || cts * rate || 0);
+        const cts  = Number(Number(comp.weight || 0).toFixed(2));
+        const rate = Number(Number(comp.ratePerCarat || 0).toFixed(2));
+        const tv   = Number(Number(comp.totalValue || cts * rate || 0).toFixed(2));
 
         // A, B, C: side borders only (no top/bottom inside block)
         S(cR, C.A, '', { border: B.lr });
@@ -1455,9 +1501,9 @@ const Catalog = {
         S(cR, C.G, '-', { alignment: AL, border: B.all });
         S(cR, C.H, `${comp.shape || ''}`.trim(), { alignment: AL, border: B.all });
         N(cR, C.I, comp.pieces || 0,             { alignment: AL, border: B.all });
-        N(cR, C.J, cts,  { fill: FILL_BLUE, alignment: AL, border: B.all }); // blue CTS
-        N(cR, C.K, rate, { fill: FILL_BLUE, alignment: AL, border: B.all }); // blue rate
-        F(cR, C.L, `${col(C.J)}${cXl}*${col(C.K)}${cXl}`, tv, { alignment: AL, border: B.all });
+        N(cR, C.J, cts,  { fill: FILL_BLUE, alignment: AL, border: B.all, numFmt: '0.00' }); // blue CTS
+        N(cR, C.K, rate, { fill: FILL_BLUE, alignment: AL, border: B.all, numFmt: '#,##0.00' }); // blue rate
+        F(cR, C.L, `ROUND(${col(C.J)}${cXl}*${col(C.K)}${cXl}, 2)`, tv, { alignment: AL, border: B.all, numFmt: '#,##0.00' });
         S(cR, C.M, '', { border: B.lr });
         S(cR, C.N, '', { border: B.lr });
         S(cR, C.O, '', { border: B.lr });
@@ -1475,12 +1521,13 @@ const Catalog = {
       S(labR, C.C, '', { border: B.lr });
       S(labR, C.D, '', { alignment: AL });
       S(labR, C.E, 'labour',  { alignment: ALW, border: B.all });
-      N(labR, C.F, labour,   { alignment: AL,  border: B.all });
+      N(labR, C.F, Number(labour.toFixed(2)), { alignment: AL,  border: B.all, numFmt: '#,##0.00' });
       S(labR, C.G, '', { border: B.tb });   // top+bottom only
       S(labR, C.H, '', { border: B.tb });
       S(labR, C.I, '', { border: B.tb });
       S(labR, C.J, '', { border: B.tb });
-      S(labR, C.K, '', { border: B.tbR }); // top+bottom+right
+      S(labR, C.K, '', { border: B.tb });
+      S(labR, C.L, '', { border: B.tbR }); // top+bottom+right (end of merge at Total column)
       S(labR, C.M, '', { border: B.lr });
       S(labR, C.N, '', { border: B.lr });
       S(labR, C.O, '', { border: B.lr });
@@ -1501,13 +1548,14 @@ const Catalog = {
       S(commR, C.D, '', { alignment: AL });
       S(commR, C.E, 'tk commission', { alignment: ALW, border: B.all });
       F(commR, C.F,
-        `${subFml}*VLOOKUP(${subFml},'rates tk'!$B$5:$C$10,2,TRUE)`,
-        commCachedVal, { alignment: AL, border: B.all });
+        `ROUND(${subFml}*VLOOKUP(${subFml},'rates tk'!$B$5:$C$10,2,TRUE), 2)`,
+        Number(commCachedVal.toFixed(2)), { alignment: AL, border: B.all, numFmt: '#,##0.00' });
       S(commR, C.G, '', { border: B.tb });   // top+bottom
       S(commR, C.H, '', { border: B.tb });
       S(commR, C.I, '', { border: B.tb });
       S(commR, C.J, '', { border: B.tb });
-      S(commR, C.K, '', { border: B.tbR }); // top+bottom+right
+      S(commR, C.K, '', { border: B.tb });
+      S(commR, C.L, '', { border: B.tbR }); // top+bottom+right (end of merge at Total column)
       S(commR, C.M, '', { border: B.botLR });
       S(commR, C.N, '', { border: B.botLR });
       S(commR, C.O, '', { border: B.botLR });
@@ -1518,15 +1566,15 @@ const Catalog = {
       // Net WT = Gross WT - (sum stone CTS / 5)
       const stoneJCells  = stoneRows.map(s => `${col(C.J)}${s.rowExcel}`).join('+');
       const netWtFormula = stoneJCells.length > 0
-        ? `${col(C.F)}${mtlRow}-((${stoneJCells})/5)` : `${col(C.F)}${mtlRow}`;
-      F(mtlR, C.G, netWtFormula, netWt, { alignment: AL, border: B.all });
+        ? `ROUND(${col(C.F)}${mtlRow}-((${stoneJCells})/5), 3)` : `ROUND(${col(C.F)}${mtlRow}, 3)`;
+      F(mtlR, C.G, netWtFormula, Number(netWt.toFixed(3)), { alignment: AL, border: B.all, numFmt: '0.000' });
 
       // Metal Total L = G * wastage_factor * K
       const metalTotal = netWt * wFactor * ((GOLD_RATE_PER_10G / 240) * mainKarat);
       F(mtlR, C.L,
-        `${col(C.G)}${mtlRow}*${wFactor.toFixed(4)}*${col(C.K)}${mtlRow}`,
-        metalTotal,
-        { alignment: AL, border: B.tbL }); // top+bottom+left only (matches reference J/L col)
+        `ROUND(${col(C.G)}${mtlRow}*${wFactor.toFixed(4)}*${col(C.K)}${mtlRow}, 2)`,
+        Number(metalTotal.toFixed(2)),
+        { alignment: AL, border: B.tbL, numFmt: '#,##0.00' }); // top+bottom+left only (matches reference J/L col)
 
       // M, N, O: CP / SP formulas
       const labFRef  = `${col(C.F)}${labRowXl}`;
@@ -1536,23 +1584,40 @@ const Catalog = {
                                ...stoneRows.filter(s => !s.isEmerald).map(s => `${col(C.L)}${s.rowExcel}`)];
 
       F(mtlR, C.M,
-        `SUM(${lRefs.join(',')},${labFRef},${commFRef})/5`,
-        item.evaluation.marketCostPrice,
-        { alignment: AL, border: B.all });
+        `ROUND(SUM(${lRefs.join(',')},${labFRef},${commFRef})/5, 2)`,
+        Number(item.evaluation.marketCostPrice.toFixed(2)),
+        { alignment: AL, border: B.all, numFmt: '#,##0.00' });
 
       if (emeraldLRefs.length > 0) {
         const mParts = [...nonEmeraldLRefs, ...emeraldLRefs.map(r => `(${r}*0.5)`), labFRef, commFRef];
-        F(mtlR, C.N, `SUM(${mParts.join(',')})/5`, item.evaluation.homeCostPrice,
-          { alignment: AL, border: B.all });
+        F(mtlR, C.N, `ROUND(SUM(${mParts.join(',')})/5, 2)`, Number(item.evaluation.homeCostPrice.toFixed(2)),
+          { alignment: AL, border: B.all, numFmt: '#,##0.00' });
         F(mtlR, C.O,
-          `((SUM(${[...nonEmeraldLRefs, labFRef, commFRef].join(',')})*1.4)+(${emeraldLRefs.join('+')}))/5`,
-          item.evaluation.sellingPrice, { alignment: AL, border: B.all });
+          `ROUND(((SUM(${[...nonEmeraldLRefs, labFRef, commFRef].join(',')})*1.4)+(${emeraldLRefs.join('+')}))/5, 2)`,
+          Number(item.evaluation.sellingPrice.toFixed(2)), { alignment: AL, border: B.all, numFmt: '#,##0.00' });
       } else {
-        F(mtlR, C.N, `SUM(${lRefs.join(',')},${labFRef},${commFRef})/5`,
-          item.evaluation.homeCostPrice, { alignment: AL, border: B.all });
+        F(mtlR, C.N, `ROUND(SUM(${lRefs.join(',')},${labFRef},${commFRef})/5, 2)`,
+          Number(item.evaluation.homeCostPrice.toFixed(2)), { alignment: AL, border: B.all, numFmt: '#,##0.00' });
         F(mtlR, C.O,
-          `(SUM(${[...nonEmeraldLRefs, labFRef, commFRef].join(',')})*1.4)/5`,
-          item.evaluation.sellingPrice, { alignment: AL, border: B.all });
+          `ROUND((SUM(${[...nonEmeraldLRefs, labFRef, commFRef].join(',')})*1.4)/5, 2)`,
+          Number(item.evaluation.sellingPrice.toFixed(2)), { alignment: AL, border: B.all, numFmt: '#,##0.00' });
+      }
+
+      // ===================== MERGES FOR ITEM BLOCK =====================
+      // Merge Labour across Columns F to L (Gross WT through Total column)
+      merges.push({ s: { r: labR, c: C.F }, e: { r: labR, c: C.L } });
+
+      // Merge Commission across Columns F to L (Gross WT through Total column)
+      merges.push({ s: { r: commR, c: C.F }, e: { r: commR, c: C.L } });
+
+      // Vertical merges across the item block rows
+      if (commR > mtlR) {
+        merges.push({ s: { r: mtlR, c: C.A }, e: { r: commR, c: C.A } }); // S No.
+        merges.push({ s: { r: mtlR, c: C.B }, e: { r: commR, c: C.B } }); // Description by 5
+        merges.push({ s: { r: mtlR, c: C.C }, e: { r: commR, c: C.C } }); // Date of MFG
+        merges.push({ s: { r: mtlR, c: C.M }, e: { r: commR, c: C.M } }); // market C.P
+        merges.push({ s: { r: mtlR, c: C.N }, e: { r: commR, c: C.N } }); // home C.P
+        merges.push({ s: { r: mtlR, c: C.O }, e: { r: commR, c: C.O } }); // SP for market
       }
 
       // Blank gap row between items
@@ -1568,24 +1633,25 @@ const Catalog = {
     N(rowIdx, C.M, totalMarketCP,        MONEY_BOLD);
     N(rowIdx, C.O, totalSellingPrice,    MONEY_BOLD);
 
-    // ── Worksheet range & column widths ──
+    // ── Worksheet range, merges & column widths ──
     ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rowIdx, c: C.O } });
+    ws['!merges'] = merges;
     ws['!cols'] = [
-      { wch: 6  }, // A
-      { wch: 30 }, // B
-      { wch: 12 }, // C
-      { wch: 8  }, // D
-      { wch: 14 }, // E
-      { wch: 10 }, // F
-      { wch: 10 }, // G
-      { wch: 18 }, // H Stone Desc
-      { wch: 7  }, // I Pieces
-      { wch: 8  }, // J CTS
-      { wch: 12 }, // K @ Rate
-      { wch: 14 }, // L Total
-      { wch: 14 }, // M Market CP
-      { wch: 14 }, // N Home CP
-      { wch: 14 }, // O SP
+      { wch: 22 }, // A - S.No / Pre-headers / Legend / GRAND TOTAL
+      { wch: 34 }, // B - Description by 5 / Values
+      { wch: 15 }, // C - Date of MFG
+      { wch: 11 }, // D - Grading (karat)
+      { wch: 16 }, // E - Type
+      { wch: 12 }, // F - Gross WT
+      { wch: 12 }, // G - Net WT
+      { wch: 22 }, // H - Stone Description
+      { wch: 10 }, // I - Pieces
+      { wch: 10 }, // J - CTS
+      { wch: 14 }, // K - @ Rate
+      { wch: 15 }, // L - Total
+      { wch: 15 }, // M - Market CP
+      { wch: 15 }, // N - Home CP
+      { wch: 15 }, // O - SP for Market
     ];
 
     // ── rates tk sheet ──
@@ -2027,6 +2093,7 @@ const Catalog = {
             sku:                String(sNoNum),   // sequence from Excel — will be replaced by category SKU on import
             category:           guessCategory(col1),
             description:        col1 + (col2 ? ` (MFG: ${col2})` : ''),
+            mfgDate:            col2 || '',
             metals: [{
               name:   'Body Component',
               karat:  karat,

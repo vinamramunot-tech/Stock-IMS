@@ -1423,4 +1423,148 @@
   font-family: var(--font-mono, monospace);
 }
 
+/* ==========================================================================
+   INTERACTIVE PRICE RANGE & VALUATION DISTRIBUTION BAR CHART
+   ========================================================================== */
+
+.analyzer-chart-wrapper {
+  background: var(--bg-base);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 24px 20px 16px 20px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-x: auto;
+}
+
+.analyzer-chart-stage {
+  min-height: 230px;
+  height: 230px;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  gap: 20px;
+  border-bottom: 2px solid var(--border-medium, rgba(255, 255, 255, 0.15));
+  padding-bottom: 4px;
+}
+
+.analyzer-chart-gridlines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.analyzer-chart-gridline {
+  width: 100%;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+}
+
+.analyzer-chart-gridline span {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  opacity: 0.45;
+  margin-left: 2px;
+}
+
+.analyzer-bar-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  flex: 1 1 0;
+  min-width: 95px;
+  max-width: 150px;
+  position: relative;
+  z-index: 2;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.analyzer-bar-col:hover {
+  transform: translateY(-5px);
+}
+
+.analyzer-bar-metric-top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 8px;
+  transition: all 0.2s ease;
+}
+
+.analyzer-bar-count-badge {
+  font-size: 11px;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  background: var(--bg-card);
+  border: 1px solid var(--border-gold-subtle, rgba(212, 175, 55, 0.3));
+  color: var(--text-gold-light, #f3e5ab);
+  padding: 2px 8px;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  white-space: nowrap;
+}
+
+.analyzer-bar-pct {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.analyzer-bar-pillar {
+  width: 60%;
+  min-width: 36px;
+  max-width: 64px;
+  border-radius: 6px 6px 2px 2px;
+  background: linear-gradient(180deg, #fef08a 0%, #d4af37 40%, #854d0e 100%);
+  box-shadow: 0 4px 14px rgba(212, 175, 55, 0.28);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.analyzer-bar-col:hover .analyzer-bar-pillar {
+  background: linear-gradient(180deg, #ffffff 0%, #fef08a 20%, #d4af37 60%, #a16207 100%);
+  box-shadow: 0 6px 22px rgba(212, 175, 55, 0.55);
+  filter: brightness(1.1);
+}
+
+.analyzer-bar-axis-label {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 3px;
+}
+
+.analyzer-bar-range-text {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+}
+
+.analyzer-bar-retail-val {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-gold, #d4af37);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+
 
