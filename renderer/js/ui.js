@@ -365,11 +365,11 @@ const UI = {
       </div>
       <div class="input-group" style="margin-bottom:0;">
         <label>Karat (KT)</label>
-        <input type="number" class="metal-part-karat recalc-trigger" step="0.01" min="0" max="24" placeholder="e.g. 18" value="${part.karat || ''}">
+        <input type="number" class="metal-part-karat recalc-trigger" step="0.01" min="0" max="24" placeholder="e.g. 18" value="${partData.karat || ''}">
       </div>
       <div class="input-group" style="margin-bottom:0;">
         <label>Weight (g)</label>
-        <input type="number" class="metal-part-weight recalc-trigger" step="0.01" min="0" placeholder="0.00" value="${part.weight || ''}">
+        <input type="number" class="metal-part-weight recalc-trigger" step="0.01" min="0" placeholder="0.00" value="${partData.weight || ''}">
       </div>
       <div class="input-group" style="margin-bottom:0;">
         <label>Wastage (%)</label>
