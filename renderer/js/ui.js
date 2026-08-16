@@ -341,12 +341,15 @@ const UI = {
   /**
    * Metals Components UI Builders
    */
-  createMetalPartRow(part = { name: '', karat: 18, weight: '', wastage: null }) {
+  createMetalPartRow(part = { name: '', karat: 18, weight: '', wastage: null, directValue: '' }) {
     const container = document.getElementById('metals-list-container');
     const partId = 'metal_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
     const safePartName = this.escapeHtml(part.name || '');
     const defaultWastage = document.getElementById('item-wastage') ? document.getElementById('item-wastage').value : '15.00';
     const displayWastage = (part.wastage !== undefined && part.wastage !== null) ? part.wastage : defaultWastage;
+    const directVal = (part.directValue !== undefined && part.directValue !== null && part.directValue !== '') 
+      ? part.directValue 
+      : ((part.totalValue !== undefined && part.totalValue !== null && part.totalValue !== '') ? part.totalValue : '');
 
     const row = document.createElement('div');
     row.className = 'metal-part-entry-card';
@@ -355,7 +358,7 @@ const UI = {
     row.innerHTML = `
       <div class="input-group" style="margin-bottom:0;">
         <label>Part Name</label>
-        <input type="text" class="metal-part-name" placeholder="e.g. Main Ring Shank" value="${safePartName}">
+        <input type="text" class="metal-part-name" placeholder="e.g. Chain / Clasp" value="${safePartName}">
       </div>
       <div class="input-group" style="margin-bottom:0;">
         <label>Karat (KT)</label>
@@ -368,6 +371,10 @@ const UI = {
       <div class="input-group" style="margin-bottom:0;">
         <label>Wastage (%)</label>
         <input type="number" class="metal-part-wastage recalc-trigger" step="0.01" min="0" placeholder="15.00" value="${displayWastage}">
+      </div>
+      <div class="input-group" style="margin-bottom:0;">
+        <label>Direct Value (₹) <span style="font-size:10px; font-weight:normal; color:var(--text-muted);">(Optional)</span></label>
+        <input type="number" class="metal-part-direct-value recalc-trigger" step="0.01" min="0" placeholder="e.g. 5000" value="${directVal}">
       </div>
       <div class="entry-card-btn-col">
         <button type="button" class="btn btn-danger btn-small btn-remove-part">&times;</button>
@@ -385,27 +392,30 @@ const UI = {
     const karatSelect = row.querySelector('.metal-part-karat');
     const weightInput = row.querySelector('.metal-part-weight');
     const wastageInput = row.querySelector('.metal-part-wastage');
+    const directValInput = row.querySelector('.metal-part-direct-value');
 
     const triggerRecalc = () => {
       this.updateFormCalculations();
     };
 
-    // Karat updates on change, input, and keyup
     karatSelect.addEventListener('change', triggerRecalc);
     karatSelect.addEventListener('input', triggerRecalc);
     karatSelect.addEventListener('keyup', triggerRecalc);
 
-    // Weight updates on typing (input), change, and key release (keyup)
     weightInput.addEventListener('input', triggerRecalc);
     weightInput.addEventListener('change', triggerRecalc);
     weightInput.addEventListener('keyup', triggerRecalc);
 
-    // Wastage updates
     wastageInput.addEventListener('input', triggerRecalc);
     wastageInput.addEventListener('change', triggerRecalc);
     wastageInput.addEventListener('keyup', triggerRecalc);
 
-    // Name changes
+    if (directValInput) {
+      directValInput.addEventListener('input', triggerRecalc);
+      directValInput.addEventListener('change', triggerRecalc);
+      directValInput.addEventListener('keyup', triggerRecalc);
+    }
+
     nameInput.addEventListener('input', triggerRecalc);
 
     container.appendChild(row);
@@ -542,7 +552,10 @@ const UI = {
       const weight = Number(row.querySelector('.metal-part-weight').value || 0);
       const wastageVal = row.querySelector('.metal-part-wastage')?.value;
       const wastage = (wastageVal !== undefined && wastageVal !== null && wastageVal.trim() !== '') ? Number(wastageVal) : null;
-      currentItem.metals.push({ name, karat, weight, wastage });
+      const directValStr = row.querySelector('.metal-part-direct-value')?.value;
+      const directValue = (directValStr !== undefined && directValStr !== null && directValStr.trim() !== '') ? Number(directValStr) : null;
+
+      currentItem.metals.push({ name, karat, weight, wastage, directValue, totalValue: directValue });
     });
 
     // Stones & Diamonds

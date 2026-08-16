@@ -801,7 +801,17 @@ const Catalog = {
       const weight = Number(row.querySelector('.metal-part-weight').value || 0);
       const wastageVal = row.querySelector('.metal-part-wastage')?.value;
       const partWastage = (wastageVal !== undefined && wastageVal !== null && wastageVal.trim() !== '') ? Number(wastageVal) : null;
-      savedItem.metals.push({ name: partName, karat: partKarat, weight, wastage: partWastage });
+      const directValStr = row.querySelector('.metal-part-direct-value')?.value;
+      const directValue = (directValStr !== undefined && directValStr !== null && directValStr.trim() !== '') ? Number(directValStr) : null;
+
+      savedItem.metals.push({
+        name: partName,
+        karat: partKarat || 18,
+        weight,
+        wastage: partWastage,
+        directValue,
+        totalValue: directValue
+      });
     });
 
     // Stones & Diamonds

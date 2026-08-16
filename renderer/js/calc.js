@@ -145,14 +145,26 @@ const Calc = {
     let metalTotalMfg = 0;
 
     netMetals.forEach(part => {
-      const partWastage = (part.wastage !== undefined && part.wastage !== null && part.wastage !== '') ? Number(part.wastage) : defaultWastage;
-      const wastageFactor = 1 + (partWastage / 100);
+      const manualVal = (part.totalValue !== undefined && part.totalValue !== null && part.totalValue !== '' && Number(part.totalValue) > 0)
+        ? Number(part.totalValue)
+        : ((part.directValue !== undefined && part.directValue !== null && part.directValue !== '' && Number(part.directValue) > 0)
+          ? Number(part.directValue)
+          : null);
 
-      const partValGlobal = this.calculateMetalValue(part.netWeight, part.karat, globalRate);
-      metalTotalGlobal += partValGlobal * wastageFactor;
+      if (manualVal !== null) {
+        // Direct manual purchase value specified
+        metalTotalGlobal += manualVal;
+        metalTotalMfg += manualVal;
+      } else {
+        const partWastage = (part.wastage !== undefined && part.wastage !== null && part.wastage !== '') ? Number(part.wastage) : defaultWastage;
+        const wastageFactor = 1 + (partWastage / 100);
 
-      const partValMfg = this.calculateMetalValue(part.netWeight, part.karat, mfgRate);
-      metalTotalMfg += partValMfg * wastageFactor;
+        const partValGlobal = this.calculateMetalValue(part.netWeight, part.karat, globalRate);
+        metalTotalGlobal += partValGlobal * wastageFactor;
+
+        const partValMfg = this.calculateMetalValue(part.netWeight, part.karat, mfgRate);
+        metalTotalMfg += partValMfg * wastageFactor;
+      }
     });
 
     // 2. Stone values

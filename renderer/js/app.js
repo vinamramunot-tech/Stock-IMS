@@ -837,7 +837,8 @@ const App = {
       } else {
         netMetals.forEach(m => {
           const div = document.createElement('div');
-          div.innerHTML = `<strong>${m.name || 'Metal'} (${m.karat}KT Gold):</strong> Gross: ${Number(m.grossWeight || 0).toFixed(3)}g (Net: ${Number(m.netWeight || 0).toFixed(3)}g, Wastage: ${Number(m.wastage || 0).toFixed(2)}%)`;
+          const valTag = (m.directValue || m.totalValue) ? ` · <span style="color: var(--text-gold-light); font-weight: 600;">₹${Number(m.directValue || m.totalValue).toLocaleString('en-IN')} (Direct Value)</span>` : '';
+          div.innerHTML = `<strong>${m.name || 'Metal'} (${m.karat}KT Gold):</strong> Gross: ${Number(m.grossWeight || 0).toFixed(3)}g (Net: ${Number(m.netWeight || 0).toFixed(3)}g, Wastage: ${Number(m.wastage || 0).toFixed(2)}%)${valTag}`;
           metalsList.appendChild(div);
         });
       }
