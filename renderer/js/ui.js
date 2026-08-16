@@ -341,15 +341,18 @@ const UI = {
   /**
    * Metals Components UI Builders
    */
-  createMetalPartRow(part = { name: '', karat: 18, weight: '', wastage: null, directValue: '' }) {
+  createMetalPartRow(part = null) {
     const container = document.getElementById('metals-list-container');
+    const mainKaratEl = document.getElementById('item-karat');
+    const defaultKarat = mainKaratEl && Number(mainKaratEl.value) > 0 ? Number(mainKaratEl.value) : 18;
+    const partData = part || { name: '', karat: defaultKarat, weight: '', wastage: null, directValue: '' };
     const partId = 'metal_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
-    const safePartName = this.escapeHtml(part.name || '');
+    const safePartName = this.escapeHtml(partData.name || '');
     const defaultWastage = document.getElementById('item-wastage') ? document.getElementById('item-wastage').value : '15.00';
-    const displayWastage = (part.wastage !== undefined && part.wastage !== null) ? part.wastage : defaultWastage;
-    const directVal = (part.directValue !== undefined && part.directValue !== null && part.directValue !== '') 
-      ? part.directValue 
-      : ((part.totalValue !== undefined && part.totalValue !== null && part.totalValue !== '') ? part.totalValue : '');
+    const displayWastage = (partData.wastage !== undefined && partData.wastage !== null) ? partData.wastage : defaultWastage;
+    const directVal = (partData.directValue !== undefined && partData.directValue !== null && partData.directValue !== '') 
+      ? partData.directValue 
+      : ((partData.totalValue !== undefined && partData.totalValue !== null && partData.totalValue !== '') ? partData.totalValue : '');
 
     const row = document.createElement('div');
     row.className = 'metal-part-entry-card';
