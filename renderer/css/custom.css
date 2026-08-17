@@ -814,7 +814,8 @@
   top: 0;
   left: 0;
   height: 100%;
-  background-color: rgba(80, 200, 120, 0.1); /* transparent emerald green */
+  background-color: rgba(80, 200, 120, 0.1);
+  /* transparent emerald green */
   z-index: -1;
   transition: width 0.5s ease-out;
 }
@@ -1092,9 +1093,17 @@
   font-weight: 800;
 }
 
-.outcome-option-card.active-sale::after { color: #30D158; }
-.outcome-option-card.active-partial::after { color: var(--text-gold-dark); }
-.outcome-option-card.active-return::after { color: #8C8CA0; }
+.outcome-option-card.active-sale::after {
+  color: #30D158;
+}
+
+.outcome-option-card.active-partial::after {
+  color: var(--text-gold-dark);
+}
+
+.outcome-option-card.active-return::after {
+  color: #8C8CA0;
+}
 
 /* Outcome input sections */
 .outcome-section {
@@ -1107,8 +1116,15 @@
 }
 
 @keyframes outcomeSlideIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .outcome-section-divider {
@@ -1696,6 +1712,89 @@
   white-space: nowrap;
 }
 
+/* ==========================================================================
+   SCROLL TO TOP FLOATING BUTTON
+   ========================================================================== */
 
+.scroll-to-top-btn {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background-color: var(--bg-card);
+  color: var(--text-main);
+  border: 1px solid var(--border-dark);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 9995;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(14px) scale(0.88);
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.2s ease,
+              border-color 0.2s ease,
+              color 0.2s ease,
+              box-shadow 0.2s ease;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
 
+.scroll-to-top-btn.visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
 
+.scroll-to-top-btn:hover {
+  background-color: var(--bg-base);
+  border-color: var(--text-gold, #d4af37);
+  color: var(--text-gold, #d4af37);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18), 0 0 10px rgba(212, 175, 55, 0.25);
+  transform: translateY(-2px) scale(1.04);
+}
+
+.scroll-to-top-btn:active {
+  transform: translateY(1px) scale(0.96);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.scroll-to-top-btn svg {
+  width: 20px;
+  height: 20px;
+  transition: transform 0.2s ease;
+}
+
+.scroll-to-top-btn:hover svg {
+  transform: translateY(-2px);
+}
+
+/* Dark mode refinement */
+[data-theme="dark"] .scroll-to-top-btn {
+  background-color: var(--bg-card);
+  border-color: var(--border-light);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="dark"] .scroll-to-top-btn:hover {
+  border-color: var(--text-gold, #d4af37);
+  color: var(--text-gold, #d4af37);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6), 0 0 12px rgba(212, 175, 55, 0.35);
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .scroll-to-top-btn {
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    right: calc(20px + env(safe-area-inset-right, 0px));
+    width: 42px;
+    height: 42px;
+  }
+}

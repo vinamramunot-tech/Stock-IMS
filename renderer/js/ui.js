@@ -91,6 +91,9 @@ const UI = {
     const modal = document.getElementById(modalId);
     if (modal) {
       modal.classList.remove('hidden');
+      if (this.updateScrollToTop) {
+        this.updateScrollToTop();
+      }
     }
   },
 
@@ -98,6 +101,9 @@ const UI = {
     const modal = document.getElementById(modalId);
     if (modal) {
       modal.classList.add('hidden');
+      if (this.updateScrollToTop) {
+        this.updateScrollToTop();
+      }
     }
   },
 
@@ -799,6 +805,13 @@ const UI = {
       document.getElementById('uploaded-img-el').src = item.image;
       document.getElementById('uploader-prompt').classList.add('hidden');
       document.getElementById('uploader-preview').classList.remove('hidden');
+      this.activeItemState.image = item.image;
+    } else {
+      document.getElementById('uploaded-img-el').src = '';
+      document.getElementById('uploader-prompt').classList.remove('hidden');
+      document.getElementById('uploader-preview').classList.add('hidden');
+      document.getElementById('item-image-file').value = '';
+      this.activeItemState.image = null;
     }
 
     // Additional Metals Load
@@ -921,6 +934,104 @@ const UI = {
         });
       }
     }
+  },
+
+  // Setup Global Scroll-to-Top Button for all scrollable screens & modals
+  initScrollToTop() {
+    const btn = document.getElementById('btn-scroll-to-top');
+    if (!btn) return;
+
+    const mainContainer = document.querySelector('.workspace-main');
+
+    const updateVisibility = () => {
+      let isScrolled = false;
+
+      // 1. Check workspace-main
+      if (mainContainer && mainContainer.scrollTop > 150) {
+        isScrolled = true;
+      }
+
+      // 2. Check window / body scroll
+      if (!isScrolled) {
+        const docScroll = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+        if (docScroll > 150) {
+          isScrolled = true;
+        }
+      }
+
+      // 3. Check open modals
+      if (!isScrolled) {
+        const openModals = document.querySelectorAll('.modal-overlay:not(.hidden)');
+        for (const modal of openModals) {
+          const scrollable = modal.querySelector('.modal-body') || modal.querySelector('.modal-card') || modal;
+          if (scrollable && scrollable.scrollTop > 150) {
+            isScrolled = true;
+            break;
+          }
+        }
+      }
+
+      if (isScrolled) {
+        btn.classList.add('visible');
+      } else {
+        btn.classList.remove('visible');
+      }
+    };
+
+    let ticking = false;
+    const onScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          updateVisibility();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    // Listen on workspace-main
+    if (mainContainer) {
+      mainContainer.addEventListener('scroll', onScroll, { passive: true });
+    }
+
+    // Capture all scroll events from window, modals, or any nested scrollable containers
+    window.addEventListener('scroll', onScroll, { passive: true, capture: true });
+
+    // Handle scroll to top click
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+
+      // 1. Scroll any open and scrolled modal
+      const openModals = document.querySelectorAll('.modal-overlay:not(.hidden)');
+      for (const modal of openModals) {
+        const modalBody = modal.querySelector('.modal-body');
+        if (modalBody && modalBody.scrollTop > 0) {
+          modalBody.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        const modalCard = modal.querySelector('.modal-card');
+        if (modalCard && modalCard.scrollTop > 0) {
+          modalCard.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        if (modal.scrollTop > 0) {
+          modal.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }
+
+      // 2. Scroll workspace-main
+      if (mainContainer && mainContainer.scrollTop > 0) {
+        mainContainer.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
+      // 3. Scroll window & document element
+      if (window.pageYOffset > 0 || document.documentElement.scrollTop > 0 || document.body.scrollTop > 0) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        if (document.documentElement) {
+          document.documentElement.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }
+    });
+
+    this.updateScrollToTop = updateVisibility;
   }
 };
 

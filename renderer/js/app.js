@@ -37,6 +37,7 @@ const App = {
       SalesController.init();
     }
     this.initLogs();
+    UI.initScrollToTop();
 
     // 2. Tab switching navigation listeners
     const navItems = document.querySelectorAll('.nav-item[data-target]');
@@ -362,7 +363,13 @@ const App = {
       }
     });
 
-
+    const mainWorkArea = document.querySelector('.workspace-main');
+    if (mainWorkArea) {
+      mainWorkArea.scrollTop = 0;
+    }
+    if (UI.updateScrollToTop) {
+      UI.updateScrollToTop();
+    }
 
     this.refreshAllDisplays();
   },
@@ -645,14 +652,29 @@ const App = {
     // Retrieve all items
     const allItems = DBManager.getItems();
 
-    // Filter items: match search query (SKU, Name, Category)
+    // Canonical chronological S.No map for all items in the database
+    const chronological = [...allItems].sort((a, b) => {
+      const tA = a.createdAt ? new Date(a.createdAt).getTime() : Number(a.id?.split('_')[1] || 0);
+      const tB = b.createdAt ? new Date(b.createdAt).getTime() : Number(b.id?.split('_')[1] || 0);
+      return tA - tB;
+    });
+    const itemSnoMap = new Map();
+    chronological.forEach((it, idx) => {
+      itemSnoMap.set(it.id, it.sno || (idx + 1));
+    });
+
+    // Filter items: match search query (SKU, Name, Category, or S.No)
     let filtered = allItems.filter(item => {
       if (!query) return true;
       const matchSku = (item.sku || '').toLowerCase().includes(query);
       const matchName = (item.name || '').toLowerCase().includes(query);
       const matchCat = (item.category || '').toLowerCase().includes(query);
-      return matchSku || matchName || matchCat;
+      const snoStr = String(itemSnoMap.get(item.id) || item.sno || '');
+      return matchSku || matchName || matchCat || snoStr.includes(query);
     });
+
+    // Consistently sort by S.No (Ascending) so pieces always stay in their exact fixed slots
+    filtered.sort((a, b) => (itemSnoMap.get(a.id) || a.sno || 0) - (itemSnoMap.get(b.id) || b.sno || 0));
 
     gridContainer.innerHTML = '';
 
@@ -668,6 +690,7 @@ const App = {
     filtered.forEach(item => {
       const card = document.createElement('div');
       card.className = 'photo-card';
+      const serialNumber = itemSnoMap.get(item.id) || item.sno || 1;
       
       const imgContent = item.image
         ? `<img src="${item.image}" alt="${UI.escapeHtml(item.name || 'Jewelry Photo')}" class="photo-card-img">`
@@ -686,7 +709,10 @@ const App = {
           ${imgContent}
         </div>
         <div class="photo-card-body">
-          <div class="photo-card-sku">${UI.escapeHtml(item.sku || 'SKU-NONE')}</div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+            <span class="product-sno-badge" style="font-family: var(--font-mono); font-weight: 800; font-size: 11px; background: var(--bg-gold-subtle, rgba(212, 175, 55, 0.15)); color: var(--text-gold-dark, #b8860b); border: 1px solid var(--border-gold-subtle, rgba(212, 175, 55, 0.3)); padding: 1px 6px; border-radius: 4px;">S.No: ${serialNumber}</span>
+            <div class="photo-card-sku">${UI.escapeHtml(item.sku || 'SKU-NONE')}</div>
+          </div>
           <div class="photo-card-name">${UI.escapeHtml(item.name || 'Unnamed Piece')}</div>
         </div>
       `;
@@ -724,6 +750,9 @@ const App = {
       const matchShape = (item.shape || '').toLowerCase().includes(query);
       return matchGroup || matchShape;
     });
+
+    // Sort by Pudia/Color number
+    filtered.sort((a, b) => (Number(a.color) || 0) - (Number(b.color) || 0));
 
     gridContainer.innerHTML = '';
 
@@ -770,33 +799,38 @@ const App = {
     
     if (imgEl) {
       const parentContainer = imgEl.parentElement;
+      if (placeholderEl) {
+        placeholderEl.remove();
+        placeholderEl = null;
+      }
+
       if (item.image) {
         imgEl.src = item.image;
         imgEl.style.display = 'block';
-        if (placeholderEl) placeholderEl.remove();
       } else {
+        imgEl.src = '';
         imgEl.style.display = 'none';
-        if (!placeholderEl) {
-          placeholderEl = document.createElement('div');
-          placeholderEl.id = 'detail-jewelry-image-placeholder';
-          placeholderEl.style.cssText = 'display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--text-muted); opacity: 0.7; cursor: pointer; height: 100%; width: 100%;';
-          placeholderEl.innerHTML = `
-            <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-              <circle cx="8.5" cy="8.5" r="1.5"/>
-              <polyline points="21 15 16 10 5 21"/>
-            </svg>
-            <span style="font-size: 12px; font-weight: 600; text-transform: uppercase;">No Photo Attached</span>
-            <button type="button" class="btn btn-secondary btn-small" id="btn-detail-add-photo" style="font-size: 11px;">+ Upload Photo</button>
-          `;
-          parentContainer.appendChild(placeholderEl);
-          placeholderEl.querySelector('#btn-detail-add-photo').addEventListener('click', () => {
-            UI.closeModal('modal-jewelry-detail');
-            document.getElementById('jewelry-modal-title').textContent = "Edit Jewelry Piece & Add Photo";
-            UI.loadItemIntoForm(item);
-            UI.openModal('modal-jewelry-item');
-          });
-        }
+        
+        placeholderEl = document.createElement('div');
+        placeholderEl.id = 'detail-jewelry-image-placeholder';
+        placeholderEl.style.cssText = 'display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--text-muted); opacity: 0.7; cursor: pointer; height: 100%; width: 100%;';
+        placeholderEl.innerHTML = `
+          <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/>
+            <polyline points="21 15 16 10 5 21"/>
+          </svg>
+          <span style="font-size: 12px; font-weight: 600; text-transform: uppercase;">No Photo Attached</span>
+          <button type="button" class="btn btn-secondary btn-small" id="btn-detail-add-photo" style="font-size: 11px;">+ Upload Photo</button>
+        `;
+        parentContainer.appendChild(placeholderEl);
+        
+        placeholderEl.querySelector('#btn-detail-add-photo').addEventListener('click', () => {
+          UI.closeModal('modal-jewelry-detail');
+          document.getElementById('jewelry-modal-title').textContent = "Edit Jewelry Piece & Add Photo";
+          UI.loadItemIntoForm(item);
+          UI.openModal('modal-jewelry-item');
+        });
       }
     }
 
