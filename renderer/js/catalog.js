@@ -641,16 +641,19 @@ const Catalog = {
     goldGainEl.textContent = `+₹${totalStockGoldGain.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
     craftMarginEl.textContent = `₹${totalStockCraftMargin.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
 
-    // Realized Sales Gold Gain
+    // Realized Sales Gold Gain & Replacement Profit
     const sales = DBManager.database?.jewelrySales || [];
     let salesCommodityGain = 0;
     sales.forEach(sale => {
-      const soldPrice = Number(sale.soldPrice || 0);
-      const mfgCost = Number(sale.mfgCost || 0);
-      const profit = Number(sale.profit || (soldPrice - mfgCost));
-      const months = Number(sale.monthsElapsed || 1);
-      const estimatedGoldPct = Math.min(0.65, months * 0.015);
-      salesCommodityGain += Math.max(0, profit * estimatedGoldPct);
+      if (sale.goldCommodityGain !== undefined && sale.goldCommodityGain !== null) {
+        salesCommodityGain += Number(sale.goldCommodityGain);
+      } else {
+        const soldPrice = Number(sale.soldPrice || 0);
+        const mfgCost = Number(sale.mfgCost || 0);
+        const repCost = Number(sale.replacementCost || mfgCost);
+        const gain = Math.max(0, repCost - mfgCost);
+        salesCommodityGain += gain;
+      }
     });
 
     if (salesGoldGainEl) {

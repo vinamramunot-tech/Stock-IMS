@@ -699,8 +699,34 @@
         <!-- ==================== TAB: JEWELRY SALES ==================== -->
         <div id="tab-jewelry-sales" class="tab-content hidden">
 
+          <!-- SALES METRICS BAR -->
+          <section class="metrics-bar" style="margin-top: 10px;">
+            <div class="metrics-line-1" style="grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 12px;">
+              <div class="metric-card">
+                <span class="metric-label">TOTAL SALES REVENUE</span>
+                <span class="metric-value text-gold" id="sales-page-metric-revenue">₹0.00</span>
+                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Cumulative realized sales</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">MANUFACTURING PROFIT</span>
+                <span class="metric-value" style="color: #22c55e;" id="sales-page-metric-mfg-profit">+₹0.00</span>
+                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Historical margin (Gold at Mfg Date)</span>
+              </div>
+              <div class="metric-card gold-border">
+                <span class="metric-label">REPLACEMENT PROFIT</span>
+                <span class="metric-value" style="color: var(--info-color, #38bdf8);" id="sales-page-metric-rep-profit">+₹0.00</span>
+                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Economic margin (Gold on Sale Date)</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">GOLD COMMODITY GAIN</span>
+                <span class="metric-value" style="color: var(--text-gold-dark);" id="sales-page-metric-gold-gain">+₹0.00</span>
+                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Bullion inflation upside</span>
+              </div>
+            </div>
+          </section>
+
           <!-- SEARCH & FILTERS -->
-          <div class="filter-bar" style="margin-top: 10px;">
+          <div class="filter-bar" style="margin-top: 5px;">
             <div class="search-box">
               <input type="text" id="jewelry-sales-search-input" placeholder="Search by SKU, Name, Customer, Broker...">
               <svg viewBox="0 0 24 24" width="18" height="18" class="search-icon">
@@ -739,16 +765,18 @@
             <table class="logs-table">
               <thead>
                 <tr>
-                  <th style="width: 10%;">SALE DATE</th>
-                  <th style="width: 10%;">SKU</th>
-                  <th style="width: 18%;">PIECE NAME</th>
-                  <th style="width: 10%;">MFG DATE</th>
-                  <th style="width: 10%;">TIME ELAPSED</th>
-                  <th style="width: 13%;">SOLD TO (CUSTOMER)</th>
-                  <th style="width: 10%; text-align:right;">MFG COST</th>
-                  <th style="width: 10%; text-align:right;">SOLD PRICE</th>
-                  <th style="width: 10%; text-align:right;">TOTAL PROFIT</th>
-                  <th style="width: 9%; text-align:center;">ACTIONS</th>
+                  <th style="width: 8%;">SALE DATE</th>
+                  <th style="width: 8%;">SKU</th>
+                  <th style="width: 14%;">PIECE & CAT</th>
+                  <th style="width: 8%;">MFG DATE</th>
+                  <th style="width: 8%;">HOLDING</th>
+                  <th style="width: 11%;">SOLD TO</th>
+                  <th style="width: 8%; text-align:right;">MFG COST</th>
+                  <th style="width: 9%; text-align:right;">REPLACE COST</th>
+                  <th style="width: 8%; text-align:right;">SOLD PRICE</th>
+                  <th style="width: 9%; text-align:right;">MFG PROFIT</th>
+                  <th style="width: 9%; text-align:right;">REPLACE PROFIT</th>
+                  <th style="width: 8%; text-align:center;">ACTIONS</th>
                 </tr>
               </thead>
               <tbody id="jewelry-sales-list-tbody">
@@ -1262,27 +1290,27 @@
                   </div>
 
                   <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
-                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Total Realized Profit</div>
+                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Manufacturing Profit</div>
                     <div style="font-size: 18px; font-weight: 800; color: #22c55e; margin-top: 4px;" id="analyzer-sales-metric-profit">+₹0.00</div>
-                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Net margin over Mfg Cost</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Historical (Gold at Mfg Date)</div>
                   </div>
 
                   <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
-                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Total Pieces Sold</div>
-                    <div style="font-size: 18px; font-weight: 800; color: var(--text-main); margin-top: 4px;" id="analyzer-sales-metric-count">0</div>
-                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Completed transactions</div>
+                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Replacement Profit</div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--info-color, #38bdf8); margin-top: 4px;" id="analyzer-sales-metric-replacement-profit">+₹0.00</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Economic (Gold on Sale Date)</div>
+                  </div>
+
+                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Gold Inflation Gain</div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--text-gold-dark); margin-top: 4px;" id="analyzer-sales-metric-gold-gain">+₹0.00</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Bullion appreciation upside</div>
                   </div>
 
                   <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
                     <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Avg Holding Period</div>
-                    <div style="font-size: 18px; font-weight: 800; color: var(--info-color, #38bdf8); margin-top: 4px;" id="analyzer-sales-metric-time-elapsed">0 Days</div>
-                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Avg time from Mfg to Sale</div>
-                  </div>
-
-                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
-                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Avg Profit % / Month</div>
-                    <div style="font-size: 18px; font-weight: 800; color: #22c55e; margin-top: 4px;" id="analyzer-sales-metric-monthly-roi">+0.00%/mo</div>
-                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Capital velocity / monthly yield</div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--text-main); margin-top: 4px;" id="analyzer-sales-metric-time-elapsed">0 Days</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;"><span id="analyzer-sales-metric-count">0</span> pcs sold</div>
                   </div>
                 </div>
 
@@ -3597,29 +3625,46 @@
         </div>
 
         <div class="form-grid-row">
-          <div class="form-col-6">
+          <div class="form-col-4">
             <div class="input-group">
-              <label for="jewelry-sale-mfg-cost">Mfg Cost Price (₹)</label>
-              <input type="text" id="jewelry-sale-mfg-cost" readonly style="width:100%;height:38px;padding:6px 12px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);opacity:0.85;font-weight:600;">
+              <label for="jewelry-sale-mfg-cost">Mfg Cost (₹)</label>
+              <input type="text" id="jewelry-sale-mfg-cost" readonly style="width:100%;height:38px;padding:6px 10px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);opacity:0.85;font-weight:600;font-size:12px;" title="Historical cost based on gold price during manufacturing">
             </div>
           </div>
-          <div class="form-col-6">
+          <div class="form-col-4">
             <div class="input-group">
-              <label for="jewelry-sale-final-price">Final Sold Price (₹) <span class="required">*</span></label>
-              <input type="number" id="jewelry-sale-final-price" step="0.01" min="0" placeholder="0.00" required style="width:100%;height:38px;padding:6px 12px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-gold-dark);font-weight:700;font-size:15px;">
+              <label for="jewelry-sale-replacement-cost">Replace Cost (₹)</label>
+              <input type="text" id="jewelry-sale-replacement-cost" readonly style="width:100%;height:38px;padding:6px 10px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);opacity:0.85;font-weight:600;font-size:12px;" title="Replacement cost based on gold price on sale date">
+            </div>
+          </div>
+          <div class="form-col-4">
+            <div class="input-group">
+              <label for="jewelry-sale-final-price">Sold Price (₹) <span class="required">*</span></label>
+              <input type="number" id="jewelry-sale-final-price" step="0.01" min="0" placeholder="0.00" required style="width:100%;height:38px;padding:6px 10px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-gold-dark);font-weight:700;font-size:14px;">
             </div>
           </div>
         </div>
 
-        <!-- Live Profit Calculation Card -->
-        <div style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px 16px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
-          <div>
-            <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Realized Profit / Margin</div>
-            <div style="font-size: 18px; font-weight: 800; color: #22c55e;" id="jewelry-sale-profit-display">₹0.00 (+0.00%)</div>
+        <!-- Dual Live Profit Calculation Card -->
+        <div style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px 16px; margin-bottom: 16px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-gold-dark);">PROFIT CALCULATION BREAKDOWN</div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 11px; color: var(--text-muted);">Sale Date:</span>
+              <input type="date" id="jewelry-sale-date" style="height: 30px; font-size: 12px; padding: 2px 8px; border: 1px solid var(--border-light); border-radius: 4px; background: var(--bg-base); color: var(--text-main);">
+            </div>
           </div>
-          <div style="text-align: right;">
-            <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 2px;">Sale Date</div>
-            <input type="date" id="jewelry-sale-date" style="height: 32px; font-size: 12px; padding: 4px 8px; border: 1px solid var(--border-light); border-radius: 4px; background: var(--bg-base); color: var(--text-main);">
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+            <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 4px; padding: 8px 12px;">
+              <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #22c55e;">Manufacturing Profit</div>
+              <div style="font-size: 15px; font-weight: 800; color: #22c55e; margin-top: 2px;" id="jewelry-sale-mfg-profit-display">₹0.00 (+0.00%)</div>
+              <div style="font-size: 10px; color: var(--text-muted);">Based on gold price at mfg</div>
+            </div>
+            <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 4px; padding: 8px 12px;">
+              <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--info-color, #38bdf8);">Replacement Profit</div>
+              <div style="font-size: 15px; font-weight: 800; color: var(--info-color, #38bdf8); margin-top: 2px;" id="jewelry-sale-rep-profit-display">₹0.00 (+0.00%)</div>
+              <div style="font-size: 10px; color: var(--text-muted);">Based on gold price at sale</div>
+            </div>
           </div>
         </div>
 

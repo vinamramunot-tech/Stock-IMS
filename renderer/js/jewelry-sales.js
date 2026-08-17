@@ -220,7 +220,14 @@ const JewelrySalesController = {
 
     // 1. Compute Top Summary Metrics
     const totalRevenue = records.reduce((sum, r) => sum + (Number(r.soldPrice) || 0), 0);
-    const totalProfit = records.reduce((sum, r) => sum + (Number(r.profit) || 0), 0);
+    const totalMfgProfit = records.reduce((sum, r) => sum + (Number(r.mfgProfit !== undefined ? r.mfgProfit : r.profit) || 0), 0);
+    const totalReplacementProfit = records.reduce((sum, r) => {
+      const rep = (r.replacementProfit !== undefined && r.replacementProfit !== null)
+        ? Number(r.replacementProfit)
+        : (Number(r.soldPrice || 0) - Number(r.replacementCost || r.mfgCost || 0));
+      return sum + rep;
+    }, 0);
+    const totalGoldGain = totalMfgProfit - totalReplacementProfit;
     const totalPieces = records.length;
 
     const totalDays = records.reduce((sum, r) => sum + (Number(r.daysElapsed) || 0), 0);
@@ -230,8 +237,11 @@ const JewelrySalesController = {
     const totalMonthlyRoi = records.reduce((sum, r) => sum + (Number(r.monthlyProfitPct) || 0), 0);
     const avgMonthlyRoi = totalPieces > 0 ? (totalMonthlyRoi / totalPieces).toFixed(2) : '0.00';
 
+    // Populate Sales Page Top Metrics Bar
+    this.updateSalesPageMetrics(totalRevenue, totalMfgProfit, totalReplacementProfit, totalGoldGain);
+
     // Populate Analyzer Page Top Metrics & Intelligence
-    this.updateMetricsElements('analyzer-sales', totalRevenue, totalProfit, totalPieces, avgDays, avgMonths, avgMonthlyRoi);
+    this.updateMetricsElements('analyzer-sales', totalRevenue, totalMfgProfit, totalReplacementProfit, totalGoldGain, totalPieces, avgDays, avgMonths, avgMonthlyRoi);
     this.renderPriceRangeIntelligence(records, 'analyzer');
     this.renderCustomerIntelligence(records);
     this.renderBrokerIntelligence(records);
@@ -289,54 +299,67 @@ const JewelrySalesController = {
       const imgSrc = mainItem ? mainItem.image : null;
 
       const imgHtml = imgSrc
-        ? `<img src="${imgSrc}" alt="${UI.escapeHtml(sale.name)}" style="width:32px;height:32px;object-fit:cover;border-radius:4px;border:1px solid var(--border-light);cursor:pointer;" class="sales-thumb-img" loading="lazy" decoding="async">`
-        : `<div style="width:32px;height:32px;border-radius:4px;border:1px solid var(--border-light);background:var(--bg-base);display:inline-flex;align-items:center;justify-content:center;color:var(--text-muted);opacity:0.6;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>`;
+        ? `<img src="${imgSrc}" alt="${UI.escapeHtml(sale.name)}" style="width:30px;height:30px;object-fit:cover;border-radius:4px;border:1px solid var(--border-light);cursor:pointer;" class="sales-thumb-img" loading="lazy" decoding="async">`
+        : `<div style="width:30px;height:30px;border-radius:4px;border:1px solid var(--border-light);background:var(--bg-base);display:inline-flex;align-items:center;justify-content:center;color:var(--text-muted);opacity:0.6;"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>`;
 
-      const profit = Number(sale.profit) || 0;
-      const marginPct = Number(sale.marginPct) || 0;
+      const mfgCost = Number(sale.mfgCost) || 0;
+      const repCost = Number(sale.replacementCost) || mfgCost;
+      const soldPrice = Number(sale.soldPrice) || 0;
 
-      const profitSign = profit >= 0 ? '+' : '';
-      const profitColor = profit >= 0 ? '#22c55e' : '#ef4444';
+      const mfgProfit = (sale.mfgProfit !== undefined && sale.mfgProfit !== null) ? Number(sale.mfgProfit) : (soldPrice - mfgCost);
+      const mfgMarginPct = (sale.mfgMarginPct !== undefined && sale.mfgMarginPct !== null) ? Number(sale.mfgMarginPct) : (mfgCost > 0 ? (mfgProfit / mfgCost) * 100 : 0);
+      const mfgSign = mfgProfit >= 0 ? '+' : '';
+      const mfgColor = mfgProfit >= 0 ? '#22c55e' : '#ef4444';
+
+      const repProfit = (sale.replacementProfit !== undefined && sale.replacementProfit !== null) ? Number(sale.replacementProfit) : (soldPrice - repCost);
+      const repMarginPct = (sale.replacementMarginPct !== undefined && sale.replacementMarginPct !== null) ? Number(sale.replacementMarginPct) : (repCost > 0 ? (repProfit / repCost) * 100 : 0);
+      const repSign = repProfit >= 0 ? '+' : '';
+      const repColor = repProfit >= 0 ? 'var(--info-color, #38bdf8)' : '#ef4444';
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td style="font-size:12px;color:var(--text-main);font-weight:600;">${dateFmt}</td>
-        <td style="font-weight:700;color:var(--text-main);">${UI.escapeHtml(sale.sku)}</td>
+        <td style="font-size:11.5px;color:var(--text-main);font-weight:600;">${dateFmt}</td>
+        <td style="font-weight:700;color:var(--text-main);font-size:12px;">${UI.escapeHtml(sale.sku)}</td>
         <td>
-          <div style="display:flex;align-items:center;gap:8px;">
+          <div style="display:flex;align-items:center;gap:6px;">
             ${imgHtml}
             <div>
-              <strong style="color:var(--text-main);font-size:13px;">${UI.escapeHtml(sale.name)}</strong>
-              <div style="font-size:11px;color:var(--text-muted);">${UI.escapeHtml(sale.category || 'Jewelry')}</div>
+              <strong style="color:var(--text-main);font-size:12px;">${UI.escapeHtml(sale.name)}</strong>
+              <div style="font-size:10px;color:var(--text-muted);">${UI.escapeHtml(sale.category || 'Jewelry')}</div>
             </div>
           </div>
         </td>
-        <td style="font-size:12px;color:var(--text-muted);">${mfgFmt}</td>
-        <td style="font-size:12px;color:var(--info-color, #38bdf8);font-weight:600;">
-          ${sale.daysElapsed} days
-          <div style="font-size:10px;color:var(--text-muted);font-weight:normal;">(${sale.monthsElapsed} mos)</div>
+        <td style="font-size:11.5px;color:var(--text-muted);">${mfgFmt}</td>
+        <td style="font-size:11.5px;color:var(--info-color, #38bdf8);font-weight:600;">
+          ${sale.daysElapsed}d
+          <div style="font-size:10px;color:var(--text-muted);font-weight:normal;">(${sale.monthsElapsed}m)</div>
         </td>
         <td>
-          <strong style="color:var(--text-main);font-size:13px;">${UI.escapeHtml(sale.customerName || '—')}</strong>
-          ${sale.brokerName && sale.brokerName !== '—' ? `<div style="font-size:11px;color:var(--text-muted);">Broker: ${UI.escapeHtml(sale.brokerName)}</div>` : ''}
+          <strong style="color:var(--text-main);font-size:12px;">${UI.escapeHtml(sale.customerName || '—')}</strong>
+          ${sale.brokerName && sale.brokerName !== '—' ? `<div style="font-size:10px;color:var(--text-muted);">Broker: ${UI.escapeHtml(sale.brokerName)}</div>` : ''}
         </td>
-        <td style="text-align:right;font-size:12px;color:var(--text-muted);">₹${(Number(sale.mfgCost) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-        <td style="text-align:right;font-weight:700;color:var(--text-gold-dark);font-size:13px;cursor:pointer;" class="btn-edit-sale-price-cell" title="Click to edit sale price">
-          <div style="display:inline-flex;align-items:center;gap:4px;">
-            <span>₹${(Number(sale.soldPrice) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" style="opacity:0.6;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        <td style="text-align:right;font-size:11.5px;color:var(--text-muted);">₹${mfgCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+        <td style="text-align:right;font-size:11.5px;color:var(--text-muted);">₹${repCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+        <td style="text-align:right;font-weight:700;color:var(--text-gold-dark);font-size:12.5px;cursor:pointer;" class="btn-edit-sale-price-cell" title="Click to edit sale price">
+          <div style="display:inline-flex;align-items:center;gap:3px;justify-content:flex-end;">
+            <span>₹${soldPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" style="opacity:0.6;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
           </div>
         </td>
-        <td style="text-align:right;font-weight:700;font-size:13px;color:${profitColor};">
-          ${profitSign}₹${profit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-          <div style="font-size:10px;font-weight:600;opacity:0.85;">(${profitSign}${marginPct.toFixed(1)}%)</div>
+        <td style="text-align:right;font-weight:700;font-size:12px;color:${mfgColor};">
+          ${mfgSign}₹${mfgProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          <div style="font-size:10px;font-weight:600;opacity:0.85;">(${mfgSign}${mfgMarginPct.toFixed(1)}%)</div>
+        </td>
+        <td style="text-align:right;font-weight:700;font-size:12px;color:${repColor};">
+          ${repSign}₹${repProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          <div style="font-size:10px;font-weight:600;opacity:0.85;">(${repSign}${repMarginPct.toFixed(1)}%)</div>
         </td>
         <td style="text-align:center;">
-          <div style="display:flex;gap:4px;justify-content:center;flex-wrap:nowrap;">
-            <button type="button" class="btn btn-secondary btn-small btn-edit-sale-price" style="font-size:11px;padding:3px 8px;white-space:nowrap;" title="Change sale price">
-              Edit Price
+          <div style="display:flex;gap:3px;justify-content:center;flex-wrap:nowrap;">
+            <button type="button" class="btn btn-secondary btn-small btn-edit-sale-price" style="font-size:10px;padding:2px 6px;white-space:nowrap;" title="Change sale price">
+              Edit
             </button>
-            <button type="button" class="btn btn-secondary btn-small btn-return-sale" style="font-size:11px;padding:3px 8px;white-space:nowrap;color:var(--danger-red, #ef4444);border-color:rgba(239,68,68,0.3);" title="Return piece back to In Stock inventory">
+            <button type="button" class="btn btn-secondary btn-small btn-return-sale" style="font-size:10px;padding:2px 6px;white-space:nowrap;color:var(--danger-red, #ef4444);border-color:rgba(239,68,68,0.3);" title="Return piece back to In Stock inventory">
               Return
             </button>
           </div>
@@ -403,10 +426,18 @@ const JewelrySalesController = {
     if (brokerInp) brokerInp.value = (saleRecord.brokerName && saleRecord.brokerName !== '—') ? saleRecord.brokerName : '';
 
     const mfgCost = Number(saleRecord.mfgCost) || 0;
+    const replacementCost = Number(saleRecord.replacementCost) || mfgCost;
+
     const mfgCostInp = document.getElementById('jewelry-sale-mfg-cost');
     if (mfgCostInp) {
       mfgCostInp.value = `₹${mfgCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
       mfgCostInp.dataset.mfgCost = mfgCost;
+    }
+
+    const repCostInp = document.getElementById('jewelry-sale-replacement-cost');
+    if (repCostInp) {
+      repCostInp.value = `₹${replacementCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+      repCostInp.dataset.replacementCost = replacementCost;
     }
 
     const finalPriceInp = document.getElementById('jewelry-sale-final-price');
@@ -502,18 +533,54 @@ const JewelrySalesController = {
     });
   },
 
-  updateMetricsElements(prefix, totalRevenue, totalProfit, totalPieces, avgDays, avgMonths, avgMonthlyRoi) {
+  updateSalesPageMetrics(totalRevenue, totalMfgProfit, totalReplacementProfit, totalGoldGain) {
+    const revEl = document.getElementById('sales-page-metric-revenue');
+    const mfgProfEl = document.getElementById('sales-page-metric-mfg-profit');
+    const repProfEl = document.getElementById('sales-page-metric-rep-profit');
+    const goldGainEl = document.getElementById('sales-page-metric-gold-gain');
+
+    if (revEl) revEl.textContent = '₹' + totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 });
+    if (mfgProfEl) {
+      const sign = totalMfgProfit >= 0 ? '+' : '';
+      mfgProfEl.textContent = `${sign}₹${totalMfgProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+      mfgProfEl.style.color = totalMfgProfit >= 0 ? '#22c55e' : '#ef4444';
+    }
+    if (repProfEl) {
+      const sign = totalReplacementProfit >= 0 ? '+' : '';
+      repProfEl.textContent = `${sign}₹${totalReplacementProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+      repProfEl.style.color = totalReplacementProfit >= 0 ? 'var(--info-color, #38bdf8)' : '#ef4444';
+    }
+    if (goldGainEl) {
+      const sign = totalGoldGain >= 0 ? '+' : '';
+      goldGainEl.textContent = `${sign}₹${totalGoldGain.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+      goldGainEl.style.color = totalGoldGain >= 0 ? 'var(--text-gold-dark)' : '#ef4444';
+    }
+  },
+
+  updateMetricsElements(prefix, totalRevenue, totalMfgProfit, totalReplacementProfit, totalGoldGain, totalPieces, avgDays, avgMonths, avgMonthlyRoi) {
     const revEl = document.getElementById(`${prefix}-metric-revenue`);
     const profEl = document.getElementById(`${prefix}-metric-profit`);
+    const repProfEl = document.getElementById(`${prefix}-metric-replacement-profit`);
+    const goldGainEl = document.getElementById(`${prefix}-metric-gold-gain`);
     const cntEl = document.getElementById(`${prefix}-metric-count`);
     const timeEl = document.getElementById(`${prefix}-metric-time-elapsed`);
     const roiEl = document.getElementById(`${prefix}-metric-monthly-roi`);
 
     if (revEl) revEl.textContent = '₹' + totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 });
     if (profEl) {
-      const sign = totalProfit >= 0 ? '+' : '';
-      profEl.textContent = `${sign}₹${totalProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
-      profEl.style.color = totalProfit >= 0 ? '#22c55e' : '#ef4444';
+      const sign = totalMfgProfit >= 0 ? '+' : '';
+      profEl.textContent = `${sign}₹${totalMfgProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+      profEl.style.color = totalMfgProfit >= 0 ? '#22c55e' : '#ef4444';
+    }
+    if (repProfEl) {
+      const sign = totalReplacementProfit >= 0 ? '+' : '';
+      repProfEl.textContent = `${sign}₹${totalReplacementProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+      repProfEl.style.color = totalReplacementProfit >= 0 ? 'var(--info-color, #38bdf8)' : '#ef4444';
+    }
+    if (goldGainEl) {
+      const sign = totalGoldGain >= 0 ? '+' : '';
+      goldGainEl.textContent = `${sign}₹${totalGoldGain.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+      goldGainEl.style.color = totalGoldGain >= 0 ? 'var(--text-gold-dark)' : '#ef4444';
     }
     if (cntEl) cntEl.textContent = totalPieces;
     if (timeEl) timeEl.textContent = `${avgDays} Days (${avgMonths} mos)`;
@@ -941,24 +1008,42 @@ const JewelrySalesController = {
       return;
     }
 
-    const data = records.map(r => ({
-      'Sale Date': r.saleDate || '',
-      'SKU': r.sku || '',
-      'Piece Name': r.name || '',
-      'Category': r.category || '',
-      'Mfg Date': r.mfgDate || '',
-      'Holding Period (Days)': Number(r.daysElapsed || 0),
-      'Holding Period (Months)': Number(r.monthsElapsed || 0),
-      'Sold To (Customer)': r.customerName || '',
-      'Broker': r.brokerName || '',
-      'Memo Ref': r.memoNumber || '',
-      'Mfg Cost (₹)': Number(r.mfgCost || 0),
-      'Sold Price (₹)': Number(r.soldPrice || 0),
-      'Total Profit (₹)': Number(r.profit || 0),
-      'Total Margin %': Number(r.marginPct || 0).toFixed(2) + '%',
-      'Profit % / Month': Number(r.monthlyProfitPct || 0).toFixed(2) + '%/mo',
-      'Notes': r.notes || ''
-    }));
+    const data = records.map(r => {
+      const mfgCost = Number(r.mfgCost || 0);
+      const repCost = Number(r.replacementCost || mfgCost);
+      const soldPrice = Number(r.soldPrice || 0);
+
+      const mfgProfit = (r.mfgProfit !== undefined && r.mfgProfit !== null) ? Number(r.mfgProfit) : (soldPrice - mfgCost);
+      const mfgMarginPct = (r.mfgMarginPct !== undefined && r.mfgMarginPct !== null) ? Number(r.mfgMarginPct) : (mfgCost > 0 ? (mfgProfit / mfgCost) * 100 : 0);
+
+      const repProfit = (r.replacementProfit !== undefined && r.replacementProfit !== null) ? Number(r.replacementProfit) : (soldPrice - repCost);
+      const repMarginPct = (r.replacementMarginPct !== undefined && r.replacementMarginPct !== null) ? Number(r.replacementMarginPct) : (repCost > 0 ? (repProfit / repCost) * 100 : 0);
+
+      const goldGain = (r.goldCommodityGain !== undefined && r.goldCommodityGain !== null) ? Number(r.goldCommodityGain) : (mfgProfit - repProfit);
+
+      return {
+        'Sale Date': r.saleDate || '',
+        'SKU': r.sku || '',
+        'Piece Name': r.name || '',
+        'Category': r.category || '',
+        'Mfg Date': r.mfgDate || '',
+        'Holding (Days)': Number(r.daysElapsed || 0),
+        'Holding (Months)': Number(r.monthsElapsed || 0),
+        'Sold To (Customer)': r.customerName || '',
+        'Broker': r.brokerName || '',
+        'Memo Ref': r.memoNumber || '',
+        'Mfg Cost (₹)': mfgCost,
+        'Replace Cost (₹)': repCost,
+        'Sold Price (₹)': soldPrice,
+        'Mfg Profit (₹)': mfgProfit,
+        'Mfg Margin %': mfgMarginPct.toFixed(2) + '%',
+        'Replace Profit (₹)': repProfit,
+        'Replace Margin %': repMarginPct.toFixed(2) + '%',
+        'Gold Inflation Gain (₹)': goldGain,
+        'Profit % / Month': Number(r.monthlyProfitPct || 0).toFixed(2) + '%/mo',
+        'Notes': r.notes || ''
+      };
+    });
 
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
@@ -981,7 +1066,7 @@ const JewelrySalesController = {
 
     doc.setFont("georgia", "bold");
     doc.setFontSize(18);
-    doc.text("MAVA GEMS - JEWELRY SALES & VELOCITY LEDGER", 14, 20);
+    doc.text("MAVA GEMS - JEWELRY SALES & DUAL PROFIT LEDGER", 14, 20);
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
@@ -989,52 +1074,66 @@ const JewelrySalesController = {
     doc.text(`Total Records: ${records.length}`, 14, 34);
 
     const totalRev = records.reduce((s, r) => s + (Number(r.soldPrice) || 0), 0);
-    const totalProf = records.reduce((s, r) => s + (Number(r.profit) || 0), 0);
-    doc.text(`Total Revenue: Rs ${totalRev.toLocaleString()}`, 180, 28);
-    doc.text(`Total Profit: Rs ${totalProf.toLocaleString()}`, 180, 34);
+    const totalMfgProf = records.reduce((s, r) => s + (Number(r.mfgProfit !== undefined ? r.mfgProfit : r.profit) || 0), 0);
+    const totalRepProf = records.reduce((s, r) => {
+      const rep = (r.replacementProfit !== undefined && r.replacementProfit !== null)
+        ? Number(r.replacementProfit)
+        : (Number(r.soldPrice || 0) - Number(r.replacementCost || r.mfgCost || 0));
+      return s + rep;
+    }, 0);
+
+    doc.text(`Total Revenue: Rs ${totalRev.toLocaleString()}`, 155, 28);
+    doc.text(`Mfg Profit: Rs ${totalMfgProf.toLocaleString()}  |  Replace Profit: Rs ${totalRepProf.toLocaleString()}`, 155, 34);
 
     doc.setDrawColor(200);
     doc.line(14, 38, 282, 38);
 
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(8.5);
+    doc.setFontSize(8);
     doc.text("Sale Date", 14, 44);
-    doc.text("SKU", 38, 44);
-    doc.text("Piece Name", 64, 44);
-    doc.text("Category", 120, 44);
-    doc.text("Mfg Date", 148, 44);
-    doc.text("Holding", 172, 44);
-    doc.text("Customer / Client", 196, 44);
-    doc.text("Mfg Cost", 240, 44, { align: 'right' });
-    doc.text("Sold Price", 262, 44, { align: 'right' });
-    doc.text("Profit (Rs)", 282, 44, { align: 'right' });
+    doc.text("SKU", 36, 44);
+    doc.text("Piece Name", 58, 44);
+    doc.text("Category", 108, 44);
+    doc.text("Holding", 132, 44);
+    doc.text("Customer", 152, 44);
+    doc.text("Mfg Cost", 192, 44, { align: 'right' });
+    doc.text("Replace Cost", 216, 44, { align: 'right' });
+    doc.text("Sold Price", 238, 44, { align: 'right' });
+    doc.text("Mfg Profit", 260, 44, { align: 'right' });
+    doc.text("Replace Profit", 282, 44, { align: 'right' });
 
     doc.line(14, 47, 282, 47);
 
     let y = 53;
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
+    doc.setFontSize(7.5);
 
     records.forEach(r => {
       if (y > 185) {
         doc.addPage();
         y = 20;
       }
+      const mfgCost = Number(r.mfgCost || 0);
+      const repCost = Number(r.replacementCost || mfgCost);
+      const soldPrice = Number(r.soldPrice || 0);
+      const mfgProfit = (r.mfgProfit !== undefined && r.mfgProfit !== null) ? Number(r.mfgProfit) : (soldPrice - mfgCost);
+      const repProfit = (r.replacementProfit !== undefined && r.replacementProfit !== null) ? Number(r.replacementProfit) : (soldPrice - repCost);
+
       doc.text(r.saleDate || '—', 14, y);
       doc.setFont("helvetica", "bold");
-      doc.text(r.sku || '', 38, y);
+      doc.text(r.sku || '', 36, y);
       doc.setFont("helvetica", "normal");
-      doc.text((r.name || '').substring(0, 30), 64, y);
-      doc.text((r.category || 'Jewelry').substring(0, 14), 120, y);
-      doc.text(r.mfgDate || '—', 148, y);
-      doc.text(`${r.daysElapsed}d (${r.monthsElapsed}m)`, 172, y);
-      doc.text((r.customerName || '—').substring(0, 20), 196, y);
-      doc.text(`Rs ${(Number(r.mfgCost) || 0).toLocaleString()}`, 240, y, { align: 'right' });
-      doc.text(`Rs ${(Number(r.soldPrice) || 0).toLocaleString()}`, 262, y, { align: 'right' });
+      doc.text((r.name || '').substring(0, 26), 58, y);
+      doc.text((r.category || 'Jewelry').substring(0, 12), 108, y);
+      doc.text(`${r.daysElapsed}d (${r.monthsElapsed}m)`, 132, y);
+      doc.text((r.customerName || '—').substring(0, 18), 152, y);
+      doc.text(`Rs ${mfgCost.toLocaleString()}`, 192, y, { align: 'right' });
+      doc.text(`Rs ${repCost.toLocaleString()}`, 216, y, { align: 'right' });
+      doc.text(`Rs ${soldPrice.toLocaleString()}`, 238, y, { align: 'right' });
       
-      const p = Number(r.profit) || 0;
       doc.setFont("helvetica", "bold");
-      doc.text(`Rs ${p.toLocaleString()}`, 282, y, { align: 'right' });
+      doc.text(`Rs ${mfgProfit.toLocaleString()}`, 260, y, { align: 'right' });
+      doc.text(`Rs ${repProfit.toLocaleString()}`, 282, y, { align: 'right' });
       doc.setFont("helvetica", "normal");
       y += 6.5;
     });

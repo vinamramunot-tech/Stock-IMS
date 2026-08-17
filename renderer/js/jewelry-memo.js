@@ -676,9 +676,19 @@ const JewelryMemoController = {
     const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
     const evalItem = mainItem ? Calc.evaluateItem(mainItem, goldRate) : null;
     const mfgCost = (evalItem && evalItem.mfgGrandTotal) ? evalItem.mfgGrandTotal : (memoItem ? memoItem.mfgCost : (mainItem?.mfgCostPrice || 0));
+    const replacementCost = (evalItem && evalItem.marketCostPrice) ? evalItem.marketCostPrice : mfgCost;
 
-    document.getElementById('jewelry-sale-mfg-cost').value = `₹${mfgCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
-    document.getElementById('jewelry-sale-mfg-cost').dataset.mfgCost = mfgCost;
+    const mfgCostEl = document.getElementById('jewelry-sale-mfg-cost');
+    if (mfgCostEl) {
+      mfgCostEl.value = `₹${mfgCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+      mfgCostEl.dataset.mfgCost = mfgCost;
+    }
+
+    const repCostEl = document.getElementById('jewelry-sale-replacement-cost');
+    if (repCostEl) {
+      repCostEl.value = `₹${replacementCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+      repCostEl.dataset.replacementCost = replacementCost;
+    }
 
     const initialPrice = memoItem ? memoItem.sellingPrice : (evalItem ? evalItem.sellingPrice : 0);
     document.getElementById('jewelry-sale-final-price').value = initialPrice;
@@ -691,17 +701,31 @@ const JewelryMemoController = {
 
   updateSaleProfitCalculation() {
     const mfgCost = parseFloat(document.getElementById('jewelry-sale-mfg-cost')?.dataset.mfgCost || 0);
+    const repCost = parseFloat(document.getElementById('jewelry-sale-replacement-cost')?.dataset.replacementCost || mfgCost);
     const finalPrice = parseFloat(document.getElementById('jewelry-sale-final-price')?.value || 0);
-    const displayEl = document.getElementById('jewelry-sale-profit-display');
-    if (!displayEl) return;
 
-    const profit = finalPrice - mfgCost;
-    const marginPct = mfgCost > 0 ? ((profit / mfgCost) * 100).toFixed(2) : 0.00;
-    const sign = profit >= 0 ? '+' : '';
-    const color = profit >= 0 ? '#22c55e' : '#ef4444';
+    const mfgProfitEl = document.getElementById('jewelry-sale-mfg-profit-display');
+    const repProfitEl = document.getElementById('jewelry-sale-rep-profit-display');
 
-    displayEl.textContent = `₹${profit.toLocaleString(undefined, { minimumFractionDigits: 2 })} (${sign}${marginPct}%)`;
-    displayEl.style.color = color;
+    const mfgProfit = finalPrice - mfgCost;
+    const mfgMarginPct = mfgCost > 0 ? ((mfgProfit / mfgCost) * 100).toFixed(2) : '0.00';
+    const mfgSign = mfgProfit >= 0 ? '+' : '';
+    const mfgColor = mfgProfit >= 0 ? '#22c55e' : '#ef4444';
+
+    if (mfgProfitEl) {
+      mfgProfitEl.textContent = `₹${mfgProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })} (${mfgSign}${mfgMarginPct}%)`;
+      mfgProfitEl.style.color = mfgColor;
+    }
+
+    const repProfit = finalPrice - repCost;
+    const repMarginPct = repCost > 0 ? ((repProfit / repCost) * 100).toFixed(2) : '0.00';
+    const repSign = repProfit >= 0 ? '+' : '';
+    const repColor = repProfit >= 0 ? 'var(--info-color, #38bdf8)' : '#ef4444';
+
+    if (repProfitEl) {
+      repProfitEl.textContent = `₹${repProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })} (${repSign}${repMarginPct}%)`;
+      repProfitEl.style.color = repColor;
+    }
   },
 
   async handleConfirmJewelrySale() {
@@ -729,8 +753,12 @@ const JewelryMemoController = {
     }
 
     const mfgCost = parseFloat(document.getElementById('jewelry-sale-mfg-cost')?.dataset.mfgCost || 0);
+    const replacementCost = parseFloat(document.getElementById('jewelry-sale-replacement-cost')?.dataset.replacementCost || mfgCost);
     const profit = finalSoldPrice - mfgCost;
     const marginPct = mfgCost > 0 ? (profit / mfgCost) * 100 : 0;
+    const replacementProfit = finalSoldPrice - replacementCost;
+    const replacementMarginPct = replacementCost > 0 ? (replacementProfit / replacementCost) * 100 : 0;
+    const goldCommodityGain = replacementCost - mfgCost;
 
     let mainItem = DBManager.database.items.find(i => i.id === itemId || i.sku === itemId);
     let pieceName = mainItem?.name || 'Jewelry Piece';
@@ -754,8 +782,15 @@ const JewelryMemoController = {
       let existingSale = DBManager.database.jewelrySales.find(s => s.id === saleId || s.itemId === itemId);
       if (existingSale) {
         existingSale.soldPrice = finalSoldPrice;
+        existingSale.mfgCost = mfgCost;
+        existingSale.replacementCost = replacementCost;
         existingSale.profit = profit;
+        existingSale.mfgProfit = profit;
         existingSale.marginPct = marginPct;
+        existingSale.mfgMarginPct = marginPct;
+        existingSale.replacementProfit = replacementProfit;
+        existingSale.replacementMarginPct = replacementMarginPct;
+        existingSale.goldCommodityGain = goldCommodityGain;
         existingSale.monthlyProfitPct = monthlyProfitPct;
         existingSale.customerName = customerName;
         existingSale.brokerName = brokerName || '—';
@@ -778,9 +813,15 @@ const JewelryMemoController = {
           customerName,
           brokerName: brokerName || '—',
           mfgCost,
+          replacementCost,
           soldPrice: finalSoldPrice,
           profit,
+          mfgProfit: profit,
           marginPct,
+          mfgMarginPct: marginPct,
+          replacementProfit,
+          replacementMarginPct,
+          goldCommodityGain,
           monthlyProfitPct,
           notes,
           createdAt: new Date().toISOString()
