@@ -1312,43 +1312,42 @@
   left: 10px;
   z-index: 12;
   cursor: pointer;
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
-  background: rgba(18, 18, 20, 0.82);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1.5px solid rgba(255, 255, 255, 0.22);
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  background: rgba(18, 18, 20, 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  box-shadow: none;
 }
 
 .catalog-select-label:hover {
   border-color: var(--text-gold-light, #d4af37);
-  background: rgba(26, 26, 30, 0.95);
-  transform: scale(1.08);
+  background: rgba(26, 26, 30, 0.65);
 }
 
 .catalog-select-label:has(input:checked),
 .catalog-select-label.is-checked {
-  background: linear-gradient(135deg, #d4af37, #b8860b);
-  border-color: #fef08a;
-  box-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
+  background: rgba(212, 175, 55, 0.22);
+  border-color: var(--text-gold, #d4af37);
+  box-shadow: 0 0 8px rgba(212, 175, 55, 0.25);
 }
 
 .catalog-item-select {
   cursor: pointer;
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
   margin: 0;
   accent-color: var(--text-gold-dark, #b8860b);
   opacity: 0.95;
 }
 
-/* In List View: Position checkbox inline to the left of the image, NEVER overlapping */
+/* In List View: Position checkbox inline to the left of the image, seamlessly merged with card background */
 .catalog-grid-container.list-view .product-card {
   position: relative;
   display: flex;
@@ -1362,14 +1361,34 @@
   top: auto !important;
   left: auto !important;
   flex-shrink: 0;
+  width: auto !important;
+  height: auto !important;
   margin: 0 2px 0 0;
-  background: var(--bg-card);
-  border-color: var(--border-medium, rgba(255, 255, 255, 0.15));
+  padding: 4px;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
-.catalog-grid-container.list-view .catalog-select-label:has(input:checked) {
-  background: linear-gradient(135deg, #d4af37, #b8860b);
-  border-color: #fef08a;
+.catalog-grid-container.list-view .catalog-select-label:hover {
+  background: transparent !important;
+  transform: scale(1.08);
+}
+
+.catalog-grid-container.list-view .catalog-select-label:has(input:checked),
+.catalog-grid-container.list-view .catalog-select-label.is-checked {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.catalog-grid-container.list-view .catalog-item-select {
+  width: 17px;
+  height: 17px;
+  cursor: pointer;
+  accent-color: var(--text-gold-dark, #b8860b);
 }
 
 /* Highlight for selected item card */

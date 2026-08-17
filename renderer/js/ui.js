@@ -155,9 +155,9 @@ const UI = {
         let rawBase64 = event.target.result;
         const filename = (file.name || '').toLowerCase();
         if (
-          file.type === 'image/heic' || 
-          file.type === 'image/heif' || 
-          filename.endsWith('.heic') || 
+          file.type === 'image/heic' ||
+          file.type === 'image/heif' ||
+          filename.endsWith('.heic') ||
           filename.endsWith('.heif') ||
           rawBase64.startsWith('data:image/heic') ||
           rawBase64.startsWith('data:image/heif') ||
@@ -350,8 +350,8 @@ const UI = {
     const safePartName = this.escapeHtml(partData.name || '');
     const defaultWastage = document.getElementById('item-wastage') ? document.getElementById('item-wastage').value : '15.00';
     const displayWastage = (partData.wastage !== undefined && partData.wastage !== null) ? partData.wastage : defaultWastage;
-    const directVal = (partData.directValue !== undefined && partData.directValue !== null && partData.directValue !== '') 
-      ? partData.directValue 
+    const directVal = (partData.directValue !== undefined && partData.directValue !== null && partData.directValue !== '')
+      ? partData.directValue
       : ((partData.totalValue !== undefined && partData.totalValue !== null && partData.totalValue !== '') ? partData.totalValue : '');
 
     const row = document.createElement('div');
@@ -667,6 +667,13 @@ const UI = {
     document.getElementById('metals-list-container').replaceChildren();
     document.getElementById('stones-list-container').replaceChildren();
 
+    const skuInput = document.getElementById('item-sku');
+    if (skuInput) {
+      skuInput.value = '';
+      skuInput.dataset.autoFilled = 'true';
+      delete skuInput.dataset.lastAutoSku;
+    }
+
     // Reset image uploader display
     document.getElementById('item-image-file').value = '';
     document.getElementById('uploaded-img-el').src = '';
@@ -828,28 +835,38 @@ const UI = {
     const categorySelect = document.getElementById('item-category');
     if (!categorySelect) return;
 
-    const category = categorySelect.value;
+    const category = categorySelect.value || 'Ring';
     const isEdit = this.activeItemState && this.activeItemState.id !== undefined;
 
-    // Prefixes mapping — must match exact category strings stored in DB
+    // Standardized Prefixes mapping (supports both singular and plural)
     const prefixes = {
-      'Earrings':  'EAR-',
-      'Rings':     'RNG-',
+      'Earrings': 'EAR-',
+      'Earring': 'EAR-',
+      'Rings': 'RNG-',
+      'Ring': 'RNG-',
       'Necklaces': 'NCK-',
+      'Necklace': 'NCK-',
       'Bracelets': 'BRC-',
-      'Pendants':  'PND-',
-      'Other':     'JWL-'
+      'Bracelet': 'BRC-',
+      'Pendants': 'PND-',
+      'Pendant': 'PND-',
+      'Other': 'JWL-'
     };
 
     const prefix = prefixes[category] || 'JWL-';
     const allItems = DBManager.getItems();
-    const categoryItems = allItems.filter(item => item.category === category);
+    const normCat = (category || '').toLowerCase().replace(/s$/, '');
+
+    const categoryItems = allItems.filter(item => {
+      const itemNorm = (item.category || '').toLowerCase().replace(/s$/, '');
+      return itemNorm === normCat || (item.sku && item.sku.toUpperCase().startsWith(prefix.toUpperCase()));
+    });
     const count = categoryItems.length;
 
     // Find highest suffix number in existing SKUs of this category
     let maxNum = 0;
-    categoryItems.forEach(item => {
-      if (item.sku) {
+    allItems.forEach(item => {
+      if (item.sku && item.sku.toUpperCase().startsWith(prefix.toUpperCase())) {
         const match = item.sku.match(/\d+$/);
         if (match) {
           const num = parseInt(match[0], 10);
@@ -860,12 +877,18 @@ const UI = {
       }
     });
 
-    const nextNum = maxNum > 0 ? maxNum + 1 : count + 1;
+    const nextNum = maxNum > 0 ? maxNum + 1 : 1;
     const formattedNum = String(nextNum).padStart(2, '0');
     const suggestedSku = `${prefix}${formattedNum}`;
 
     const skuInput = document.getElementById('item-sku');
     if (skuInput) {
+      if (!isEdit && (!skuInput.value || skuInput.dataset.autoFilled === 'true' || skuInput.dataset.lastAutoSku === skuInput.value)) {
+        skuInput.value = suggestedSku;
+        skuInput.dataset.autoFilled = 'true';
+        skuInput.dataset.lastAutoSku = suggestedSku;
+      }
+
       helperEl.replaceChildren();
       if (isEdit) {
         helperEl.appendChild(document.createTextNode(`Next suggestion for new ${category}s: `));
@@ -887,11 +910,13 @@ const UI = {
         skuSpan.title = 'Click to auto-fill';
         skuSpan.textContent = suggestedSku;
         helperEl.appendChild(skuSpan);
-        const countText = ` (${count} ${category}${count === 1 ? '' : 's'} exist) — Click to apply`;
+        const countText = ` (${count} ${category}${count === 1 ? '' : 's'} exist) — Auto-applied`;
         helperEl.appendChild(document.createTextNode(countText));
 
         skuSpan.addEventListener('click', () => {
           skuInput.value = suggestedSku;
+          skuInput.dataset.autoFilled = 'true';
+          skuInput.dataset.lastAutoSku = suggestedSku;
           this.showToast(`Applied SKU: ${suggestedSku}`);
         });
       }

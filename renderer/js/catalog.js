@@ -23,9 +23,9 @@ const Catalog = {
         const allItems = DBManager.getItems();
 
         const visibleItems = allItems.filter(item => {
-          const matchesSearch = !query || 
-            (item.name || '').toLowerCase().includes(query) || 
-            (item.sku || '').toLowerCase().includes(query) || 
+          const matchesSearch = !query ||
+            (item.name || '').toLowerCase().includes(query) ||
+            (item.sku || '').toLowerCase().includes(query) ||
             (item.description || '').toLowerCase().includes(query) ||
             (item.metals || []).some(m => (m.name || '').toLowerCase().includes(query));
           const matchesCat = !filterCat || item.category === filterCat;
@@ -38,7 +38,7 @@ const Catalog = {
         } else {
           visibleItems.forEach(item => this.selectedItemIds.delete(item.id));
         }
-        
+
         this.renderCatalogGrid();
       });
     }
@@ -57,7 +57,7 @@ const Catalog = {
         this.renderCatalogGrid();
       });
     }
-    
+
     const openAddModal = () => {
       const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
       if (!goldRate || goldRate <= 0) {
@@ -137,7 +137,7 @@ const Catalog = {
     // Gather all unique karats from the items
     const allItems = DBManager.getItems();
     const uniqueKarats = new Set();
-    
+
     allItems.forEach(item => {
       (item.metals || []).forEach(m => {
         if (m.karat !== undefined && m.karat !== null && !isNaN(m.karat)) {
@@ -158,7 +158,7 @@ const Catalog = {
     // To prevent infinite loops or cursor loss during keyup, only update DOM if options actually changed
     const currentOptionsString = Array.from(filterSelect.options).map(o => o.value).join(',');
     const newOptionsString = ["", ...sortedKarats].join(',');
-    
+
     if (currentOptionsString !== newOptionsString) {
       filterSelect.innerHTML = optionsHtml;
       // Restore selected value if still valid
@@ -177,7 +177,7 @@ const Catalog = {
 
     // Rates header rendering
     const dateStr = goldSettings ? goldSettings.effectiveDate : '';
-    const formattedDate = dateStr ? new Date(dateStr).toLocaleDateString('en-IN', {day: '2-digit', month: 'short', year: 'numeric'}) : '';
+    const formattedDate = dateStr ? new Date(dateStr).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
 
     document.getElementById('header-gold-rate').textContent = goldRate > 0 ? `₹${goldRate.toLocaleString()}/g` : '₹0.00/g';
     document.getElementById('header-gold-date').textContent = formattedDate ? `Effective: ${formattedDate}` : 'No date set';
@@ -186,7 +186,7 @@ const Catalog = {
     const usdRate = DBManager.getSettings().usdToInr ? DBManager.getSettings().usdToInr.rate : 0;
     const usdDateStr = DBManager.getSettings().usdToInr ? DBManager.getSettings().usdToInr.effectiveDate : '';
     document.getElementById('header-usd-rate').textContent = usdRate > 0 ? `₹${usdRate.toLocaleString()}` : '₹0.00';
-    document.getElementById('header-usd-date').textContent = usdDateStr ? `Effective: ${new Date(usdDateStr).toLocaleDateString('en-IN', {day: '2-digit', month: 'short', year: 'numeric'})}` : 'No date set';
+    document.getElementById('header-usd-date').textContent = usdDateStr ? `Effective: ${new Date(usdDateStr).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}` : 'No date set';
 
     let totalPortfolioValuation = 0;
     let totalPortfolioMfgCost = 0;
@@ -334,7 +334,7 @@ const Catalog = {
     // Render Price Range & Valuation Distribution Analysis
     const priceDistContainer = document.getElementById('price-range-distribution-container');
     const priceDistCountEl = document.getElementById('price-distribution-active-count');
-    
+
     if (priceDistContainer) {
       const priceBands = [
         { min: 0, max: 49999.99, label: '₹0 – ₹49,999 (0 - 50K)' },
@@ -483,19 +483,19 @@ const Catalog = {
     const gridContainer = document.getElementById('catalog-grid');
     const emptyState = document.getElementById('catalog-empty-state');
     if (!gridContainer || !emptyState) return;
-    
+
     if (this.viewType === 'list') {
       gridContainer.classList.add('list-view');
     } else {
       gridContainer.classList.remove('list-view');
     }
-    
+
     const query = document.getElementById('search-input').value.toLowerCase().trim();
     const filterCat = document.getElementById('filter-category').value;
-    
+
     // Dynamically populate the karat dropdown filter based on actual catalog items
     this.populateKaratFilterOptions();
-    
+
     const filterKarat = document.getElementById('filter-karat').value;
     const sortVal = document.getElementById('sort-items').value;
 
@@ -519,9 +519,9 @@ const Catalog = {
     // Filter Items
     let filtered = allItems.filter(item => {
       // 1. Text Search
-      const matchesSearch = !query || 
-        (item.name || '').toLowerCase().includes(query) || 
-        (item.sku || '').toLowerCase().includes(query) || 
+      const matchesSearch = !query ||
+        (item.name || '').toLowerCase().includes(query) ||
+        (item.sku || '').toLowerCase().includes(query) ||
         (item.description || '').toLowerCase().includes(query) ||
         (item.metals || []).some(m => (m.name || '').toLowerCase().includes(query));
 
@@ -571,7 +571,7 @@ const Catalog = {
     filtered.forEach((item, index) => {
       const serialNumber = item.sno || itemSnoMap.get(item.id) || (index + 1);
       const card = document.createElement('div');
-      
+
       const status = item.status || 'In Stock';
       let statusClass = 'stock';
       let statusLabel = 'In Stock';
@@ -585,14 +585,14 @@ const Catalog = {
         statusLabel = 'Sold';
         cardStatusClass = 'sold';
       }
-      
+
       card.className = 'product-card' + (cardStatusClass ? ' ' + cardStatusClass : '');
 
       // Build specs preview string
       const netMetals = Calc.getNetMetals(item);
       const uniqueKarats = [...new Set(netMetals.map(m => `${m.karat}KT`))];
       const metalsStr = uniqueKarats.length > 0 ? `${uniqueKarats.join(', ')} Gold` : (item.karat ? `${item.karat}KT Gold` : 'None added');
-      
+
       let stonesSum = 0;
       (item.stones || []).forEach(s => stonesSum += Number(s.weight || 0));
       (item.diamondsPolki || []).forEach(d => stonesSum += Number(d.weight || 0));
@@ -831,7 +831,7 @@ const Catalog = {
       const weight = Number(row.querySelector('.stone-weight').value || 0);
       const ratePerCarat = Number(row.querySelector('.stone-rate').value || 0);
       const totalValue = Number(row.querySelector('.stone-total-val').value || 0);
-      
+
       const component = { type, shape, pieces, weight, ratePerCarat, totalValue };
       if (type.toLowerCase().includes('diamond') || type.toLowerCase().includes('polki')) {
         savedItem.diamondsPolki.push(component);
@@ -854,7 +854,7 @@ const Catalog = {
         // Deep Diff
         const changes = Logs.diffItem(UI.activeItemState, savedItem);
         const summary = Logs.buildSummary(changes, `Updated ${savedItem.name}`);
-        
+
         DBManager.addLog("EDIT", savedItem.id, savedItem.name, summary, changes);
 
         // Replace item in array
@@ -883,7 +883,7 @@ const Catalog = {
     UI.confirm(`Are you absolutely sure you want to delete "${item.name}" (SKU: ${item.sku}) from stock? This cannot be undone.`, async () => {
       try {
         DBManager.addLog("DELETE", item.id, item.name, `Deleted jewelry item: ${item.name}`, []);
-        
+
         const index = DBManager.database.items.findIndex(i => i.id === item.id);
         if (index !== -1) {
           DBManager.database.items.splice(index, 1);
@@ -1080,63 +1080,140 @@ const Catalog = {
 
   generatePDF(filtered, goldRate) {
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const allDbItems = DBManager.getItems();
 
-    const drawHeader = () => {
-      doc.setFont("georgia", "bold");
-      doc.setFontSize(16);
-      doc.text("MAVA GEMS - JEWELRY CATALOG REPORT", 14, 18);
+    const totalItems = filtered.length;
+    const marginL = 12;
+    const marginR = 198;
+    const contentWidth = marginR - marginL; // 186mm
 
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8.5);
-      doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 25);
-      doc.text(`Total Pieces: ${filtered.length}`, 14, 30);
+    // Draw header on a page
+    const drawPageHeader = (pageNum) => {
+      if (pageNum === 1) {
+        // Page 1 Luxury Header (Height = 28mm)
+        doc.setFillColor(24, 28, 36);
+        doc.rect(0, 0, 210, 28, 'F');
 
-      doc.setDrawColor(0);
-      doc.setLineWidth(0.3);
-      doc.line(14, 33, 196, 33);
+        // Gold top & bottom accent lines
+        doc.setFillColor(212, 175, 55);
+        doc.rect(0, 0, 210, 1.2, 'F');
+        doc.rect(0, 27.2, 210, 0.8, 'F');
 
-      // Column headers
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(7.5);
-      doc.text("SKU", 14, 39);
-      doc.text("Name / Category", 34, 39);
-      doc.text("Metal", 92, 39);
-      doc.text("Gross Wt", 130, 39);
-      doc.text("Gemstones", 148, 39);
-      doc.text("Market Cost", 168, 39);
+        // Brand title
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(13);
+        doc.setTextColor(212, 175, 55);
+        doc.text("MAVA GEMS", marginL, 11);
 
-      doc.setLineWidth(0.2);
-      doc.line(14, 41, 196, 41);
+        // Document subtitle
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8.5);
+        doc.setTextColor(255, 255, 255);
+        doc.text("JEWELRY INVENTORY & CATALOG REPORT", marginL, 17.5);
+
+        // Metadata line
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7);
+        doc.setTextColor(190, 195, 205);
+        const dateStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) +
+          ' ' + new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+        const goldStr = goldRate > 0 ? `  |  Gold Ref (24KT): INR ${Number(goldRate).toLocaleString('en-IN')}/g` : '';
+        doc.text(`Generated: ${dateStr}${goldStr}`, marginL, 23.5);
+
+        // Right-side total pieces badge
+        doc.setFillColor(255, 255, 255, 0.1);
+        doc.setDrawColor(212, 175, 55);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(154, 7, 44, 14, 1.5, 1.5, 'FD');
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(6.5);
+        doc.setTextColor(212, 175, 55);
+        doc.text("TOTAL PIECES", 176, 12, { align: 'center' });
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(255, 255, 255);
+        doc.text(`${totalItems} ${totalItems === 1 ? 'Piece' : 'Pieces'}`, 176, 18, { align: 'center' });
+
+        return 34;
+      } else {
+        // Page 2+ Compact Header (Height = 15mm)
+        doc.setFillColor(24, 28, 36);
+        doc.rect(0, 0, 210, 15, 'F');
+
+        doc.setFillColor(212, 175, 55);
+        doc.rect(0, 0, 210, 1, 'F');
+        doc.rect(0, 14.4, 210, 0.6, 'F');
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8.5);
+        doc.setTextColor(212, 175, 55);
+        doc.text("MAVA GEMS  \u2022  JEWELRY STOCK REPORT", marginL, 10);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7);
+        doc.setTextColor(190, 195, 205);
+        doc.text(`Total: ${totalItems} Pieces`, marginR, 10, { align: 'right' });
+
+        return 20;
+      }
     };
 
-    drawHeader();
+    // Draw table column headers
+    const drawTableHeader = (startY) => {
+      doc.setFillColor(241, 245, 249);
+      doc.setDrawColor(203, 213, 225);
+      doc.setLineWidth(0.3);
+      doc.rect(marginL, startY, contentWidth, 7, 'FD');
 
-    // Group by category
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setTextColor(51, 65, 85);
+
+      doc.text("#", 17, startY + 4.8, { align: 'center' });
+      doc.text("SKU", 24, startY + 4.8);
+      doc.text("ITEM & CATEGORY", 48, startY + 4.8);
+      doc.text("METAL SPECS", 96, startY + 4.8);
+      doc.text("STONES / DIAMONDS", 128, startY + 4.8);
+      doc.text("GROSS WT", 175, startY + 4.8, { align: 'right' });
+      doc.text("VALUATION (INR)", 197, startY + 4.8, { align: 'right' });
+
+      return startY + 7;
+    };
+
+    // Group items by category
     const groups = {};
     let grandTotalValue = 0;
     let grandTotalSellingPrice = 0;
     let grandTotalGrossWt = 0;
+    let grandTotalNetMetalWt = 0;
 
     filtered.forEach(item => {
       const catName = item.category || 'Other';
-      if (!groups[catName]) groups[catName] = { items: [], totalValue: 0, totalSelling: 0 };
+      if (!groups[catName]) groups[catName] = { items: [], totalValue: 0, totalSelling: 0, totalGrossWt: 0 };
       groups[catName].items.push(item);
-      groups[catName].totalValue += item.evaluation.marketCostPrice;
-      groups[catName].totalSelling += item.evaluation.sellingPrice;
-      grandTotalValue += item.evaluation.marketCostPrice;
-      grandTotalSellingPrice += item.evaluation.sellingPrice;
-      grandTotalGrossWt += item.evaluation.totalGrossWeight || 0;
+      const evalData = item.evaluation || Calc.evaluateItem(item, goldRate);
+      groups[catName].totalValue += (evalData.marketCostPrice || 0);
+      groups[catName].totalSelling += (evalData.sellingPrice || 0);
+      groups[catName].totalGrossWt += (evalData.totalGrossWeight || item.grossWeight || 0);
+      grandTotalValue += (evalData.marketCostPrice || 0);
+      grandTotalSellingPrice += (evalData.sellingPrice || 0);
+      grandTotalGrossWt += (evalData.totalGrossWeight || item.grossWeight || 0);
+      grandTotalNetMetalWt += (evalData.totalNetMetalWeight || 0);
     });
 
-    let y = 48;
+    let currentPage = 1;
+    let y = drawPageHeader(currentPage);
+    y = drawTableHeader(y);
 
-    const checkPageBreak = (needed) => {
-      if (y + needed > 280) {
+    const checkPageBreak = (neededHeight) => {
+      if (y + neededHeight > 278) {
         doc.addPage();
-        y = 48;
-        drawHeader();
-        doc.setFont("helvetica", "normal");
+        currentPage++;
+        y = drawPageHeader(currentPage);
+        y = drawTableHeader(y);
       }
     };
 
@@ -1150,88 +1227,268 @@ const Catalog = {
       return ai - bi;
     });
 
+    let rowIndex = 0;
+
     sortedGroupNames.forEach(catName => {
       const group = groups[catName];
 
       checkPageBreak(14);
 
-      // Category header banner
+      // Category Section Banner
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.2);
+      doc.rect(marginL, y, contentWidth, 6.5, 'FD');
+
+      // Left Gold Accent Bar
+      doc.setFillColor(212, 175, 55);
+      doc.rect(marginL, y, 2.5, 6.5, 'F');
+
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(8.5);
-      doc.setFillColor(240, 240, 240);
-      doc.rect(14, y - 4, 182, 6.5, "F");
-      doc.text(`CATEGORY: ${catName.toUpperCase()} (${group.items.length} pieces)`, 16, y);
-      y += 9;
+      doc.setFontSize(7.8);
+      doc.setTextColor(30, 41, 59);
+      doc.text(`${catName.toUpperCase()}  \u2022  ${group.items.length} ${group.items.length === 1 ? 'Piece' : 'Pieces'}`, marginL + 5, y + 4.5);
 
-      group.items.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.2);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Subtotal: INR ${Math.round(group.totalValue).toLocaleString('en-IN')}`, marginR - 3, y + 4.5, { align: 'right' });
 
-      group.items.forEach(item => {
-        // Measure lines needed
-        const metalsStr = (item.metals || [])
-          .map(m => `${m.karat}KT (${Number(m.weight || 0).toFixed(2)}g)`)
-          .join(', ') || 'None';
+      y += 7.5;
 
-        const stonesArr = [];
-        (item.stones || []).forEach(s => {
-          if (Number(s.weight || 0) > 0) stonesArr.push(`${s.type} ${Number(s.weight).toFixed(2)}ct`);
-        });
-        (item.diamondsPolki || []).forEach(d => {
-          if (Number(d.weight || 0) > 0) stonesArr.push(`${d.type} ${Number(d.weight).toFixed(2)}ct`);
-        });
-        const stonesStr = stonesArr.join(', ') || 'None';
-
-        const grossWt = item.evaluation.totalGrossWeight || 0;
-        const marketCost = item.evaluation.marketCostPrice;
-
-        checkPageBreak(8);
-
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(7.5);
-        doc.text((item.sku || '').substring(0, 14), 14, y);
-
-        doc.setFont("helvetica", "normal");
-        const nameStr = (item.name || 'Unnamed').substring(0, 30);
-        doc.text(nameStr, 34, y);
-
-        const metalsShort = metalsStr.substring(0, 22);
-        doc.text(metalsShort, 92, y);
-
-        doc.text(`${grossWt.toFixed(2)}g`, 130, y);
-
-        const stonesShort = stonesStr.substring(0, 18);
-        doc.text(stonesShort, 148, y);
-
-        doc.setFont("helvetica", "bold");
-        doc.text(`Rs ${marketCost.toLocaleString()}`, 168, y);
-
-        y += 7;
+      group.items.sort((a, b) => {
+        const snoA = a.sno || (this.getItemSno ? this.getItemSno(a, allDbItems) : 0);
+        const snoB = b.sno || (this.getItemSno ? this.getItemSno(b, allDbItems) : 0);
+        return snoA - snoB;
       });
 
-      // Category subtotal
-      checkPageBreak(9);
-      doc.setLineWidth(0.15);
-      doc.line(34, y - 3, 196, y - 3);
+      group.items.forEach(item => {
+        rowIndex++;
+        const serialNumber = item.sno || (this.getItemSno ? this.getItemSno(item, allDbItems) : rowIndex);
+        const evalData = item.evaluation || Calc.evaluateItem(item, goldRate);
+
+        // Format metals string
+        const netMetals = Calc.getNetMetals ? Calc.getNetMetals(item) : (item.metals || []);
+        const metalsStr = netMetals
+          .map(m => `${m.karat}KT (${Number(m.weight || 0).toFixed(2)}g)`)
+          .join(', ') || (item.karat ? `${item.karat}KT` : 'None');
+
+        // Format stones string
+        const allStonesArr = [];
+        (item.stones || []).forEach(s => {
+          if (Number(s.weight || 0) > 0) {
+            allStonesArr.push(`${s.type || 'Stone'} ${Number(s.weight).toFixed(2)}ct`);
+          }
+        });
+        (item.diamondsPolki || []).forEach(d => {
+          if (Number(d.weight || 0) > 0) {
+            allStonesArr.push(`${d.type || 'Diamond'} ${Number(d.weight).toFixed(2)}ct`);
+          }
+        });
+        const stonesStr = allStonesArr.join(', ') || 'Plain Gold';
+
+        const grossWt = evalData.totalGrossWeight || item.grossWeight || 0;
+        const marketCost = evalData.marketCostPrice || 0;
+
+        // Split text to fit columns cleanly
+        const nameLines = doc.splitTextToSize(item.name || 'Unnamed Piece', 46);
+        const metalLines = doc.splitTextToSize(metalsStr, 30);
+        const stoneLines = doc.splitTextToSize(stonesStr, 30);
+
+        const textLinesCount = Math.max(nameLines.length + 1, metalLines.length, stoneLines.length, 1);
+        const rowH = Math.max(8.5, textLinesCount * 3.6 + 2);
+
+        checkPageBreak(rowH);
+
+        // Alternating row background
+        if (rowIndex % 2 === 1) {
+          doc.setFillColor(250, 251, 253);
+          doc.rect(marginL, y, contentWidth, rowH, 'F');
+        }
+
+        // Column 1: S.No (#)
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.5);
+        doc.setTextColor(100, 116, 139);
+        doc.text(String(serialNumber), 17, y + 4.8, { align: 'center' });
+
+        // Column 2: SKU
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+        doc.setTextColor(30, 41, 59);
+        doc.text((item.sku || '—').substring(0, 16), 24, y + 4.8);
+
+        // Column 3: Item Name & Category Tag
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+        doc.setTextColor(15, 23, 42);
+        doc.text(nameLines[0] || 'Jewelry Piece', 48, y + 4.5);
+
+        if (nameLines.length > 1) {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(7);
+          doc.setTextColor(51, 65, 85);
+          for (let i = 1; i < nameLines.length; i++) {
+            doc.text(nameLines[i], 48, y + 4.5 + i * 3.5);
+          }
+        }
+
+        const catY = y + 4.5 + nameLines.length * 3.4;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6.3);
+        doc.setTextColor(140, 120, 80);
+        doc.text((item.category || 'Jewelry').toUpperCase(), 48, catY);
+
+        // Column 4: Metal Specs
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7);
+        doc.setTextColor(51, 65, 85);
+        doc.text(metalLines, 96, y + 4.5);
+
+        // Column 5: Stones & Diamonds
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7);
+        doc.setTextColor(71, 85, 105);
+        doc.text(stoneLines, 128, y + 4.5);
+
+        // Column 6: Gross Weight
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.5);
+        doc.setTextColor(30, 41, 59);
+        doc.text(`${grossWt.toFixed(2)} g`, 175, y + 4.8, { align: 'right' });
+
+        // Column 7: Valuation
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+        doc.setTextColor(15, 23, 42);
+        doc.text(`INR ${Math.round(marketCost).toLocaleString('en-IN')}`, 197, y + 4.8, { align: 'right' });
+
+        // Subtle row bottom divider line
+        doc.setDrawColor(241, 245, 249);
+        doc.setLineWidth(0.15);
+        doc.line(marginL, y + rowH, marginR, y + rowH);
+
+        y += rowH;
+      });
+
+      // Category Subtotal row
+      checkPageBreak(8);
+      doc.setFillColor(248, 250, 252);
+      doc.rect(marginL, y, contentWidth, 5.5, 'F');
+      doc.setDrawColor(203, 213, 225);
+      doc.setLineWidth(0.2);
+      doc.line(marginL, y, marginR, y);
+      doc.line(marginL, y + 5.5, marginR, y + 5.5);
+
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(7.5);
-      doc.text(`Subtotal (${catName})`, 34, y);
-      doc.text(`Rs ${group.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 168, y);
-      y += 11;
+      doc.setFontSize(7.2);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`Subtotal (${catName}) \u2014 ${group.items.length} ${group.items.length === 1 ? 'pc' : 'pcs'}`, 48, y + 3.8);
+
+      doc.text(`${group.totalGrossWt.toFixed(2)} g`, 175, y + 3.8, { align: 'right' });
+      doc.text(`INR ${Math.round(group.totalValue).toLocaleString('en-IN')}`, 197, y + 3.8, { align: 'right' });
+
+      y += 8;
     });
 
-    // Grand total
-    checkPageBreak(12);
-    doc.setLineWidth(0.3);
-    doc.line(14, y - 4, 196, y - 4);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text("GRAND TOTAL", 14, y);
-    doc.text(`${filtered.length} pieces`, 92, y);
-    doc.text(`Rs ${grandTotalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 168, y);
+    // Executive Grand Total Summary Card
+    checkPageBreak(32);
+    const boxY = y + 2;
+    const boxH = 26;
 
-    y += 7;
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(marginL, boxY, contentWidth, boxH, 2, 2, 'FD');
+
+    // Top gold accent bar on summary card
+    doc.setFillColor(212, 175, 55);
+    doc.rect(marginL, boxY, contentWidth, 1.2, 'F');
+
+    const colW = contentWidth / 4;
+
+    // Metric 1: Total Pieces
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text("TOTAL PIECES", marginL + 6, boxY + 8);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(15, 23, 42);
+    doc.text(`${totalItems} ${totalItems === 1 ? 'Piece' : 'Pieces'}`, marginL + 6, boxY + 16);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.text(`Total Selling Price: Rs ${grandTotalSellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 14, y);
+    doc.setFontSize(6.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`${sortedGroupNames.length} Category Groups`, marginL + 6, boxY + 22);
+
+    // Metric 2: Total Gross Weight
+    const m2X = marginL + colW + 4;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text("TOTAL GROSS WEIGHT", m2X, boxY + 8);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(15, 23, 42);
+    doc.text(`${grandTotalGrossWt.toFixed(2)} g`, m2X, boxY + 16);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Net Metal: ${grandTotalNetMetalWt.toFixed(2)} g`, m2X, boxY + 22);
+
+    // Metric 3: Total Market Cost
+    const m3X = marginL + colW * 2 + 4;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text("MARKET VALUATION", m3X, boxY + 8);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(15, 23, 42);
+    doc.text(`INR ${Math.round(grandTotalValue).toLocaleString('en-IN')}`, m3X, boxY + 16);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text("Live metal & gemstone cost", m3X, boxY + 22);
+
+    // Metric 4: Total Selling Price
+    const m4X = marginL + colW * 3 + 4;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text("ESTIMATED SELLING VALUE", m4X, boxY + 8);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(184, 134, 11);
+    doc.text(`INR ${Math.round(grandTotalSellingPrice).toLocaleString('en-IN')}`, m4X, boxY + 16);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text("Target catalog retail", m4X, boxY + 22);
+
+    // Two-pass running footers on all pages
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let p = 1; p <= totalPages; p++) {
+      doc.setPage(p);
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.25);
+      doc.line(marginL, 287, marginR, 287);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.8);
+      doc.setTextColor(100, 116, 139);
+      doc.text("MAVA GEMS \u2022 HIGH JEWELLERY & GEMSTONES", marginL, 291.5);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6.5);
+      doc.setTextColor(148, 163, 184);
+      doc.text("CONFIDENTIAL \u2022 INTERNAL STOCK & VALUATION REPORT", 105, 291.5, { align: 'center' });
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`Page ${p} of ${totalPages}`, marginR, 291.5, { align: 'right' });
+    }
 
     return doc;
   },
@@ -1363,19 +1620,19 @@ const Catalog = {
       { key: 'R', width: 24 }  // Photo
     ];
 
-    const GLOBAL_WASTAGE    = (filteredItems[0] ? Number(filteredItems[0].wastage || 15) : 15);
-    const WASTAGE_FACTOR    = 1 + GLOBAL_WASTAGE / 100;
+    const GLOBAL_WASTAGE = (filteredItems[0] ? Number(filteredItems[0].wastage || 15) : 15);
+    const WASTAGE_FACTOR = 1 + GLOBAL_WASTAGE / 100;
     const GOLD_RATE_PER_10G = goldRate * 10;
-    const today             = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' });
-    const goldDate          = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.effectiveDate : today;
-    const goldDateFmt       = goldDate ? new Date(goldDate).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' }) : today;
+    const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' });
+    const goldDate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.effectiveDate : today;
+    const goldDateFmt = goldDate ? new Date(goldDate).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' }) : today;
 
     // Fills & Borders
-    const FILL_GREY   = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9D9D9' } };
+    const FILL_GREY = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9D9D9' } };
     const FILL_ORANGE = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFCE4D6' } };
-    const FILL_BLUE   = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+    const FILL_BLUE = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
     const BORDER_THIN = { style: 'thin', color: { argb: 'FF000000' } };
-    const BORDER_ALL  = { top: BORDER_THIN, bottom: BORDER_THIN, left: BORDER_THIN, right: BORDER_THIN };
+    const BORDER_ALL = { top: BORDER_THIN, bottom: BORDER_THIN, left: BORDER_THIN, right: BORDER_THIN };
     const ALIGN_CENTER = { horizontal: 'center', vertical: 'middle' };
     const ALIGN_CENTER_WRAP = { horizontal: 'center', vertical: 'middle', wrapText: true };
 
@@ -1454,12 +1711,12 @@ const Catalog = {
     let sNo = 1;
 
     filteredItems.forEach((item) => {
-      const mainKarat     = Number(item.karat || (item.metals && item.metals[0] ? item.metals[0].karat : 18));
-      const totalGrossWt  = Number(item.grossWeight || (item.metals && item.metals[0] ? item.metals[0].weight : 0));
-      const labour        = Number(item.labourCost || 0);
-      const stones        = item.stones || [];
-      const diamonds      = item.diamondsPolki || [];
-      const wFactor       = 1 + Number(item.wastage || GLOBAL_WASTAGE) / 100;
+      const mainKarat = Number(item.karat || (item.metals && item.metals[0] ? item.metals[0].karat : 18));
+      const totalGrossWt = Number(item.grossWeight || (item.metals && item.metals[0] ? item.metals[0].weight : 0));
+      const labour = Number(item.labourCost || 0);
+      const stones = item.stones || [];
+      const diamonds = item.diamondsPolki || [];
+      const wFactor = 1 + Number(item.wastage || GLOBAL_WASTAGE) / 100;
 
       // Format mfgDate
       let mfgDateStr = '';
@@ -1481,7 +1738,7 @@ const Catalog = {
           try {
             const dt = new Date(rawDate);
             mfgDateStr = `${dt.getDate()}.${dt.getMonth() + 1}.${String(dt.getFullYear()).slice(-2)}`;
-          } catch(e) {
+          } catch (e) {
             mfgDateStr = String(rawDate);
           }
         }
@@ -1540,7 +1797,7 @@ const Catalog = {
       cellJ.border = BORDER_ALL;
 
       const itemMfgRate24kt = Number(item.mfgGoldRate24kt || item.goldRateAtAddition || (goldRate ? goldRate * 10 / 10 : 0) || (GOLD_RATE_PER_10G / 10));
-      const mfgKaratRate    = Number(((itemMfgRate24kt / 24) * mainKarat).toFixed(2));
+      const mfgKaratRate = Number(((itemMfgRate24kt / 24) * mainKarat).toFixed(2));
 
       const cellK = ws.getCell(mtlR, C.K);
       cellK.value = mfgKaratRate;
@@ -1558,12 +1815,12 @@ const Catalog = {
         const aR = rowIdx;
         ws.getRow(aR).height = 22;
         const mKarat = Number(m.karat || mainKarat);
-        const mWt    = Number(Number(m.weight || 0).toFixed(3));
-        const mName  = m.name || 'Additional Metal';
+        const mWt = Number(Number(m.weight || 0).toFixed(3));
+        const mName = m.name || 'Additional Metal';
         const hasDirectVal = (m.directValue !== undefined && m.directValue !== null && m.directValue !== '') ||
-                             (m.totalValue !== undefined && m.totalValue !== null && m.totalValue !== '');
+          (m.totalValue !== undefined && m.totalValue !== null && m.totalValue !== '');
         const directValNum = hasDirectVal ? Number(m.directValue || m.totalValue || 0) : 0;
-        const mWastage     = 1 + Number(m.wastage !== undefined && m.wastage !== null && m.wastage !== '' ? m.wastage : GLOBAL_WASTAGE) / 100;
+        const mWastage = 1 + Number(m.wastage !== undefined && m.wastage !== null && m.wastage !== '' ? m.wastage : GLOBAL_WASTAGE) / 100;
         const mfgPartKaratRate = Number(((itemMfgRate24kt / 24) * mKarat).toFixed(2));
 
         ['A', 'B', 'C', 'M', 'N', 'O', 'P', 'R'].forEach(k => {
@@ -1660,9 +1917,9 @@ const Catalog = {
         const cR = rowIdx;
         ws.getRow(cR).height = 22;
         const isEm = (comp.type || '').toLowerCase() === 'emerald';
-        const cts  = Number(Number(comp.weight || 0).toFixed(2));
+        const cts = Number(Number(comp.weight || 0).toFixed(2));
         const rate = Number(Number(comp.ratePerCarat || 0).toFixed(2));
-        const tv   = Number(Number(comp.totalValue || cts * rate || 0).toFixed(2));
+        const tv = Number(Number(comp.totalValue || cts * rate || 0).toFixed(2));
 
         ['A', 'B', 'C', 'M', 'N', 'O', 'P', 'R'].forEach(k => {
           const c = ws.getCell(cR, C[k]);
@@ -1792,7 +2049,7 @@ const Catalog = {
       const mainNetPiece = Array.isArray(netMetalsResult) ? netMetalsResult.find(m => m.isMain) : null;
       const netWt = mainNetPiece ? mainNetPiece.netWeight : Math.max(0, totalGrossWt - (totalStoneCTS * 0.2) - addMtlRows.reduce((s, m) => s + m.weight, 0));
 
-      const stoneJCells  = stoneRows.map(s => `${colLetter(C.J)}${s.rowExcel}`).join('+');
+      const stoneJCells = stoneRows.map(s => `${colLetter(C.J)}${s.rowExcel}`).join('+');
       const addMtlGCells = addMtlRows.map(m => m.weightRef).join('+');
 
       let netWtFormula = `${colLetter(C.F)}${mtlR}`;
@@ -1825,14 +2082,14 @@ const Catalog = {
       cellL.alignment = ALIGN_CENTER;
       cellL.border = BORDER_ALL;
 
-      const lRefs    = [
+      const lRefs = [
         `${colLetter(C.L)}${mtlR}`,
         ...addMtlRows.map(m => m.totalRef),
         ...stoneRows.map(s => `${colLetter(C.L)}${s.rowExcel}`)
       ];
-      const labFRef  = `${colLetter(C.F)}${labR}`;
+      const labFRef = `${colLetter(C.F)}${labR}`;
       const commFRef = `${colLetter(C.F)}${commR}`;
-      const emeraldLRefs    = stoneRows.filter(s => s.isEmerald).map(s => `${colLetter(C.L)}${s.rowExcel}`);
+      const emeraldLRefs = stoneRows.filter(s => s.isEmerald).map(s => `${colLetter(C.L)}${s.rowExcel}`);
       const nonEmeraldLRefs = [
         `${colLetter(C.L)}${mtlR}`,
         ...addMtlRows.map(m => m.totalRef),
@@ -1979,11 +2236,11 @@ const Catalog = {
     const grandRow = rowIdx;
     ws.getRow(grandRow).height = 24;
     const firstItemRow = 8;
-    const lastItemRow  = Math.max(firstItemRow, grandRow - 1);
+    const lastItemRow = Math.max(firstItemRow, grandRow - 1);
 
-    const totalMarketCP     = filteredItems.reduce((acc, i) => acc + (i.evaluation ? i.evaluation.marketCostPrice : 0), 0);
-    const totalMfgCost      = filteredItems.reduce((acc, i) => acc + (i.evaluation ? (i.evaluation.mfgGrandTotal || (i.evaluation.mfgSubtotal + (i.evaluation.commissionValue || 0)) || i.evaluation.homeCostPrice) : 0), 0);
-    const totalHomeCP       = filteredItems.reduce((acc, i) => acc + (i.evaluation ? i.evaluation.homeCostPrice : 0), 0);
+    const totalMarketCP = filteredItems.reduce((acc, i) => acc + (i.evaluation ? i.evaluation.marketCostPrice : 0), 0);
+    const totalMfgCost = filteredItems.reduce((acc, i) => acc + (i.evaluation ? (i.evaluation.mfgGrandTotal || (i.evaluation.mfgSubtotal + (i.evaluation.commissionValue || 0)) || i.evaluation.homeCostPrice) : 0), 0);
+    const totalHomeCP = filteredItems.reduce((acc, i) => acc + (i.evaluation ? i.evaluation.homeCostPrice : 0), 0);
     const totalSellingPrice = filteredItems.reduce((acc, i) => acc + (i.evaluation ? i.evaluation.sellingPrice : 0), 0);
 
     const gtA = ws.getCell(grandRow, C.A);
@@ -2297,20 +2554,20 @@ const Catalog = {
     // ── Stone-type helper ──────────────────────────────────────────────────────
     const getStoneType = (str) => {
       const s = String(str).toLowerCase();
-      if (s.includes('polki'))                                    return 'Polki';
-      if (s.includes('dia') || s.includes('diamond'))            return 'Diamond';
-      if (s.includes('emd') || s.includes('emerald'))            return 'Emerald';
-      if (s.includes('ruby') || s.includes('rub'))               return 'Ruby';
-      if (s.includes('sapphire') || s.includes('sapp'))          return 'Sapphire';
-      if (s.includes('pearl'))                                    return 'Pearl';
-      if (s.includes('tsav') || s.includes('tsavorite'))         return 'Tsavorite';
-      if (s.includes('spessartite') || s.includes('garnet'))     return 'Garnet';
-      if (s.includes('amethyst') || s.includes('ame'))           return 'Amethyst';
-      if (s.includes('tanzanite') || s.includes('tanz'))         return 'Tanzanite';
-      if (s.includes('citrine'))                                  return 'Citrine';
-      if (s.includes('topaz'))                                    return 'Topaz';
-      if (s.includes('aqua') || s.includes('aquamarine'))        return 'Aquamarine';
-      if (s.includes('tourmaline') || s.includes('tour'))        return 'Tourmaline';
+      if (s.includes('polki')) return 'Polki';
+      if (s.includes('dia') || s.includes('diamond')) return 'Diamond';
+      if (s.includes('emd') || s.includes('emerald')) return 'Emerald';
+      if (s.includes('ruby') || s.includes('rub')) return 'Ruby';
+      if (s.includes('sapphire') || s.includes('sapp')) return 'Sapphire';
+      if (s.includes('pearl')) return 'Pearl';
+      if (s.includes('tsav') || s.includes('tsavorite')) return 'Tsavorite';
+      if (s.includes('spessartite') || s.includes('garnet')) return 'Garnet';
+      if (s.includes('amethyst') || s.includes('ame')) return 'Amethyst';
+      if (s.includes('tanzanite') || s.includes('tanz')) return 'Tanzanite';
+      if (s.includes('citrine')) return 'Citrine';
+      if (s.includes('topaz')) return 'Topaz';
+      if (s.includes('aqua') || s.includes('aquamarine')) return 'Aquamarine';
+      if (s.includes('tourmaline') || s.includes('tour')) return 'Tourmaline';
       return 'Other Stone';
     };
 
@@ -2318,19 +2575,19 @@ const Catalog = {
     const getStoneShape = (str) => {
       const s = String(str).toLowerCase();
       if (s.includes('round') || s.includes('rd') || s.includes(' r ')) return 'Round';
-      if (s.includes('oval') || s.includes('ov'))                        return 'Oval';
-      if (s.includes('pear') || s.includes('drop'))                      return 'Pear';
-      if (s.includes('cushion') || s.includes('cush'))                   return 'Cushion';
-      if (s.includes('princess') || s.includes('sq'))                    return 'Princess';
-      if (s.includes('emerald cut') || s.includes('emcut'))              return 'Emerald Cut';
+      if (s.includes('oval') || s.includes('ov')) return 'Oval';
+      if (s.includes('pear') || s.includes('drop')) return 'Pear';
+      if (s.includes('cushion') || s.includes('cush')) return 'Cushion';
+      if (s.includes('princess') || s.includes('sq')) return 'Princess';
+      if (s.includes('emerald cut') || s.includes('emcut')) return 'Emerald Cut';
       if (s.includes('marquise') || s.includes('mq') || s.includes('nav')) return 'Marquise';
-      if (s.includes('heart'))                                            return 'Heart';
-      if (s.includes('trillion') || s.includes('tri'))                   return 'Trillion';
-      if (s.includes('baguette') || s.includes('bag'))                   return 'Baguette';
-      if (s.includes('asscher'))                                          return 'Asscher';
-      if (s.includes('radiant'))                                          return 'Radiant';
-      if (s.includes('half moon') || s.includes('halfmoon'))             return 'Half Moon';
-      if (s.includes('cab') || s.includes('cabochon'))                   return 'Cabochon';
+      if (s.includes('heart')) return 'Heart';
+      if (s.includes('trillion') || s.includes('tri')) return 'Trillion';
+      if (s.includes('baguette') || s.includes('bag')) return 'Baguette';
+      if (s.includes('asscher')) return 'Asscher';
+      if (s.includes('radiant')) return 'Radiant';
+      if (s.includes('half moon') || s.includes('halfmoon')) return 'Half Moon';
+      if (s.includes('cab') || s.includes('cabochon')) return 'Cabochon';
       return 'Mixed';
     };
 
@@ -2338,11 +2595,11 @@ const Catalog = {
     const guessCategory = (name) => {
       const s = String(name).toLowerCase();
       if (s.includes('earring') || s.includes('ear ring') || s.includes('jhumka') || s.includes('stud') || s.includes('huggies') || s.includes('hoop')) return 'Earrings';
-      if (s.includes('ring') || s.includes('band') || s.includes('solitaire'))  return 'Rings';
-      if (s.includes('pendant') || s.includes('locket'))                         return 'Pendants';
-      if (s.includes('necklace') || s.includes('haar') || s.includes('har'))     return 'Necklaces';
-      if (s.includes('bracelet') || s.includes('bangle') || s.includes('kada'))  return 'Bracelets';
-      if (s.includes('set'))                                                       return 'Necklaces'; // bridal sets
+      if (s.includes('ring') || s.includes('band') || s.includes('solitaire')) return 'Rings';
+      if (s.includes('pendant') || s.includes('locket')) return 'Pendants';
+      if (s.includes('necklace') || s.includes('haar') || s.includes('har')) return 'Necklaces';
+      if (s.includes('bracelet') || s.includes('bangle') || s.includes('kada')) return 'Bracelets';
+      if (s.includes('set')) return 'Necklaces'; // bridal sets
       return 'Earrings'; // Default fallback
     };
 
@@ -2371,14 +2628,14 @@ const Catalog = {
     //  Commission sub-rows:
     //    col4='tk commission', col5=CommissionAmount
     let isBlockLayout = false;
-    let headerRowIdx  = -1;
+    let headerRowIdx = -1;
     let sheetGoldRate = settingsGoldRate;   // per gram — extracted from row 1
-    let sheetWastage  = 15;                 // % — extracted from row 2
+    let sheetWastage = 15;                 // % — extracted from row 2
 
     for (let r = 0; r < Math.min(rows.length, 20); r++) {
-      const row    = rows[r];
-      const col0   = String(row[0] || '').toLowerCase().trim();
-      const col1   = String(row[1] || '').toLowerCase().trim();
+      const row = rows[r];
+      const col0 = String(row[0] || '').toLowerCase().trim();
+      const col1 = String(row[1] || '').toLowerCase().trim();
       const rowStr = row.map(c => String(c).toLowerCase().trim()).join(' ');
 
       // Extract gold rate per gram from "MTL 24K (10g)" header row
@@ -2405,7 +2662,7 @@ const Catalog = {
       // Detect the header row: must contain 'S No.' or 'Description by 5'
       if (rowStr.includes('s no') || rowStr.includes('description by 5')) {
         isBlockLayout = true;
-        headerRowIdx  = r;
+        headerRowIdx = r;
         break;
       }
     }
@@ -2451,26 +2708,26 @@ const Catalog = {
           const karat = col3 > 0 ? col3 : karatFromName(col1);
 
           currentItem = {
-            tempId:             'imp_' + parsed.length + '_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
-            name:               col1 || `Jewelry Piece #${sNoNum}`,
-            sku:                String(sNoNum),   // sequence from Excel — will be replaced by category SKU on import
-            category:           guessCategory(col1),
-            description:        col1 + (col2 ? ` (MFG: ${col2})` : ''),
-            mfgDate:            col2 || '',
+            tempId: 'imp_' + parsed.length + '_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+            name: col1 || `Jewelry Piece #${sNoNum}`,
+            sku: String(sNoNum),   // sequence from Excel — will be replaced by category SKU on import
+            category: guessCategory(col1),
+            description: col1 + (col2 ? ` (MFG: ${col2})` : ''),
+            mfgDate: col2 || '',
             metals: [{
-              name:   'Body Component',
-              karat:  karat,
+              name: 'Body Component',
+              karat: karat,
               weight: col5  // col5 = Gross WT on the MTL row
             }],
-            stones:             [],
-            diamondsPolki:      [],
-            labourCost:         0,
-            wastage:            sheetWastage,
-            profitPercentage:   40,
+            stones: [],
+            diamondsPolki: [],
+            labourCost: 0,
+            wastage: sheetWastage,
+            profitPercentage: 40,
             goldRateAtAddition: goldRateToUse,
-            commission:         { value: 0, isManual: false },
-            grossWt:            col5,
-            netWt:              col6
+            commission: { value: 0, isManual: false },
+            grossWt: col5,
+            netWt: col6
           };
 
         } else if (currentItem) {
@@ -2491,7 +2748,7 @@ const Catalog = {
           } else if (col4.includes('commission')) {
             // Commission row — amount is in F (col5); treat as manual commission
             if (col5 > 0) {
-              currentItem.commission.value    = parseFloat(col5.toFixed(2));
+              currentItem.commission.value = parseFloat(col5.toFixed(2));
               currentItem.commission.isManual = true;
             }
 
@@ -2506,23 +2763,23 @@ const Catalog = {
 
           } else if (col4 !== '') {
             // Stone row — E = stone name/type, H = carats, I = @ rate, J = total
-            const stoneType  = getStoneType(col4);
+            const stoneType = getStoneType(col4);
             const stoneShape = getStoneShape(col4);
-            const wt   = col7;    // carats (2dp)
+            const wt = col7;    // carats (2dp)
             const rate = col8;    // @ per carat
             // Use stored total if available; otherwise compute from wt × rate
-            const val  = col9 > 0
+            const val = col9 > 0
               ? col9
               : (wt > 0 && rate > 0 ? parseFloat((wt * rate).toFixed(2)) : 0);
 
             if (wt > 0) {
               const comp = {
-                type:         stoneType,
-                shape:        stoneShape,
-                pieces:       1,
-                weight:       wt,
+                type: stoneType,
+                shape: stoneShape,
+                pieces: 1,
+                weight: wt,
                 ratePerCarat: rate,
-                totalValue:   val
+                totalValue: val
               };
               if (stoneType === 'Diamond' || stoneType === 'Polki') {
                 currentItem.diamondsPolki.push(comp);
@@ -2549,18 +2806,18 @@ const Catalog = {
       for (let r = 0; r < Math.min(rows.length, 15); r++) {
         const row = rows[r].map(c => String(c).toLowerCase().trim());
         row.forEach((cell, ci) => {
-          if (cell.includes('name') || cell.includes('desc') || cell.includes('title'))          colMap.name = ci;
+          if (cell.includes('name') || cell.includes('desc') || cell.includes('title')) colMap.name = ci;
           if ((cell.includes('sku') || cell.includes('s.no') || cell.includes('code')) && colMap.sku === -1) colMap.sku = ci;
-          if (cell.includes('cat'))                                                               colMap.category = ci;
+          if (cell.includes('cat')) colMap.category = ci;
           if ((cell.includes('karat') || (cell.includes('kt') && !cell.includes('stock'))) && colMap.karat === -1) colMap.karat = ci;
-          if ((cell.includes('gross') || cell === 'gr wt') && colMap.gross === -1)               colMap.gross = ci;
-          if ((cell.includes('net wt') || cell === 'net') && colMap.net === -1)                  colMap.net = ci;
+          if ((cell.includes('gross') || cell === 'gr wt') && colMap.gross === -1) colMap.gross = ci;
+          if ((cell.includes('net wt') || cell === 'net') && colMap.net === -1) colMap.net = ci;
           if ((cell.includes('cts') || cell.includes('carat') || cell.includes('stone wt')) && colMap.stoneCts === -1) colMap.stoneCts = ci;
-          if ((cell.includes('pcs') || cell.includes('pieces')) && colMap.stonePcs === -1)       colMap.stonePcs = ci;
+          if ((cell.includes('pcs') || cell.includes('pieces')) && colMap.stonePcs === -1) colMap.stonePcs = ci;
           if ((cell === '@' || cell.includes('rate') || cell.includes('@ rate')) && colMap.stoneRate === -1) colMap.stoneRate = ci;
           if ((cell.includes('stone desc') || cell.includes('stone type')) && colMap.stoneDesc === -1) colMap.stoneDesc = ci;
-          if ((cell.includes('labour') || cell.includes('making')) && colMap.labour === -1)      colMap.labour = ci;
-          if (cell.includes('wastage') && colMap.wastage === -1)                                 colMap.wastage = ci;
+          if ((cell.includes('labour') || cell.includes('making')) && colMap.labour === -1) colMap.labour = ci;
+          if (cell.includes('wastage') && colMap.wastage === -1) colMap.wastage = ci;
         });
 
         if (colMap.name !== -1 || colMap.gross !== -1 || colMap.sku !== -1) {
@@ -2573,58 +2830,58 @@ const Catalog = {
         const row = rows[r];
         if (!row || row.length === 0) continue;
 
-        const nameVal  = colMap.name  !== -1 ? String(row[colMap.name]  || '').trim() : '';
-        const grossVal = colMap.gross !== -1 ? goldWt(row[colMap.gross])               : 0;
-        const netVal   = colMap.net   !== -1 ? goldWt(row[colMap.net])                 : 0;
+        const nameVal = colMap.name !== -1 ? String(row[colMap.name] || '').trim() : '';
+        const grossVal = colMap.gross !== -1 ? goldWt(row[colMap.gross]) : 0;
+        const netVal = colMap.net !== -1 ? goldWt(row[colMap.net]) : 0;
 
         if (!nameVal && grossVal === 0 && netVal === 0) continue;
 
-        const skuVal     = colMap.sku      !== -1 ? String(row[colMap.sku]   || '').trim()    : '';
-        const karatVal   = colMap.karat    !== -1 ? num(row[colMap.karat])                     : 18;
-        const catVal     = colMap.category !== -1 ? String(row[colMap.category] || '').trim() : '';
-        const labourVal  = colMap.labour   !== -1 ? parseFloat(num(row[colMap.labour]).toFixed(2)) : 0;
-        const wastageVal = colMap.wastage  !== -1 ? num(row[colMap.wastage])                   : sheetWastage;
-        const stoneCts   = colMap.stoneCts  !== -1 ? stoneWt(row[colMap.stoneCts])             : 0;
-        const stonePcs   = colMap.stonePcs  !== -1 ? Math.round(num(row[colMap.stonePcs]))      : 0;
-        const stoneRate  = colMap.stoneRate !== -1 ? parseFloat(num(row[colMap.stoneRate]).toFixed(2)) : 0;
+        const skuVal = colMap.sku !== -1 ? String(row[colMap.sku] || '').trim() : '';
+        const karatVal = colMap.karat !== -1 ? num(row[colMap.karat]) : 18;
+        const catVal = colMap.category !== -1 ? String(row[colMap.category] || '').trim() : '';
+        const labourVal = colMap.labour !== -1 ? parseFloat(num(row[colMap.labour]).toFixed(2)) : 0;
+        const wastageVal = colMap.wastage !== -1 ? num(row[colMap.wastage]) : sheetWastage;
+        const stoneCts = colMap.stoneCts !== -1 ? stoneWt(row[colMap.stoneCts]) : 0;
+        const stonePcs = colMap.stonePcs !== -1 ? Math.round(num(row[colMap.stonePcs])) : 0;
+        const stoneRate = colMap.stoneRate !== -1 ? parseFloat(num(row[colMap.stoneRate]).toFixed(2)) : 0;
         const stoneDescVal = colMap.stoneDesc !== -1 ? String(row[colMap.stoneDesc] || '').trim() : '';
 
         const effWastage = wastageVal > 1 ? parseFloat(((wastageVal - 1) * 100).toFixed(1)) : wastageVal;
 
         const item = {
           tempId: 'imp_' + parsed.length + '_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
-          name:   nameVal || `Jewelry Item #${parsed.length + 1}`,
-          sku:    skuVal,
+          name: nameVal || `Jewelry Item #${parsed.length + 1}`,
+          sku: skuVal,
           category: catVal || guessCategory(nameVal),
           description: nameVal,
           metals: [{
-            name:   'Body Component',
-            karat:  karatVal || 18,
+            name: 'Body Component',
+            karat: karatVal || 18,
             weight: grossVal || netVal || 0
           }],
-          stones:        [],
+          stones: [],
           diamondsPolki: [],
-          labourCost:    labourVal,
-          wastage:       effWastage || sheetWastage,
+          labourCost: labourVal,
+          wastage: effWastage || sheetWastage,
           profitPercentage: 40,
           goldRateAtAddition: goldRateToUse,
-          commission:    { value: 0, isManual: false },
+          commission: { value: 0, isManual: false },
           grossWt: grossVal,
-          netWt:   netVal
+          netWt: netVal
         };
 
         if (stoneCts > 0) {
           const stoneSource = stoneDescVal || nameVal;
-          const stoneType   = getStoneType(stoneSource);
-          const stoneShape  = getStoneShape(stoneSource);
-          const effRate     = stoneRate > 0 ? stoneRate : 0;
+          const stoneType = getStoneType(stoneSource);
+          const stoneShape = getStoneShape(stoneSource);
+          const effRate = stoneRate > 0 ? stoneRate : 0;
           const stoneComp = {
-            type:         stoneType,
-            shape:        stoneShape,
-            pieces:       stonePcs || 1,
-            weight:       stoneCts,
+            type: stoneType,
+            shape: stoneShape,
+            pieces: stonePcs || 1,
+            weight: stoneCts,
             ratePerCarat: effRate,
-            totalValue:   parseFloat((stoneCts * effRate).toFixed(2))
+            totalValue: parseFloat((stoneCts * effRate).toFixed(2))
           };
           if (stoneType === 'Diamond' || stoneType === 'Polki') {
             item.diamondsPolki.push(stoneComp);
@@ -2767,9 +3024,9 @@ const Catalog = {
               <div style="flex: 1;">
                 <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                   <strong style="font-size: 14px; color: var(--text-main);">${UI.escapeHtml(item.name)}</strong>
-                  ${item.isDuplicate 
-                    ? `<span class="badge-import-status badge-import-duplicate">Duplicate - Skipped</span>` 
-                    : `<span class="badge-import-status badge-import-new">Ready to Import</span>`}
+                  ${item.isDuplicate
+          ? `<span class="badge-import-status badge-import-duplicate">Duplicate - Skipped</span>`
+          : `<span class="badge-import-status badge-import-new">Ready to Import</span>`}
                   <span style="font-size: 11px; background: var(--bg-base); border: 1px solid var(--border-light); padding: 2px 8px; border-radius: 4px; font-weight: 600; color: var(--text-muted);">${UI.escapeHtml(item.category)}</span>
                 </div>
 
@@ -2786,8 +3043,8 @@ const Catalog = {
                   <span>Stones: <strong style="color: var(--text-main);">${totalStoneCts.toFixed(2)} cts</strong></span>
                   <span>Calc. Valuation: <strong style="color: var(--text-gold-dark);">₹${Math.round(evalRes.marketCostPrice).toLocaleString('en-IN')}</strong></span>
                   ${item.commission && item.commission.isManual && item.commission.value > 0
-                    ? `<span>Sheet Total: <strong style="color: #4caf7d;">₹${Math.round(item.commission.value).toLocaleString('en-IN')}</strong></span>`
-                    : ''}
+          ? `<span>Sheet Total: <strong style="color: #4caf7d;">₹${Math.round(item.commission.value).toLocaleString('en-IN')}</strong></span>`
+          : ''}
                 </div>
               </div>
             </div>
@@ -2949,12 +3206,12 @@ const Catalog = {
 
     // Category → prefix map (same as manual SKU generator in ui.js)
     const CAT_PREFIXES = {
-      'Earrings':  'EAR-',
-      'Rings':     'RNG-',
+      'Earrings': 'EAR-',
+      'Rings': 'RNG-',
       'Necklaces': 'NCK-',
       'Bracelets': 'BRC-',
-      'Pendants':  'PND-',
-      'Other':     'JWL-'
+      'Pendants': 'PND-',
+      'Other': 'JWL-'
     };
 
     // Track max SKU number per category across both existing DB AND already-assigned in this batch
@@ -3133,7 +3390,7 @@ const Catalog = {
         const serialNumber = item.sno || this.getItemSno(item);
         const row = document.createElement('div');
         row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 4px; font-size: 12px;';
-        
+
         const thumbHtml = item.image
           ? `<img src="${item.image}" style="width: 32px; height: 32px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-light);">`
           : `<div style="width: 32px; height: 32px; background: var(--bg-base); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 9px; color: var(--text-muted);">No Pic</div>`;
@@ -3242,7 +3499,7 @@ const Catalog = {
     const netMetalsSlide = Calc.getNetMetals(item);
     const uniqueKaratsSlide = [...new Set(netMetalsSlide.map(m => `${m.karat}KT`))];
     const metalsStr = uniqueKaratsSlide.length > 0 ? `${uniqueKaratsSlide.join(', ')} Gold` : (item.karat ? `${item.karat}KT Gold` : '18KT Gold');
-    
+
     // Stone details string
     const allStones = [...(item.stones || []), ...(item.diamondsPolki || [])];
     const totalStoneCts = allStones.reduce((sum, s) => sum + (Number(s.weight) || 0), 0);
@@ -3295,7 +3552,7 @@ const Catalog = {
         const thumb = document.createElement('div');
         const isActive = idx === currentIndex;
         thumb.style.cssText = `width: 50px; height: 50px; border-radius: 6px; overflow: hidden; cursor: pointer; border: 2px solid ${isActive ? accentColor : 'rgba(255,255,255,0.2)'}; opacity: ${isActive ? 1 : 0.6}; transition: all 0.2s; flex-shrink: 0;`;
-        
+
         const thumbImg = it.image
           ? `<img src="${it.image}" style="width: 100%; height: 100%; object-fit: cover;">`
           : `<div style="width: 100%; height: 100%; background: #222; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #888;">${UI.escapeHtml(it.sku || '')}</div>`;
