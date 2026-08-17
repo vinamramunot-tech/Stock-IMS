@@ -739,16 +739,17 @@
             <table class="logs-table">
               <thead>
                 <tr>
-                  <th style="width: 10%;">SALE DATE</th>
-                  <th style="width: 10%;">SKU</th>
-                  <th style="width: 16%;">PIECE NAME</th>
+                  <th style="width: 9%;">SALE DATE</th>
+                  <th style="width: 9%;">SKU</th>
+                  <th style="width: 15%;">PIECE NAME</th>
                   <th style="width: 9%;">MFG DATE</th>
-                  <th style="width: 10%;">TIME ELAPSED</th>
-                  <th style="width: 13%;">SOLD TO (CUSTOMER)</th>
+                  <th style="width: 9%;">TIME ELAPSED</th>
+                  <th style="width: 12%;">SOLD TO (CUSTOMER)</th>
                   <th style="width: 9%; text-align:right;">MFG COST</th>
                   <th style="width: 9%; text-align:right;">SOLD PRICE</th>
-                  <th style="width: 11%; text-align:right;">TOTAL PROFIT</th>
-                  <th style="width: 11%; text-align:right;">PROFIT % / MO</th>
+                  <th style="width: 10%; text-align:right;">TOTAL PROFIT</th>
+                  <th style="width: 9%; text-align:right;">PROFIT % / MO</th>
+                  <th style="width: 10%; text-align:center;">ACTIONS</th>
                 </tr>
               </thead>
               <tbody id="jewelry-sales-list-tbody">
@@ -1790,6 +1791,7 @@
       </div>
       <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
         <button type="button" class="btn btn-secondary modal-close-trigger-detail">Close</button>
+        <button type="button" id="btn-detail-sell-item" class="btn btn-primary" style="background: #22c55e; border-color: #22c55e; color: #fff;">Record Sale</button>
         <button type="button" id="btn-detail-edit-item" class="btn btn-primary">Edit Item</button>
       </div>
     </div>

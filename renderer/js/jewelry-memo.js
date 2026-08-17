@@ -572,33 +572,51 @@ const JewelryMemoController = {
 
   // ── Complete Sale Modal & Execution ────────────────────────────────────────
 
-  openCompleteSaleModal(memoId, index) {
-    const memo = DBManager.getJewelryMemos().find(m => m.id === memoId);
-    if (!memo) return;
+  openCompleteSaleModal(memoId, index, directItem = null) {
+    let memo = null;
+    let memoItem = null;
+    let mainItem = null;
 
-    const memoItem = memo.items[index];
-    if (!memoItem || memoItem.status !== 'open') return;
+    if (directItem) {
+      mainItem = directItem;
+      document.getElementById('jewelry-sale-memo-id').value = '';
+      document.getElementById('jewelry-sale-item-index').value = '-1';
+      document.getElementById('jewelry-sale-item-id').value = mainItem.id;
 
-    const mainItem = DBManager.getItems().find(i => i.id === memoItem.itemId);
+      document.getElementById('jewelry-sale-piece-name').textContent = mainItem.name || 'Unnamed Piece';
+      document.getElementById('jewelry-sale-piece-sku').textContent = `SKU: ${mainItem.sku || 'N/A'} | Category: ${mainItem.category || 'Jewelry'}`;
 
-    document.getElementById('jewelry-sale-memo-id').value = memo.id;
-    document.getElementById('jewelry-sale-item-index').value = index;
-    document.getElementById('jewelry-sale-item-id').value = memoItem.itemId;
+      document.getElementById('jewelry-sale-customer-name').value = mainItem.issuedTo || '';
+      document.getElementById('jewelry-sale-broker-name').value = (mainItem.issuedBroker && mainItem.issuedBroker !== '—') ? mainItem.issuedBroker : '';
+    } else {
+      memo = DBManager.getJewelryMemos().find(m => m.id === memoId);
+      if (!memo) return;
 
-    document.getElementById('jewelry-sale-piece-name').textContent = memoItem.name;
-    document.getElementById('jewelry-sale-piece-sku').textContent = `SKU: ${memoItem.sku} | Category: ${memoItem.category}`;
+      memoItem = memo.items[index];
+      if (!memoItem || memoItem.status !== 'open') return;
 
-    document.getElementById('jewelry-sale-customer-name').value = memo.personName || '';
-    document.getElementById('jewelry-sale-broker-name').value = (memo.brokerName && memo.brokerName !== '—') ? memo.brokerName : '';
+      mainItem = DBManager.getItems().find(i => i.id === memoItem.itemId || i.sku === memoItem.sku);
+
+      document.getElementById('jewelry-sale-memo-id').value = memo.id;
+      document.getElementById('jewelry-sale-item-index').value = index;
+      document.getElementById('jewelry-sale-item-id').value = memoItem.itemId;
+
+      document.getElementById('jewelry-sale-piece-name').textContent = memoItem.name;
+      document.getElementById('jewelry-sale-piece-sku').textContent = `SKU: ${memoItem.sku} | Category: ${memoItem.category}`;
+
+      document.getElementById('jewelry-sale-customer-name').value = memo.personName || '';
+      document.getElementById('jewelry-sale-broker-name').value = (memo.brokerName && memo.brokerName !== '—') ? memo.brokerName : '';
+    }
 
     const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
     const evalItem = mainItem ? Calc.evaluateItem(mainItem, goldRate) : null;
-    const mfgCost = (evalItem && evalItem.mfgGrandTotal) ? evalItem.mfgGrandTotal : (memoItem.mfgCost || 0);
+    const mfgCost = (evalItem && evalItem.mfgGrandTotal) ? evalItem.mfgGrandTotal : (memoItem ? memoItem.mfgCost : (mainItem?.mfgCostPrice || 0));
 
     document.getElementById('jewelry-sale-mfg-cost').value = `₹${mfgCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
     document.getElementById('jewelry-sale-mfg-cost').dataset.mfgCost = mfgCost;
 
-    document.getElementById('jewelry-sale-final-price').value = memoItem.sellingPrice || (evalItem ? evalItem.sellingPrice : 0);
+    const initialPrice = memoItem ? memoItem.sellingPrice : (evalItem ? evalItem.sellingPrice : 0);
+    document.getElementById('jewelry-sale-final-price').value = initialPrice;
     document.getElementById('jewelry-sale-date').value = new Date().toISOString().split('T')[0];
     document.getElementById('jewelry-sale-notes').value = '';
 
@@ -624,6 +642,7 @@ const JewelryMemoController = {
   async handleConfirmJewelrySale() {
     const memoId = document.getElementById('jewelry-sale-memo-id').value;
     const index = parseInt(document.getElementById('jewelry-sale-item-index').value, 10);
+    const itemId = document.getElementById('jewelry-sale-item-id').value;
     const customerName = (document.getElementById('jewelry-sale-customer-name').value || '').trim();
     const brokerName = (document.getElementById('jewelry-sale-broker-name').value || '').trim();
     const finalSoldPrice = parseFloat(document.getElementById('jewelry-sale-final-price').value || 0);
@@ -643,16 +662,14 @@ const JewelryMemoController = {
       return;
     }
 
-    const memo = DBManager.getJewelryMemos().find(m => m.id === memoId);
-    if (!memo) return;
-
-    const memoItem = memo.items[index];
-    if (!memoItem) return;
-
-    const mainItem = DBManager.database.items.find(i => i.id === memoItem.itemId);
     const mfgCost = parseFloat(document.getElementById('jewelry-sale-mfg-cost')?.dataset.mfgCost || 0);
     const profit = finalSoldPrice - mfgCost;
     const marginPct = mfgCost > 0 ? (profit / mfgCost) * 100 : 0;
+
+    let mainItem = DBManager.database.items.find(i => i.id === itemId);
+    let pieceName = mainItem?.name || 'Jewelry Piece';
+    let pieceSku = mainItem?.sku || 'N/A';
+    let pieceCategory = mainItem?.category || 'Jewelry';
 
     const mfgDate = (mainItem && mainItem.mfgDate)
       ? mainItem.mfgDate
@@ -664,7 +681,6 @@ const JewelryMemoController = {
     const monthsElapsed = Math.max(0.1, Number((daysElapsed / 30.4375).toFixed(2)));
     const monthlyProfitPct = Number((marginPct / monthsElapsed).toFixed(2));
 
-    // 1. Create Sale Record in jewelrySales
     if (!DBManager.database.jewelrySales) DBManager.database.jewelrySales = [];
     const saleRecord = {
       id: 'jsale_' + Date.now(),
@@ -673,12 +689,12 @@ const JewelryMemoController = {
       mfgDate,
       daysElapsed,
       monthsElapsed,
-      memoId: memo.id,
-      memoNumber: memo.memoNumber,
-      itemId: memoItem.itemId,
-      sku: memoItem.sku,
-      name: memoItem.name,
-      category: memoItem.category,
+      memoId: memoId || null,
+      memoNumber: '—',
+      itemId: mainItem ? mainItem.id : itemId,
+      sku: pieceSku,
+      name: pieceName,
+      category: pieceCategory,
       customerName,
       brokerName: brokerName || '—',
       mfgCost,
@@ -690,9 +706,33 @@ const JewelryMemoController = {
       createdAt: new Date().toISOString()
     };
 
+    if (memoId) {
+      const memo = DBManager.getJewelryMemos().find(m => m.id === memoId);
+      if (memo) {
+        saleRecord.memoNumber = memo.memoNumber;
+        const memoItem = memo.items[index];
+        if (memoItem) {
+          memoItem.status = 'sold';
+          memoItem.soldPrice = finalSoldPrice;
+          pieceName = memoItem.name;
+          pieceSku = memoItem.sku;
+          pieceCategory = memoItem.category;
+          saleRecord.name = pieceName;
+          saleRecord.sku = pieceSku;
+          saleRecord.category = pieceCategory;
+        }
+
+        const allDone = memo.items.every(it => it.status !== 'open');
+        if (allDone) {
+          memo.status = 'closed';
+          memo.closedAt = new Date().toISOString();
+        }
+      }
+    }
+
     DBManager.database.jewelrySales.push(saleRecord);
 
-    // 2. Mark item as Sold in main catalog
+    // Mark item as Sold in main catalog
     if (mainItem) {
       mainItem.status = 'Sold';
       mainItem.soldPrice = finalSoldPrice;
@@ -702,29 +742,20 @@ const JewelryMemoController = {
       mainItem.updatedAt = new Date().toISOString();
     }
 
-    // 3. Mark item as sold in memo
-    memoItem.status = 'sold';
-    memoItem.soldPrice = finalSoldPrice;
-
-    // Check if memo is fully resolved
-    const allDone = memo.items.every(it => it.status !== 'open');
-    if (allDone) {
-      memo.status = 'closed';
-      memo.closedAt = new Date().toISOString();
-    }
-
     DBManager.addLog(
-      'EDIT', memo.id, `Jewelry Sale ${saleRecord.saleNumber}`,
-      `Sold ${memoItem.sku} to ${customerName} (Broker: ${brokerName || 'None'}) for ₹${finalSoldPrice.toLocaleString()} (Profit: ₹${profit.toLocaleString()})`,
+      'EDIT',
+      mainItem ? mainItem.id : itemId,
+      `Jewelry Sale ${saleRecord.saleNumber}`,
+      `Sold ${pieceSku} to ${customerName} (Broker: ${brokerName || 'None'}) for ₹${finalSoldPrice.toLocaleString()} (Profit: ₹${profit.toLocaleString()})`,
       []
     );
 
     try {
       UI.closeModal('modal-complete-jewelry-sale');
-      UI.showToast(`Sale recorded for SKU: ${memoItem.sku} to ${customerName}!`);
+      UI.showToast(`Sale recorded for SKU: ${pieceSku} to ${customerName}!`);
       App.refreshAllDisplays();
       if (window.JewelrySalesController) window.JewelrySalesController.renderSalesList();
-      this.openMemoDetail(memo.id);
+      if (memoId) this.openMemoDetail(memoId);
       await DBManager.saveVault();
     } catch (err) {
       UI.showToast(err.message, true);

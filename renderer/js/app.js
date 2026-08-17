@@ -954,7 +954,7 @@ const App = {
     
     document.getElementById('detail-jewelry-selling-price').textContent = `₹${evaluation.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
 
-    // 9. Edit button wire up
+    // 9. Edit & Sell button wire up
     const btnEdit = document.getElementById('btn-detail-edit-item');
     if (btnEdit) {
       const newBtn = btnEdit.cloneNode(true);
@@ -965,6 +965,27 @@ const App = {
         UI.loadItemIntoForm(item);
         UI.openModal('modal-jewelry-item');
       });
+    }
+
+    const btnSell = document.getElementById('btn-detail-sell-item');
+    if (btnSell) {
+      const newSellBtn = btnSell.cloneNode(true);
+      btnSell.parentNode.replaceChild(newSellBtn, btnSell);
+      if (item.status === 'Sold') {
+        newSellBtn.textContent = "Item Sold";
+        newSellBtn.disabled = true;
+        newSellBtn.style.opacity = '0.6';
+      } else {
+        newSellBtn.textContent = "Record Sale";
+        newSellBtn.disabled = false;
+        newSellBtn.style.opacity = '1';
+        newSellBtn.addEventListener('click', () => {
+          UI.closeModal('modal-jewelry-detail');
+          if (window.JewelryMemoController) {
+            JewelryMemoController.openCompleteSaleModal(null, -1, item);
+          }
+        });
+      }
     }
 
     UI.openModal('modal-jewelry-detail');

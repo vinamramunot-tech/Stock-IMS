@@ -330,6 +330,11 @@ const JewelrySalesController = {
             ${monthlySign}${monthlyProfit.toFixed(2)}%/mo
           </span>
         </td>
+        <td style="text-align:center;">
+          <button type="button" class="btn btn-secondary btn-small btn-return-sale" style="font-size:11px;padding:3px 8px;white-space:nowrap;" title="Return piece back to In Stock inventory">
+            Return to Stock
+          </button>
+        </td>
       `;
 
       const thumbImg = tr.querySelector('.sales-thumb-img');
@@ -337,7 +342,73 @@ const JewelrySalesController = {
         thumbImg.addEventListener('click', () => App.openJewelryDetailModal(mainItem));
       }
 
+      const returnBtn = tr.querySelector('.btn-return-sale');
+      if (returnBtn) {
+        returnBtn.addEventListener('click', () => this.handleReturnSale(sale));
+      }
+
       tbody.appendChild(tr);
+    });
+  },
+
+  async handleReturnSale(saleRecord) {
+    if (!saleRecord) return;
+
+    const sku = saleRecord.sku || 'N/A';
+    const name = saleRecord.name || 'Jewelry Piece';
+
+    UI.confirm(`Are you sure you want to return "${name}" (${sku}) back to In Stock inventory?\n\nThis will reverse the sale ledger entry and restore the item to active stock.`, async () => {
+      const items = DBManager.database.items || [];
+      const mainItem = items.find(i => i.id === saleRecord.itemId || i.sku === saleRecord.sku);
+
+      if (mainItem) {
+        mainItem.status = 'In Stock';
+        delete mainItem.soldPrice;
+        delete mainItem.soldDate;
+        delete mainItem.soldTo;
+        delete mainItem.soldBroker;
+        mainItem.updatedAt = new Date().toISOString();
+      }
+
+      // If linked to a memo, update item status in memo
+      if (saleRecord.memoId) {
+        const memos = DBManager.database.jewelryMemos || [];
+        const memo = memos.find(m => m.id === saleRecord.memoId);
+        if (memo && memo.items) {
+          const mItem = memo.items.find(it => it.itemId === saleRecord.itemId || it.sku === saleRecord.sku);
+          if (mItem) {
+            mItem.status = 'returned';
+          }
+          // If all items are returned/closed, ensure memo is updated
+          const hasOpen = memo.items.some(it => it.status === 'open');
+          if (!hasOpen) {
+            memo.status = 'closed';
+            memo.closedAt = memo.closedAt || new Date().toISOString();
+          }
+        }
+      }
+
+      // Remove the sale record from jewelrySales
+      if (DBManager.database.jewelrySales) {
+        DBManager.database.jewelrySales = DBManager.database.jewelrySales.filter(s => s.id !== saleRecord.id && s.itemId !== saleRecord.itemId);
+      }
+
+      DBManager.addLog(
+        "RETURN",
+        mainItem ? mainItem.id : (saleRecord.itemId || 'item_' + Date.now()),
+        name,
+        `Returned sold piece ${name} (${sku}) back to inventory. Sale reversed.`,
+        []
+      );
+
+      try {
+        await DBManager.saveVault();
+        App.refreshAllDisplays();
+        this.renderSalesList();
+        UI.showToast(`Piece ${sku} successfully returned to stock!`);
+      } catch (err) {
+        UI.showToast("Error returning sale: " + err.message, true);
+      }
     });
   },
 
