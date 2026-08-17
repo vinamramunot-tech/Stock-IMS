@@ -290,12 +290,9 @@ const JewelrySalesController = {
 
       const profit = Number(sale.profit) || 0;
       const marginPct = Number(sale.marginPct) || 0;
-      const monthlyProfit = Number(sale.monthlyProfitPct) || 0;
 
       const profitSign = profit >= 0 ? '+' : '';
       const profitColor = profit >= 0 ? '#22c55e' : '#ef4444';
-      const monthlySign = monthlyProfit >= 0 ? '+' : '';
-      const monthlyColor = monthlyProfit >= 0 ? '#22c55e' : '#ef4444';
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
@@ -320,26 +317,41 @@ const JewelrySalesController = {
           ${sale.brokerName && sale.brokerName !== '—' ? `<div style="font-size:11px;color:var(--text-muted);">Broker: ${UI.escapeHtml(sale.brokerName)}</div>` : ''}
         </td>
         <td style="text-align:right;font-size:12px;color:var(--text-muted);">₹${(Number(sale.mfgCost) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-        <td style="text-align:right;font-weight:700;color:var(--text-gold-dark);font-size:13px;">₹${(Number(sale.soldPrice) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+        <td style="text-align:right;font-weight:700;color:var(--text-gold-dark);font-size:13px;cursor:pointer;" class="btn-edit-sale-price-cell" title="Click to edit sale price">
+          <div style="display:inline-flex;align-items:center;gap:4px;">
+            <span>₹${(Number(sale.soldPrice) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" style="opacity:0.6;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          </div>
+        </td>
         <td style="text-align:right;font-weight:700;font-size:13px;color:${profitColor};">
           ${profitSign}₹${profit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           <div style="font-size:10px;font-weight:600;opacity:0.85;">(${profitSign}${marginPct.toFixed(1)}%)</div>
         </td>
-        <td style="text-align:right;">
-          <span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;background:${monthlyProfit >= 0 ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)'};color:${monthlyColor};border:1px solid ${monthlyProfit >= 0 ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'};">
-            ${monthlySign}${monthlyProfit.toFixed(2)}%/mo
-          </span>
-        </td>
         <td style="text-align:center;">
-          <button type="button" class="btn btn-secondary btn-small btn-return-sale" style="font-size:11px;padding:3px 8px;white-space:nowrap;" title="Return piece back to In Stock inventory">
-            Return to Stock
-          </button>
+          <div style="display:flex;gap:4px;justify-content:center;flex-wrap:nowrap;">
+            <button type="button" class="btn btn-secondary btn-small btn-edit-sale-price" style="font-size:11px;padding:3px 8px;white-space:nowrap;" title="Change sale price">
+              Edit Price
+            </button>
+            <button type="button" class="btn btn-secondary btn-small btn-return-sale" style="font-size:11px;padding:3px 8px;white-space:nowrap;color:var(--danger-red, #ef4444);border-color:rgba(239,68,68,0.3);" title="Return piece back to In Stock inventory">
+              Return
+            </button>
+          </div>
         </td>
       `;
 
       const thumbImg = tr.querySelector('.sales-thumb-img');
       if (thumbImg && mainItem) {
         thumbImg.addEventListener('click', () => App.openJewelryDetailModal(mainItem));
+      }
+
+      const editBtn = tr.querySelector('.btn-edit-sale-price');
+      if (editBtn) {
+        editBtn.addEventListener('click', () => this.openEditSaleModal(sale));
+      }
+
+      const editCell = tr.querySelector('.btn-edit-sale-price-cell');
+      if (editCell) {
+        editCell.addEventListener('click', () => this.openEditSaleModal(sale));
       }
 
       const returnBtn = tr.querySelector('.btn-return-sale');
@@ -349,6 +361,68 @@ const JewelrySalesController = {
 
       tbody.appendChild(tr);
     });
+  },
+
+  openEditSaleModal(saleRecord) {
+    if (!saleRecord) return;
+
+    const titleEl = document.getElementById('jewelry-sale-modal-title');
+    if (titleEl) titleEl.textContent = "Edit Jewelry Sale Price";
+
+    const btnConfirm = document.getElementById('btn-confirm-jewelry-sale');
+    if (btnConfirm) btnConfirm.textContent = "Update Sale Price";
+
+    const saleIdInp = document.getElementById('jewelry-sale-id');
+    if (saleIdInp) saleIdInp.value = saleRecord.id || '';
+
+    const memoIdInp = document.getElementById('jewelry-sale-memo-id');
+    if (memoIdInp) memoIdInp.value = saleRecord.memoId || '';
+
+    const itemIdxInp = document.getElementById('jewelry-sale-item-index');
+    if (itemIdxInp) itemIdxInp.value = '-1';
+
+    const itemIdInp = document.getElementById('jewelry-sale-item-id');
+    if (itemIdInp) itemIdInp.value = saleRecord.itemId || '';
+
+    const nameEl = document.getElementById('jewelry-sale-piece-name');
+    if (nameEl) nameEl.textContent = saleRecord.name || 'Jewelry Piece';
+
+    const skuEl = document.getElementById('jewelry-sale-piece-sku');
+    if (skuEl) skuEl.textContent = `SKU: ${saleRecord.sku || 'N/A'} | Category: ${saleRecord.category || 'Jewelry'}`;
+
+    const custInp = document.getElementById('jewelry-sale-customer-name');
+    if (custInp) custInp.value = saleRecord.customerName || '';
+
+    const brokerInp = document.getElementById('jewelry-sale-broker-name');
+    if (brokerInp) brokerInp.value = (saleRecord.brokerName && saleRecord.brokerName !== '—') ? saleRecord.brokerName : '';
+
+    const mfgCost = Number(saleRecord.mfgCost) || 0;
+    const mfgCostInp = document.getElementById('jewelry-sale-mfg-cost');
+    if (mfgCostInp) {
+      mfgCostInp.value = `₹${mfgCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+      mfgCostInp.dataset.mfgCost = mfgCost;
+    }
+
+    const finalPriceInp = document.getElementById('jewelry-sale-final-price');
+    if (finalPriceInp) {
+      finalPriceInp.value = Number(saleRecord.soldPrice) || 0;
+    }
+
+    const dateInp = document.getElementById('jewelry-sale-date');
+    if (dateInp) {
+      dateInp.value = saleRecord.saleDate ? saleRecord.saleDate.split('T')[0] : new Date().toISOString().split('T')[0];
+    }
+
+    const notesInp = document.getElementById('jewelry-sale-notes');
+    if (notesInp) {
+      notesInp.value = saleRecord.notes || '';
+    }
+
+    if (window.JewelryMemoController) {
+      JewelryMemoController.updateSaleProfitCalculation();
+    }
+
+    UI.openModal('modal-complete-jewelry-sale');
   },
 
   async handleReturnSale(saleRecord) {

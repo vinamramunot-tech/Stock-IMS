@@ -577,6 +577,13 @@ const JewelryMemoController = {
     let memoItem = null;
     let mainItem = null;
 
+    const titleEl = document.getElementById('jewelry-sale-modal-title');
+    if (titleEl) titleEl.textContent = "Complete Jewelry Sale";
+    const btnConfirm = document.getElementById('btn-confirm-jewelry-sale');
+    if (btnConfirm) btnConfirm.textContent = "Confirm & Finalize Sale";
+    const saleIdInput = document.getElementById('jewelry-sale-id');
+    if (saleIdInput) saleIdInput.value = '';
+
     if (directItem) {
       mainItem = directItem;
       document.getElementById('jewelry-sale-memo-id').value = '';
@@ -640,6 +647,7 @@ const JewelryMemoController = {
   },
 
   async handleConfirmJewelrySale() {
+    const saleId = document.getElementById('jewelry-sale-id')?.value;
     const memoId = document.getElementById('jewelry-sale-memo-id').value;
     const index = parseInt(document.getElementById('jewelry-sale-item-index').value, 10);
     const itemId = document.getElementById('jewelry-sale-item-id').value;
@@ -666,7 +674,7 @@ const JewelryMemoController = {
     const profit = finalSoldPrice - mfgCost;
     const marginPct = mfgCost > 0 ? (profit / mfgCost) * 100 : 0;
 
-    let mainItem = DBManager.database.items.find(i => i.id === itemId);
+    let mainItem = DBManager.database.items.find(i => i.id === itemId || i.sku === itemId);
     let pieceName = mainItem?.name || 'Jewelry Piece';
     let pieceSku = mainItem?.sku || 'N/A';
     let pieceCategory = mainItem?.category || 'Jewelry';
@@ -682,6 +690,86 @@ const JewelryMemoController = {
     const monthlyProfitPct = Number((marginPct / monthsElapsed).toFixed(2));
 
     if (!DBManager.database.jewelrySales) DBManager.database.jewelrySales = [];
+
+    if (saleId) {
+      // ── Updating an existing sale record ──────────────────────────────
+      let existingSale = DBManager.database.jewelrySales.find(s => s.id === saleId || s.itemId === itemId);
+      if (existingSale) {
+        existingSale.soldPrice = finalSoldPrice;
+        existingSale.profit = profit;
+        existingSale.marginPct = marginPct;
+        existingSale.monthlyProfitPct = monthlyProfitPct;
+        existingSale.customerName = customerName;
+        existingSale.brokerName = brokerName || '—';
+        existingSale.saleDate = saleDate;
+        existingSale.notes = notes;
+      } else {
+        existingSale = {
+          id: saleId.startsWith('legacy_') ? ('jsale_' + Date.now()) : saleId,
+          saleNumber: 'JS-' + String(DBManager.database.jewelrySales.length + 1).padStart(4, '0'),
+          saleDate,
+          mfgDate,
+          daysElapsed,
+          monthsElapsed,
+          memoId: memoId || null,
+          memoNumber: '—',
+          itemId: mainItem ? mainItem.id : itemId,
+          sku: pieceSku,
+          name: pieceName,
+          category: pieceCategory,
+          customerName,
+          brokerName: brokerName || '—',
+          mfgCost,
+          soldPrice: finalSoldPrice,
+          profit,
+          marginPct,
+          monthlyProfitPct,
+          notes,
+          createdAt: new Date().toISOString()
+        };
+        DBManager.database.jewelrySales.push(existingSale);
+      }
+
+      if (mainItem) {
+        mainItem.status = 'Sold';
+        mainItem.soldPrice = finalSoldPrice;
+        mainItem.soldDate = saleDate;
+        mainItem.soldTo = customerName;
+        mainItem.soldBroker = brokerName;
+        mainItem.updatedAt = new Date().toISOString();
+      }
+
+      if (memoId) {
+        const memo = DBManager.getJewelryMemos().find(m => m.id === memoId);
+        if (memo && memo.items) {
+          const mItem = memo.items.find(it => it.itemId === itemId || it.sku === pieceSku);
+          if (mItem) {
+            mItem.soldPrice = finalSoldPrice;
+          }
+        }
+      }
+
+      DBManager.addLog(
+        'EDIT',
+        mainItem ? mainItem.id : itemId,
+        `Sale Price Updated`,
+        `Updated sale price for ${pieceSku} (${pieceName}) to ₹${finalSoldPrice.toLocaleString()} (Profit: ₹${profit.toLocaleString()})`,
+        []
+      );
+
+      try {
+        UI.closeModal('modal-complete-jewelry-sale');
+        UI.showToast(`Sale price updated for SKU: ${pieceSku} to ₹${finalSoldPrice.toLocaleString()}!`);
+        App.refreshAllDisplays();
+        if (window.JewelrySalesController) window.JewelrySalesController.renderSalesList();
+        await DBManager.saveVault();
+      } catch (err) {
+        UI.showToast(err.message, true);
+      }
+      return;
+    }
+
+    // ── Creating a new sale record ────────────────────────────────────
     const saleRecord = {
       id: 'jsale_' + Date.now(),
       saleNumber: 'JS-' + String(DBManager.database.jewelrySales.length + 1).padStart(4, '0'),
