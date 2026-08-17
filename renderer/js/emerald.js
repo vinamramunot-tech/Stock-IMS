@@ -2241,18 +2241,18 @@ const EmeraldController = {
     const FOOTER_H = 18;
     const SAFE_BOTTOM = PAGE_H - FOOTER_H;
 
-    // Column layout (matches screenshot: # | Shape | MM | Pcs | cts | @/Ct | Grade)
+    // Column layout: # | Shape | MM | Pcs | cts | @/Ct | Grade
     const COL = {
-      num: { x: MARGIN, w: 14 },
-      shape: { x: MARGIN + 14, w: 30 },
-      mm: { x: MARGIN + 44, w: 28 },
-      pcs: { x: MARGIN + 72, w: 18 },
-      cts: { x: MARGIN + 90, w: 22 },
-      rate: { x: MARGIN + 112, w: 30 },
-      grade: { x: MARGIN + 142, w: TABLE_W - 142 },
+      num: { x: MARGIN, w: 16 },
+      shape: { x: MARGIN + 16, w: 32 },
+      mm: { x: MARGIN + 48, w: 26 },
+      pcs: { x: MARGIN + 74, w: 18 },
+      cts: { x: MARGIN + 92, w: 24 },
+      rate: { x: MARGIN + 116, w: 30 },
+      grade: { x: MARGIN + 146, w: TABLE_W - 146 },
     };
 
-    const ROW_H = 6.5;
+    const ROW_H = 6;
     const HEAD_H = 6;
 
     let pageNum = 1;

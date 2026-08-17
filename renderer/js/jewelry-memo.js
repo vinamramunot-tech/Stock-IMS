@@ -1041,23 +1041,24 @@ const JewelryMemoController = {
 
     // Table Header
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
+    doc.setFontSize(8.5);
     doc.text("SKU", 14, 63);
-    doc.text("Description", 45, 63);
-    doc.text("Category", 110, 63);
-    doc.text("Status", 140, 63);
-    doc.text("Selling Price", 170, 63);
+    doc.text("Description", 40, 63);
+    doc.text("Category", 115, 63);
+    doc.text("Status", 148, 63);
+    doc.text("Selling Price (INR)", 196, 63, { align: 'right' });
 
     doc.line(14, 66, 196, 66);
 
     let y = 72;
     doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
 
     (memo.items || []).forEach(item => {
       const mainItem = DBManager.getItems().find(i => i.id === item.itemId || i.sku === item.sku);
       const imgSrc = item.image || (mainItem ? mainItem.image : null);
       const hasImg = imgSrc && imgSrc.startsWith('data:image/');
-      const rowHeight = hasImg ? 16 : 8;
+      const rowHeight = hasImg ? 16 : 7.5;
 
       if (y + rowHeight > 275) {
         doc.addPage();
@@ -1067,28 +1068,28 @@ const JewelryMemoController = {
       doc.setFont("helvetica", "bold");
       doc.text(item.sku, 14, y + (hasImg ? 4 : 0));
       doc.setFont("helvetica", "normal");
-      doc.text(item.name.substring(0, hasImg ? 22 : 32), 45, y + (hasImg ? 2 : 0));
+      doc.text(item.name.substring(0, hasImg ? 26 : 38), 40, y + (hasImg ? 2 : 0));
 
       if (hasImg) {
         try {
           const format = imgSrc.includes('png') ? 'PNG' : 'JPEG';
-          doc.addImage(imgSrc, format, 45, y + 4, 12, 10);
+          doc.addImage(imgSrc, format, 40, y + 4, 12, 10);
         } catch (e) {
           // ignore PDF image rendering errors gracefully
         }
       }
 
-      doc.text(item.category, 110, y + (hasImg ? 4 : 0));
-      doc.text(item.status.toUpperCase(), 140, y + (hasImg ? 4 : 0));
-      doc.text(`Rs ${item.sellingPrice.toLocaleString()}`, 170, y + (hasImg ? 4 : 0));
+      doc.text(item.category || 'Jewelry', 115, y + (hasImg ? 4 : 0));
+      doc.text((item.status || 'OPEN').toUpperCase(), 148, y + (hasImg ? 4 : 0));
+      doc.text(`Rs ${(Number(item.sellingPrice) || 0).toLocaleString()}`, 196, y + (hasImg ? 4 : 0), { align: 'right' });
       y += rowHeight;
     });
 
     doc.line(14, y, 196, y);
     y += 6;
     doc.setFont("helvetica", "bold");
-    doc.text("Total Value", 140, y);
-    doc.text(`Rs ${memo.totalValue.toLocaleString()}`, 170, y);
+    doc.text("Total Memo Value:", 148, y);
+    doc.text(`Rs ${(Number(memo.totalValue) || 0).toLocaleString()}`, 196, y, { align: 'right' });
 
     if (memo.notes) {
       y += 12;

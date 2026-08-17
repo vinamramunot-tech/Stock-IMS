@@ -1281,13 +1281,13 @@ const StoneController = {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8);
       doc.text("Packet No", 14, 41);
-      doc.text("Type", 32, 41);
-      doc.text("Grade / Clarity", 60, 41);
-      doc.text("Origin", 95, 41);
-      doc.text("Pcs", 130, 41);
-      doc.text("Weight", 145, 41);
-      doc.text("Rate/ct", 160, 41);
-      doc.text("Value (INR)", 178, 41);
+      doc.text("Type", 34, 41);
+      doc.text("Grade / Clarity", 62, 41);
+      doc.text("Origin", 94, 41);
+      doc.text("Pcs", 134, 41, { align: 'right' });
+      doc.text("Weight", 154, 41, { align: 'right' });
+      doc.text("Rate/ct", 174, 41, { align: 'right' });
+      doc.text("Value (INR)", 196, 41, { align: 'right' });
 
       doc.line(14, 44, 196, 44);
     };
@@ -1351,26 +1351,26 @@ const StoneController = {
         doc.setFontSize(8);
         doc.text(`#${st.color || 'N/A'}`, 14, y);
         doc.setFont("helvetica", "normal");
-        doc.text(st.type, 32, y);
-        doc.text(st.lustreGrade || '—', 60, y);
-        doc.text((st.origins || []).join(', ').substring(0, 18), 95, y);
-        doc.text(pcs.toString(), 130, y);
-        doc.text(`${w.toFixed(3)}ct`, 145, y);
-        doc.text(`Rs ${(st.pricePerCarat || 0).toLocaleString()}`, 160, y);
-        doc.text(`Rs ${val.toLocaleString()}`, 178, y);
+        doc.text((st.type || '').substring(0, 14), 34, y);
+        doc.text((st.lustreGrade || '—').substring(0, 16), 62, y);
+        doc.text((st.origins || []).join(', ').substring(0, 16), 94, y);
+        doc.text(pcs.toString(), 134, y, { align: 'right' });
+        doc.text(`${w.toFixed(3)}ct`, 154, y, { align: 'right' });
+        doc.text(`Rs ${(st.pricePerCarat || 0).toLocaleString()}`, 174, y, { align: 'right' });
+        doc.text(`Rs ${val.toLocaleString()}`, 196, y, { align: 'right' });
 
-        y += 7;
+        y += 6.5;
       });
 
       // Group Subtotal Row
       checkPageBreak(10);
-      doc.line(32, y - 4, 196, y - 4);
+      doc.line(34, y - 4, 196, y - 4);
       doc.setFont("helvetica", "bold");
-      doc.text(`Subtotal (${gName})`, 32, y);
-      doc.text(gPieces.toString(), 130, y);
-      doc.text(`${gWeight.toFixed(3)}ct`, 145, y);
-      doc.text(`Rs ${gValue.toLocaleString()}`, 178, y);
-      y += 12;
+      doc.text(`Subtotal (${gName})`, 34, y);
+      doc.text(gPieces.toString(), 134, y, { align: 'right' });
+      doc.text(`${gWeight.toFixed(3)}ct`, 154, y, { align: 'right' });
+      doc.text(`Rs ${gValue.toLocaleString()}`, 196, y, { align: 'right' });
+      y += 10;
     });
 
     // Grand Total Row
@@ -1379,9 +1379,9 @@ const StoneController = {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.text("Grand Total", 14, y);
-    doc.text(grandPieces.toString(), 130, y);
-    doc.text(`${grandWeight.toFixed(3)}ct`, 145, y);
-    doc.text(`Rs ${grandValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 178, y);
+    doc.text(grandPieces.toString(), 134, y, { align: 'right' });
+    doc.text(`${grandWeight.toFixed(3)}ct`, 154, y, { align: 'right' });
+    doc.text(`Rs ${grandValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 196, y, { align: 'right' });
 
     return doc;
   }

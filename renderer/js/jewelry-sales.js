@@ -990,29 +990,30 @@ const JewelrySalesController = {
 
     const totalRev = records.reduce((s, r) => s + (Number(r.soldPrice) || 0), 0);
     const totalProf = records.reduce((s, r) => s + (Number(r.profit) || 0), 0);
-    doc.text(`Total Revenue: Rs ${totalRev.toLocaleString()}`, 160, 28);
-    doc.text(`Total Profit: Rs ${totalProf.toLocaleString()}`, 160, 34);
+    doc.text(`Total Revenue: Rs ${totalRev.toLocaleString()}`, 180, 28);
+    doc.text(`Total Profit: Rs ${totalProf.toLocaleString()}`, 180, 34);
 
     doc.setDrawColor(200);
     doc.line(14, 38, 282, 38);
 
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
+    doc.setFontSize(8.5);
     doc.text("Sale Date", 14, 44);
-    doc.text("SKU", 36, 44);
-    doc.text("Piece Name", 62, 44);
-    doc.text("Mfg Date", 112, 44);
-    doc.text("Holding", 136, 44);
-    doc.text("Sold To", 158, 44);
-    doc.text("Mfg Cost", 198, 44);
-    doc.text("Sold Price", 226, 44);
-    doc.text("Profit", 252, 44);
-    doc.text("Profit%/Mo", 270, 44);
+    doc.text("SKU", 38, 44);
+    doc.text("Piece Name", 64, 44);
+    doc.text("Category", 120, 44);
+    doc.text("Mfg Date", 148, 44);
+    doc.text("Holding", 172, 44);
+    doc.text("Customer / Client", 196, 44);
+    doc.text("Mfg Cost", 240, 44, { align: 'right' });
+    doc.text("Sold Price", 262, 44, { align: 'right' });
+    doc.text("Profit (Rs)", 282, 44, { align: 'right' });
 
     doc.line(14, 47, 282, 47);
 
     let y = 53;
     doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
 
     records.forEach(r => {
       if (y > 185) {
@@ -1021,17 +1022,21 @@ const JewelrySalesController = {
       }
       doc.text(r.saleDate || '—', 14, y);
       doc.setFont("helvetica", "bold");
-      doc.text(r.sku || '', 36, y);
+      doc.text(r.sku || '', 38, y);
       doc.setFont("helvetica", "normal");
-      doc.text((r.name || '').substring(0, 24), 62, y);
-      doc.text(r.mfgDate || '—', 112, y);
-      doc.text(`${r.daysElapsed}d (${r.monthsElapsed}m)`, 136, y);
-      doc.text((r.customerName || '').substring(0, 18), 158, y);
-      doc.text(`Rs ${(Number(r.mfgCost) || 0).toLocaleString()}`, 198, y);
-      doc.text(`Rs ${(Number(r.soldPrice) || 0).toLocaleString()}`, 226, y);
-      doc.text(`Rs ${(Number(r.profit) || 0).toLocaleString()}`, 252, y);
-      doc.text(`${Number(r.monthlyProfitPct || 0).toFixed(1)}%`, 270, y);
-      y += 7;
+      doc.text((r.name || '').substring(0, 30), 64, y);
+      doc.text((r.category || 'Jewelry').substring(0, 14), 120, y);
+      doc.text(r.mfgDate || '—', 148, y);
+      doc.text(`${r.daysElapsed}d (${r.monthsElapsed}m)`, 172, y);
+      doc.text((r.customerName || '—').substring(0, 20), 196, y);
+      doc.text(`Rs ${(Number(r.mfgCost) || 0).toLocaleString()}`, 240, y, { align: 'right' });
+      doc.text(`Rs ${(Number(r.soldPrice) || 0).toLocaleString()}`, 262, y, { align: 'right' });
+      
+      const p = Number(r.profit) || 0;
+      doc.setFont("helvetica", "bold");
+      doc.text(`Rs ${p.toLocaleString()}`, 282, y, { align: 'right' });
+      doc.setFont("helvetica", "normal");
+      y += 6.5;
     });
 
     const iframe = document.getElementById('print-preview-iframe');
