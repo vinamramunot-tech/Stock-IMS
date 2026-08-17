@@ -849,6 +849,7 @@ const JewelryMemoController = {
       marginPct,
       monthlyProfitPct,
       notes,
+      itemSnapshot: mainItem ? JSON.parse(JSON.stringify(mainItem)) : null,
       createdAt: new Date().toISOString()
     };
 

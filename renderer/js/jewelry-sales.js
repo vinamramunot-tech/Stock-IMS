@@ -233,6 +233,8 @@ const JewelrySalesController = {
     // Populate Analyzer Page Top Metrics & Intelligence
     this.updateMetricsElements('analyzer-sales', totalRevenue, totalProfit, totalPieces, avgDays, avgMonths, avgMonthlyRoi);
     this.renderPriceRangeIntelligence(records, 'analyzer');
+    this.renderCustomerIntelligence(records);
+    this.renderBrokerIntelligence(records);
 
     // 3. Filter Table on Sales Page
     const searchInp = document.getElementById('jewelry-sales-search-input');
@@ -435,9 +437,9 @@ const JewelrySalesController = {
     const sku = saleRecord.sku || 'N/A';
     const name = saleRecord.name || 'Jewelry Piece';
 
-    UI.confirm(`Are you sure you want to return "${name}" (${sku}) back to In Stock inventory?\n\nThis will reverse the sale ledger entry and restore the item to active stock.`, async () => {
-      const items = DBManager.database.items || [];
-      const mainItem = items.find(i => i.id === saleRecord.itemId || i.sku === saleRecord.sku);
+    UI.confirm(`Are you sure you want to return "${name}" (${sku}) back to In Stock inventory?\n\nThis will reverse the sale ledger entry and restore all original specifications and valuations back into active stock.`, async () => {
+      if (!DBManager.database.items) DBManager.database.items = [];
+      let mainItem = DBManager.database.items.find(i => i.id === saleRecord.itemId || i.sku === saleRecord.sku);
 
       if (mainItem) {
         mainItem.status = 'In Stock';
@@ -446,6 +448,16 @@ const JewelrySalesController = {
         delete mainItem.soldTo;
         delete mainItem.soldBroker;
         mainItem.updatedAt = new Date().toISOString();
+      } else if (saleRecord.itemSnapshot) {
+        // Re-inflate item from preserved snapshot if missing
+        mainItem = JSON.parse(JSON.stringify(saleRecord.itemSnapshot));
+        mainItem.status = 'In Stock';
+        delete mainItem.soldPrice;
+        delete mainItem.soldDate;
+        delete mainItem.soldTo;
+        delete mainItem.soldBroker;
+        mainItem.updatedAt = new Date().toISOString();
+        DBManager.database.items.push(mainItem);
       }
 
       // If linked to a memo, update item status in memo
@@ -475,7 +487,7 @@ const JewelrySalesController = {
         "RETURN",
         mainItem ? mainItem.id : (saleRecord.itemId || 'item_' + Date.now()),
         name,
-        `Returned sold piece ${name} (${sku}) back to inventory. Sale reversed.`,
+        `Returned sold piece ${name} (${sku}) back to inventory. Sale reversed and piece restored to In Stock.`,
         []
       );
 
@@ -483,7 +495,7 @@ const JewelrySalesController = {
         await DBManager.saveVault();
         App.refreshAllDisplays();
         this.renderSalesList();
-        UI.showToast(`Piece ${sku} successfully returned to stock!`);
+        UI.showToast(`Piece ${sku} successfully returned to stock with all specifications restored!`);
       } catch (err) {
         UI.showToast("Error returning sale: " + err.message, true);
       }
@@ -639,6 +651,280 @@ const JewelrySalesController = {
         </div>
       `;
     }).join('');
+  },
+
+  // ── Customer & Client Intelligence ──────────────────────────────────────────
+
+  renderCustomerIntelligence(records) {
+    const tbody = document.getElementById('analyzer-customer-tbody');
+    const emptyEl = document.getElementById('analyzer-customer-empty-state');
+    const badgeEl = document.getElementById('analyzer-customer-count-badge');
+    const totalClientsEl = document.getElementById('analyzer-customer-metric-total');
+    const topSpendEl = document.getElementById('analyzer-customer-metric-top-spend');
+    const topSpendSubEl = document.getElementById('analyzer-customer-metric-top-spend-sub');
+    const topProfitEl = document.getElementById('analyzer-customer-metric-top-profit');
+    const topProfitSubEl = document.getElementById('analyzer-customer-metric-top-profit-sub');
+    const avgLtvEl = document.getElementById('analyzer-customer-metric-avg-ltv');
+
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (!records || records.length === 0) {
+      if (emptyEl) emptyEl.classList.remove('hidden');
+      if (tbody.closest('table')) tbody.closest('table').classList.add('hidden');
+      if (badgeEl) badgeEl.textContent = '0 Active Clients';
+      if (totalClientsEl) totalClientsEl.textContent = '0';
+      if (topSpendEl) topSpendEl.textContent = '—';
+      if (topSpendSubEl) topSpendSubEl.textContent = 'No sales data';
+      if (topProfitEl) topProfitEl.textContent = '—';
+      if (topProfitSubEl) topProfitSubEl.textContent = 'No sales data';
+      if (avgLtvEl) avgLtvEl.textContent = '₹0.00';
+      return;
+    }
+
+    if (emptyEl) emptyEl.classList.add('hidden');
+    if (tbody.closest('table')) tbody.closest('table').classList.remove('hidden');
+
+    // Aggregate by customer name
+    const customerMap = new Map();
+    let totalBusinessRevenue = 0;
+
+    records.forEach(r => {
+      const custName = (r.customerName || 'Direct / Anonymous').trim();
+      const price = Number(r.soldPrice) || 0;
+      const profit = Number(r.profit) || 0;
+      const mfg = Number(r.mfgCost) || 0;
+      const cat = r.category || 'Jewelry';
+      const broker = (r.brokerName && r.brokerName !== '—') ? r.brokerName : null;
+      const saleDate = r.saleDate ? r.saleDate.split('T')[0] : '';
+
+      totalBusinessRevenue += price;
+
+      if (!customerMap.has(custName)) {
+        customerMap.set(custName, {
+          name: custName,
+          totalRevenue: 0,
+          totalProfit: 0,
+          totalMfgCost: 0,
+          piecesCount: 0,
+          categories: {},
+          brokers: new Set(),
+          lastDate: saleDate
+        });
+      }
+
+      const entry = customerMap.get(custName);
+      entry.totalRevenue += price;
+      entry.totalProfit += profit;
+      entry.totalMfgCost += mfg;
+      entry.piecesCount += 1;
+      entry.categories[cat] = (entry.categories[cat] || 0) + 1;
+      if (broker) entry.brokers.add(broker);
+      if (!entry.lastDate || (saleDate && saleDate > entry.lastDate)) {
+        entry.lastDate = saleDate;
+      }
+    });
+
+    const customers = Array.from(customerMap.values());
+    // Sort by total spend descending
+    customers.sort((a, b) => b.totalRevenue - a.totalRevenue);
+
+    const uniqueCount = customers.length;
+    if (badgeEl) badgeEl.textContent = `${uniqueCount} Active ${uniqueCount === 1 ? 'Client' : 'Clients'}`;
+    if (totalClientsEl) totalClientsEl.textContent = uniqueCount;
+
+    // Top Buyer by Spend
+    const topBuyer = customers[0];
+    if (topSpendEl && topBuyer) {
+      topSpendEl.textContent = topBuyer.name;
+      const pctOfTotal = totalBusinessRevenue > 0 ? ((topBuyer.totalRevenue / totalBusinessRevenue) * 100).toFixed(1) : 0;
+      if (topSpendSubEl) topSpendSubEl.textContent = `₹${topBuyer.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })} (${pctOfTotal}% of total revenue)`;
+    }
+
+    // Top Profit Contributor
+    const mostProfitableBuyer = [...customers].sort((a, b) => b.totalProfit - a.totalProfit)[0];
+    if (topProfitEl && mostProfitableBuyer) {
+      topProfitEl.textContent = mostProfitableBuyer.name;
+      const margin = mostProfitableBuyer.totalMfgCost > 0 ? ((mostProfitableBuyer.totalProfit / mostProfitableBuyer.totalMfgCost) * 100).toFixed(1) : 0;
+      if (topProfitSubEl) topProfitSubEl.textContent = `+₹${mostProfitableBuyer.totalProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })} (${margin}% margin)`;
+    }
+
+    // Avg LTV
+    if (avgLtvEl) {
+      const avgLtv = uniqueCount > 0 ? totalBusinessRevenue / uniqueCount : 0;
+      avgLtvEl.textContent = `₹${avgLtv.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    }
+
+    const fragment = document.createDocumentFragment();
+
+    customers.forEach((c, idx) => {
+      // Find top category
+      let topCat = 'Jewelry';
+      let maxCatCount = 0;
+      Object.entries(c.categories).forEach(([cat, count]) => {
+        if (count > maxCatCount) {
+          maxCatCount = count;
+          topCat = cat;
+        }
+      });
+
+      const brokerList = Array.from(c.brokers).join(', ');
+      const marginPct = c.totalMfgCost > 0 ? ((c.totalProfit / c.totalMfgCost) * 100).toFixed(1) : '0.0';
+      const profitSign = c.totalProfit >= 0 ? '+' : '';
+      const profitColor = c.totalProfit >= 0 ? '#22c55e' : '#ef4444';
+      const dateFmt = c.lastDate ? new Date(c.lastDate + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+      const revPct = totalBusinessRevenue > 0 ? ((c.totalRevenue / totalBusinessRevenue) * 100).toFixed(1) : 0;
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:11px;font-weight:700;color:var(--text-muted);width:20px;">#${idx + 1}</span>
+            <div>
+              <strong style="color:var(--text-main);font-size:13px;">${UI.escapeHtml(c.name)}</strong>
+              ${brokerList ? `<div style="font-size:11px;color:var(--text-muted);">Broker: ${UI.escapeHtml(brokerList)}</div>` : ''}
+            </div>
+          </div>
+        </td>
+        <td style="text-align:center;font-weight:700;color:var(--text-main);">${c.piecesCount} ${c.piecesCount === 1 ? 'pc' : 'pcs'}</td>
+        <td style="text-align:right;font-weight:800;color:var(--text-gold-dark);">
+          ₹${c.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          <div style="font-size:10px;color:var(--text-muted);font-weight:normal;">${revPct}% of sales</div>
+        </td>
+        <td style="text-align:right;font-weight:700;color:${profitColor};">
+          ${profitSign}₹${c.totalProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          <div style="font-size:10px;font-weight:600;opacity:0.85;">(${profitSign}${marginPct}%)</div>
+        </td>
+        <td>
+          <span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;background:var(--bg-base);border:1px solid var(--border-light);color:var(--text-main);">
+            ${UI.escapeHtml(topCat)}
+          </span>
+        </td>
+        <td style="text-align:center;font-size:12px;color:var(--text-muted);">${dateFmt}</td>
+      `;
+
+      fragment.appendChild(tr);
+    });
+
+    tbody.appendChild(fragment);
+  },
+
+  // ── Broker Intelligence & Memo Conversion ROI ───────────────────────────────
+
+  renderBrokerIntelligence(records) {
+    const tbody = document.getElementById('analyzer-broker-tbody');
+    const emptyEl = document.getElementById('analyzer-broker-empty-state');
+    const badgeEl = document.getElementById('analyzer-broker-count-badge');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    const memos = DBManager.database?.jewelryMemos || [];
+    const brokerMap = new Map();
+
+    // Map memo data
+    memos.forEach(m => {
+      const broker = (m.brokerName || '').trim();
+      if (!broker || broker === '—') return;
+      if (!brokerMap.has(broker)) {
+        brokerMap.set(broker, {
+          name: broker,
+          memosIssued: 0,
+          memoItemsCount: 0,
+          soldItemsCount: 0,
+          returnedItemsCount: 0,
+          salesGenerated: 0,
+          profitRealized: 0,
+          turnaroundDays: []
+        });
+      }
+      const b = brokerMap.get(broker);
+      b.memosIssued++;
+      (m.items || []).forEach(it => {
+        b.memoItemsCount++;
+        if (it.status === 'sold') b.soldItemsCount++;
+        if (it.status === 'returned') b.returnedItemsCount++;
+      });
+    });
+
+    // Map sales data
+    (records || []).forEach(r => {
+      const broker = (r.brokerName || '').trim();
+      if (!broker || broker === '—') return;
+      if (!brokerMap.has(broker)) {
+        brokerMap.set(broker, {
+          name: broker,
+          memosIssued: 0,
+          memoItemsCount: 0,
+          soldItemsCount: 0,
+          returnedItemsCount: 0,
+          salesGenerated: 0,
+          profitRealized: 0,
+          turnaroundDays: []
+        });
+      }
+      const b = brokerMap.get(broker);
+      b.salesGenerated += Number(r.soldPrice || 0);
+      b.profitRealized += Number(r.profit || 0);
+      if (r.daysElapsed) b.turnaroundDays.push(Number(r.daysElapsed));
+    });
+
+    const brokers = Array.from(brokerMap.values());
+    brokers.sort((a, b) => b.salesGenerated - a.salesGenerated);
+
+    if (badgeEl) badgeEl.textContent = `${brokers.length} Active ${brokers.length === 1 ? 'Broker' : 'Brokers'}`;
+
+    if (brokers.length === 0) {
+      if (emptyEl) emptyEl.classList.remove('hidden');
+      if (tbody.closest('table')) tbody.closest('table').classList.add('hidden');
+      return;
+    }
+
+    if (emptyEl) emptyEl.classList.add('hidden');
+    if (tbody.closest('table')) tbody.closest('table').classList.remove('hidden');
+
+    const fragment = document.createDocumentFragment();
+
+    brokers.forEach((b, idx) => {
+      const convRate = b.memoItemsCount > 0 ? ((b.soldItemsCount / b.memoItemsCount) * 100).toFixed(0) : (b.salesGenerated > 0 ? '100' : '0');
+      const convNum = Number(convRate);
+
+      let efficiencyBadge = '';
+      if (convNum >= 60) {
+        efficiencyBadge = '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;color:#22c55e;background:rgba(34, 197, 94, 0.12);">HIGH VELOCITY 🚀</span>';
+      } else if (convNum >= 30) {
+        efficiencyBadge = '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;color:#f59e0b;background:rgba(245, 158, 11, 0.12);">BALANCED ⚖️</span>';
+      } else {
+        efficiencyBadge = '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;color:var(--text-muted);background:var(--bg-base);">PENDING ⏳</span>';
+      }
+
+      const profitSign = b.profitRealized >= 0 ? '+' : '';
+      const profitColor = b.profitRealized >= 0 ? '#22c55e' : '#ef4444';
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:11px;font-weight:700;color:var(--text-muted);width:20px;">#${idx + 1}</span>
+            <strong style="color:var(--text-main);font-size:13px;">${UI.escapeHtml(b.name)}</strong>
+          </div>
+        </td>
+        <td style="text-align:center;font-size:12px;color:var(--text-main);font-weight:600;">${b.memosIssued} Memos</td>
+        <td style="text-align:center;font-size:12px;font-weight:700;color:${convNum >= 50 ? '#22c55e' : 'var(--text-main)'};">
+          ${convRate}%
+          <div style="font-size:10px;color:var(--text-muted);font-weight:normal;">(${b.soldItemsCount}/${b.memoItemsCount || (b.salesGenerated > 0 ? 1 : 0)} pcs sold)</div>
+        </td>
+        <td style="text-align:right;font-weight:700;color:var(--text-gold-dark);">₹${b.salesGenerated.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+        <td style="text-align:right;font-weight:700;color:${profitColor};">
+          ${profitSign}₹${b.profitRealized.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+        </td>
+        <td style="text-align:center;">${efficiencyBadge}</td>
+      `;
+
+      fragment.appendChild(tr);
+    });
+
+    tbody.appendChild(fragment);
   },
 
   // ── Excel Export ────────────────────────────────────────────────────────────

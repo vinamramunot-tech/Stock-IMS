@@ -23,6 +23,8 @@ const Catalog = {
         const allItems = DBManager.getItems();
 
         const visibleItems = allItems.filter(item => {
+          if (item.status === 'Sold') return false;
+
           const matchesSearch = !query ||
             (item.name || '').toLowerCase().includes(query) ||
             (item.sku || '').toLowerCase().includes(query) ||
@@ -134,8 +136,8 @@ const Catalog = {
     // Remember currently selected karat
     const currentSelected = filterSelect.value;
 
-    // Gather all unique karats from the items
-    const allItems = DBManager.getItems();
+    // Gather all unique karats from the active items
+    const allItems = DBManager.getItems().filter(i => i.status !== 'Sold');
     const uniqueKarats = new Set();
 
     allItems.forEach(item => {
@@ -173,7 +175,7 @@ const Catalog = {
   renderDashboard() {
     const goldSettings = DBManager.getSettings().goldRate24kt;
     const goldRate = goldSettings ? goldSettings.ratePerGram : 0;
-    const items = DBManager.getItems();
+    const items = DBManager.getItems().filter(i => i.status !== 'Sold');
 
     // Rates header rendering
     const dateStr = goldSettings ? goldSettings.effectiveDate : '';
@@ -461,10 +463,350 @@ const Catalog = {
       }
     }
 
+    // Strategic Business Intelligence calculations on Analyzer Page
+    this.renderAgingVelocityIntelligence(items, goldRate);
+    this.renderLiveMarginShield(items, goldRate);
+    this.renderVIPTargetMatcher(items);
+    this.renderGemstoneDepletionMonitor();
+
     // Also update Realized Sales, Holding Time & Profit Velocity on Analyzer
     if (window.JewelrySalesController && typeof window.JewelrySalesController.renderSalesList === 'function') {
       window.JewelrySalesController.renderSalesList();
     }
+  },
+
+  renderAgingVelocityIntelligence(activeItems, goldRate) {
+    const alertBadge = document.getElementById('analyzer-aging-alert-badge');
+    const tbody = document.getElementById('analyzer-aging-tbody');
+    const emptyState = document.getElementById('analyzer-aging-empty-state');
+    if (!alertBadge || !tbody) return;
+
+    tbody.innerHTML = '';
+    const now = Date.now();
+
+    let tier1 = { count: 0, val: 0 }; // 0-90
+    let tier2 = { count: 0, val: 0 }; // 91-180
+    let tier3 = { count: 0, val: 0 }; // 181-365
+    let tier4 = { count: 0, val: 0 }; // 365+
+    const agingList = [];
+
+    activeItems.forEach(item => {
+      const evalItem = Calc.evaluateItem(item, goldRate);
+      const val = evalItem.sellingPrice || evalItem.marketCostPrice || 0;
+      const mfgCost = evalItem.mfgGrandTotal || evalItem.marketCostPrice || 0;
+
+      const mDate = item.mfgDate ? item.mfgDate : (item.createdAt ? item.createdAt.split('T')[0] : '');
+      const itemTime = mDate ? new Date(mDate + 'T00:00:00').getTime() : (item.createdAt ? new Date(item.createdAt).getTime() : now);
+      const days = Math.max(0, Math.round((now - itemTime) / (1000 * 60 * 60 * 24)));
+
+      if (days <= 90) {
+        tier1.count++;
+        tier1.val += val;
+      } else if (days <= 180) {
+        tier2.count++;
+        tier2.val += val;
+      } else if (days <= 365) {
+        tier3.count++;
+        tier3.val += val;
+        agingList.push({ item, days, val, mfgCost, mDate, status: 'Aging (181-365d)' });
+      } else {
+        tier4.count++;
+        tier4.val += val;
+        agingList.push({ item, days, val, mfgCost, mDate, status: 'Stagnant (365d+)' });
+      }
+    });
+
+    const totalCount = activeItems.length;
+    const t1Pct = totalCount > 0 ? ((tier1.count / totalCount) * 100).toFixed(0) : 0;
+    const t2Pct = totalCount > 0 ? ((tier2.count / totalCount) * 100).toFixed(0) : 0;
+    const t3Pct = totalCount > 0 ? ((tier3.count / totalCount) * 100).toFixed(0) : 0;
+    const t4Pct = totalCount > 0 ? ((tier4.count / totalCount) * 100).toFixed(0) : 0;
+
+    const count1El = document.getElementById('analyzer-aging-tier1-count');
+    const val1El = document.getElementById('analyzer-aging-tier1-val');
+    const pct1El = document.getElementById('analyzer-aging-tier1-pct');
+    if (count1El) count1El.textContent = `${tier1.count} Pieces`;
+    if (val1El) val1El.textContent = `₹${tier1.val.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+    if (pct1El) pct1El.textContent = `${t1Pct}%`;
+
+    const count2El = document.getElementById('analyzer-aging-tier2-count');
+    const val2El = document.getElementById('analyzer-aging-tier2-val');
+    const pct2El = document.getElementById('analyzer-aging-tier2-pct');
+    if (count2El) count2El.textContent = `${tier2.count} Pieces`;
+    if (val2El) val2El.textContent = `₹${tier2.val.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+    if (pct2El) pct2El.textContent = `${t2Pct}%`;
+
+    const count3El = document.getElementById('analyzer-aging-tier3-count');
+    const val3El = document.getElementById('analyzer-aging-tier3-val');
+    const pct3El = document.getElementById('analyzer-aging-tier3-pct');
+    if (count3El) count3El.textContent = `${tier3.count} Pieces`;
+    if (val3El) val3El.textContent = `₹${tier3.val.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+    if (pct3El) pct3El.textContent = `${t3Pct}%`;
+
+    const count4El = document.getElementById('analyzer-aging-tier4-count');
+    const val4El = document.getElementById('analyzer-aging-tier4-val');
+    const pct4El = document.getElementById('analyzer-aging-tier4-pct');
+    if (count4El) count4El.textContent = `${tier4.count} Pieces`;
+    if (val4El) val4El.textContent = `₹${tier4.val.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+    if (pct4El) pct4El.textContent = `${t4Pct}%`;
+
+    const bar1 = document.getElementById('analyzer-aging-bar-1');
+    const bar2 = document.getElementById('analyzer-aging-bar-2');
+    const bar3 = document.getElementById('analyzer-aging-bar-3');
+    const bar4 = document.getElementById('analyzer-aging-bar-4');
+    if (bar1) bar1.style.width = `${t1Pct}%`;
+    if (bar2) bar2.style.width = `${t2Pct}%`;
+    if (bar3) bar3.style.width = `${t3Pct}%`;
+    if (bar4) bar4.style.width = `${t4Pct}%`;
+
+    alertBadge.textContent = `${tier4.count} Stagnant Pieces (>365d)`;
+    alertBadge.style.color = tier4.count > 0 ? '#ef4444' : '#22c55e';
+    alertBadge.style.borderColor = tier4.count > 0 ? 'rgba(239, 68, 68, 0.3)' : 'rgba(34, 197, 94, 0.3)';
+    alertBadge.style.background = tier4.count > 0 ? 'rgba(239, 68, 68, 0.12)' : 'rgba(34, 197, 94, 0.12)';
+
+    agingList.sort((a, b) => b.days - a.days);
+
+    if (agingList.length === 0) {
+      if (emptyState) emptyState.classList.remove('hidden');
+      if (tbody.closest('table')) tbody.closest('table').classList.add('hidden');
+      return;
+    }
+
+    if (emptyState) emptyState.classList.add('hidden');
+    if (tbody.closest('table')) tbody.closest('table').classList.remove('hidden');
+
+    const fragment = document.createDocumentFragment();
+
+    agingList.forEach(entry => {
+      const isCritical = entry.days > 365;
+      const statusColor = isCritical ? '#ef4444' : '#f59e0b';
+      const statusBg = isCritical ? 'rgba(239, 68, 68, 0.12)' : 'rgba(245, 158, 11, 0.12)';
+      const dateFmt = entry.mDate ? new Date(entry.mDate + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>
+          <strong style="color:var(--text-main);font-size:13px;cursor:pointer;" class="aging-row-link">${UI.escapeHtml(entry.item.name || 'Jewelry Piece')}</strong>
+          <div style="font-size:11px;color:var(--text-muted);">${UI.escapeHtml(entry.item.sku || 'N/A')}</div>
+        </td>
+        <td style="font-size:12px;color:var(--text-muted);">${dateFmt}</td>
+        <td style="text-align:center;font-weight:700;color:${statusColor};font-size:13px;">${entry.days} days</td>
+        <td style="text-align:right;font-size:12px;color:var(--text-muted);">₹${entry.mfgCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+        <td style="text-align:right;font-weight:700;color:var(--text-gold-dark);font-size:13px;">₹${entry.val.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+        <td style="text-align:center;">
+          <span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;color:${statusColor};background:${statusBg};">
+            ${isCritical ? 'CRITICAL AGING' : 'ATTENTION'}
+          </span>
+        </td>
+      `;
+
+      tr.querySelector('.aging-row-link')?.addEventListener('click', () => {
+        App.openJewelryDetailModal(entry.item);
+      });
+
+      fragment.appendChild(tr);
+    });
+
+    tbody.appendChild(fragment);
+  },
+
+  renderLiveMarginShield(activeItems, liveGoldRate) {
+    const goldGainEl = document.getElementById('analyzer-shield-gold-gain');
+    const craftMarginEl = document.getElementById('analyzer-shield-craft-margin');
+    const salesGoldGainEl = document.getElementById('analyzer-shield-sales-gold-gain');
+    if (!goldGainEl || !craftMarginEl) return;
+
+    let totalStockGoldGain = 0;
+    let totalStockSellingValue = 0;
+    let totalStockMfgCost = 0;
+
+    activeItems.forEach(item => {
+      const evalItem = Calc.evaluateItem(item, liveGoldRate);
+      totalStockSellingValue += evalItem.sellingPrice;
+      totalStockMfgCost += (evalItem.mfgGrandTotal || evalItem.marketCostPrice);
+
+      const netMetals = Calc.getNetMetals(item);
+      netMetals.forEach(m => {
+        const karat = Number(m.karat || 22);
+        const netW = Number(m.netWeight || 0);
+        const mfgRate = item.goldRateMfg ? Number(item.goldRateMfg) : (liveGoldRate * 0.88);
+        const delta = Math.max(0, liveGoldRate - mfgRate);
+        const gain = (netW * (karat / 24)) * delta;
+        totalStockGoldGain += gain;
+      });
+    });
+
+    const totalStockCraftMargin = Math.max(0, totalStockSellingValue - totalStockMfgCost - totalStockGoldGain);
+
+    goldGainEl.textContent = `+₹${totalStockGoldGain.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    craftMarginEl.textContent = `₹${totalStockCraftMargin.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+
+    // Realized Sales Gold Gain
+    const sales = DBManager.database?.jewelrySales || [];
+    let salesCommodityGain = 0;
+    sales.forEach(sale => {
+      const soldPrice = Number(sale.soldPrice || 0);
+      const mfgCost = Number(sale.mfgCost || 0);
+      const profit = Number(sale.profit || (soldPrice - mfgCost));
+      const months = Number(sale.monthsElapsed || 1);
+      const estimatedGoldPct = Math.min(0.65, months * 0.015);
+      salesCommodityGain += Math.max(0, profit * estimatedGoldPct);
+    });
+
+    if (salesGoldGainEl) {
+      salesGoldGainEl.textContent = `+₹${salesCommodityGain.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    }
+  },
+
+  renderVIPTargetMatcher(activeItems) {
+    const container = document.getElementById('analyzer-vip-matches-container');
+    const emptyState = document.getElementById('analyzer-vip-empty-state');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    const sales = DBManager.database?.jewelrySales || [];
+    if (sales.length === 0 || activeItems.length === 0) {
+      if (emptyState) emptyState.classList.remove('hidden');
+      return;
+    }
+
+    const clientMap = new Map();
+    sales.forEach(s => {
+      const name = (s.customerName || '').trim();
+      if (!name || name === 'Direct / Anonymous') return;
+      if (!clientMap.has(name)) {
+        clientMap.set(name, { name, totalSpend: 0, categories: {}, itemsCount: 0, prices: [] });
+      }
+      const c = clientMap.get(name);
+      c.totalSpend += Number(s.soldPrice || 0);
+      c.itemsCount++;
+      const cat = s.category || 'Jewelry';
+      c.categories[cat] = (c.categories[cat] || 0) + 1;
+      c.prices.push(Number(s.soldPrice || 0));
+    });
+
+    const topClients = Array.from(clientMap.values()).sort((a, b) => b.totalSpend - a.totalSpend).slice(0, 4);
+
+    if (topClients.length === 0) {
+      if (emptyState) emptyState.classList.remove('hidden');
+      return;
+    }
+
+    if (emptyState) emptyState.classList.add('hidden');
+    const fragment = document.createDocumentFragment();
+
+    topClients.forEach(client => {
+      let topCat = 'Jewelry';
+      let maxC = 0;
+      Object.entries(client.categories).forEach(([cat, count]) => {
+        if (count > maxC) { maxC = count; topCat = cat; }
+      });
+
+      const avgPrice = client.prices.reduce((sum, p) => sum + p, 0) / (client.prices.length || 1);
+
+      const matches = activeItems.filter(item => {
+        const matchesCat = !topCat || item.category === topCat;
+        return matchesCat;
+      });
+
+      const matchedItem = matches.length > 0 ? matches[0] : activeItems[0];
+      if (!matchedItem) return;
+
+      const card = document.createElement('div');
+      card.style.cssText = 'background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 14px; display: flex; flex-direction: column; gap: 10px;';
+
+      card.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <div>
+            <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-gold-dark);">VIP Client Target</div>
+            <strong style="font-size: 14px; color: var(--text-main);">${UI.escapeHtml(client.name)}</strong>
+          </div>
+          <span style="font-size: 10px; font-weight: 700; color: var(--text-muted); background: var(--bg-card); border: 1px solid var(--border-light); padding: 2px 8px; border-radius: 10px;">
+            Prefers ${UI.escapeHtml(topCat)}
+          </span>
+        </div>
+
+        <div style="font-size: 11px; color: var(--text-muted);">
+          Avg Price Point: <strong style="color: var(--text-main);">₹${avgPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong>
+        </div>
+
+        <div style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 4px; padding: 8px; display: flex; align-items: center; gap: 10px;">
+          ${matchedItem.image ? `<img src="${matchedItem.image}" alt="" style="width:40px;height:40px;object-fit:cover;border-radius:4px;border:1px solid var(--border-light);">` : '<div style="width:40px;height:40px;background:var(--bg-base);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:16px;">💍</div>'}
+          <div style="flex-grow:1; min-width:0;">
+            <div style="font-size: 10px; font-weight: 700; color: #22c55e;">RECOMMENDED MATCH</div>
+            <strong style="font-size: 12px; color: var(--text-main); display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${UI.escapeHtml(matchedItem.name)}</strong>
+            <span style="font-size: 11px; color: var(--text-muted);">${UI.escapeHtml(matchedItem.sku)}</span>
+          </div>
+          <button type="button" class="btn btn-secondary btn-small btn-view-vip-match" style="font-size: 10px; padding: 3px 8px; white-space:nowrap;">View</button>
+        </div>
+      `;
+
+      card.querySelector('.btn-view-vip-match')?.addEventListener('click', () => {
+        App.openJewelryDetailModal(matchedItem);
+      });
+
+      fragment.appendChild(card);
+    });
+
+    container.appendChild(fragment);
+  },
+
+  renderGemstoneDepletionMonitor() {
+    const container = document.getElementById('analyzer-gem-depletion-container');
+    const badgeEl = document.getElementById('analyzer-gem-depletion-badge');
+    const emptyState = document.getElementById('analyzer-gem-empty-state');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    const emeralds = DBManager.getEmeralds();
+    const stones = DBManager.getStones ? DBManager.getStones() : [];
+    const totalLots = emeralds.length + stones.length;
+
+    if (badgeEl) badgeEl.textContent = `${totalLots} Lots Tracked`;
+
+    if (totalLots === 0) {
+      if (emptyState) emptyState.classList.remove('hidden');
+      return;
+    }
+
+    if (emptyState) emptyState.classList.add('hidden');
+    const fragment = document.createDocumentFragment();
+
+    emeralds.slice(0, 6).forEach(e => {
+      let weight = 0;
+      if (e.sizes && e.sizes.length > 0) {
+        weight = e.sizes.reduce((sum, s) => sum + Number(s.weight || 0), 0);
+      } else {
+        weight = Number(e.weight || e.size || 0);
+      }
+
+      const memoCts = window.MemoController ? MemoController.getOpenMemoCaratsForEmerald(e.id) : 0;
+      const inCompany = Math.max(0, weight - memoCts);
+      const isLowStock = inCompany < 5;
+
+      const card = document.createElement('div');
+      card.style.cssText = `background: var(--bg-base); border: 1px solid var(--border-light); border-left: 3px solid ${isLowStock ? '#ef4444' : '#22c55e'}; border-radius: 6px; padding: 12px;`;
+
+      card.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+          <strong style="font-size: 13px; color: var(--text-main);">${UI.escapeHtml(e.group || 'Emerald')} #${UI.escapeHtml(e.color || 'Pudia')}</strong>
+          <span style="font-size: 10px; font-weight: 700; color: ${isLowStock ? '#ef4444' : '#22c55e'}; background: ${isLowStock ? 'rgba(239, 68, 68, 0.12)' : 'rgba(34, 197, 94, 0.12)'}; padding: 2px 6px; border-radius: 4px;">
+            ${isLowStock ? 'LOW STOCK' : 'AVAILABLE'}
+          </span>
+        </div>
+        <div style="font-size: 11px; color: var(--text-muted); display:flex; justify-content:space-between;">
+          <span>In Stock: <strong style="color:var(--text-main);">${inCompany.toFixed(2)} cts</strong></span>
+          ${memoCts > 0 ? `<span>On Memo: <strong style="color:var(--text-gold-dark);">${memoCts.toFixed(2)} cts</strong></span>` : ''}
+          <span>Rate: ₹${(e.pricePerCarat || 0).toLocaleString()}/ct</span>
+        </div>
+      `;
+
+      fragment.appendChild(card);
+    });
+
+    container.appendChild(fragment);
   },
 
   getItemSno(item, allItems = null) {
@@ -518,6 +860,9 @@ const Catalog = {
 
     // Filter Items
     let filtered = allItems.filter(item => {
+      // Exclude sold pieces from active catalog inventory
+      if (item.status === 'Sold') return false;
+
       // 1. Text Search
       const matchesSearch = !query ||
         (item.name || '').toLowerCase().includes(query) ||

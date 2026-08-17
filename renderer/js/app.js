@@ -686,8 +686,9 @@ const App = {
       itemSnoMap.set(it.id, it.sno || (idx + 1));
     });
 
-    // Filter items: match search query (SKU, Name, Category, or S.No)
+    // Filter items: exclude sold pieces and match search query (SKU, Name, Category, or S.No)
     let filtered = allItems.filter(item => {
+      if (item.status === 'Sold') return false;
       if (!query) return true;
       const matchSku = (item.sku || '').toLowerCase().includes(query);
       const matchName = (item.name || '').toLowerCase().includes(query);

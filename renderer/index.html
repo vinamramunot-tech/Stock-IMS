@@ -1322,6 +1322,266 @@
                 </div>
               </div>
             </div>
+
+            <!-- Line 6: Customer-Wise Sales & Client Intelligence -->
+            <div class="metrics-line-2" style="margin-top: 20px;">
+              <div class="metric-card gold-border" style="grid-column: span 3; padding: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                  <div>
+                    <span class="metric-label" style="font-size: 12px; letter-spacing: 0.1em; color: var(--text-gold-dark);">CLIENT & CUSTOMER SALES INTELLIGENCE</span>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Customer revenue rankings, realized profit margins, piece volume, and purchasing profiles</div>
+                  </div>
+                  <span id="analyzer-customer-count-badge" style="font-size: 11px; font-weight: 700; color: var(--text-gold-dark); background: var(--bg-gold-subtle, rgba(212, 175, 55, 0.12)); border: 1px solid var(--border-gold-subtle, rgba(212, 175, 55, 0.25)); padding: 3px 10px; border-radius: 4px;">0 Active Clients</span>
+                </div>
+
+                <!-- 4-Client Highlights Row -->
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px;">
+                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Unique Clients</div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--text-main); margin-top: 4px;" id="analyzer-customer-metric-total">0</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Total buyers on ledger</div>
+                  </div>
+
+                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Top Buyer by Spend</div>
+                    <div style="font-size: 16px; font-weight: 800; color: var(--text-gold-dark); margin-top: 4px;" id="analyzer-customer-metric-top-spend">—</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;" id="analyzer-customer-metric-top-spend-sub">Highest cumulative revenue</div>
+                  </div>
+
+                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Top Profit Contributor</div>
+                    <div style="font-size: 16px; font-weight: 800; color: #22c55e; margin-top: 4px;" id="analyzer-customer-metric-top-profit">—</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;" id="analyzer-customer-metric-top-profit-sub">Highest gross margin generated</div>
+                  </div>
+
+                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Avg Client Lifetime Value</div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--info-color, #38bdf8); margin-top: 4px;" id="analyzer-customer-metric-avg-ltv">₹0.00</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Average spend per customer</div>
+                  </div>
+                </div>
+
+                <!-- Customer Ranked Matrix Table -->
+                <div class="logs-container" style="margin-top: 10px;">
+                  <table class="logs-table" style="width: 100%;">
+                    <thead>
+                      <tr>
+                        <th style="width: 25%;">CUSTOMER / CLIENT</th>
+                        <th style="width: 12%; text-align:center;">PIECES BOUGHT</th>
+                        <th style="width: 18%; text-align:right;">TOTAL SPEND (REVENUE)</th>
+                        <th style="width: 15%; text-align:right;">REALIZED PROFIT</th>
+                        <th style="width: 15%;">TOP CATEGORY</th>
+                        <th style="width: 15%; text-align:center;">LAST PURCHASE</th>
+                      </tr>
+                    </thead>
+                    <tbody id="analyzer-customer-tbody">
+                      <!-- Rendered dynamically -->
+                    </tbody>
+                  </table>
+                  <div id="analyzer-customer-empty-state" class="empty-state-card hidden" style="padding: 25px;">
+                    <h3 style="font-size: 15px; color: var(--text-main); margin-bottom: 4px;">No Customer Sales Recorded</h3>
+                    <p style="font-size: 12px; color: var(--text-muted);">Client purchasing rankings and analytics will automatically generate as sales are recorded.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Line 7: Inventory Aging & Capital Velocity Heatmap -->
+            <div class="metrics-line-2" style="margin-top: 20px;">
+              <div class="metric-card gold-border" style="grid-column: span 3; padding: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                  <div>
+                    <span class="metric-label" style="font-size: 12px; letter-spacing: 0.1em; color: var(--text-gold-dark);">INVENTORY AGING & CAPITAL VELOCITY HEATMAP</span>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Duration active pieces have been held in inventory from manufacturing date</div>
+                  </div>
+                  <span id="analyzer-aging-alert-badge" style="font-size: 11px; font-weight: 700; color: #ef4444; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); padding: 3px 10px; border-radius: 4px;">0 Stagnant Pieces (>365d)</span>
+                </div>
+
+                <!-- 4-Tier Aging Buckets Row -->
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px;">
+                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-left: 3px solid #22c55e; border-radius: 6px; padding: 12px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                      <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #22c55e;">Fresh Stock (0–90d)</span>
+                      <span id="analyzer-aging-tier1-pct" style="font-size: 10px; font-weight: 700; color: var(--text-muted);">0%</span>
+                    </div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--text-main); margin-top: 4px;" id="analyzer-aging-tier1-count">0 Pieces</div>
+                    <div style="font-size: 11px; color: var(--text-gold-dark); margin-top: 2px;" id="analyzer-aging-tier1-val">₹0.00</div>
+                  </div>
+
+                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-left: 3px solid #38bdf8; border-radius: 6px; padding: 12px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                      <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #38bdf8;">Maturing (91–180d)</span>
+                      <span id="analyzer-aging-tier2-pct" style="font-size: 10px; font-weight: 700; color: var(--text-muted);">0%</span>
+                    </div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--text-main); margin-top: 4px;" id="analyzer-aging-tier2-count">0 Pieces</div>
+                    <div style="font-size: 11px; color: var(--text-gold-dark); margin-top: 2px;" id="analyzer-aging-tier2-val">₹0.00</div>
+                  </div>
+
+                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-left: 3px solid #f59e0b; border-radius: 6px; padding: 12px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                      <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #f59e0b;">Aging Stock (181–365d)</span>
+                      <span id="analyzer-aging-tier3-pct" style="font-size: 10px; font-weight: 700; color: var(--text-muted);">0%</span>
+                    </div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--text-main); margin-top: 4px;" id="analyzer-aging-tier3-count">0 Pieces</div>
+                    <div style="font-size: 11px; color: var(--text-gold-dark); margin-top: 2px;" id="analyzer-aging-tier3-val">₹0.00</div>
+                  </div>
+
+                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-left: 3px solid #ef4444; border-radius: 6px; padding: 12px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                      <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #ef4444;">Stagnant Capital (365d+)</span>
+                      <span id="analyzer-aging-tier4-pct" style="font-size: 10px; font-weight: 700; color: var(--text-muted);">0%</span>
+                    </div>
+                    <div style="font-size: 18px; font-weight: 800; color: #ef4444; margin-top: 4px;" id="analyzer-aging-tier4-count">0 Pieces</div>
+                    <div style="font-size: 11px; color: var(--text-gold-dark); margin-top: 2px;" id="analyzer-aging-tier4-val">₹0.00</div>
+                  </div>
+                </div>
+
+                <!-- Aging Distribution Segmented Bar -->
+                <div style="width: 100%; height: 8px; background: var(--bg-base); border-radius: 4px; overflow: hidden; display: flex; margin-bottom: 15px;">
+                  <div id="analyzer-aging-bar-1" style="width: 0%; height: 100%; background: #22c55e;" title="Fresh (0-90d)"></div>
+                  <div id="analyzer-aging-bar-2" style="width: 0%; height: 100%; background: #38bdf8;" title="Maturing (91-180d)"></div>
+                  <div id="analyzer-aging-bar-3" style="width: 0%; height: 100%; background: #f59e0b;" title="Aging (181-365d)"></div>
+                  <div id="analyzer-aging-bar-4" style="width: 0%; height: 100%; background: #ef4444;" title="Stagnant (365d+)"></div>
+                </div>
+
+                <!-- Stagnant Pieces Focus Table -->
+                <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px;">
+                  PRIORITY ACTION PIECES: AGING OVER 180 DAYS
+                </div>
+                <div class="logs-container">
+                  <table class="logs-table" style="width: 100%;">
+                    <thead>
+                      <tr>
+                        <th style="width: 25%;">PIECE / SKU</th>
+                        <th style="width: 15%;">MFG DATE</th>
+                        <th style="width: 15%; text-align:center;">DAYS IN STOCK</th>
+                        <th style="width: 15%; text-align:right;">MFG COST</th>
+                        <th style="width: 15%; text-align:right;">LIVE VALUE</th>
+                        <th style="width: 15%; text-align:center;">STATUS</th>
+                      </tr>
+                    </thead>
+                    <tbody id="analyzer-aging-tbody">
+                      <!-- Rendered dynamically -->
+                    </tbody>
+                  </table>
+                  <div id="analyzer-aging-empty-state" class="empty-state-card hidden" style="padding: 20px;">
+                    <h3 style="font-size: 14px; color: #22c55e; margin-bottom: 2px;">No Stagnant Inventory!</h3>
+                    <p style="font-size: 11px; color: var(--text-muted);">All active inventory pieces are currently within the healthy 0–180 day turnover cycle.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Line 8: Live Margin Shield (Commodity Appreciation vs Craft Value-Add) -->
+            <div class="metrics-line-2" style="margin-top: 20px;">
+              <div class="metric-card gold-border" style="grid-column: span 3; padding: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                  <div>
+                    <span class="metric-label" style="font-size: 12px; letter-spacing: 0.1em; color: var(--text-gold-dark);">LIVE MARGIN SHIELD: COMMODITY GAIN VS CRAFT MARGIN</span>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Separates bullion gold appreciation from true craftsmanship and gemstone value-add</div>
+                  </div>
+                  <span id="analyzer-margin-shield-badge" style="font-size: 11px; font-weight: 700; color: #22c55e; background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.3); padding: 3px 10px; border-radius: 4px;">Protected Margin</span>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px;">
+                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-gold-dark);">Bullion Gold Gain (In-Stock)</div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--text-gold-dark); margin-top: 4px;" id="analyzer-shield-gold-gain">₹0.00</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Appreciation purely from rising live gold rate</div>
+                  </div>
+
+                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #22c55e;">Craftsmanship & Gem Margin</div>
+                    <div style="font-size: 18px; font-weight: 800; color: #22c55e; margin-top: 4px;" id="analyzer-shield-craft-margin">₹0.00</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Real value-add from making, design & stones</div>
+                  </div>
+
+                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--info-color, #38bdf8);">Commodity Gain on Realized Sales</div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--info-color, #38bdf8); margin-top: 4px;" id="analyzer-shield-sales-gold-gain">₹0.00</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Gold price upside captured during sold deals</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Line 9: Broker Performance & Memo Conversion ROI Matrix -->
+            <div class="metrics-line-2" style="margin-top: 20px;">
+              <div class="metric-card gold-border" style="grid-column: span 3; padding: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                  <div>
+                    <span class="metric-label" style="font-size: 12px; letter-spacing: 0.1em; color: var(--text-gold-dark);">BROKER PERFORMANCE & MEMO CONVERSION ROI</span>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Track broker sales conversion efficiency, turnaround velocity, and net profit generation</div>
+                  </div>
+                  <span id="analyzer-broker-count-badge" style="font-size: 11px; font-weight: 700; color: var(--text-gold-dark); background: var(--bg-gold-subtle, rgba(212, 175, 55, 0.12)); border: 1px solid var(--border-gold-subtle, rgba(212, 175, 55, 0.25)); padding: 3px 10px; border-radius: 4px;">0 Active Brokers</span>
+                </div>
+
+                <!-- Broker Ranked Table -->
+                <div class="logs-container">
+                  <table class="logs-table" style="width: 100%;">
+                    <thead>
+                      <tr>
+                        <th style="width: 25%;">BROKER NAME</th>
+                        <th style="width: 12%; text-align:center;">MEMOS ISSUED</th>
+                        <th style="width: 15%; text-align:center;">CONVERSION RATE</th>
+                        <th style="width: 15%; text-align:right;">SALES GENERATED</th>
+                        <th style="width: 18%; text-align:right;">PROFIT REALIZED</th>
+                        <th style="width: 15%; text-align:center;">EFFICIENCY</th>
+                      </tr>
+                    </thead>
+                    <tbody id="analyzer-broker-tbody">
+                      <!-- Rendered dynamically -->
+                    </tbody>
+                  </table>
+                  <div id="analyzer-broker-empty-state" class="empty-state-card hidden" style="padding: 20px;">
+                    <h3 style="font-size: 14px; color: var(--text-main); margin-bottom: 2px;">No Broker History Yet</h3>
+                    <p style="font-size: 11px; color: var(--text-muted);">Broker conversion intelligence will populate automatically when memos and sales are linked to brokers.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Line 10: VIP Client Target Matcher & Preferences -->
+            <div class="metrics-line-2" style="margin-top: 20px;">
+              <div class="metric-card gold-border" style="grid-column: span 3; padding: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                  <div>
+                    <span class="metric-label" style="font-size: 12px; letter-spacing: 0.1em; color: var(--text-gold-dark);">VIP CLIENT TARGETING & FIRST-LOOK MATCH RECOMMENDATIONS</span>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Matches current in-stock pieces to top clients based on their historical buying preferences</div>
+                  </div>
+                  <span style="font-size: 11px; font-weight: 700; color: var(--info-color, #38bdf8); background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.25); padding: 3px 10px; border-radius: 4px;">Smart Targeting</span>
+                </div>
+
+                <div id="analyzer-vip-matches-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px;">
+                  <!-- Dynamic VIP Match Cards -->
+                </div>
+                <div id="analyzer-vip-empty-state" class="empty-state-card hidden" style="padding: 20px;">
+                  <h3 style="font-size: 14px; color: var(--text-main); margin-bottom: 2px;">Client Matcher Standing By</h3>
+                  <p style="font-size: 11px; color: var(--text-muted);">Matches will appear as client sales history expands.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Line 11: Gemstone & Emerald Lot Depletion Monitor -->
+            <div class="metrics-line-2" style="margin-top: 20px;">
+              <div class="metric-card gold-border" style="grid-column: span 3; padding: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                  <div>
+                    <span class="metric-label" style="font-size: 12px; letter-spacing: 0.1em; color: var(--text-gold-dark);">GEMSTONE & EMERALD LOT DEPLETION MONITOR</span>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Tracks raw gemstone and emerald pudia remaining weights to prevent manufacturing stockouts</div>
+                  </div>
+                  <span id="analyzer-gem-depletion-badge" style="font-size: 11px; font-weight: 700; color: var(--text-gold-dark); background: var(--bg-gold-subtle, rgba(212, 175, 55, 0.12)); border: 1px solid var(--border-gold-subtle, rgba(212, 175, 55, 0.25)); padding: 3px 10px; border-radius: 4px;">0 Lots Tracked</span>
+                </div>
+
+                <div id="analyzer-gem-depletion-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;">
+                  <!-- Dynamic Low-Stock & Active Gem Lots -->
+                </div>
+                <div id="analyzer-gem-empty-state" class="empty-state-card hidden" style="padding: 20px;">
+                  <h3 style="font-size: 14px; color: var(--text-main); margin-bottom: 2px;">No Gemstone Lots Found</h3>
+                  <p style="font-size: 11px; color: var(--text-muted);">Add Emerald Pudias or Stone Lots to monitor depletion velocity.</p>
+                </div>
+              </div>
+            </div>
           </section>
         </div>
 
