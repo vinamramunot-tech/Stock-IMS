@@ -15,6 +15,7 @@ const StoneController = {
     this._replaceWithComboWidget('stone-packet-no', 'form-packet-no', () => this._getKnownPacketNumbers(), 'e.g. D-12');
     this._replaceWithComboWidget('stone-group', 'form-group', () => this._getKnownGroups(), 'e.g. Lot-Diamonds');
     this._replaceWithComboWidget('stone-type', 'form-type', () => this._getKnownTypes(), 'Select or type Category...', (option, refresh) => this.handleDeleteTypeOption(option, refresh));
+    this._replaceWithComboWidget('stone-origin', 'form-origin', () => this._getKnownOrigins(), 'Type or select Origin...');
 
     // Event listeners for filters and search
     const searchInput = document.getElementById('stone-search-input');
@@ -134,10 +135,8 @@ const StoneController = {
     if (groupInput) groupInput.value = '';
     const packetInput = document.getElementById('stone-packet-no');
     if (packetInput) packetInput.value = '';
-    
-    // Clear checked origins
-    const checkBoxes = document.querySelectorAll('input[name="stone-origin"]');
-    checkBoxes.forEach(cb => cb.checked = false);
+    const originInput = document.getElementById('stone-origin');
+    if (originInput) originInput.value = '';
     document.getElementById('stone-price').value = '';
 
     // Clear sizes
@@ -384,13 +383,13 @@ const StoneController = {
       'size-shape',
       () => this._getKnownShapes(),
       data.shape || '',
-      'e.g. Round Brilliant'
+      'Select or type Shape...'
     );
     const mmWidget = this._buildComboWidget(
       'size-mm',
       () => this._getKnownMMs(),
       data.mm || '',
-      'e.g. 2.1mm'
+      'Select or type MM...'
     );
 
     const piecesInput = document.createElement('input');
@@ -495,13 +494,11 @@ const StoneController = {
     this.populateShapeAutocomplete();
     this.populateMmAutocomplete();
 
-    const origins = stone.origins || [];
-    const checkBoxes = document.querySelectorAll('input[name="stone-origin"]');
-    checkBoxes.forEach(cb => {
-      if (origins.includes(cb.value)) {
-        cb.checked = true;
-      }
-    });
+    const origins = Array.isArray(stone.origins) ? stone.origins.join(', ') : (stone.origins || stone.origin || '');
+    const originInput = document.getElementById('stone-origin');
+    if (originInput) {
+      originInput.value = origins;
+    }
 
     document.getElementById('stone-modal-title').textContent = "Edit Stone Stock";
   },
@@ -538,32 +535,21 @@ const StoneController = {
     });
   },
 
-  /** Collect all known unique shapes from DB */
+  /** Collect all known unique shapes from DB (Loose Stone Stock only) */
   _getKnownShapes() {
     const all = new Set();
     DBManager.getStones().forEach(st => {
-      (st.sizes || []).forEach(s => { if (s.shape) all.add(s.shape.trim()); });
+      (st.sizes || []).forEach(s => { if (s.shape && s.shape.trim()) all.add(s.shape.trim()); });
       if (st.shape) st.shape.split(',').forEach(sh => { const t = sh.trim(); if (t) all.add(t); });
-    });
-    DBManager.getEmeralds().forEach(e => {
-      (e.sizes || []).forEach(s => { if (s.shape) all.add(s.shape.trim()); });
-      if (e.shape) e.shape.split(',').forEach(sh => { const t = sh.trim(); if (t) all.add(t); });
-    });
-    DBManager.getItems().forEach(item => {
-      (item.stones || []).forEach(s => { if (s.shape) all.add(s.shape.trim()); });
-      (item.diamondsPolki || []).forEach(d => { if (d.shape) all.add(d.shape.trim()); });
     });
     return Array.from(all).sort();
   },
 
-  /** Collect all known unique MM values from DB */
+  /** Collect all known unique MM values from DB (Loose Stone Stock only) */
   _getKnownMMs() {
     const all = new Set();
     DBManager.getStones().forEach(st => {
-      (st.sizes || []).forEach(s => { if (s.mm) all.add(s.mm.trim()); });
-    });
-    DBManager.getEmeralds().forEach(e => {
-      (e.sizes || []).forEach(s => { if (s.mm) all.add(s.mm.trim()); });
+      (st.sizes || []).forEach(s => { if (s.mm && s.mm.trim()) all.add(s.mm.trim()); });
     });
     return Array.from(all).sort();
   },
@@ -597,6 +583,21 @@ const StoneController = {
     const all = new Set();
     DBManager.getStones().forEach(st => {
       if (st.group && st.group.trim()) all.add(st.group.trim());
+    });
+    return Array.from(all).sort();
+  },
+
+  /** Collect all known unique origins from DB (Loose Stone Stock only) */
+  _getKnownOrigins() {
+    const all = new Set();
+    DBManager.getStones().forEach(st => {
+      if (Array.isArray(st.origins)) {
+        st.origins.forEach(o => { if (o && o.trim()) all.add(o.trim()); });
+      } else if (typeof st.origins === 'string' && st.origins.trim()) {
+        st.origins.split(',').forEach(o => { if (o.trim()) all.add(o.trim()); });
+      } else if (st.origin && st.origin.trim()) {
+        all.add(st.origin.trim());
+      }
     });
     return Array.from(all).sort();
   },
@@ -1036,21 +1037,10 @@ const StoneController = {
     const sizes = this.gatherSizes();
     const totalWeight = sizes.reduce((sum, s) => sum + s.weight, 0);
 
-    const checkBoxes = document.querySelectorAll('input[name="stone-origin"]:checked');
-    const origins = Array.from(checkBoxes).map(cb => cb.value);
+    const originVal = (document.getElementById('stone-origin')?.value || '').trim();
+    const origins = originVal ? originVal.split(',').map(o => o.trim()).filter(Boolean) : [];
 
-    if (sizes.length === 0) {
-      UI.showToast("Please add at least one size row with Shape, pieces, and weight.", true);
-      return;
-    }
-
-    const hasInvalid = sizes.some(s => !s.shape || s.pieces <= 0 || s.weight <= 0);
-    if (hasInvalid) {
-      UI.showToast("Each size row must have a Shape, Pieces (>0), and Weight (>0).", true);
-      return;
-    }
-
-    if (!color || !lustreGrade || pricePerCarat <= 0) {
+    if (!type || !color || !lustreGrade || pricePerCarat <= 0) {
       UI.showToast("Please fill all required fields (*) and enter a rate per carat.", true);
       return;
     }
