@@ -568,6 +568,8 @@ const Catalog = {
     emptyState.classList.add('hidden');
     gridContainer.classList.remove('hidden');
 
+    const fragment = document.createDocumentFragment();
+
     filtered.forEach((item, index) => {
       const serialNumber = item.sno || itemSnoMap.get(item.id) || (index + 1);
       const card = document.createElement('div');
@@ -622,7 +624,7 @@ const Catalog = {
 
       const imgHtml = item.image
         ? `<div class="product-img-box" style="cursor: pointer;" title="Click to view photo & details">
-             <img src="${item.image}" alt="${UI.escapeHtml(item.name || 'Jewelry Photo')}" class="product-img">
+             <img src="${item.image}" alt="${UI.escapeHtml(item.name || 'Jewelry Photo')}" class="product-img" loading="lazy" decoding="async">
            </div>`
         : `<div class="product-img-box product-img-box-placeholder" style="cursor: pointer;" title="Click to view details or add photo">
              <div class="product-img-placeholder-content">
@@ -713,8 +715,10 @@ const Catalog = {
         });
       }
 
-      gridContainer.appendChild(card);
+      fragment.appendChild(card);
     });
+
+    gridContainer.appendChild(fragment);
 
     // Update Bulk action bar visibility and status
     this.updateBulkSelectionUI(filtered);

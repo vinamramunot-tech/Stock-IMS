@@ -1425,6 +1425,8 @@ const EmeraldController = {
       groupsArray.sort((a, b) => a.name.localeCompare(b.name));
     }
 
+    const fragment = document.createDocumentFragment();
+
     // Render Group Cards Accordion
     groupsArray.forEach(group => {
       const groupCard = document.createElement('div');
@@ -1703,8 +1705,10 @@ const EmeraldController = {
         groupHeader.querySelector('.group-expand-icon').textContent = isCollapsed ? '▶' : '▼';
       });
 
-      gridContainer.appendChild(groupCard);
+      fragment.appendChild(groupCard);
     });
+
+    gridContainer.appendChild(fragment);
   },
 
   async handleSaveEmerald() {

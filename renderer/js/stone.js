@@ -839,6 +839,8 @@ const StoneController = {
       groupsArray.sort((a, b) => a.name.localeCompare(b.name));
     }
 
+    const fragment = document.createDocumentFragment();
+
     groupsArray.forEach(group => {
       const groupCard = document.createElement('div');
       groupCard.className = 'stone-group-card';
@@ -1028,8 +1030,10 @@ const StoneController = {
         groupHeader.querySelector('.group-expand-icon').textContent = collapsed ? '▶' : '▼';
       });
 
-      gridContainer.appendChild(groupCard);
+      fragment.appendChild(groupCard);
     });
+
+    gridContainer.appendChild(fragment);
   },
 
   async handleSaveStone() {

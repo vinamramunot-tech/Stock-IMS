@@ -272,6 +272,8 @@ const JewelrySalesController = {
     if (emptyEl) emptyEl.classList.add('hidden');
     tbody.closest('table').classList.remove('hidden');
 
+    const fragment = document.createDocumentFragment();
+
     filtered.forEach(sale => {
       const dateFmt = sale.saleDate
         ? new Date(sale.saleDate + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -285,7 +287,7 @@ const JewelrySalesController = {
       const imgSrc = mainItem ? mainItem.image : null;
 
       const imgHtml = imgSrc
-        ? `<img src="${imgSrc}" alt="${UI.escapeHtml(sale.name)}" style="width:32px;height:32px;object-fit:cover;border-radius:4px;border:1px solid var(--border-light);cursor:pointer;" class="sales-thumb-img">`
+        ? `<img src="${imgSrc}" alt="${UI.escapeHtml(sale.name)}" style="width:32px;height:32px;object-fit:cover;border-radius:4px;border:1px solid var(--border-light);cursor:pointer;" class="sales-thumb-img" loading="lazy" decoding="async">`
         : `<div style="width:32px;height:32px;border-radius:4px;border:1px solid var(--border-light);background:var(--bg-base);display:inline-flex;align-items:center;justify-content:center;color:var(--text-muted);opacity:0.6;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>`;
 
       const profit = Number(sale.profit) || 0;
@@ -359,8 +361,10 @@ const JewelrySalesController = {
         returnBtn.addEventListener('click', () => this.handleReturnSale(sale));
       }
 
-      tbody.appendChild(tr);
+      fragment.appendChild(tr);
     });
+
+    tbody.appendChild(fragment);
   },
 
   openEditSaleModal(saleRecord) {

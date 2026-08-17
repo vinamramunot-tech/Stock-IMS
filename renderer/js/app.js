@@ -260,81 +260,93 @@ const App = {
     }
   },
 
+  dirtyTabs: new Set(),
+
   /**
-   * Refresh views (Active tab rendered synchronously, background tabs deferred)
+   * Render a specific tab by ID
+   */
+  renderTab(tabId) {
+    switch (tabId) {
+      case 'tab-catalog':
+        Catalog.renderCatalogGrid();
+        break;
+      case 'tab-jewelry-photos':
+        this.renderJewelryPhotos();
+        break;
+      case 'tab-jewelry-memos':
+        if (window.JewelryMemoController) JewelryMemoController.renderMemoList();
+        break;
+      case 'tab-jewelry-sales':
+        if (window.JewelrySalesController) JewelrySalesController.renderSalesList();
+        break;
+      case 'tab-emerald-catalog':
+        if (window.EmeraldController) {
+          EmeraldController.renderEmeraldGrid();
+          EmeraldController.populateGroupAutocomplete();
+          EmeraldController.populateShapeAutocomplete();
+          EmeraldController.populateMmAutocomplete();
+        }
+        break;
+      case 'tab-emerald-photos':
+        this.renderEmeraldPhotos();
+        break;
+      case 'tab-emerald-analysis':
+        if (window.EmeraldDashboardController) EmeraldDashboardController.renderDashboard();
+        break;
+      case 'tab-memos':
+        if (window.MemoController) MemoController.renderMemoList();
+        break;
+      case 'tab-stone-catalog':
+        if (window.StoneController) {
+          StoneController.renderStoneGrid();
+          StoneController.populateGroupAutocomplete();
+          StoneController.populateShapeAutocomplete();
+          StoneController.populateMmAutocomplete();
+          StoneController.populateGradeAutocomplete();
+        }
+        break;
+      case 'tab-jewel-stone-memos':
+        if (window.JewelStoneMemoController) JewelStoneMemoController.renderMemoList();
+        break;
+      case 'tab-sales':
+      case 'tab-emerald-sales':
+        if (window.SalesController) SalesController.renderSalesList();
+        break;
+      case 'tab-logs':
+        this.renderActivityLogs();
+        break;
+      default:
+        break;
+    }
+  },
+
+  /**
+   * Refresh views (Active tab rendered immediately, other tabs marked dirty for on-demand lazy rendering)
    */
   refreshAllDisplays() {
-    const tab = this.activeTab || 'tab-catalog';
+    const activeTab = this.activeTab || 'tab-catalog';
 
-    // 1. Immediately render active tab & top header metrics for instant UI response
+    // 1. Immediately render active tab & top header metrics for instantaneous UI responsiveness
     Catalog.renderDashboard();
+    this.renderTab(activeTab);
 
-    if (tab === 'tab-catalog') {
-      Catalog.renderCatalogGrid();
-    } else if (tab === 'tab-jewelry-photos') {
-      this.renderJewelryPhotos();
-    } else if (tab === 'tab-jewelry-memos') {
-      if (window.JewelryMemoController) JewelryMemoController.renderMemoList();
-    } else if (tab === 'tab-jewelry-sales') {
-      if (window.JewelrySalesController) JewelrySalesController.renderSalesList();
-    } else if (tab === 'tab-emerald-catalog') {
-      if (window.EmeraldController) {
-        EmeraldController.renderEmeraldGrid();
-        EmeraldController.populateGroupAutocomplete();
-        EmeraldController.populateShapeAutocomplete();
-        EmeraldController.populateMmAutocomplete();
+    // 2. Mark all other tabs as dirty so they only render when clicked
+    const allTabIds = [
+      'tab-catalog', 'tab-jewelry-photos', 'tab-jewelry-memos', 'tab-jewelry-sales',
+      'tab-emerald-catalog', 'tab-emerald-photos', 'tab-emerald-analysis', 'tab-memos',
+      'tab-stone-catalog', 'tab-jewel-stone-memos', 'tab-sales', 'tab-emerald-sales', 'tab-logs'
+    ];
+
+    allTabIds.forEach(id => {
+      if (id !== activeTab) {
+        this.dirtyTabs.add(id);
+      } else {
+        this.dirtyTabs.delete(id);
       }
-    } else if (tab === 'tab-emerald-photos') {
-      this.renderEmeraldPhotos();
-    } else if (tab === 'tab-emerald-analysis') {
-      if (window.EmeraldDashboardController) EmeraldDashboardController.renderDashboard();
-    } else if (tab === 'tab-memos') {
-      if (window.MemoController) MemoController.renderMemoList();
-    } else if (tab === 'tab-stone-catalog') {
-      if (window.StoneController) {
-        StoneController.renderStoneGrid();
-        StoneController.populateGroupAutocomplete();
-        StoneController.populateShapeAutocomplete();
-        StoneController.populateMmAutocomplete();
-        StoneController.populateGradeAutocomplete();
-      }
-    } else if (tab === 'tab-jewel-stone-memos') {
-      if (window.JewelStoneMemoController) JewelStoneMemoController.renderMemoList();
-    } else if (tab === 'tab-sales' || tab === 'tab-emerald-sales') {
-      if (window.SalesController) SalesController.renderSalesList();
-    } else if (tab === 'tab-logs') {
-      this.renderActivityLogs();
-    }
+    });
 
     const pathEl = document.getElementById('settings-vault-path');
     if (pathEl) pathEl.textContent = DBManager.activePath || '';
-
-    // 2. Defer background non-active tab rendering to avoid UI thread lag
-    setTimeout(() => {
-      if (tab !== 'tab-catalog') Catalog.renderCatalogGrid();
-      if (tab !== 'tab-jewelry-photos') this.renderJewelryPhotos();
-      if (tab !== 'tab-jewelry-memos' && window.JewelryMemoController) JewelryMemoController.renderMemoList();
-      if (tab !== 'tab-jewelry-sales' && window.JewelrySalesController) JewelrySalesController.renderSalesList();
-      if (tab !== 'tab-emerald-catalog' && window.EmeraldController) {
-        EmeraldController.renderEmeraldGrid();
-        EmeraldController.populateGroupAutocomplete();
-        EmeraldController.populateShapeAutocomplete();
-        EmeraldController.populateMmAutocomplete();
-      }
-      if (tab !== 'tab-emerald-photos') this.renderEmeraldPhotos();
-      if (tab !== 'tab-emerald-analysis' && window.EmeraldDashboardController) EmeraldDashboardController.renderDashboard();
-      if (tab !== 'tab-memos' && window.MemoController) MemoController.renderMemoList();
-      if (tab !== 'tab-stone-catalog' && window.StoneController) {
-        StoneController.renderStoneGrid();
-        StoneController.populateGroupAutocomplete();
-        StoneController.populateShapeAutocomplete();
-        StoneController.populateMmAutocomplete();
-        StoneController.populateGradeAutocomplete();
-      }
-      if (tab !== 'tab-jewel-stone-memos' && window.JewelStoneMemoController) JewelStoneMemoController.renderMemoList();
-      if (tab !== 'tab-sales' && tab !== 'tab-emerald-sales' && window.SalesController) SalesController.renderSalesList();
-      if (tab !== 'tab-logs') this.renderActivityLogs();
-    }, 50);
   },
 
   switchTab(tabId) {
@@ -371,7 +383,14 @@ const App = {
       UI.updateScrollToTop();
     }
 
-    this.refreshAllDisplays();
+    // Lazy load tab if marked dirty
+    if (this.dirtyTabs.has(tabId)) {
+      this.dirtyTabs.delete(tabId);
+      this.renderTab(tabId);
+    }
+
+    // Refresh header dashboard counters
+    Catalog.renderDashboard();
   },
 
   initLogs() {
@@ -478,6 +497,8 @@ const App = {
     if (emptyState) emptyState.classList.add('hidden');
     tbody.parentElement.classList.remove('hidden');
 
+    const fragment = document.createDocumentFragment();
+
     filtered.forEach(log => {
       const row = document.createElement('tr');
       
@@ -516,8 +537,10 @@ const App = {
         </td>
       `;
 
-      tbody.appendChild(row);
+      fragment.appendChild(row);
     });
+
+    tbody.appendChild(fragment);
   },
 
   initTheme() {
@@ -687,13 +710,15 @@ const App = {
     gridContainer.classList.remove('hidden');
     emptyState.classList.add('hidden');
 
+    const fragment = document.createDocumentFragment();
+
     filtered.forEach(item => {
       const card = document.createElement('div');
       card.className = 'photo-card';
       const serialNumber = itemSnoMap.get(item.id) || item.sno || 1;
       
       const imgContent = item.image
-        ? `<img src="${item.image}" alt="${UI.escapeHtml(item.name || 'Jewelry Photo')}" class="photo-card-img">`
+        ? `<img src="${item.image}" alt="${UI.escapeHtml(item.name || 'Jewelry Photo')}" class="photo-card-img" loading="lazy" decoding="async">`
         : `<div class="product-img-placeholder-content" style="padding: 20px;">
              <svg class="product-img-placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
@@ -728,8 +753,10 @@ const App = {
         }
       });
 
-      gridContainer.appendChild(card);
+      fragment.appendChild(card);
     });
+
+    gridContainer.appendChild(fragment);
   },
 
   renderEmeraldPhotos() {
@@ -765,13 +792,15 @@ const App = {
     gridContainer.classList.remove('hidden');
     emptyState.classList.add('hidden');
 
+    const fragment = document.createDocumentFragment();
+
     filtered.forEach(item => {
       const card = document.createElement('div');
       card.className = 'photo-card';
       
       card.innerHTML = `
         <div class="photo-card-img-box">
-          <img src="${item.image}" alt="Pudia #${item.color}" class="photo-card-img">
+          <img src="${item.image}" alt="Pudia #${item.color}" class="photo-card-img" loading="lazy" decoding="async">
         </div>
         <div class="photo-card-body">
           <div class="photo-card-sku">${item.group || 'Lot'} #${item.color || 'N/A'}</div>
@@ -786,8 +815,10 @@ const App = {
         }
       });
 
-      gridContainer.appendChild(card);
+      fragment.appendChild(card);
     });
+
+    gridContainer.appendChild(fragment);
   },
 
   openJewelryDetailModal(item) {

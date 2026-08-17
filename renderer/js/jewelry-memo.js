@@ -377,6 +377,8 @@ const JewelryMemoController = {
       closed: { bg: 'rgba(140,140,160,0.15)', color: 'var(--text-muted)', border: 'transparent' }
     };
 
+    const fragment = document.createDocumentFragment();
+
     filtered.forEach(memo => {
       const dateFmt = new Date(memo.date + 'T00:00:00').toLocaleDateString('en-IN', {
         day: '2-digit', month: 'short', year: 'numeric'
@@ -402,12 +404,13 @@ const JewelryMemoController = {
           </span>
         </td>
         <td>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;">
             <button type="button" class="btn btn-secondary btn-small btn-view-memo">View</button>
             ${memo.status === 'open' ? `
               <button type="button" class="btn btn-secondary btn-small btn-return-memo" style="font-size:11px;">Return All</button>
               <button type="button" class="btn btn-primary btn-small btn-sell-memo" style="font-size:11px;background:#22c55e;border-color:#22c55e;color:#fff;">Sell All</button>
             ` : ''}
+            <button type="button" class="btn btn-secondary btn-small btn-delete-memo" style="font-size:11px;color:var(--danger-red, #ef4444);border-color:rgba(239,68,68,0.3);" title="Delete Memo">Delete</button>
           </div>
         </td>
       `;
@@ -415,11 +418,15 @@ const JewelryMemoController = {
       tr.querySelector('.btn-view-memo').addEventListener('click', () => this.openMemoDetail(memo.id));
       const retBtn = tr.querySelector('.btn-return-memo');
       const sellBtn = tr.querySelector('.btn-sell-memo');
+      const delBtn = tr.querySelector('.btn-delete-memo');
       if (retBtn) retBtn.addEventListener('click', () => this.handleBatchMemoAction(memo.id, 'returned'));
       if (sellBtn) sellBtn.addEventListener('click', () => this.handleBatchMemoAction(memo.id, 'sold'));
+      if (delBtn) delBtn.addEventListener('click', () => this.handleDeleteMemo(memo.id));
 
-      tbody.appendChild(tr);
+      fragment.appendChild(tr);
     });
+
+    tbody.appendChild(fragment);
   },
 
   openMemoDetail(memoId) {
@@ -500,19 +507,22 @@ const JewelryMemoController = {
       tbody.appendChild(tr);
     });
 
-    // Wire Batch Actions in footer
+    // Wire Batch Actions & Delete in footer
     const actionsFooter = document.getElementById('jewelry-memo-detail-actions');
     if (actionsFooter) {
-      if (memo.status === 'open') {
-        actionsFooter.innerHTML = `
+      actionsFooter.innerHTML = `
+        ${memo.status === 'open' ? `
           <button type="button" class="btn btn-secondary" id="btn-memo-detail-return-all">Return All to Stock</button>
           <button type="button" class="btn btn-primary" id="btn-memo-detail-sell-all" style="background:#22c55e;border-color:#22c55e;color:#fff;">Sell All Pieces</button>
-        `;
-        document.getElementById('btn-memo-detail-return-all').onclick = () => this.handleBatchMemoAction(memo.id, 'returned');
-        document.getElementById('btn-memo-detail-sell-all').onclick = () => this.handleBatchMemoAction(memo.id, 'sold');
-      } else {
-        actionsFooter.innerHTML = '';
-      }
+        ` : ''}
+        <button type="button" class="btn btn-secondary" id="btn-memo-detail-delete-memo" style="color:var(--danger-red, #ef4444);border-color:rgba(239,68,68,0.3);">Delete Memo</button>
+      `;
+      const retAllBtn = document.getElementById('btn-memo-detail-return-all');
+      if (retAllBtn) retAllBtn.onclick = () => this.handleBatchMemoAction(memo.id, 'returned');
+      const sellAllBtn = document.getElementById('btn-memo-detail-sell-all');
+      if (sellAllBtn) sellAllBtn.onclick = () => this.handleBatchMemoAction(memo.id, 'sold');
+      const delMemoBtn = document.getElementById('btn-memo-detail-delete-memo');
+      if (delMemoBtn) delMemoBtn.onclick = () => this.handleDeleteMemo(memo.id);
     }
 
     // Print Receipt button wire up
@@ -522,6 +532,54 @@ const JewelryMemoController = {
     }
 
     UI.openModal('modal-jewelry-memo-detail');
+  },
+
+  async handleDeleteMemo(memoId) {
+    const memo = DBManager.getJewelryMemos().find(m => m.id === memoId);
+    if (!memo) return;
+
+    UI.confirm(
+      `Are you sure you want to permanently delete Memo ${memo.memoNumber}?\n\nThis will remove the memo record and restore any unsold pieces back to "In Stock" inventory.`,
+      async () => {
+        let restoredCount = 0;
+
+        // Restore items attached to this memo back to In Stock if not sold
+        (memo.items || []).forEach(memoItem => {
+          const mainItem = DBManager.database.items.find(i => i.id === memoItem.itemId || i.sku === memoItem.sku);
+          if (mainItem) {
+            if (memoItem.status === 'open') {
+              mainItem.status = 'In Stock';
+              delete mainItem.issuedTo;
+              delete mainItem.issuedBroker;
+              delete mainItem.issuedMemoNumber;
+              mainItem.updatedAt = new Date().toISOString();
+              restoredCount++;
+            }
+          }
+        });
+
+        // Delete memo from storage
+        DBManager.database.jewelryMemos = (DBManager.database.jewelryMemos || []).filter(m => m.id !== memoId);
+
+        DBManager.addLog(
+          'DELETE',
+          memo.id,
+          `Jewelry Memo ${memo.memoNumber}`,
+          `Deleted Jewelry Memo ${memo.memoNumber} (${memo.personName || 'No recipient'}). ${restoredCount > 0 ? `Restored ${restoredCount} piece(s) back to In Stock.` : ''}`,
+          []
+        );
+
+        try {
+          await DBManager.saveVault();
+          UI.closeModal('modal-jewelry-memo-detail');
+          UI.showToast(`Jewelry Memo ${memo.memoNumber} deleted successfully.`);
+          App.refreshAllDisplays();
+          this.renderMemoList();
+        } catch (err) {
+          UI.showToast("Error deleting memo: " + err.message, true);
+        }
+      }
+    );
   },
 
   // ── Handle Return Item Back to Inventory ────────────────────────────────────
