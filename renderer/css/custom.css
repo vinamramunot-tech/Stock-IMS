@@ -1798,3 +1798,45 @@
     height: 42px;
   }
 }
+
+/* ==================== MODAL STACKING & Z-INDEX HIERARCHY ==================== */
+/* Level 1: Standard Base Modals */
+.modal-overlay {
+  z-index: 1000;
+}
+
+/* Level 2: Detail Modals (Opened from Main Tables / Grids) */
+#modal-jewelry-detail,
+#modal-memo-detail,
+#modal-jewel-stone-memo-detail,
+#modal-jewelry-memo-detail {
+  z-index: 1050;
+}
+
+/* Level 3: Action Sub-Modals (Opened from within Detail Modals or Item Pages) */
+#modal-complete-jewelry-sale,
+#modal-memo-action-input,
+#modal-memo-outcome,
+#modal-jewel-stone-memo-action-input,
+#modal-share-emerald,
+#modal-bulk-share-emerald,
+#modal-import-excel-preview {
+  z-index: 1150 !important;
+}
+
+/* Level 4: Image Editor */
+#modal-image-editor {
+  z-index: 1200 !important;
+}
+
+/* Level 5: Confirmation Dialogs (Must ALWAYS appear on top of all active modals & screens) */
+#modal-generic-confirm,
+#modal-erase-confirm,
+#modal-clear-logs-confirm {
+  z-index: 1300 !important;
+}
+
+/* Level 6: Fullscreen Presentation / Slideshow */
+#modal-jewelry-slideshow {
+  z-index: 2000 !important;
+}

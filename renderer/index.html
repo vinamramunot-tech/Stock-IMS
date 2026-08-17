@@ -3093,38 +3093,23 @@
       <div class="modal-body form-modal-body">
 
         <!-- Person + Broker + Date row -->
-        <div class="form-grid-row">
-          <div class="form-col-6">
-            <div class="input-group">
-              <label for="jewelry-memo-person-name">Issued To (Person / Client) <span class="required">*</span></label>
-              <input type="text" id="jewelry-memo-person-name"
-                placeholder="e.g. Anand Mehra" autocomplete="off"
-                style="width:100%;height:38px;padding:6px 12px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);" required>
-            </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:4px;">
+          <div class="input-group">
+            <label for="jewelry-memo-person-name">Issued To (Person / Client) <span class="required">*</span></label>
+            <input type="text" id="jewelry-memo-person-name"
+              placeholder="e.g. Anand Mehra" autocomplete="off"
+              style="width:100%;height:38px;padding:6px 12px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);" required>
           </div>
-          <div class="form-col-6">
-            <div class="input-group">
-              <label for="jewelry-memo-broker-name">Broker Name</label>
-              <input type="text" id="jewelry-memo-broker-name" list="jewelry-memo-brokers-list"
-                placeholder="e.g. Ramesh Gems (Optional)" autocomplete="off"
-                style="width:100%;height:38px;padding:6px 12px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);">
-              <datalist id="jewelry-memo-brokers-list"></datalist>
-            </div>
+          <div class="input-group">
+            <label for="jewelry-memo-broker-name">Broker Name</label>
+            <input type="text" id="jewelry-memo-broker-name" list="jewelry-memo-brokers-list"
+              placeholder="e.g. Ramesh Gems (Optional)" autocomplete="off"
+              style="width:100%;height:38px;padding:6px 12px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);">
+            <datalist id="jewelry-memo-brokers-list"></datalist>
           </div>
-        </div>
-
-        <div class="form-grid-row">
-          <div class="form-col-6">
-            <div class="input-group">
-              <label for="jewelry-memo-date">Issue Date <span class="required">*</span></label>
-              <input type="date" id="jewelry-memo-date">
-            </div>
-          </div>
-          <div class="form-col-6">
-            <div class="input-group">
-              <label for="jewelry-memo-return-date">Expected Return Date</label>
-              <input type="date" id="jewelry-memo-return-date">
-            </div>
+          <div class="input-group">
+            <label for="jewelry-memo-date">Issue Date <span class="required">*</span></label>
+            <input type="date" id="jewelry-memo-date">
           </div>
         </div>
 

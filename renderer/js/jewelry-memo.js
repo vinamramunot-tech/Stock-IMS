@@ -105,8 +105,6 @@ const JewelryMemoController = {
     if (brokerInput) brokerInput.value = '';
     const dateInput = document.getElementById('jewelry-memo-date');
     if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
-    const returnDateInput = document.getElementById('jewelry-memo-return-date');
-    if (returnDateInput) returnDateInput.value = '';
     const notesInput = document.getElementById('jewelry-memo-notes');
     if (notesInput) notesInput.value = '';
 
@@ -260,7 +258,6 @@ const JewelryMemoController = {
     const personName = (document.getElementById('jewelry-memo-person-name').value || '').trim();
     const brokerName = (document.getElementById('jewelry-memo-broker-name').value || '').trim();
     const date = document.getElementById('jewelry-memo-date').value;
-    const returnDate = document.getElementById('jewelry-memo-return-date').value;
     const notes = (document.getElementById('jewelry-memo-notes').value || '').trim();
 
     if (!personName) { UI.showToast('Please enter the person / client name to whom the items are issued.', true); return; }
@@ -297,7 +294,6 @@ const JewelryMemoController = {
       personName,
       brokerName: brokerName || '—',
       date,
-      returnDate: returnDate || null,
       status: 'open', // open | closed
       createdAt: new Date().toISOString(),
       closedAt: null,
