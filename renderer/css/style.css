@@ -1604,7 +1604,7 @@ datalist option {
   grid-template-columns: 0.4fr 1.5fr 1fr 0.8fr 1fr auto;
   gap: 10px;
   padding: 8px 12px;
-  background-color: #EAEAEA;
+  background-color: var(--bg-base);
   border: 1px solid var(--border-light);
   border-bottom: none;
   font-size: 11px;
@@ -1623,7 +1623,7 @@ datalist option {
   grid-template-columns: 1.5fr 1fr 0.8fr 1fr auto;
   gap: 10px;
   padding: 8px 12px;
-  background-color: #EAEAEA;
+  background-color: var(--bg-base);
   border: 1px solid var(--border-light);
   border-bottom: none;
   font-size: 11px;
@@ -1786,6 +1786,30 @@ datalist option {
 
 .emerald-sizes-totals .totals-label {
   grid-column: span 3;
+  text-align: right;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.stone-sizes-totals {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 0.8fr 1fr auto;
+  gap: 10px;
+  padding: 10px 12px;
+  background-color: var(--bg-base);
+  border: 1px solid var(--border-dark);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-main);
+}
+
+.stone-sizes-totals span:last-child {
+  width: 28px;
+}
+
+.stone-sizes-totals .totals-label {
+  grid-column: span 2;
   text-align: right;
   font-size: 11px;
   letter-spacing: 0.06em;
