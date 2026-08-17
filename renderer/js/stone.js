@@ -125,6 +125,15 @@ const StoneController = {
     this.activeStoneState = null;
     document.getElementById('stone-form').reset();
     document.getElementById('stone-item-id').value = '';
+
+    const typeInput = document.getElementById('stone-type');
+    if (typeInput) typeInput.value = '';
+    const gradeInput = document.getElementById('stone-grade');
+    if (gradeInput) gradeInput.value = '';
+    const groupInput = document.getElementById('stone-group');
+    if (groupInput) groupInput.value = '';
+    const packetInput = document.getElementById('stone-packet-no');
+    if (packetInput) packetInput.value = '';
     
     // Clear checked origins
     const checkBoxes = document.querySelectorAll('input[name="stone-origin"]');
@@ -463,7 +472,7 @@ const StoneController = {
     this.activeStoneState = JSON.parse(JSON.stringify(stone));
 
     document.getElementById('stone-item-id').value = stone.id || '';
-    document.getElementById('stone-type').value = stone.type || 'Diamond';
+    document.getElementById('stone-type').value = stone.type || '';
     document.getElementById('stone-packet-no').value = stone.color || ''; // color acts as Packet #
     document.getElementById('stone-grade').value = stone.lustreGrade || ''; // lustreGrade acts as Clarity/Grade
     document.getElementById('stone-pair').value = stone.pair || 'No';
@@ -498,30 +507,12 @@ const StoneController = {
   },
 
   _getKnownTypes() {
-    const SEEDS = ['Diamond', 'Ruby', 'Sapphire', 'Polki', 'Emerald', 'Other Semi-Precious', 'Other'];
-    const removed = (DBManager.database && DBManager.database.settings && DBManager.database.settings.removedStoneTypes) || [];
-    
     const all = new Set();
-    SEEDS.forEach(s => {
-      if (!removed.includes(s)) {
-        all.add(s);
-      }
-    });
-
-    if (DBManager.database && DBManager.database.settings && DBManager.database.settings.stoneTypes) {
-      DBManager.database.settings.stoneTypes.forEach(t => {
-        if (!removed.includes(t)) {
-          all.add(t);
-        }
-      });
-    }
-
     DBManager.getStones().forEach(st => {
-      if (st.type && st.type.trim() && !removed.includes(st.type.trim())) {
+      if (st.type && st.type.trim()) {
         all.add(st.type.trim());
       }
     });
-
     return Array.from(all).sort();
   },
 
@@ -549,8 +540,7 @@ const StoneController = {
 
   /** Collect all known unique shapes from DB */
   _getKnownShapes() {
-    const SEEDS = ['Round Brilliant', 'Emerald Cut', 'Oval Cut', 'Pear Shape', 'Marquise', 'Cushion Cut', 'Princess Cut', 'Rose Cut', 'Fancy Cut'];
-    const all = new Set(SEEDS);
+    const all = new Set();
     DBManager.getStones().forEach(st => {
       (st.sizes || []).forEach(s => { if (s.shape) all.add(s.shape.trim()); });
       if (st.shape) st.shape.split(',').forEach(sh => { const t = sh.trim(); if (t) all.add(t); });
@@ -580,8 +570,7 @@ const StoneController = {
 
   /** Collect all known unique clarity/grades from DB */
   _getKnownGrades() {
-    const SEEDS = ['FL/IF', 'VVS1', 'VVS2', 'VS1', 'VS2', 'SI1', 'SI2', 'I1', 'Lustre', 'Commercial'];
-    const all = new Set(SEEDS);
+    const all = new Set();
     DBManager.getStones().forEach(st => {
       if (st.lustreGrade && st.lustreGrade.trim()) all.add(st.lustreGrade.trim());
     });
@@ -1100,20 +1089,6 @@ const StoneController = {
         DBManager.database.stones.push(savedStone);
         DBManager.addLog("ADD", savedStone.id, `${savedStone.type} #${savedStone.color}`, `Added new loose stone stock`, []);
         UI.showToast("New stone stock added successfully!");
-      }
-
-      // Persist custom types to settings
-      const SEEDS = ['Diamond', 'Ruby', 'Sapphire', 'Polki', 'Emerald', 'Other Semi-Precious', 'Other'];
-      if (type && !SEEDS.includes(type)) {
-        if (!DBManager.database.settings.stoneTypes) {
-          DBManager.database.settings.stoneTypes = [];
-        }
-        if (!DBManager.database.settings.stoneTypes.includes(type)) {
-          DBManager.database.settings.stoneTypes.push(type);
-        }
-        if (DBManager.database.settings.removedStoneTypes) {
-          DBManager.database.settings.removedStoneTypes = DBManager.database.settings.removedStoneTypes.filter(t => t !== type);
-        }
       }
 
       UI.closeModal('modal-stone-item');
