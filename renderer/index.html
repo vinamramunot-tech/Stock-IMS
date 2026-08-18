@@ -4082,8 +4082,13 @@
           </div>
           <div class="form-col-6" id="group-presentation-multiplier" style="display: none;">
             <div class="input-group">
-              <label for="presentation-price-multiplier">Price Multiplier (e.g. 1.15 = +15%)</label>
-              <input type="number" id="presentation-price-multiplier" step="0.01" value="1.00" placeholder="1.0" />
+              <label for="presentation-price-multiplier" id="presentation-multiplier-label">
+                Price Multiplier (% added on Selling Price)
+              </label>
+              <input type="number" id="presentation-price-multiplier" step="0.01" value="1.00" placeholder="e.g. 1.15" />
+              <div id="presentation-multiplier-help" class="form-helper-text" style="font-size: 11px; color: var(--text-gold-dark); margin-top: 4px; font-weight: 600;">
+                Multiplier 1.00 = +0% on Selling Price (Standard)
+              </div>
             </div>
           </div>
         </div>

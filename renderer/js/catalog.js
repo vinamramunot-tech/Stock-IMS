@@ -3692,6 +3692,25 @@ const Catalog = {
       });
     }
 
+    const multInput = document.getElementById('presentation-price-multiplier');
+    const updateMultHelper = () => {
+      const helper = document.getElementById('presentation-multiplier-help');
+      if (!helper || !multInput) return;
+      const val = parseFloat(multInput.value);
+      if (isNaN(val) || val <= 0) {
+        helper.textContent = "Please enter a valid multiplier (e.g. 1.15 = +15% on Selling Price)";
+        return;
+      }
+      const pct = Math.round((val - 1.0) * 1000) / 10;
+      const sign = pct >= 0 ? `+${pct}%` : `${pct}%`;
+      helper.textContent = `Multiplier ${val.toFixed(2)}x = ${sign} margin added on Selling Price`;
+    };
+
+    if (multInput) {
+      multInput.addEventListener('input', updateMultHelper);
+      multInput.addEventListener('change', updateMultHelper);
+    }
+
     const btnStartSlideshow = document.getElementById('btn-start-slideshow');
     if (btnStartSlideshow) {
       btnStartSlideshow.addEventListener('click', () => this.launchSlideshow());
