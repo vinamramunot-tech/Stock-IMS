@@ -872,6 +872,12 @@ const App = {
     }
 
     // 2. Populate basic meta
+    const snoVal = item.sno || (window.Catalog && Catalog.getItemSno ? Catalog.getItemSno(item) : '—');
+    const snoEl = document.getElementById('detail-jewelry-sno');
+    if (snoEl) {
+      snoEl.textContent = `S.No: ${snoVal}`;
+    }
+
     document.getElementById('detail-jewelry-name').textContent = item.name || 'Unnamed Piece';
     document.getElementById('detail-jewelry-sku').textContent = item.sku || 'SKU-NONE';
     document.getElementById('detail-jewelry-category').textContent = item.category || 'Jewelry';

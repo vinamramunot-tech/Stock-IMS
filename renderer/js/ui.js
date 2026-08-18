@@ -660,6 +660,7 @@ const UI = {
     };
 
     document.getElementById('jewelry-form').reset();
+    const _snoEl = document.getElementById('item-sno'); if (_snoEl) _snoEl.value = '';
     const _grossWtEl = document.getElementById('item-gross-weight'); if (_grossWtEl) _grossWtEl.value = '';
     const _karatEl = document.getElementById('item-karat'); if (_karatEl) _karatEl.value = '18';
     const _formWastageEl = document.getElementById('item-wastage'); if (_formWastageEl) _formWastageEl.value = '15.00';
@@ -723,10 +724,10 @@ const UI = {
     });
 
     const sortedKarats = Array.from(usedKarats).sort((a, b) => b - a);
-    datalist.innerHTML = '';
+    datalist.replaceChildren();
     sortedKarats.forEach(k => {
       const opt = document.createElement('option');
-      opt.value = k;
+      opt.value = String(k);
       opt.textContent = `${k} KT`;
       datalist.appendChild(opt);
     });
@@ -758,6 +759,12 @@ const UI = {
       span.className = `badge-status ${statusClass}`;
       span.textContent = statusLabel;
       badgeEl.replaceChildren(span);
+    }
+
+    const snoVal = item.sno || (window.Catalog && Catalog.getItemSno ? Catalog.getItemSno(item) : '');
+    const snoInput = document.getElementById('item-sno');
+    if (snoInput) {
+      snoInput.value = snoVal || '';
     }
 
     document.getElementById('item-name').value = item.name || '';

@@ -1114,13 +1114,27 @@ const Catalog = {
       return;
     }
 
-    // Assign permanent S.No
-    let sno = 1;
-    if (isEdit) {
-      sno = UI.activeItemState.sno || this.getItemSno(UI.activeItemState, allItems);
-    } else {
-      const maxSno = allItems.reduce((max, it) => Math.max(max, it.sno || 0), 0);
-      sno = (maxSno > 0) ? maxSno + 1 : (allItems.length + 1);
+    // Assign permanent S.No (or read custom user-specified S.No)
+    const customSnoInput = document.getElementById('item-sno')?.value;
+    let sno = (customSnoInput !== undefined && customSnoInput !== null && customSnoInput.trim() !== '') ? Number(customSnoInput) : null;
+    if (!sno || isNaN(sno) || sno <= 0) {
+      if (isEdit) {
+        sno = UI.activeItemState.sno || this.getItemSno(UI.activeItemState, allItems);
+      } else {
+        const maxSno = allItems.reduce((max, it) => Math.max(max, it.sno || 0), 0);
+        sno = (maxSno > 0) ? maxSno + 1 : (allItems.length + 1);
+      }
+    }
+
+    // Check duplicate S.No across other existing items (prevent saving if S.No already exists)
+    const isSnoDuplicate = allItems.some(i => {
+      const existingSno = i.sno || this.getItemSno(i, allItems);
+      return Number(existingSno) === Number(sno) && (!isEdit || i.id !== UI.activeItemState.id);
+    });
+
+    if (isSnoDuplicate) {
+      UI.showToast(`S.No "${sno}" already exists for another piece. Please choose a unique S.No.`, true);
+      return;
     }
 
     // Reconstruct updated / new item

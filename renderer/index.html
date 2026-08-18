@@ -1988,7 +1988,9 @@
               style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border-light); padding-bottom: 15px;">
               <div>
                 <h2 id="detail-jewelry-name" style="margin: 0; font-size: 22px; color: var(--text-main);"></h2>
-                <div style="display: flex; gap: 10px; align-items: center; margin-top: 6px;">
+                <div style="display: flex; gap: 10px; align-items: center; margin-top: 6px; flex-wrap: wrap;">
+                  <span id="detail-jewelry-sno"
+                    style="font-family: var(--font-mono); font-weight: 800; font-size: 11px; background: var(--bg-gold-subtle, rgba(212, 175, 55, 0.15)); color: var(--text-gold-dark, #b8860b); border: 1px solid var(--border-gold-subtle, rgba(212, 175, 55, 0.3)); padding: 2px 7px; border-radius: 4px;"></span>
                   <span id="detail-jewelry-sku"
                     style="font-family: var(--font-mono); font-weight: 700; font-size: 14px;"></span>
                   <span id="detail-jewelry-category"
@@ -2114,16 +2116,26 @@
                   <label for="item-name">Jewelry Piece Name <span class="required">*</span></label>
                   <input type="text" id="item-name" placeholder="e.g. Classic Emerald Solitaire Ring" required>
                 </div>
-                <div class="input-group">
-                  <label for="item-category">Category <span class="required">*</span></label>
-                  <select id="item-category" required>
-                    <option value="Ring">Ring</option>
-                    <option value="Necklace">Necklace</option>
-                    <option value="Earrings">Earrings</option>
-                    <option value="Bracelet">Bracelet</option>
-                    <option value="Pendant">Pendant</option>
-                    <option value="Other">Other</option>
-                  </select>
+                <div class="form-grid-row">
+                  <div class="form-col-6">
+                    <div class="input-group">
+                      <label for="item-sno">S.No (Serial #)</label>
+                      <input type="number" id="item-sno" min="1" step="1" placeholder="Auto-assigned">
+                    </div>
+                  </div>
+                  <div class="form-col-6">
+                    <div class="input-group">
+                      <label for="item-category">Category <span class="required">*</span></label>
+                      <select id="item-category" required>
+                        <option value="Ring">Ring</option>
+                        <option value="Necklace">Necklace</option>
+                        <option value="Earrings">Earrings</option>
+                        <option value="Bracelet">Bracelet</option>
+                        <option value="Pendant">Pendant</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
                 <div class="input-group">
                   <label for="item-sku">SKU / Code <span class="required">*</span></label>
