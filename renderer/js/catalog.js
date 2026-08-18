@@ -4036,402 +4036,367 @@ const Catalog = {
 
     try {
       const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      // 16:9 Widescreen slide format: 297mm x 167.06mm (landscape presentation slides)
+      const slideW = 297;
+      const slideH = 167.06;
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [slideW, slideH] });
 
-      // Theme color palette definitions
-      const themes = {
+      // Theme color palette definitions matching interactive slideshow exactly
+      const themePalettes = {
         gold: {
-          headerBg: [18, 14, 9],
-          headerGold: [212, 175, 55],
-          accentColor: [184, 134, 11],
-          cardBg: [253, 252, 250],
-          cardBorder: [225, 218, 204],
-          boxBg: [247, 244, 238],
-          badgeBg: [242, 235, 220],
-          badgeText: [140, 100, 20],
-          priceBg: [254, 251, 242],
-          priceBorder: [220, 185, 110],
-          priceText: [150, 105, 10]
+          bgTop: [15, 12, 7],
+          bgBottom: [3, 3, 3],
+          headerBg: [7, 7, 7],
+          textMain: [255, 255, 255],
+          textMuted: [175, 175, 175],
+          textDim: [120, 120, 120],
+          accent: [212, 175, 55],       // #d4af37 luxury gold
+          accentDark: [184, 134, 11],
+          borderAccent: [212, 175, 55],
+          cardBg: [18, 16, 12],
+          cardBorder: [60, 50, 25],
+          badgeBg: [35, 28, 12],
+          badgeBorder: [140, 115, 35],
+          priceBg: [22, 18, 10],
+          priceBorder: [180, 145, 40],
+          isDark: true
         },
         emerald: {
-          headerBg: [6, 28, 18],
-          headerGold: [46, 204, 113],
-          accentColor: [27, 94, 32],
-          cardBg: [250, 253, 251],
-          cardBorder: [210, 232, 218],
-          boxBg: [240, 248, 243],
-          badgeBg: [224, 242, 230],
-          badgeText: [20, 100, 45],
-          priceBg: [242, 252, 245],
-          priceBorder: [130, 200, 155],
-          priceText: [20, 110, 48]
+          bgTop: [3, 36, 17],
+          bgBottom: [1, 18, 8],
+          headerBg: [2, 20, 10],
+          textMain: [255, 255, 255],
+          textMuted: [180, 205, 190],
+          textDim: [110, 145, 125],
+          accent: [46, 204, 113],      // #2ecc71 emerald green
+          accentDark: [39, 174, 96],
+          borderAccent: [46, 204, 113],
+          cardBg: [6, 28, 16],
+          cardBorder: [20, 75, 45],
+          badgeBg: [10, 45, 25],
+          badgeBorder: [40, 130, 75],
+          priceBg: [8, 38, 20],
+          priceBorder: [46, 180, 100],
+          isDark: true
         },
         ivory: {
-          headerBg: [36, 36, 36],
-          headerGold: [205, 165, 90],
-          accentColor: [50, 50, 50],
+          bgTop: [251, 249, 245],
+          bgBottom: [238, 233, 224],
+          headerBg: [245, 242, 235],
+          textMain: [17, 17, 17],
+          textMuted: [85, 85, 85],
+          textDim: [130, 130, 130],
+          accent: [184, 134, 11],      // #b8860b deep gold
+          accentDark: [150, 105, 10],
+          borderAccent: [184, 134, 11],
           cardBg: [255, 255, 255],
-          cardBorder: [225, 225, 225],
-          boxBg: [248, 248, 248],
-          badgeBg: [240, 240, 240],
-          badgeText: [60, 60, 60],
-          priceBg: [250, 249, 246],
-          priceBorder: [210, 195, 170],
-          priceText: [140, 100, 30]
+          cardBorder: [220, 212, 195],
+          badgeBg: [242, 236, 222],
+          badgeBorder: [200, 180, 140],
+          priceBg: [255, 252, 242],
+          priceBorder: [210, 180, 110],
+          isDark: false
         }
       };
 
-      const pal = themes[theme] || themes.gold;
+      const pal = themePalettes[theme] || themePalettes.gold;
       const totalItems = selectedItems.length;
-      const itemsPerPage = 2;
-      const totalPages = Math.ceil(totalItems / itemsPerPage);
 
-      // Helper function to draw top header on a given page
-      const drawHeader = (pageNum) => {
-        if (pageNum === 1) {
-          // Page 1 Luxury Ribbon Header (Height = 34mm)
-          doc.setFillColor(...pal.headerBg);
-          doc.rect(0, 0, 210, 34, 'F');
-
-          // Top thin accent band
-          doc.setFillColor(...pal.headerGold);
-          doc.rect(0, 0, 210, 1.5, 'F');
-
-          // Bottom gold accent line
-          doc.setFillColor(...pal.headerGold);
-          doc.rect(0, 33.3, 210, 0.7, 'F');
-
-          // Brand Title
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(16);
-          doc.setTextColor(...pal.headerGold);
-          doc.text("MAVA GEMS", 12, 13);
-
-          // Presentation Title / Client Showcase
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(11);
-          doc.setTextColor(255, 255, 255);
-          doc.text(title, 12, 21);
-
-          // Subtitle Metadata Row
-          doc.setFont("helvetica", "normal");
-          doc.setFontSize(7.5);
-          doc.setTextColor(195, 195, 195);
-          const goldRateStr = goldRate > 0 ? `  |  Gold Reference: ₹${goldRate.toLocaleString('en-IN')}/g (24KT)` : '';
-          doc.text(`Date: ${new Date().toLocaleDateString('en-IN')}  |  Collection: ${totalItems} Piece(s)${goldRateStr}`, 12, 28);
-
-          // Right luxury pill badge
-          doc.setFillColor(255, 255, 255, 0.12);
-          doc.setDrawColor(...pal.headerGold);
-          doc.setLineWidth(0.3);
-          doc.roundedRect(154, 9, 44, 7, 1.5, 1.5, 'FD');
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(6.5);
-          doc.setTextColor(...pal.headerGold);
-          doc.text("CURATED PORTFOLIO", 176, 13.8, { align: 'center' });
-
-        } else {
-          // Compact Header for Page 2+ (Height = 18mm)
-          doc.setFillColor(...pal.headerBg);
-          doc.rect(0, 0, 210, 18, 'F');
-
-          doc.setFillColor(...pal.headerGold);
-          doc.rect(0, 0, 210, 1, 'F');
-          doc.rect(0, 17.4, 210, 0.6, 'F');
-
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(9.5);
-          doc.setTextColor(...pal.headerGold);
-          doc.text(`MAVA GEMS \u2014 ${title}`, 12, 11);
-
-          doc.setFont("helvetica", "normal");
-          doc.setFontSize(7.5);
-          doc.setTextColor(190, 190, 190);
-          doc.text(`Date: ${new Date().toLocaleDateString('en-IN')}`, 198, 11, { align: 'right' });
+      // Render 1 Slide per Page (matching slideshow presentation experience)
+      for (let i = 0; i < totalItems; i++) {
+        if (i > 0) {
+          doc.addPage([slideW, slideH], 'landscape');
         }
-      };
 
-      // Helper function to draw bottom footer on each page
-      const drawFooter = (pageNum, totalPg) => {
-        doc.setDrawColor(215, 208, 195);
+        const item = selectedItems[i];
+        const evalRes = item.evaluation || Calc.evaluateItem(item, goldRate);
+        const serialNumber = item.sno || this.getItemSno(item);
+
+        // ── 1. BACKGROUND GRADIENT SIMULATION ──
+        const steps = 30;
+        const sliceH = slideH / steps;
+        for (let s = 0; s < steps; s++) {
+          const ratio = s / (steps - 1);
+          const r = Math.round(pal.bgTop[0] + (pal.bgBottom[0] - pal.bgTop[0]) * ratio);
+          const g = Math.round(pal.bgTop[1] + (pal.bgBottom[1] - pal.bgTop[1]) * ratio);
+          const b = Math.round(pal.bgTop[2] + (pal.bgBottom[2] - pal.bgTop[2]) * ratio);
+          doc.setFillColor(r, g, b);
+          doc.rect(0, s * sliceH, slideW, sliceH + 0.5, 'F');
+        }
+
+        // ── 2. TOP SLIDESHOW HEADER BAR ──
+        const headH = 15;
+        doc.setFillColor(...pal.headerBg);
+        doc.rect(0, 0, slideW, headH, 'F');
+
+        // Top edge accent hairline
+        doc.setFillColor(...pal.accent);
+        doc.rect(0, 0, slideW, 1.2, 'F');
+
+        // Bottom border under header
+        doc.setDrawColor(...pal.cardBorder);
         doc.setLineWidth(0.3);
-        doc.line(12, 284, 198, 284);
+        doc.line(0, headH, slideW, headH);
 
+        // Header Title
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(7);
-        doc.setTextColor(130, 130, 130);
-        doc.text("MAVA GEMS \u2022 HIGH JEWELLERY & GEMSTONES", 12, 289);
+        doc.setFontSize(11);
+        doc.setTextColor(...pal.accent);
+        doc.text("MAVA GEMS", 14, 9.5);
 
         doc.setFont("helvetica", "normal");
-        doc.setFontSize(6.5);
-        doc.setTextColor(150, 150, 150);
-        doc.text("CONFIDENTIAL \u2022 PREPARED FOR CLIENT PRESENTATION", 105, 289, { align: 'center' });
+        doc.setFontSize(9);
+        doc.setTextColor(...pal.textMuted);
+        doc.text(`|   ${title}`, 43, 9.5);
 
+        // Slide Counter Pill (Right side: "1 / X")
+        const counterStr = `${i + 1} / ${totalItems}`;
+        doc.setFillColor(...pal.badgeBg);
+        doc.setDrawColor(...pal.badgeBorder);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(slideW - 38, 3.5, 24, 8, 2, 2, 'FD');
         doc.setFont("helvetica", "bold");
         doc.setFontSize(7.5);
-        doc.setTextColor(110, 110, 110);
-        doc.text(`Page ${pageNum} of ${totalPg}`, 198, 289, { align: 'right' });
-      };
+        doc.setTextColor(...pal.accent);
+        doc.text(counterStr, slideW - 26, 8.8, { align: 'center' });
 
-      // 3. Render Cards Page by Page (2 cards per page)
-      for (let p = 0; p < totalPages; p++) {
-        if (p > 0) {
-          doc.addPage();
+        // ── 3. MAIN SLIDE STAGE (LEFT: PHOTO, RIGHT: SPECIFICATIONS & PRICING) ──
+        const stageTop = headH + 8;
+        const stageH = slideH - headH - 16; // ~143mm available height
+
+        // Left Photo Showcase Frame (Width = 120mm, Height = 135mm)
+        const photoX = 14;
+        const photoY = stageTop;
+        const photoW = 122;
+        const photoH = stageH;
+
+        doc.setFillColor(...pal.cardBg);
+        doc.setDrawColor(...pal.borderAccent);
+        doc.setLineWidth(0.5);
+        doc.roundedRect(photoX, photoY, photoW, photoH, 3, 3, 'FD');
+
+        // Inner photo matte container
+        const innerPhotoMargin = 5;
+        const innerPhotoX = photoX + innerPhotoMargin;
+        const innerPhotoY = photoY + innerPhotoMargin;
+        const innerPhotoW = photoW - (innerPhotoMargin * 2);
+        const innerPhotoH = photoH - (innerPhotoMargin * 2);
+
+        let imgRendered = false;
+        if (item.image) {
+          try {
+            const prep = await this.prepareImageForPdf(item.image);
+            if (prep && prep.data) {
+              const maxW = innerPhotoW - 4;
+              const maxH = innerPhotoH - 4;
+              let targetW = maxW;
+              let targetH = maxW / (prep.aspect || 1.0);
+
+              if (targetH > maxH) {
+                targetH = maxH;
+                targetW = maxH * (prep.aspect || 1.0);
+              }
+
+              const posX = innerPhotoX + (innerPhotoW - targetW) / 2;
+              const posY = innerPhotoY + (innerPhotoH - targetH) / 2;
+
+              doc.addImage(prep.data, prep.format, posX, posY, targetW, targetH);
+              imgRendered = true;
+            }
+          } catch (e) {
+            console.warn("Slide image rendering error:", e);
+          }
         }
 
-        const pageNum = p + 1;
-        drawHeader(pageNum);
+        if (!imgRendered) {
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(10);
+          doc.setTextColor(...pal.textDim);
+          doc.text("EXQUISITE JEWELRY", innerPhotoX + innerPhotoW / 2, innerPhotoY + innerPhotoH / 2 - 4, { align: 'center' });
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(8);
+          doc.text("[ High Resolution Photograph ]", innerPhotoX + innerPhotoW / 2, innerPhotoY + innerPhotoH / 2 + 4, { align: 'center' });
+        }
 
-        const card1Index = p * 2;
-        const card2Index = card1Index + 1;
-        const pageItemIndices = [card1Index];
-        if (card2Index < totalItems) pageItemIndices.push(card2Index);
+        // ── 4. RIGHT COLUMN (DETAILS, SPECIFICATIONS & PRICING) ──
+        const infoX = 146;
+        const infoY = stageTop;
+        const infoW = 137;
 
-        for (let slot = 0; slot < pageItemIndices.length; slot++) {
-          const itemIdx = pageItemIndices[slot];
-          const item = selectedItems[itemIdx];
-          const evalRes = item.evaluation || Calc.evaluateItem(item, goldRate);
+        // Top Badges Row: S.No + SKU + Category
+        let badgeCurX = infoX;
 
-          // Card vertical position
-          const cardX = 12;
-          const cardY = pageNum === 1
-            ? (slot === 0 ? 38 : 160)
-            : (slot === 0 ? 24 : 146);
-          const cardW = 186;
-          const cardH = 115;
+        // S.No Badge
+        doc.setFillColor(...pal.badgeBg);
+        doc.setDrawColor(...pal.badgeBorder);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(badgeCurX, infoY, 22, 6.5, 1.5, 1.5, 'FD');
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7);
+        doc.setTextColor(...pal.accent);
+        doc.text(`S.No: ${serialNumber}`, badgeCurX + 11, infoY + 4.5, { align: 'center' });
+        badgeCurX += 25;
 
-          // Outer Card Frame
+        // SKU / Category Badge
+        const tagText = `${item.sku || 'SKU'}  \u2022  ${(item.category || 'Jewelry').toUpperCase()}`;
+        const tagW = Math.min(65, doc.getTextWidth(tagText) + 8);
+        doc.setFillColor(...pal.badgeBg);
+        doc.setDrawColor(...pal.badgeBorder);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(badgeCurX, infoY, tagW, 6.5, 1.5, 1.5, 'FD');
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7);
+        doc.setTextColor(...pal.accent);
+        doc.text(tagText, badgeCurX + tagW / 2, infoY + 4.5, { align: 'center' });
+
+        // Item Title (Large Luxury Display Serif)
+        doc.setFont("times", "bold");
+        doc.setFontSize(19);
+        doc.setTextColor(...pal.textMain);
+        const nameLines = doc.splitTextToSize(item.name || 'Jewelry Piece', infoW);
+        doc.text(nameLines.slice(0, 2), infoX, infoY + 16);
+
+        // Thin decorative gold accent line under title
+        const titleBottomY = infoY + (nameLines.length > 1 ? 23 : 19);
+        doc.setDrawColor(...pal.cardBorder);
+        doc.setLineWidth(0.4);
+        doc.line(infoX, titleBottomY, infoX + infoW, titleBottomY);
+
+        // ── 5. SPECIFICATIONS CARD ──
+        const specBoxY = titleBottomY + 4;
+        const specBoxH = 60;
+        doc.setFillColor(...pal.cardBg);
+        doc.setDrawColor(...pal.cardBorder);
+        doc.setLineWidth(0.4);
+        doc.roundedRect(infoX, specBoxY, infoW, specBoxH, 2.5, 2.5, 'FD');
+
+        // Metal & Weights data strings
+        const netMetalsSlide = Calc.getNetMetals(item);
+        const uniqueKaratsSlide = [...new Set(netMetalsSlide.map(m => `${m.karat}KT`))];
+        const metalsStr = uniqueKaratsSlide.length > 0 ? `${uniqueKaratsSlide.join(', ')} Gold` : (item.karat ? `${item.karat}KT Gold` : '18KT Gold');
+        const grossVal = (evalRes?.totalGrossWeight || item.grossWeight || (item.metals || []).reduce((s, m) => s + Number(m.weight || 0), 0)).toFixed(3);
+        const netVal = (evalRes?.totalNetMetalWeight || 0).toFixed(3);
+
+        const allStones = [...(item.stones || []), ...(item.diamondsPolki || [])];
+        const totalStoneCts = allStones.reduce((sum, s) => sum + (Number(s.weight) || 0), 0);
+        const stoneDetailStr = allStones.length > 0
+          ? allStones.map(s => `${s.type || 'Stone'} (${(s.weight || 0).toFixed(2)}ct)`).join(', ')
+          : 'None';
+
+        let lineY = specBoxY + 8;
+
+        // Spec Line 1: Metal
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8.5);
+        doc.setTextColor(...pal.textMain);
+        doc.text("Metal / Purity:", infoX + 6, lineY);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...pal.textMuted);
+        doc.text(`${metalsStr}`, infoX + 32, lineY);
+
+        // Spec Line 2: Weights
+        lineY += 8;
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...pal.textMain);
+        doc.text("Gross Weight:", infoX + 6, lineY);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...pal.textMuted);
+        doc.text(`${grossVal} grams`, infoX + 32, lineY);
+
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...pal.textMain);
+        doc.text("Net Metal:", infoX + 76, lineY);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...pal.textMuted);
+        doc.text(`${netVal} grams`, infoX + 96, lineY);
+
+        // Spec Line 3: Gemstones & Diamonds
+        lineY += 8;
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...pal.textMain);
+        doc.text("Gemstones:", infoX + 6, lineY);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...pal.textMuted);
+        if (totalStoneCts > 0) {
+          const stoneLines = doc.splitTextToSize(`${totalStoneCts.toFixed(2)} cts total (${stoneDetailStr})`, infoW - 38);
+          doc.text(stoneLines.slice(0, 2), infoX + 32, lineY);
+          lineY += (stoneLines.length > 1 ? 8 : 0);
+        } else {
+          doc.text("Plain Gold / No Precious Gemstones", infoX + 32, lineY);
+        }
+
+        // Spec Line 4: Description / Craftsmanship Notes
+        if (item.description) {
+          lineY += 8;
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(...pal.textMain);
+          doc.text("Notes:", infoX + 6, lineY);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(...pal.textMuted);
+          const descLines = doc.splitTextToSize(item.description, infoW - 38);
+          doc.text(descLines.slice(0, 2), infoX + 32, lineY);
+        }
+
+        // ── 6. PRICING & OFFER BOX ──
+        const priceBoxY = specBoxY + specBoxH + 4;
+        const priceBoxH = photoH - (priceBoxY - photoY);
+
+        if (priceMode === 'selling' || priceMode === 'custom') {
+          const mult = priceMode === 'custom' ? multiplier : 1.0;
+          const finalPrice = Math.round((evalRes.sellingPrice || 0) * mult);
+
+          doc.setFillColor(...pal.priceBg);
+          doc.setDrawColor(...pal.priceBorder);
+          doc.setLineWidth(0.5);
+          doc.roundedRect(infoX, priceBoxY, infoW, priceBoxH, 2.5, 2.5, 'FD');
+
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(7.5);
+          doc.setTextColor(...pal.textMuted);
+          const priceHeading = priceMode === 'custom' ? "CLIENT OFFER PRICE" : "SELLING PRICE";
+          doc.text(priceHeading, infoX + 8, priceBoxY + 8);
+
+          doc.setFont("times", "bold");
+          doc.setFontSize(22);
+          doc.setTextColor(...pal.accent);
+          doc.text(`\u20B9 ${finalPrice.toLocaleString('en-IN')}`, infoX + 8, priceBoxY + 20);
+
+        } else {
+          // Price Hidden Mode: Luxury Certified Authentic Banner
           doc.setFillColor(...pal.cardBg);
           doc.setDrawColor(...pal.cardBorder);
           doc.setLineWidth(0.4);
-          doc.roundedRect(cardX, cardY, cardW, cardH, 3, 3, 'FD');
+          doc.roundedRect(infoX, priceBoxY, infoW, priceBoxH, 2.5, 2.5, 'FD');
 
-          // Left Image Container
-          const imgBoxX = cardX + 5;
-          const imgBoxY = cardY + 5;
-          const imgBoxW = 62;
-          const imgBoxH = 83;
-
-          doc.setFillColor(...pal.boxBg);
-          doc.setDrawColor(...pal.cardBorder);
-          doc.setLineWidth(0.3);
-          doc.roundedRect(imgBoxX, imgBoxY, imgBoxW, imgBoxH, 2, 2, 'FD');
-
-          // Render Image
-          let imgRendered = false;
-          if (item.image) {
-            try {
-              const prep = await this.prepareImageForPdf(item.image);
-              if (prep && prep.data) {
-                const maxW = imgBoxW - 4;
-                const maxH = imgBoxH - 4;
-                let targetW = maxW;
-                let targetH = maxW / (prep.aspect || 1.0);
-
-                if (targetH > maxH) {
-                  targetH = maxH;
-                  targetW = maxH * (prep.aspect || 1.0);
-                }
-
-                const posX = imgBoxX + (imgBoxW - targetW) / 2;
-                const posY = imgBoxY + (imgBoxH - targetH) / 2;
-
-                doc.addImage(prep.data, prep.format, posX, posY, targetW, targetH);
-                imgRendered = true;
-              }
-            } catch (imgErr) {
-              console.warn("PDF image render warning:", imgErr);
-            }
-          }
-
-          if (!imgRendered) {
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(8);
-            doc.setTextColor(170, 170, 170);
-            doc.text("EXQUISITE JEWELRY", imgBoxX + imgBoxW / 2, imgBoxY + imgBoxH / 2 - 2, { align: 'center' });
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(7);
-            doc.setTextColor(190, 190, 190);
-            doc.text("[ No Photograph ]", imgBoxX + imgBoxW / 2, imgBoxY + imgBoxH / 2 + 4, { align: 'center' });
-          }
-
-          // Badges below photo
-          const serialNumber = item.sno || this.getItemSno(item);
-          const badgeY = cardY + 91;
-
-          // S.No Badge
-          doc.setFillColor(...pal.badgeBg);
-          doc.setDrawColor(...pal.cardBorder);
-          doc.setLineWidth(0.2);
-          doc.roundedRect(imgBoxX, badgeY, 27, 7.5, 1.5, 1.5, 'FD');
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(7.5);
-          doc.setTextColor(...pal.badgeText);
-          doc.text(`S.No: ${serialNumber}`, imgBoxX + 13.5, badgeY + 5.2, { align: 'center' });
-
-          // Category Badge
-          const catName = (item.category || 'Jewelry').toUpperCase();
-          doc.setFillColor(...pal.badgeBg);
-          doc.setDrawColor(...pal.cardBorder);
-          doc.setLineWidth(0.2);
-          doc.roundedRect(imgBoxX + 29, badgeY, 33, 7.5, 1.5, 1.5, 'FD');
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(7.5);
-          doc.setTextColor(...pal.badgeText);
-          doc.text(catName.substring(0, 11), imgBoxX + 29 + 16.5, badgeY + 5.2, { align: 'center' });
-
-          // Right Column: Details & Specs
-          const infoX = cardX + 72;
-          const infoW = 109;
-
-          // SKU pill / subline
           doc.setFont("helvetica", "bold");
           doc.setFontSize(8.5);
-          doc.setTextColor(...pal.accentColor);
-          doc.text(`SKU: ${item.sku || 'N/A'}`, infoX, cardY + 9);
+          doc.setTextColor(...pal.accent);
+          doc.text("AUTHENTIC HIGH JEWELLERY \u2022 100% CERTIFIED", infoX + 8, priceBoxY + 11);
 
-          // Item Name
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(12);
-          doc.setTextColor(25, 25, 25);
-          const titleLines = doc.splitTextToSize(item.name || 'Jewelry Piece', infoW);
-          doc.text(titleLines[0], infoX, cardY + 16);
-
-          // Divider Line
-          doc.setDrawColor(...pal.cardBorder);
-          doc.setLineWidth(0.3);
-          doc.line(infoX, cardY + 19.5, infoX + infoW, cardY + 19.5);
-
-          // Specifications Box
-          const specBoxY = cardY + 22.5;
-          const specBoxH = 57;
-
-          doc.setFillColor(...pal.boxBg);
-          doc.setDrawColor(...pal.cardBorder);
-          doc.setLineWidth(0.3);
-          doc.roundedRect(infoX, specBoxY, infoW, specBoxH, 2, 2, 'FD');
-
-          // Metal string
-          const netMetals = Calc.getNetMetals(item);
-          const uniqueKarats = [...new Set(netMetals.map(m => `${m.karat}KT`))];
-          const metalsStr = uniqueKarats.length > 0 ? `${uniqueKarats.join(', ')} Gold` : (item.karat ? `${item.karat}KT Gold` : '18KT Gold');
-          const grossVal = (evalRes?.totalGrossWeight || item.grossWeight || (item.metals || []).reduce((s, m) => s + Number(m.weight || 0), 0)).toFixed(3);
-          const netVal = (evalRes?.totalNetMetalWeight || 0).toFixed(3);
-
-          // Stones string
-          const allStones = [...(item.stones || []), ...(item.diamondsPolki || [])];
-          const totalStoneCts = allStones.reduce((sum, s) => sum + (Number(s.weight) || 0), 0);
-          const stoneDetailStr = allStones.length > 0
-            ? allStones.map(s => `${s.type || 'Stone'} (${(s.weight || 0).toFixed(2)}ct)`).join(', ')
-            : 'None';
-
-          let specTextY = specBoxY + 7;
-
-          // Metal Row
-          doc.setFont("helvetica", "bold");
+          doc.setFont("helvetica", "normal");
           doc.setFontSize(7.5);
-          doc.setTextColor(40, 40, 40);
-          doc.text("Metal / Purity:", infoX + 3.5, specTextY);
-          doc.setFont("helvetica", "normal");
-          doc.setTextColor(70, 70, 70);
-          doc.text(`${metalsStr}`, infoX + 24, specTextY);
-
-          specTextY += 6.5;
-          doc.setFont("helvetica", "bold");
-          doc.setTextColor(40, 40, 40);
-          doc.text("Weights:", infoX + 3.5, specTextY);
-          doc.setFont("helvetica", "normal");
-          doc.setTextColor(70, 70, 70);
-          doc.text(`Gross: ${grossVal} g   |   Net Metal: ${netVal} g`, infoX + 24, specTextY);
-
-          // Gemstones Row
-          specTextY += 6.5;
-          doc.setFont("helvetica", "bold");
-          doc.setTextColor(40, 40, 40);
-          doc.text("Gemstones:", infoX + 3.5, specTextY);
-          doc.setFont("helvetica", "normal");
-          doc.setTextColor(70, 70, 70);
-          if (totalStoneCts > 0) {
-            const stoneLines = doc.splitTextToSize(`Total: ${totalStoneCts.toFixed(2)} cts (${stoneDetailStr})`, infoW - 27);
-            doc.text(stoneLines.slice(0, 2), infoX + 24, specTextY);
-            specTextY += (stoneLines.length > 1 ? 9 : 6.5);
-          } else {
-            doc.text("Plain Gold / No Precious Stones", infoX + 24, specTextY);
-            specTextY += 6.5;
-          }
-
-          // Description / Notes Row
-          if (item.description) {
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(40, 40, 40);
-            doc.text("Notes:", infoX + 3.5, specTextY);
-            doc.setFont("helvetica", "normal");
-            doc.setTextColor(80, 80, 80);
-            const noteLines = doc.splitTextToSize(item.description, infoW - 27);
-            doc.text(noteLines.slice(0, 2), infoX + 24, specTextY);
-          }
-
-          // Pricing Box (or Specifications Hallmark Box if hidden)
-          const priceBoxY = cardY + 82.5;
-          const priceBoxH = 27;
-
-          if (priceMode === 'selling' || priceMode === 'custom') {
-            const mult = priceMode === 'custom' ? multiplier : 1.0;
-            const finalPrice = Math.round((evalRes.sellingPrice || 0) * mult);
-
-            doc.setFillColor(...pal.priceBg);
-            doc.setDrawColor(...pal.priceBorder);
-            doc.setLineWidth(0.4);
-            doc.roundedRect(infoX, priceBoxY, infoW, priceBoxH, 2, 2, 'FD');
-
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(7);
-            doc.setTextColor(...pal.priceText);
-            const priceLabel = priceMode === 'custom'
-              ? `CLIENT OFFER PRICE (INCL. MARGIN INDEX ${multiplier.toFixed(2)}x)`
-              : "ESTIMATED SELLING PRICE";
-            doc.text(priceLabel, infoX + 4, priceBoxY + 6.5);
-
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(14.5);
-            doc.setTextColor(...pal.priceText);
-            doc.text(`\u20B9 ${finalPrice.toLocaleString('en-IN')}`, infoX + 4, priceBoxY + 16.5);
-
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(6.5);
-            doc.setTextColor(130, 115, 80);
-            doc.text("All applicable taxes & certified hallmark specifications included.", infoX + 4, priceBoxY + 22.5);
-
-          } else {
-            // Price Hidden mode: Display authentic certification block
-            doc.setFillColor(...pal.boxBg);
-            doc.setDrawColor(...pal.cardBorder);
-            doc.setLineWidth(0.4);
-            doc.roundedRect(infoX, priceBoxY, infoW, priceBoxH, 2, 2, 'FD');
-
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(8);
-            doc.setTextColor(...pal.accentColor);
-            doc.text("AUTHENTIC FINE JEWELLERY \u2022 100% VERIFIED SPECIFICATIONS", infoX + 4, priceBoxY + 9);
-
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(7.2);
-            doc.setTextColor(110, 110, 110);
-            doc.text("Complete gold purity, diamond grading & gemstone details certified by Mava Gems.", infoX + 4, priceBoxY + 16);
-            doc.text("Price quotation available upon private consultation.", infoX + 4, priceBoxY + 22);
-          }
+          doc.setTextColor(...pal.textMuted);
+          doc.text("Hallmark gold purity and certified gemstone ratings verified by Mava Gems.", infoX + 8, priceBoxY + 19);
         }
+
+        // ── 7. BOTTOM SLIDE FOOTER LINE ──
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(6.5);
+        doc.setTextColor(...pal.textDim);
+        doc.text("MAVA GEMS \u2022 LUXURY COLLECTION SHOWCASE", 14, slideH - 3);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6);
+        doc.text("PRIVATE & CONFIDENTIAL PRESENTATION", slideW / 2, slideH - 3, { align: 'center' });
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6.5);
+        doc.text(`Slide ${i + 1} of ${totalItems}`, slideW - 14, slideH - 3, { align: 'right' });
       }
 
-      // 4. Two-pass footer rendering for accurate total page counts
-      for (let p = 1; p <= totalPages; p++) {
-        doc.setPage(p);
-        drawFooter(p, totalPages);
-      }
-
-      // 5. Save the generated PDF
+      // ── 8. SAVE / EXPORT PDF ──
       const safeTitle = title.replace(/[^a-zA-Z0-9_-]/g, '_');
-      const filename = `${safeTitle}_${Date.now()}.pdf`;
+      const filename = `${safeTitle}_Presentation_${Date.now()}.pdf`;
 
       if (window.electronAPI && window.electronAPI.saveFileDialog && window.electronAPI.savePdfFile) {
         const targetPath = await window.electronAPI.saveFileDialog(filename);
