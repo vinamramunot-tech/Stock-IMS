@@ -1797,6 +1797,126 @@
     width: 42px;
     height: 42px;
   }
+
+  /* Form & Modal Layouts Mobile Optimization */
+  .form-modal-body {
+    padding: 15px !important;
+  }
+
+  .form-grid-row {
+    flex-direction: column !important;
+    gap: 15px !important;
+  }
+
+  .form-col-6,
+  .form-col-4 {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+  }
+
+  .modal-tabs {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    white-space: nowrap !important;
+    display: flex !important;
+  }
+
+  .modal-tabs::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .modal-tab-btn {
+    flex: 0 0 auto !important;
+    padding: 12px 14px !important;
+    font-size: 11px !important;
+  }
+
+  /* Dynamic Builder Cards on Mobile (Metal Parts, Stone Parts) */
+  .metal-part-entry-card,
+  .stone-entry-card,
+  .dp-entry-card {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+    padding: 12px !important;
+  }
+
+  .metal-part-entry-card .input-group:first-child,
+  .stone-entry-card .input-group:first-child,
+  .dp-entry-card .input-group:first-child {
+    grid-column: span 2 !important;
+  }
+
+  .entry-card-btn-col {
+    grid-column: span 2 !important;
+    justify-content: flex-end !important;
+    padding-bottom: 0 !important;
+  }
+
+  /* Stone Presets and Summary Grid Mobile View */
+  .stone-preset-selector {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+    padding: 12px !important;
+  }
+
+  .preset-buttons {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+    width: 100% !important;
+  }
+
+  .preset-buttons .btn {
+    flex: 1 1 calc(50% - 6px) !important;
+    font-size: 11px !important;
+    padding: 6px 8px !important;
+  }
+
+  .summary-grid {
+    flex-direction: column !important;
+    gap: 20px !important;
+  }
+
+  /* Stone sizes header and totals responsive wrap */
+  .stone-sizes-header {
+    display: none !important;
+  }
+
+  .stone-sizes-totals {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+    font-size: 12px !important;
+    padding: 8px 10px !important;
+  }
+
+  .stone-sizes-totals .totals-label {
+    grid-column: span 2 !important;
+    text-align: left !important;
+  }
+
+  /* Analysis lines & customer matrices */
+  .metrics-line-2 [style*="grid-column: span 3"] {
+    grid-column: span 1 !important;
+  }
+
+  [style*="grid-template-columns: repeat(5, 1fr)"],
+  [style*="grid-template-columns: repeat(4, 1fr)"],
+  [style*="grid-template-columns: repeat(3, 1fr)"] {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  /* Universal Header Rate Banners compact view on mobile */
+  .gold-rate-display {
+    padding: 4px 8px !important;
+    font-size: 10px !important;
+  }
+
+  .gold-rate-display .rate-date {
+    display: none !important;
+  }
 }
 
 /* ==================== MODAL STACKING & Z-INDEX HIERARCHY ==================== */
