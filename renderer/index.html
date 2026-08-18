@@ -4074,8 +4074,8 @@
             <div class="input-group">
               <label for="presentation-price-mode">Pricing Display Mode</label>
               <select id="presentation-price-mode" class="filter-select">
-                <option value="selling">Selling Price Only</option>
-                <option value="custom">Custom Multiplier / Margin</option>
+                <option value="selling">Selling Price (Standard)</option>
+                <option value="custom">Multiplier on Market Cost Price</option>
                 <option value="hide">Hide All Prices (Photos & Specs Only)</option>
               </select>
             </div>
@@ -4083,11 +4083,11 @@
           <div class="form-col-6" id="group-presentation-multiplier" style="display: none;">
             <div class="input-group">
               <label for="presentation-price-multiplier" id="presentation-multiplier-label">
-                Price Multiplier (% added on Selling Price)
+                Multiplier on Market Cost Price
               </label>
-              <input type="number" id="presentation-price-multiplier" step="0.01" value="1.00" placeholder="e.g. 1.15" />
+              <input type="number" id="presentation-price-multiplier" step="0.01" value="1.25" placeholder="e.g. 1.25" />
               <div id="presentation-multiplier-help" class="form-helper-text" style="font-size: 11px; color: var(--text-gold-dark); margin-top: 4px; font-weight: 600;">
-                Multiplier 1.00 = +0% on Selling Price (Standard)
+                Multiplier 1.25x = +25% margin on Market Cost Price
               </div>
             </div>
           </div>

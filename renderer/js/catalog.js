@@ -3683,28 +3683,37 @@ const Catalog = {
     }
 
     const priceModeSel = document.getElementById('presentation-price-mode');
-    if (priceModeSel) {
-      priceModeSel.addEventListener('change', (e) => {
-        const multGroup = document.getElementById('group-presentation-multiplier');
-        if (multGroup) {
-          multGroup.style.display = e.target.value === 'custom' ? 'block' : 'none';
-        }
-      });
-    }
-
     const multInput = document.getElementById('presentation-price-multiplier');
+    const multLabel = document.getElementById('presentation-multiplier-label');
+
     const updateMultHelper = () => {
       const helper = document.getElementById('presentation-multiplier-help');
       if (!helper || !multInput) return;
       const val = parseFloat(multInput.value);
+
+      if (multLabel) {
+        multLabel.textContent = "Multiplier on Market Cost Price";
+      }
+
       if (isNaN(val) || val <= 0) {
-        helper.textContent = "Please enter a valid multiplier (e.g. 1.15 = +15% on Selling Price)";
+        helper.textContent = "Please enter a valid multiplier (e.g. 1.25 on Market Cost Price)";
         return;
       }
       const pct = Math.round((val - 1.0) * 1000) / 10;
       const sign = pct >= 0 ? `+${pct}%` : `${pct}%`;
-      helper.textContent = `Multiplier ${val.toFixed(2)}x = ${sign} margin added on Selling Price`;
+      helper.textContent = `Multiplier ${val.toFixed(2)}x = ${sign} margin on Market Cost Price`;
     };
+
+    if (priceModeSel) {
+      priceModeSel.addEventListener('change', (e) => {
+        const multGroup = document.getElementById('group-presentation-multiplier');
+        const isCustom = e.target.value === 'custom';
+        if (multGroup) {
+          multGroup.style.display = isCustom ? 'block' : 'none';
+        }
+        updateMultHelper();
+      });
+    }
 
     if (multInput) {
       multInput.addEventListener('input', updateMultHelper);
@@ -3875,7 +3884,8 @@ const Catalog = {
       displayPriceHtml = `<div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: ${textMutedColor}; letter-spacing: 0.1em; margin-bottom: 4px;">Selling Price</div>
                           <div style="font-size: 32px; font-weight: 700; font-family: var(--font-serif); color: ${accentColor};">₹${sp.toLocaleString('en-IN')}</div>`;
     } else if (priceMode === 'custom') {
-      const sp = Math.round((item.evaluation ? item.evaluation.sellingPrice : 0) * (multiplier || 1.0));
+      const baseMarketCost = item.evaluation ? (item.evaluation.marketCostPrice || item.evaluation.grandTotal || 0) : 0;
+      const sp = Math.round(baseMarketCost * (multiplier || 1.0));
       displayPriceHtml = `<div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: ${textMutedColor}; letter-spacing: 0.1em; margin-bottom: 4px;">Price</div>
                           <div style="font-size: 32px; font-weight: 700; font-family: var(--font-serif); color: ${accentColor};">₹${sp.toLocaleString('en-IN')}</div>`;
     }
@@ -4397,8 +4407,9 @@ const Catalog = {
           const priceBoxY = rowY + (rowH - priceBoxH) / 2;
 
           if (priceMode === 'selling' || priceMode === 'custom') {
-            const mult = priceMode === 'custom' ? multiplier : 1.0;
-            const finalPrice = Math.round((evalRes.sellingPrice || 0) * mult);
+            const finalPrice = priceMode === 'custom'
+              ? Math.round((evalRes.marketCostPrice || evalRes.grandTotal || 0) * multiplier)
+              : Math.round(evalRes.sellingPrice || 0);
 
             doc.setFillColor(...pal.priceBg);
             doc.setDrawColor(...pal.priceBorder);
