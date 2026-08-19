@@ -4420,17 +4420,12 @@ const Catalog = {
             doc.setFontSize(6);
             doc.setTextColor(...pal.textMuted);
             const pLabel = "PRICE";
-            doc.text(pLabel, col7X + col7W / 2, priceBoxY + 5.5, { align: 'center' });
+            doc.text(pLabel, col7X + col7W / 2, priceBoxY + 6.5, { align: 'center' });
 
-            doc.setFont("times", "bold");
-            doc.setFontSize(12.5);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(11);
             doc.setTextColor(...pal.accent);
-            doc.text(`\u20B9 ${finalPrice.toLocaleString('en-IN')}`, col7X + col7W / 2, priceBoxY + 13.5, { align: 'center' });
-
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(5);
-            doc.setTextColor(...pal.textDim);
-            doc.text("Certified & Hallmark Included", col7X + col7W / 2, priceBoxY + 18, { align: 'center' });
+            doc.text(`INR ${finalPrice.toLocaleString('en-IN')}`, col7X + col7W / 2, priceBoxY + 14.5, { align: 'center' });
           } else {
             // Price Hidden Mode
             doc.setFillColor(...pal.badgeBg);
@@ -4439,14 +4434,9 @@ const Catalog = {
             doc.roundedRect(col7X, priceBoxY, col7W, priceBoxH, 2, 2, 'FD');
 
             doc.setFont("helvetica", "bold");
-            doc.setFontSize(6.5);
+            doc.setFontSize(7);
             doc.setTextColor(...pal.accent);
-            doc.text("100% CERTIFIED", col7X + col7W / 2, priceBoxY + 8, { align: 'center' });
-
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(5.5);
-            doc.setTextColor(...pal.textMuted);
-            doc.text("Price upon request", col7X + col7W / 2, priceBoxY + 14, { align: 'center' });
+            doc.text("PRICE UPON REQUEST", col7X + col7W / 2, priceBoxY + 11.5, { align: 'center' });
           }
         }
 
