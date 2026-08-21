@@ -1048,6 +1048,18 @@ const JewelrySalesController = {
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Jewelry Sales & Velocity');
+
+    // Auto-fit column widths based on content
+    const headers = Object.keys(data[0] || {});
+    const colWidths = headers.map(header => {
+      const maxDataLen = data.reduce((max, row) => {
+        const val = row[header] !== null && row[header] !== undefined ? String(row[header]) : '';
+        return Math.max(max, val.length);
+      }, 0);
+      return { wch: Math.min(Math.max(header.length, maxDataLen) + 3, 60) };
+    });
+    ws['!cols'] = colWidths;
+
     XLSX.writeFile(wb, `Jewelry_Sales_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
     UI.showToast('Sales & Velocity report exported to Excel successfully.');
   },

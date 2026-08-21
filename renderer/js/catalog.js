@@ -1966,24 +1966,24 @@ const Catalog = {
     };
 
     ws.columns = [
-      { key: 'A', width: 22 }, // S.No
-      { key: 'B', width: 34 }, // Description
-      { key: 'C', width: 15 }, // Date of MFG
-      { key: 'D', width: 11 }, // Grading (karat)
-      { key: 'E', width: 16 }, // Type
-      { key: 'F', width: 14 }, // Gross WT
-      { key: 'G', width: 14 }, // Net WT
-      { key: 'H', width: 22 }, // Stone Description
-      { key: 'I', width: 10 }, // Pieces
-      { key: 'J', width: 10 }, // CTS
-      { key: 'K', width: 14 }, // @ Rate
-      { key: 'L', width: 15 }, // Total
-      { key: 'M', width: 15 }, // market C.P
-      { key: 'N', width: 15 }, // mfg cost
-      { key: 'O', width: 15 }, // home C.P
-      { key: 'P', width: 15 }, // SP for market
-      { key: 'Q', width: 4 },  // Spacer
-      { key: 'R', width: 24 }  // Photo
+      { key: 'A' }, // S.No
+      { key: 'B' }, // Description
+      { key: 'C' }, // Date of MFG
+      { key: 'D' }, // Grading (karat)
+      { key: 'E' }, // Type
+      { key: 'F' }, // Gross WT
+      { key: 'G' }, // Net WT
+      { key: 'H' }, // Stone Description
+      { key: 'I' }, // Pieces
+      { key: 'J' }, // CTS
+      { key: 'K' }, // @ Rate
+      { key: 'L' }, // Total
+      { key: 'M' }, // Market CP
+      { key: 'N' }, // Mfg Cost
+      { key: 'O' }, // Home CP
+      { key: 'P' }, // SP for Market
+      { key: 'Q', width: 4 }, // Spacer (fixed narrow)
+      { key: 'R', width: 24 }  // Photo (fixed for image)
     ];
 
     const GLOBAL_WASTAGE = (filteredItems[0] ? Number(filteredItems[0].wastage || 15) : 15);
@@ -2659,6 +2659,35 @@ const Catalog = {
     gtP.font = { bold: true, name: 'Calibri' };
     gtP.numFmt = '#,##0.00';
     gtP.border = BORDER_ALL;
+
+    // Auto-fit column widths — only measure header row (7) + data rows (8+)
+    // Skip rows 1-6 (pre-header / merged title rows) which would inflate widths
+    const AUTO_FIT_COLS = [C.A, C.B, C.C, C.D, C.E, C.F, C.G, C.H, C.I, C.J, C.K, C.L, C.M, C.N, C.O, C.P];
+    const colMaxLen = {};
+    AUTO_FIT_COLS.forEach(ci => { colMaxLen[ci] = 8; }); // enforce a minimum
+
+    const DATA_START_ROW = 7; // row 7 is the column header row
+    ws.eachRow({ includeEmpty: false }, (row, rowNum) => {
+      if (rowNum < DATA_START_ROW) return; // skip merged pre-header rows
+      AUTO_FIT_COLS.forEach(ci => {
+        const cell = row.getCell(ci);
+        let txt = '';
+        if (cell.value !== null && cell.value !== undefined) {
+          if (typeof cell.value === 'object' && cell.value.richText) {
+            txt = cell.value.richText.map(r => r.text).join('');
+          } else if (typeof cell.value === 'object' && cell.value.formula !== undefined) {
+            txt = String(cell.value.result ?? '');
+          } else {
+            txt = String(cell.value);
+          }
+        }
+        if (txt.length > colMaxLen[ci]) colMaxLen[ci] = txt.length;
+      });
+    });
+
+    AUTO_FIT_COLS.forEach(ci => {
+      ws.getColumn(ci).width = Math.min(colMaxLen[ci] + 3, 50); // +3 padding, cap at 50
+    });
 
     const buffer = await wb.xlsx.writeBuffer();
     let binary = '';
