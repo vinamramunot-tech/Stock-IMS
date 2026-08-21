@@ -751,12 +751,16 @@ async fn save_pdf_file(base64_data: String, path: String) -> Result<bool, String
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
+            // Only register the log plugin on desktop platforms.
+            // On iOS, debug_assertions may still be true even in release cargo builds,
+            // and the log plugin can cause OnceLock initialization failure panics.
+            #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
             if cfg!(debug_assertions) {
-                app.handle().plugin(
+                let _ = app.handle().plugin(
                     tauri_plugin_log::Builder::default()
                         .level(log::LevelFilter::Info)
                         .build(),
-                )?;
+                );
             }
             Ok(())
         })
