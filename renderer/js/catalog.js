@@ -1901,7 +1901,11 @@ const Catalog = {
 
     try {
       const xlsxBase64 = await this.generateExcel(filtered, goldRate);
-      const defaultName = `jewelry_latest_price_${new Date().toISOString().split('T')[0]}.xlsx`;
+      const today = new Date();
+      const dd = String(today.getDate()).padStart(2, '0');
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const yyyy = today.getFullYear();
+      const defaultName = `Jewelry Catalog ${dd}-${mm}-${yyyy}.xlsx`;
       const savePath = await window.electronAPI.saveFileDialog(defaultName);
       if (!savePath) return;
       await window.electronAPI.saveXlsxFile(xlsxBase64, savePath);
@@ -1928,7 +1932,7 @@ const Catalog = {
     wb.created = new Date();
 
     const ws = wb.addWorksheet('latest price', {
-      views: [{ showGridLines: true }]
+      views: [{ state: 'frozen', ySplit: 7, showGridLines: true }]
     });
 
     // Helper: column letter from 1-based index
@@ -2688,6 +2692,232 @@ const Catalog = {
     AUTO_FIT_COLS.forEach(ci => {
       ws.getColumn(ci).width = Math.min(colMaxLen[ci] + 3, 50); // +3 padding, cap at 50
     });
+
+    // =========================================================
+    //  SHEET 2: "Stock Sheet" — simplified layout matching reference image
+    //  Cols: A=S.No | B=Description | C=Date | D=Purity | E=Type |
+    //        F=Gross WT | G=Net WT | H=CTS | I=Selling Price | J=Photo
+    // =========================================================
+    const ws2 = wb.addWorksheet('Stock Sheet', {
+      views: [{ state: 'frozen', ySplit: 8, showGridLines: true }]
+    });
+
+    // Column widths for sheet 2
+    ws2.columns = [
+      { key: 'A', width: 8  }, // S.No
+      { key: 'B', width: 32 }, // Description
+      { key: 'C', width: 12 }, // Date of MFG
+      { key: 'D', width: 9  }, // Purity
+      { key: 'E', width: 22 }, // Type
+      { key: 'F', width: 13 }, // Gross WT
+      { key: 'G', width: 13 }, // Net WT
+      { key: 'H', width: 9  }, // CTS
+      { key: 'I', width: 12 }, // Selling Price
+      { key: 'J', width: 22 }, // Photo
+    ];
+
+    // Shared style helpers (reuse same fills/borders from sheet 1)
+    const S2_FILL_ORANGE = FILL_ORANGE;
+    const S2_FILL_BLUE   = FILL_BLUE;
+    const S2_BORDER_ALL  = BORDER_ALL;
+    const S2_BORDER_THIN = BORDER_THIN;
+    const S2_ALIGN_CTR   = ALIGN_CENTER;
+    const S2_ALIGN_WRAP  = ALIGN_CENTER_WRAP;
+
+    // Header rows 1-7 (rows 1-7 frozen; data starts at row 8)
+    // Row 1: blank separator
+    // Rows 2-7: spacer (match sheet 1 layout visually)
+    // Row 8: Column headers
+    ws2.getRow(8).height = 28;
+    const s2Headers = ['S No.', 'Description by 5', 'Date of MFG', 'Purity', '', 'Gross WT(gm)', 'Net WT(gm)', 'CTS', '', 'Image'];
+    s2Headers.forEach((h, idx) => {
+      const cell = ws2.getRow(8).getCell(idx + 1);
+      cell.value = h;
+      cell.font = { bold: true, size: 10, name: 'Calibri' };
+      cell.alignment = S2_ALIGN_CTR;
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9D9D9' } };
+      cell.border = S2_BORDER_ALL;
+    });
+
+    const s2ColLetter = colLetter; // reuse same helper
+
+    let s2Row = 9; // data starts at row 9
+    let s2SNo = 1;
+
+    filteredItems.forEach((item) => {
+      const s2Karat = Number(item.karat || (item.metals && item.metals[0] ? item.metals[0].karat : 18));
+      const s2GrossWt = Number(item.grossWeight || (item.metals && item.metals[0] ? item.metals[0].weight : 0));
+      const s2Stones = [...(item.stones || []), ...(item.diamondsPolki || [])];
+      const s2StartRow = s2Row;
+
+      // ── MTL row ──────────────────────────────────────────────
+      ws2.getRow(s2Row).height = 22;
+
+      ws2.getCell(s2Row, 1).value = s2SNo++;
+      ws2.getCell(s2Row, 1).font  = { bold: true, name: 'Calibri' };
+      ws2.getCell(s2Row, 1).alignment = S2_ALIGN_CTR;
+      ws2.getCell(s2Row, 1).border = S2_BORDER_ALL;
+
+      ws2.getCell(s2Row, 2).value = item.name || 'Unnamed Piece';
+      ws2.getCell(s2Row, 2).alignment = S2_ALIGN_WRAP;
+      ws2.getCell(s2Row, 2).border = S2_BORDER_ALL;
+
+      ws2.getCell(s2Row, 3).value = (() => {
+        if (!item.mfgDate) return '';
+        const raw = String(item.mfgDate).trim();
+        const parts = raw.split(/[-/.]/);
+        if (parts.length === 3) {
+          let d, m, y;
+          if (parts[0].length === 4) { y = parts[0]; m = parts[1]; d = parts[2]; }
+          else                       { d = parts[0]; m = parts[1]; y = parts[2]; }
+          if (y.length === 4) y = y.slice(-2);
+          return `${parseInt(d)}.${parseInt(m)}.${y}`;
+        }
+        try { const dt = new Date(raw); return `${dt.getDate()}.${dt.getMonth()+1}.${String(dt.getFullYear()).slice(-2)}`; } catch { return raw; }
+      })();
+      ws2.getCell(s2Row, 3).alignment = S2_ALIGN_CTR;
+      ws2.getCell(s2Row, 3).border = S2_BORDER_ALL;
+
+      // Col D: Purity (orange, MTL row only)
+      const s2D = ws2.getCell(s2Row, 4);
+      s2D.value = s2Karat;
+      s2D.numFmt = '0.0';
+      s2D.fill = S2_FILL_ORANGE;
+      s2D.alignment = S2_ALIGN_CTR;
+      s2D.border = S2_BORDER_ALL;
+
+      // Col E: "MTL"
+      const s2E = ws2.getCell(s2Row, 5);
+      s2E.value = 'MTL';
+      s2E.alignment = S2_ALIGN_CTR;
+      s2E.border = S2_BORDER_ALL;
+
+      // Col F: Gross WT (orange on MTL row)
+      const s2F = ws2.getCell(s2Row, 6);
+      s2F.value = Number(s2GrossWt.toFixed(3));
+      s2F.numFmt = '0.000';
+      s2F.fill = S2_FILL_ORANGE;
+      s2F.alignment = S2_ALIGN_CTR;
+      s2F.border = S2_BORDER_ALL;
+
+      // Col G: Net WT (calculated same way as sheet 1)
+      const s2StoneCTS = s2Stones.reduce((acc, s) => acc + Number(s.weight || 0), 0);
+      const s2NetWt = Math.max(0, s2GrossWt - s2StoneCTS * 0.2);
+      const s2G = ws2.getCell(s2Row, 7);
+      s2G.value = Number(s2NetWt.toFixed(3));
+      s2G.numFmt = '0.000';
+      s2G.alignment = S2_ALIGN_CTR;
+      s2G.border = S2_BORDER_ALL;
+
+      // Col H: "-" on MTL row
+      ws2.getCell(s2Row, 8).value = '-';
+      ws2.getCell(s2Row, 8).alignment = S2_ALIGN_CTR;
+      ws2.getCell(s2Row, 8).border = S2_BORDER_ALL;
+
+      // Col I: Selling Price (merged vertically across entire item block)
+      const s2SellingPrice = item.evaluation ? Number(item.evaluation.sellingPrice.toFixed(0)) : 0;
+      ws2.getCell(s2Row, 9).value = s2SellingPrice;
+      ws2.getCell(s2Row, 9).numFmt = '#,##0';
+      ws2.getCell(s2Row, 9).font = { bold: true, name: 'Calibri' };
+      ws2.getCell(s2Row, 9).alignment = S2_ALIGN_CTR;
+      ws2.getCell(s2Row, 9).border = S2_BORDER_ALL;
+
+      s2Row++;
+
+      // ── Stone rows ───────────────────────────────────────────
+      s2Stones.forEach(comp => {
+        ws2.getRow(s2Row).height = 22;
+
+        // A, B, C, I, J: side borders only (they'll be merged)
+        [1, 2, 3, 9, 10].forEach(ci => {
+          ws2.getCell(s2Row, ci).border = { left: S2_BORDER_THIN, right: S2_BORDER_THIN };
+        });
+
+        // Col D: blank on stone rows
+        ws2.getCell(s2Row, 4).border = { left: S2_BORDER_THIN, right: S2_BORDER_THIN };
+
+        // Col E: stone type
+        ws2.getCell(s2Row, 5).value = comp.type || 'stone';
+        ws2.getCell(s2Row, 5).alignment = S2_ALIGN_WRAP;
+        ws2.getCell(s2Row, 5).border = S2_BORDER_ALL;
+
+        // Col F: "-"
+        ws2.getCell(s2Row, 6).value = '-';
+        ws2.getCell(s2Row, 6).alignment = S2_ALIGN_CTR;
+        ws2.getCell(s2Row, 6).border = S2_BORDER_ALL;
+
+        // Col G: "-"
+        ws2.getCell(s2Row, 7).value = '-';
+        ws2.getCell(s2Row, 7).alignment = S2_ALIGN_CTR;
+        ws2.getCell(s2Row, 7).border = S2_BORDER_ALL;
+
+        // Col H: CTS (blue)
+        const cts = Number(Number(comp.weight || 0).toFixed(2));
+        ws2.getCell(s2Row, 8).value = cts;
+        ws2.getCell(s2Row, 8).numFmt = '0.00';
+        ws2.getCell(s2Row, 8).fill = S2_FILL_BLUE;
+        ws2.getCell(s2Row, 8).alignment = S2_ALIGN_CTR;
+        ws2.getCell(s2Row, 8).border = S2_BORDER_ALL;
+
+        s2Row++;
+      });
+
+      const s2EndRow = s2Row - 1;
+
+      // ── Vertical merges across item block ────────────────────
+      if (s2EndRow > s2StartRow) {
+        ws2.mergeCells(s2StartRow, 1, s2EndRow, 1); // S.No
+        ws2.mergeCells(s2StartRow, 2, s2EndRow, 2); // Description
+        ws2.mergeCells(s2StartRow, 3, s2EndRow, 3); // Date
+        ws2.mergeCells(s2StartRow, 9, s2EndRow, 9); // Selling Price
+        ws2.mergeCells(s2StartRow, 10, s2EndRow, 10); // Photo
+      }
+
+      // ── Photo embedding ──────────────────────────────────────
+      for (let r = s2StartRow; r <= s2EndRow; r++) {
+        ws2.getCell(r, 10).border = S2_BORDER_ALL;
+        ws2.getCell(r, 10).alignment = S2_ALIGN_CTR;
+      }
+
+      if (item.image && typeof item.image === 'string' && item.image.length > 50) {
+        try {
+          const base64Data = item.image.includes(',') ? item.image.split(',')[1] : item.image;
+          const isPng = item.image.includes('png') || item.image.includes('PNG');
+          const imgId2 = wb.addImage({ base64: base64Data, extension: isPng ? 'png' : 'jpeg' });
+          ws2.addImage(imgId2, {
+            tl: { col: 9, row: s2StartRow - 1 },
+            br: { col: 10, row: s2EndRow },
+            editAs: 'twoCell'
+          });
+        } catch (imgErr) {
+          ws2.getCell(s2StartRow, 10).value = 'No Photo';
+          ws2.getCell(s2StartRow, 10).font = { italic: true, size: 9, color: { argb: 'FF888888' } };
+        }
+      } else {
+        ws2.getCell(s2StartRow, 10).value = 'No Photo';
+        ws2.getCell(s2StartRow, 10).font = { italic: true, size: 9, color: { argb: 'FF888888' } };
+      }
+
+      // Blank gap row between items
+      s2Row++;
+    });
+
+    // Grand Total row for sheet 2
+    ws2.getRow(s2Row).height = 24;
+    const s2TotalSP = filteredItems.reduce((acc, i) => acc + (i.evaluation ? i.evaluation.sellingPrice : 0), 0);
+    ws2.getCell(s2Row, 1).value = 'TOTAL';
+    ws2.getCell(s2Row, 1).font = { bold: true, name: 'Calibri' };
+    ws2.getCell(s2Row, 1).border = S2_BORDER_ALL;
+    ws2.getCell(s2Row, 2).value = filteredItems.length;
+    ws2.getCell(s2Row, 2).font = { bold: true, name: 'Calibri' };
+    ws2.getCell(s2Row, 2).border = S2_BORDER_ALL;
+    ws2.getCell(s2Row, 3).value = 'pieces';
+    ws2.getCell(s2Row, 3).font = { bold: true, name: 'Calibri' };
+    ws2.getCell(s2Row, 3).border = S2_BORDER_ALL;
+    ws2.getCell(s2Row, 9).value = Number(s2TotalSP.toFixed(0));
+    ws2.getCell(s2Row, 9).numFmt = '#,##0';
+    ws2.getCell(s2Row, 9).font = { bold: true, name: 'Calibri' };
+    ws2.getCell(s2Row, 9).border = S2_BORDER_ALL;
 
     const buffer = await wb.xlsx.writeBuffer();
     let binary = '';
