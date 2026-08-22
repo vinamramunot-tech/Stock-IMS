@@ -1091,7 +1091,98 @@ const App = {
     'btn-launcher-toggle-theme'
   ],
 
+  workspaceFocusIndex: -1,
+
+  getVisibleWorkspaceFocusableElements() {
+    const elements = [];
+    
+    // 1. Visible Sidebar navigation items for current suite
+    const visibleNavItems = document.querySelectorAll('.workspace-sidebar .sidebar-app-group:not(.hidden) .nav-item');
+    visibleNavItems.forEach(el => elements.push(el));
+
+    // 2. Header rates edit buttons
+    const btnEditGold = document.getElementById('btn-edit-gold-rate');
+    if (btnEditGold) elements.push(btnEditGold);
+    const btnEditUsd = document.getElementById('btn-edit-usd-rate');
+    if (btnEditUsd) elements.push(btnEditUsd);
+
+    // 3. Header Theme Toggle
+    const btnToggleTheme = document.getElementById('btn-toggle-theme');
+    if (btnToggleTheme) elements.push(btnToggleTheme);
+
+    // 4. Header Browse Vault / Switch Database button
+    const btnBrowseVault = document.getElementById('btn-browse-vault');
+    if (btnBrowseVault) elements.push(btnBrowseVault);
+
+    return elements;
+  },
+
+  initWorkspaceKeyboardNav() {
+    window.addEventListener('keydown', (e) => {
+      const workspace = document.getElementById('app-workspace');
+      if (!workspace || workspace.classList.contains('hidden')) return;
+
+      // Do not intercept if user is actively typing in a form or input
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
+
+      // Do not intercept if a modal or overlay is currently open
+      const openModal = document.querySelector('.modal-overlay:not(.hidden), .confirm-modal-overlay:not(.hidden)');
+      if (openModal) return;
+
+      const elements = this.getVisibleWorkspaceFocusableElements();
+      if (elements.length === 0) return;
+
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey)) {
+        e.preventDefault();
+        this.workspaceFocusIndex = (this.workspaceFocusIndex + 1) % elements.length;
+        this.updateWorkspaceFocus(elements);
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || (e.key === 'Tab' && e.shiftKey)) {
+        e.preventDefault();
+        this.workspaceFocusIndex = (this.workspaceFocusIndex - 1 + elements.length) % elements.length;
+        this.updateWorkspaceFocus(elements);
+      } else if (e.key === 'Enter' || e.key === ' ') {
+        if (this.workspaceFocusIndex >= 0 && this.workspaceFocusIndex < elements.length) {
+          e.preventDefault();
+          const target = elements[this.workspaceFocusIndex];
+          if (target) {
+            target.click();
+          }
+        }
+      }
+    });
+
+    // Reset workspace focus when mouse is clicked anywhere
+    window.addEventListener('mousedown', (e) => {
+      const workspace = document.getElementById('app-workspace');
+      if (workspace && !workspace.classList.contains('hidden')) {
+        this.clearWorkspaceHighlights();
+        this.workspaceFocusIndex = -1;
+      }
+    });
+  },
+
+  updateWorkspaceFocus(elements) {
+    elements.forEach((el, idx) => {
+      if (idx === this.workspaceFocusIndex) {
+        el.classList.add('kb-highlight');
+        el.focus({ preventScroll: false });
+        if (typeof el.scrollIntoViewIfNeeded === 'function') {
+          el.scrollIntoViewIfNeeded();
+        }
+      } else {
+        el.classList.remove('kb-highlight');
+      }
+    });
+  },
+
+  clearWorkspaceHighlights() {
+    const allHighlighted = document.querySelectorAll('.kb-highlight');
+    allHighlighted.forEach(el => el.classList.remove('kb-highlight'));
+  },
+
   initLauncherKeyboardNav() {
+    this.initWorkspaceKeyboardNav();
+
     window.addEventListener('keydown', (e) => {
       const launcherScreen = document.getElementById('app-launcher-screen');
       if (!launcherScreen || launcherScreen.classList.contains('hidden')) return;
@@ -1101,11 +1192,11 @@ const App = {
 
       const ids = this.launcherFocusableIds;
 
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'Tab' && !e.shiftKey) {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey)) {
         e.preventDefault();
         this.launcherFocusIndex = (this.launcherFocusIndex + 1) % ids.length;
         this.updateLauncherFocus();
-      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'Tab' && e.shiftKey) {
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || (e.key === 'Tab' && e.shiftKey)) {
         e.preventDefault();
         this.launcherFocusIndex = (this.launcherFocusIndex - 1 + ids.length) % ids.length;
         this.updateLauncherFocus();
@@ -1151,6 +1242,8 @@ const App = {
 
   showLauncher() {
     this.activeApp = null;
+    this.clearWorkspaceHighlights();
+    this.workspaceFocusIndex = -1;
     document.getElementById('app-workspace').classList.add('hidden');
     document.getElementById('startup-screen').classList.add('hidden');
     document.getElementById('app-launcher-screen').classList.remove('hidden');
