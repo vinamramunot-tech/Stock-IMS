@@ -1114,6 +1114,33 @@ const App = {
     const btnBrowseVault = document.getElementById('btn-browse-vault');
     if (btnBrowseVault) elements.push(btnBrowseVault);
 
+    // 5. Active Tab interactive controls & buttons (Catalog / Memos / Sales etc.)
+    const activeTabEl = document.querySelector('.tab-content.active:not(.hidden), .tab-content:not(.hidden)');
+    if (activeTabEl) {
+      // Find filter bar inputs, selects, buttons inside active tab
+      const tabControls = activeTabEl.querySelectorAll(
+        '.filter-bar input:not([type="hidden"]), .filter-bar select, .filter-bar button:not([disabled]), .filter-bar label.btn, ' +
+        '.metrics-bar button:not([disabled]), .analysis-filter-bar select, .analysis-filter-bar button, ' +
+        '.empty-state-card:not(.hidden) button, .tab-header-row button, .tab-header-row input'
+      );
+      tabControls.forEach(el => {
+        // Only include visibly displayed controls
+        if (el.offsetParent !== null && !elements.includes(el)) {
+          elements.push(el);
+        }
+      });
+
+      // 6. Action buttons inside catalog items/cards or list rows (first few actionable items)
+      const itemActionBtns = activeTabEl.querySelectorAll(
+        '.catalog-grid-container button, .emerald-pudia-grid button, .logs-table tbody button'
+      );
+      itemActionBtns.forEach(btn => {
+        if (btn.offsetParent !== null && !elements.includes(btn)) {
+          elements.push(btn);
+        }
+      });
+    }
+
     return elements;
   },
 
@@ -1122,8 +1149,27 @@ const App = {
       const workspace = document.getElementById('app-workspace');
       if (!workspace || workspace.classList.contains('hidden')) return;
 
-      // Do not intercept if user is actively typing in a form or input
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
+      // When user is typing inside an input/textarea/select, allow Escape or Enter to blur, but don't hijack typing
+      const activeEl = document.activeElement;
+      const isInputActive = activeEl && ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeEl.tagName);
+
+      if (isInputActive) {
+        if (e.key === 'Escape') {
+          activeEl.blur();
+          return;
+        }
+        // If it's a search input and user presses Down or Tab, jump to the next interactive option
+        if ((e.key === 'ArrowDown' || e.key === 'Tab') && (activeEl.type === 'text' || activeEl.type === 'search')) {
+          e.preventDefault();
+          activeEl.blur();
+          const elements = this.getVisibleWorkspaceFocusableElements();
+          const currentIdx = elements.indexOf(activeEl);
+          this.workspaceFocusIndex = currentIdx >= 0 ? (currentIdx + 1) % elements.length : 0;
+          this.updateWorkspaceFocus(elements);
+          return;
+        }
+        return;
+      }
 
       // Do not intercept if a modal or overlay is currently open
       const openModal = document.querySelector('.modal-overlay:not(.hidden), .confirm-modal-overlay:not(.hidden)');
@@ -1146,6 +1192,9 @@ const App = {
           const target = elements[this.workspaceFocusIndex];
           if (target) {
             target.click();
+            if (target.tagName === 'INPUT' || target.tagName === 'SELECT') {
+              target.focus();
+            }
           }
         }
       }
