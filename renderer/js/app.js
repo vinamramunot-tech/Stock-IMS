@@ -1159,6 +1159,32 @@ const App = {
           return;
         }
 
+        // Inside a checkbox or radio input (like "Select All"):
+        if (activeEl.type === 'checkbox' || activeEl.type === 'radio') {
+          if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey)) {
+            e.preventDefault();
+            activeEl.blur();
+            const elements = this.getVisibleWorkspaceFocusableElements();
+            const currentIdx = elements.indexOf(activeEl.closest('label.btn') || activeEl);
+            this.workspaceFocusIndex = currentIdx >= 0 ? (currentIdx + 1) % elements.length : 0;
+            this.updateWorkspaceFocus(elements);
+            return;
+          } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || (e.key === 'Tab' && e.shiftKey)) {
+            e.preventDefault();
+            activeEl.blur();
+            const elements = this.getVisibleWorkspaceFocusableElements();
+            const currentIdx = elements.indexOf(activeEl.closest('label.btn') || activeEl);
+            this.workspaceFocusIndex = currentIdx >= 0 ? (currentIdx - 1 + elements.length) % elements.length : 0;
+            this.updateWorkspaceFocus(elements);
+            return;
+          } else if (e.key === 'Enter') {
+            e.preventDefault();
+            activeEl.click();
+            return;
+          }
+          return;
+        }
+
         // Inside a <select> dropdown:
         // ArrowUp / ArrowDown change options natively.
         // ArrowRight, ArrowLeft, or Tab move to the next/prev element in the app!
