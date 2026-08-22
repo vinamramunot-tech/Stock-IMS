@@ -2729,7 +2729,7 @@ const Catalog = {
     // Rows 2-7: spacer (match sheet 1 layout visually)
     // Row 8: Column headers
     ws2.getRow(8).height = 28;
-    const s2Headers = ['S No.', 'Description by 5', 'Date of MFG', 'Purity', '', 'Gross WT(gm)', 'Net WT(gm)', 'CTS', '', 'Image'];
+    const s2Headers = ['S No.', 'Description by 5', 'Date of MFG', 'Purity', '', 'Gross WT(gm)', 'Net WT(gm)', 'CTS', 'Selling Price', 'Image'];
     s2Headers.forEach((h, idx) => {
       const cell = ws2.getRow(8).getCell(idx + 1);
       cell.value = h;
@@ -2800,14 +2800,15 @@ const Catalog = {
       s2F.alignment = S2_ALIGN_CTR;
       s2F.border = S2_BORDER_ALL;
 
-      // Col G: Net WT (calculated same way as sheet 1)
-      const s2StoneCTS = s2Stones.reduce((acc, s) => acc + Number(s.weight || 0), 0);
-      const s2NetWt = Math.max(0, s2GrossWt - s2StoneCTS * 0.2);
+      // Col G: Net WT — formula set after stone rows are collected (so we know their row refs)
+      const s2StoneCTS_est = s2Stones.reduce((acc, s) => acc + Number(s.weight || 0), 0);
+      const s2NetWt_est = Math.max(0, s2GrossWt - s2StoneCTS_est * 0.2);
       const s2G = ws2.getCell(s2Row, 7);
-      s2G.value = Number(s2NetWt.toFixed(3));
+      // value will be set below after stone row indices are known
       s2G.numFmt = '0.000';
       s2G.alignment = S2_ALIGN_CTR;
       s2G.border = S2_BORDER_ALL;
+      const s2StoneRowRefs = []; // collect H-column refs for each stone row
 
       // Col H: "-" on MTL row
       ws2.getCell(s2Row, 8).value = '-';
@@ -2859,10 +2860,19 @@ const Catalog = {
         ws2.getCell(s2Row, 8).alignment = S2_ALIGN_CTR;
         ws2.getCell(s2Row, 8).border = S2_BORDER_ALL;
 
+        s2StoneRowRefs.push(s2Row); // track for net weight formula
         s2Row++;
       });
 
       const s2EndRow = s2Row - 1;
+
+      // Now set net weight formula using collected stone CTS row references (col H)
+      if (s2StoneRowRefs.length > 0) {
+        const stoneHCells = s2StoneRowRefs.map(r => `H${r}`).join('+');
+        s2G.value = { formula: `ROUND(F${s2StartRow}-((${stoneHCells})/5),3)`, result: Number(s2NetWt_est.toFixed(3)) };
+      } else {
+        s2G.value = { formula: `ROUND(F${s2StartRow},3)`, result: Number(s2GrossWt.toFixed(3)) };
+      }
 
       // ── Vertical merges across item block ────────────────────
       if (s2EndRow > s2StartRow) {
@@ -2918,6 +2928,18 @@ const Catalog = {
     ws2.getCell(s2Row, 9).numFmt = '#,##0';
     ws2.getCell(s2Row, 9).font = { bold: true, name: 'Calibri' };
     ws2.getCell(s2Row, 9).border = S2_BORDER_ALL;
+
+    // Reorder sheets: Stock Sheet first, then Latest Price
+    try {
+      if (wb._worksheets && wb._worksheets[1] && wb._worksheets[2]) {
+        const _latestPrice = wb._worksheets[1];
+        const _stockSheet  = wb._worksheets[2];
+        wb._worksheets[1] = _stockSheet;
+        wb._worksheets[2] = _latestPrice;
+        wb._worksheets[1].id = 1;
+        wb._worksheets[2].id = 2;
+      }
+    } catch (e) { /* ignore if ExcelJS internals change */ }
 
     const buffer = await wb.xlsx.writeBuffer();
     let binary = '';
