@@ -242,6 +242,7 @@ const App = {
       btnSidebarSwitchApp.addEventListener('click', () => this.showLauncher());
     }
 
+    this.initLauncherKeyboardNav();
   },
 
 
@@ -1081,6 +1082,73 @@ const App = {
     this.switchTab(defaultTab);
   },
 
+  launcherFocusIndex: 0,
+  launcherFocusableIds: [
+    'btn-launch-jewelry',
+    'btn-launch-emerald',
+    'btn-launch-stone',
+    'btn-launcher-disconnect',
+    'btn-launcher-toggle-theme'
+  ],
+
+  initLauncherKeyboardNav() {
+    window.addEventListener('keydown', (e) => {
+      const launcherScreen = document.getElementById('app-launcher-screen');
+      if (!launcherScreen || launcherScreen.classList.contains('hidden')) return;
+
+      // Ignore if typing inside any input or textarea
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
+
+      const ids = this.launcherFocusableIds;
+
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'Tab' && !e.shiftKey) {
+        e.preventDefault();
+        this.launcherFocusIndex = (this.launcherFocusIndex + 1) % ids.length;
+        this.updateLauncherFocus();
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'Tab' && e.shiftKey) {
+        e.preventDefault();
+        this.launcherFocusIndex = (this.launcherFocusIndex - 1 + ids.length) % ids.length;
+        this.updateLauncherFocus();
+      } else if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        this.triggerFocusedLauncherItem();
+      }
+    });
+
+    // Hovering with mouse should smoothly synchronize the keyboard focus index
+    this.launcherFocusableIds.forEach((id, idx) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('mouseenter', () => {
+          this.launcherFocusIndex = idx;
+          this.updateLauncherFocus();
+        });
+      }
+    });
+  },
+
+  updateLauncherFocus() {
+    this.launcherFocusableIds.forEach((id, idx) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (idx === this.launcherFocusIndex) {
+        el.classList.add('kb-highlight');
+        el.focus({ preventScroll: true });
+      } else {
+        el.classList.remove('kb-highlight');
+      }
+    });
+  },
+
+  triggerFocusedLauncherItem() {
+    const currentId = this.launcherFocusableIds[this.launcherFocusIndex];
+    const el = document.getElementById(currentId);
+    if (el) {
+      // Add quick press animation
+      el.click();
+    }
+  },
+
   showLauncher() {
     this.activeApp = null;
     document.getElementById('app-workspace').classList.add('hidden');
@@ -1091,6 +1159,10 @@ const App = {
     if (dbPathText) {
       dbPathText.textContent = DBManager.activePath || '';
     }
+
+    // Default highlighter to first suite (Jewelry Suite) on launcher open
+    this.launcherFocusIndex = 0;
+    this.updateLauncherFocus();
   }
 };
 

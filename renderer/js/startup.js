@@ -14,17 +14,46 @@ const Startup = {
     document.getElementById('btn-startup-confirm-create').addEventListener('click', () => this.handleStartupCreate());
     document.getElementById('btn-startup-confirm-open').addEventListener('click', () => this.handleOpenExistingVault());
 
-    // Global keydown event listener to confirm database path when Enter is pressed
+    // Startup Screen Keyboard Navigation (Arrow Keys & Enter)
     window.addEventListener('keydown', (e) => {
-      const confirmView = document.getElementById('startup-confirm-path-view');
       const startupScreen = document.getElementById('startup-screen');
-      if (
-        confirmView && !confirmView.classList.contains('hidden') &&
-        startupScreen && !startupScreen.classList.contains('hidden') &&
-        e.key === 'Enter'
-      ) {
+      if (!startupScreen || startupScreen.classList.contains('hidden')) return;
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
+
+      const confirmView = document.getElementById('startup-confirm-path-view');
+      const initialView = document.getElementById('startup-initial-setup-view');
+
+      let options = [];
+      if (confirmView && !confirmView.classList.contains('hidden')) {
+        options = [
+          'btn-startup-continue',
+          'btn-startup-confirm-create',
+          'btn-startup-confirm-open',
+          'btn-startup-toggle-theme'
+        ];
+      } else if (initialView && !initialView.classList.contains('hidden')) {
+        options = [
+          'btn-startup-create',
+          'btn-startup-open',
+          'btn-startup-toggle-theme'
+        ];
+      }
+
+      if (options.length === 0) return;
+
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey)) {
         e.preventDefault();
-        this.handleStartupContinue();
+        this.startupFocusIndex = (this.startupFocusIndex + 1) % options.length;
+        this.updateStartupFocus(options);
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || (e.key === 'Tab' && e.shiftKey)) {
+        e.preventDefault();
+        this.startupFocusIndex = (this.startupFocusIndex - 1 + options.length) % options.length;
+        this.updateStartupFocus(options);
+      } else if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        const currentId = options[this.startupFocusIndex] || options[0];
+        const el = document.getElementById(currentId);
+        if (el) el.click();
       }
     });
 
@@ -56,6 +85,21 @@ const Startup = {
     this.showStartupScreen();
   },
 
+  startupFocusIndex: 0,
+
+  updateStartupFocus(options) {
+    options.forEach((id, idx) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (idx === this.startupFocusIndex) {
+        el.classList.add('kb-highlight');
+        el.focus({ preventScroll: true });
+      } else {
+        el.classList.remove('kb-highlight');
+      }
+    });
+  },
+
   async showStartupScreen() {
     try {
       const rememberedPath = await window.electronAPI.getLastDbPath();
@@ -75,6 +119,14 @@ const Startup = {
     document.getElementById('app-workspace').classList.add('hidden');
     document.getElementById('app-launcher-screen').classList.add('hidden');
     document.getElementById('startup-screen').classList.remove('hidden');
+
+    this.startupFocusIndex = 0;
+    const confirmView = document.getElementById('startup-confirm-path-view');
+    if (confirmView && !confirmView.classList.contains('hidden')) {
+      this.updateStartupFocus(['btn-startup-continue', 'btn-startup-confirm-create', 'btn-startup-confirm-open', 'btn-startup-toggle-theme']);
+    } else {
+      this.updateStartupFocus(['btn-startup-create', 'btn-startup-open', 'btn-startup-toggle-theme']);
+    }
   },
 
   hideStartupScreen() {
