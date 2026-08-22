@@ -732,7 +732,31 @@ const StoneController = {
     });
   },
 
+  renderStoneMetrics() {
+    const looseStones = DBManager.getStones();
+    let totalLooseStoneWeight = 0;
+    let totalLooseStoneValuationINR = 0;
+
+    looseStones.forEach(st => {
+      const w = st.sizes && st.sizes.length > 0
+        ? st.sizes.reduce((sum, s) => sum + Number(s.weight || 0), 0)
+        : Number(st.weight || 0);
+      totalLooseStoneWeight += w;
+      totalLooseStoneValuationINR += w * Number(st.pricePerCarat || 0);
+    });
+
+    const looseWtEl = document.getElementById('metric-loose-stone-weight');
+    const looseValEl = document.getElementById('metric-loose-stone-valuation');
+    if (looseWtEl) {
+      looseWtEl.textContent = `${totalLooseStoneWeight.toFixed(3)} cts`;
+    }
+    if (looseValEl) {
+      looseValEl.textContent = `₹${totalLooseStoneValuationINR.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    }
+  },
+
   renderStoneGrid() {
+    this.renderStoneMetrics();
     const gridContainer = document.getElementById('stone-catalog-grid');
     const emptyState = document.getElementById('stone-empty-state');
     if (!gridContainer || !emptyState) return;

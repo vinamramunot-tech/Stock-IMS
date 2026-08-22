@@ -195,7 +195,6 @@ const Catalog = {
     let totalPortfolioSellingValue = 0;
     let totalGoldWeight = 0;
     let totalJewelryGemWeight = 0;
-    let totalLooseEmeraldWeight = 0;
 
     const gemTypeWeights = {};
 
@@ -232,23 +231,6 @@ const Catalog = {
       });
     });
 
-    let totalLooseEmeraldValuationINR = 0;
-
-    // Sum loose emeralds weight & valuation
-    const emeralds = DBManager.getEmeralds();
-    emeralds.forEach(e => {
-      let w = 0;
-      if (e.sizes && e.sizes.length > 0) {
-        w = e.sizes.reduce((sum, s) => sum + Number(s.weight || 0), 0);
-      } else {
-        w = Number(e.weight || e.size || 0);
-      }
-      totalLooseEmeraldWeight += w;
-      totalLooseEmeraldValuationINR += Number(w * (e.pricePerCarat || 0));
-    });
-
-    const totalLooseEmeraldValuationUSD = usdRate > 0 ? (totalLooseEmeraldValuationINR / usdRate) : 0;
-
     const totalPLDiff = totalPortfolioValuation - totalPortfolioMfgCost;
     const totalPLPct = totalPortfolioMfgCost > 0 ? (totalPLDiff / totalPortfolioMfgCost) * 100 : 0;
     const totalPLSign = totalPLPct > 0 ? '+' : (totalPLPct < 0 ? '-' : '');
@@ -278,40 +260,12 @@ const Catalog = {
         totalPLEl.style.color = 'var(--text-muted)';
       }
     }
-    document.getElementById('metric-total-pieces').textContent = items.length;
-    document.getElementById('metric-gold-weight').textContent = `${totalGoldWeight.toFixed(3)} g`;
-    document.getElementById('metric-gem-weight').textContent = `${totalJewelryGemWeight.toFixed(2)} cts`;
-    document.getElementById('metric-emerald-weight').textContent = `${totalLooseEmeraldWeight.toFixed(2)} cts`;
-
-    // Sum loose stones weight & valuation
-    let totalLooseStoneWeight = 0;
-    let totalLooseStoneValuationINR = 0;
-    const looseStones = DBManager.getStones();
-    looseStones.forEach(st => {
-      const w = st.sizes && st.sizes.length > 0
-        ? st.sizes.reduce((sum, s) => sum + Number(s.weight || 0), 0)
-        : Number(st.weight || 0);
-      totalLooseStoneWeight += w;
-      totalLooseStoneValuationINR += w * Number(st.pricePerCarat || 0);
-    });
-
-    const looseWtEl = document.getElementById('metric-loose-stone-weight');
-    const looseValEl = document.getElementById('metric-loose-stone-valuation');
-    if (looseWtEl) {
-      looseWtEl.textContent = `${totalLooseStoneWeight.toFixed(3)} cts`;
-    }
-    if (looseValEl) {
-      looseValEl.textContent = `₹${totalLooseStoneValuationINR.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
-    }
-
-    const valInrEl = document.getElementById('metric-emerald-valuation-inr');
-    const valUsdEl = document.getElementById('metric-emerald-valuation-usd');
-    if (valInrEl) {
-      valInrEl.textContent = `₹${totalLooseEmeraldValuationINR.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
-    }
-    if (valUsdEl) {
-      valUsdEl.textContent = `$${totalLooseEmeraldValuationUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    }
+    const totalPiecesEl = document.getElementById('metric-total-pieces');
+    if (totalPiecesEl) totalPiecesEl.textContent = items.length;
+    const goldWeightEl = document.getElementById('metric-gold-weight');
+    if (goldWeightEl) goldWeightEl.textContent = `${totalGoldWeight.toFixed(3)} g`;
+    const gemWeightEl = document.getElementById('metric-gem-weight');
+    if (gemWeightEl) gemWeightEl.textContent = `${totalJewelryGemWeight.toFixed(2)} cts`;
 
     // Render bifurcation breakdown
     const breakdownEl = document.getElementById('metric-gem-breakdown');
@@ -467,7 +421,6 @@ const Catalog = {
     this.renderAgingVelocityIntelligence(items, goldRate);
     this.renderLiveMarginShield(items, goldRate);
     this.renderVIPTargetMatcher(items);
-    this.renderGemstoneDepletionMonitor();
 
     // Also update Realized Sales, Holding Time & Profit Velocity on Analyzer
     if (window.JewelrySalesController && typeof window.JewelrySalesController.renderSalesList === 'function') {
@@ -748,63 +701,6 @@ const Catalog = {
       card.querySelector('.btn-view-vip-match')?.addEventListener('click', () => {
         App.openJewelryDetailModal(matchedItem);
       });
-
-      fragment.appendChild(card);
-    });
-
-    container.appendChild(fragment);
-  },
-
-  renderGemstoneDepletionMonitor() {
-    const container = document.getElementById('analyzer-gem-depletion-container');
-    const badgeEl = document.getElementById('analyzer-gem-depletion-badge');
-    const emptyState = document.getElementById('analyzer-gem-empty-state');
-    if (!container) return;
-
-    container.innerHTML = '';
-
-    const emeralds = DBManager.getEmeralds();
-    const stones = DBManager.getStones ? DBManager.getStones() : [];
-    const totalLots = emeralds.length + stones.length;
-
-    if (badgeEl) badgeEl.textContent = `${totalLots} Lots Tracked`;
-
-    if (totalLots === 0) {
-      if (emptyState) emptyState.classList.remove('hidden');
-      return;
-    }
-
-    if (emptyState) emptyState.classList.add('hidden');
-    const fragment = document.createDocumentFragment();
-
-    emeralds.slice(0, 6).forEach(e => {
-      let weight = 0;
-      if (e.sizes && e.sizes.length > 0) {
-        weight = e.sizes.reduce((sum, s) => sum + Number(s.weight || 0), 0);
-      } else {
-        weight = Number(e.weight || e.size || 0);
-      }
-
-      const memoCts = window.MemoController ? MemoController.getOpenMemoCaratsForEmerald(e.id) : 0;
-      const inCompany = Math.max(0, weight - memoCts);
-      const isLowStock = inCompany < 5;
-
-      const card = document.createElement('div');
-      card.style.cssText = `background: var(--bg-base); border: 1px solid var(--border-light); border-left: 3px solid ${isLowStock ? '#ef4444' : '#22c55e'}; border-radius: 6px; padding: 12px;`;
-
-      card.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
-          <strong style="font-size: 13px; color: var(--text-main);">${UI.escapeHtml(e.group || 'Emerald')} #${UI.escapeHtml(e.color || 'Pudia')}</strong>
-          <span style="font-size: 10px; font-weight: 700; color: ${isLowStock ? '#ef4444' : '#22c55e'}; background: ${isLowStock ? 'rgba(239, 68, 68, 0.12)' : 'rgba(34, 197, 94, 0.12)'}; padding: 2px 6px; border-radius: 4px;">
-            ${isLowStock ? 'LOW STOCK' : 'AVAILABLE'}
-          </span>
-        </div>
-        <div style="font-size: 11px; color: var(--text-muted); display:flex; justify-content:space-between;">
-          <span>In Stock: <strong style="color:var(--text-main);">${inCompany.toFixed(2)} cts</strong></span>
-          ${memoCts > 0 ? `<span>On Memo: <strong style="color:var(--text-gold-dark);">${memoCts.toFixed(2)} cts</strong></span>` : ''}
-          <span>Rate: ₹${(e.pricePerCarat || 0).toLocaleString()}/ct</span>
-        </div>
-      `;
 
       fragment.appendChild(card);
     });

@@ -1281,7 +1281,37 @@ const EmeraldController = {
     });
   },
 
+  renderEmeraldMetrics() {
+    const emeralds = DBManager.getEmeralds();
+    const usdRate = DBManager.getSettings().usdToInr ? DBManager.getSettings().usdToInr.rate : 0;
+
+    let totalWeight = 0;
+    let totalValuationINR = 0;
+
+    emeralds.forEach(e => {
+      let w = 0;
+      if (e.sizes && e.sizes.length > 0) {
+        w = e.sizes.reduce((sum, s) => sum + Number(s.weight || 0), 0);
+      } else {
+        w = Number(e.weight || e.size || 0);
+      }
+      totalWeight += w;
+      totalValuationINR += Number(w * (e.pricePerCarat || 0));
+    });
+
+    const totalValuationUSD = usdRate > 0 ? (totalValuationINR / usdRate) : 0;
+
+    const wtEl = document.getElementById('metric-emerald-weight');
+    const valInrEl = document.getElementById('metric-emerald-valuation-inr');
+    const valUsdEl = document.getElementById('metric-emerald-valuation-usd');
+
+    if (wtEl) wtEl.textContent = `${totalWeight.toFixed(2)} cts`;
+    if (valInrEl) valInrEl.textContent = `₹${totalValuationINR.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    if (valUsdEl) valUsdEl.textContent = `$${totalValuationUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  },
+
   renderEmeraldGrid() {
+    this.renderEmeraldMetrics();
     const gridContainer = document.getElementById('emerald-catalog-grid');
     const flatContainer = document.getElementById('emerald-flat-grid');
     const emptyState = document.getElementById('emerald-empty-state');

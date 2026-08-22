@@ -9,7 +9,9 @@ const MemoController = {
   selectedItems: [],
   activeCreateSelectedId: null,
   activeOutcomeContext: null,
-  editingMemoId: null, // When set, we are editing an existing memo (header-only)
+  editingMemoId: null,           // When set, we are editing an existing memo
+  lockedMemoItems: [], // Fully resolved (no remaining carats) memo items shown read-only
+  originalOpenEmeraldIds: [], // EmeraldIds that were open at the start of edit (for diffing)
 
   // ── Initialisation ──────────────────────────────────────────────────────────
 
@@ -258,8 +260,22 @@ const MemoController = {
     if (!memo) return;
 
     this.editingMemoId = memoId;
-    this.selectedItems = []; // not used in edit mode
     this.activeCreateSelectedId = null;
+
+    // Separate open items (remaining carats > 0) from locked ones
+    const openMemoItems   = (memo.items || []).filter(item => {
+      const rem = (item.carats || 0) - (item.returnedCarats || 0) - (item.soldCarats || 0);
+      return rem > 0.001;
+    });
+    const lockedItems = (memo.items || []).filter(item => {
+      const rem = (item.carats || 0) - (item.returnedCarats || 0) - (item.soldCarats || 0);
+      return rem <= 0.001;
+    });
+
+    // Populate selectedItems with open items (use shallow copies to avoid mutating memo)
+    this.selectedItems       = openMemoItems.map(item => ({ ...item }));
+    this.lockedMemoItems     = lockedItems;
+    this.originalOpenEmeraldIds = openMemoItems.map(item => item.emeraldId);
 
     // Pre-fill header fields
     const brokerInput = document.getElementById('memo-broker-name');
@@ -273,19 +289,29 @@ const MemoController = {
 
     this.populateBrokerDatalist();
 
-    // Clear search/filter fields
+    // Clear search/filter fields and reset picker
     const searchInp = document.getElementById('memo-create-search');
     if (searchInp) searchInp.value = '';
+    const groupSel = document.getElementById('memo-create-group');
+    if (groupSel) groupSel.value = '';
+    const shapeSel = document.getElementById('memo-create-shape');
+    if (shapeSel) shapeSel.value = '';
 
-    // Hide the item picker — items cannot be modified after issuance
+    // Show item picker — items CAN be changed in edit mode
     const pickerEl = document.getElementById('memo-create-item-picker');
-    if (pickerEl) pickerEl.style.display = 'none';
+    if (pickerEl) pickerEl.style.display = '';
 
     // Update modal title & save button label
     const titleEl = document.getElementById('memo-modal-title');
     if (titleEl) titleEl.textContent = `Edit Emerald Memo — ${memo.memoNumber}`;
     const saveBtn = document.getElementById('btn-save-memo');
     if (saveBtn) saveBtn.textContent = 'Save Changes';
+
+    // Populate filters and render tables
+    this.populateGroupSelect();
+    this.populateShapeSelect();
+    this.filterCreatePudias();
+    this.renderSelectedItemsTable();
 
     UI.closeModal('modal-memo-detail');
     UI.openModal('modal-create-memo');
@@ -557,20 +583,24 @@ const MemoController = {
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    if (this.selectedItems.length === 0) {
+    const hasLocked = this.editingMemoId && this.lockedMemoItems.length > 0;
+
+    if (this.selectedItems.length === 0 && !hasLocked) {
       tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">No items selected yet. Select a Pudia above and click "Add Item".</td></tr>';
       this.updateSelectedTotals();
       return;
     }
 
+    // Render active / open items with Remove button
     this.selectedItems.forEach((item, index) => {
-      const snap = item.emeraldSnapshot;
+      const snap = item.emeraldSnapshot || {};
+      const remCarats = Number(((item.carats || 0) - (item.returnedCarats || 0) - (item.soldCarats || 0)).toFixed(3));
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td style="padding:10px 12px;font-weight:600;">${UI.escapeHtml(snap.group || '—')}</td>
         <td style="padding:10px 12px;text-align:center;font-weight:700;color:var(--text-gold-dark);">#${snap.color || 'N/A'}</td>
         <td style="padding:10px 12px;">${UI.escapeHtml(snap.shape || '—')}${snap.stockType === 'Single Pieces' ? '' : ` / ${UI.escapeHtml(snap.lustreGrade || '—')}`}</td>
-        <td style="padding:10px 12px;text-align:right;font-weight:700;">${item.carats.toFixed(2)} cts</td>
+        <td style="padding:10px 12px;text-align:right;font-weight:700;">${(item.carats || 0).toFixed(2)} cts${remCarats < item.carats ? `<br><span style="font-size:10px;color:var(--text-muted);">${remCarats.toFixed(2)} rem</span>` : ''}</td>
         <td style="padding:10px 12px;text-align:right;">${item.pieces || '—'}</td>
         <td style="padding:10px 12px;text-align:center;">
           <button type="button" class="btn btn-danger btn-small" style="font-size:10px;padding:3px 6px;" data-index="${index}">Remove</button>
@@ -585,6 +615,33 @@ const MemoController = {
 
       tbody.appendChild(tr);
     });
+
+    // In edit mode, render locked (fully resolved) items as read-only rows at the bottom
+    if (hasLocked) {
+      const dividerTr = document.createElement('tr');
+      dividerTr.innerHTML = `<td colspan="6" style="padding:6px 10px;background:var(--bg-base);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);border-top:2px solid var(--border-light);">Fully Sold / Returned — Cannot Change</td>`;
+      tbody.appendChild(dividerTr);
+
+      this.lockedMemoItems.forEach(item => {
+        const snap = item.emeraldSnapshot || {};
+        const soldCts = item.soldCarats || 0;
+        const retCts  = item.returnedCarats || 0;
+        const badge = soldCts > 0
+          ? `<span style="padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;background:rgba(212,175,55,0.15);color:var(--text-gold-dark);">SOLD ${soldCts.toFixed(2)} cts</span>`
+          : `<span style="padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;background:rgba(80,200,120,0.12);color:var(--success-color);">RETURNED ${retCts.toFixed(2)} cts</span>`;
+        const tr = document.createElement('tr');
+        tr.style.opacity = '0.55';
+        tr.innerHTML = `
+          <td style="padding:10px 12px;font-weight:600;">${UI.escapeHtml(snap.group || '—')}</td>
+          <td style="padding:10px 12px;text-align:center;font-weight:700;color:var(--text-muted);">#${snap.color || 'N/A'}</td>
+          <td style="padding:10px 12px;">${UI.escapeHtml(snap.shape || '—')}${snap.stockType === 'Single Pieces' ? '' : ` / ${UI.escapeHtml(snap.lustreGrade || '—')}`}</td>
+          <td style="padding:10px 12px;text-align:right;">${(item.carats || 0).toFixed(2)} cts</td>
+          <td style="padding:10px 12px;text-align:right;">${item.pieces || '—'}</td>
+          <td style="padding:10px 12px;text-align:center;">${badge}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
 
     this.updateSelectedTotals();
   },
@@ -611,23 +668,41 @@ const MemoController = {
       const memo = DBManager.getMemos().find(m => m.id === this.editingMemoId);
       if (!memo) { UI.showToast('Memo not found.', true); return; }
 
-      const oldBrokerName = memo.brokerName;
-      const oldClientName = memo.clientName;
+      // Diff: what changed vs what was originally open
+      const newOpenEmeraldIds   = new Set(this.selectedItems.map(i => i.emeraldId));
+      const originalEmeraldIds  = new Set(this.originalOpenEmeraldIds);
+      const removedEmeraldIds   = [...originalEmeraldIds].filter(id => !newOpenEmeraldIds.has(id));
+      const addedItems          = this.selectedItems.filter(i => !originalEmeraldIds.has(i.emeraldId));
 
+      // Process removals: just remove from memo.items (no stock changes — carats not deducted on issuance)
+      removedEmeraldIds.forEach(emeraldId => {
+        memo.items = memo.items.filter(mi => mi.emeraldId !== emeraldId);
+      });
+
+      // Process additions: append new items to memo.items (new items from handleAddItemToSelected have correct structure)
+      addedItems.forEach(item => {
+        memo.items.push(item);
+      });
+
+      // Update header fields
       memo.brokerName = brokerName;
       memo.clientName = clientName || null;
       memo.date = date;
       memo.notes = notes;
 
+      // Recalculate totalCarats from all memo.items
+      memo.totalCarats = Number(memo.items.reduce((sum, i) => sum + (i.carats || 0), 0).toFixed(3));
+
       DBManager.addLog(
         'EDIT', memo.id, `Memo ${memo.memoNumber}`,
-        `Edited Memo ${memo.memoNumber}: broker changed from "${oldBrokerName}" to "${brokerName}"` +
-        (clientName !== (oldClientName || '') ? `, client from "${oldClientName || '—'}" to "${clientName || '—'}"` : '') + '.',
+        `Edited Memo ${memo.memoNumber}: ${removedEmeraldIds.length} Pudia(s) removed, ${addedItems.length} Pudia(s) added. Broker: "${brokerName}"${clientName ? `, Client: "${clientName}"` : ''}.`,
         []
       );
 
       try {
         this.editingMemoId = null;
+        this.lockedMemoItems = [];
+        this.originalOpenEmeraldIds = [];
         UI.closeModal('modal-create-memo');
         UI.showToast(`Memo ${memo.memoNumber} updated successfully.`);
         App.refreshAllDisplays();

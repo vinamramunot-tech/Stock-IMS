@@ -5,9 +5,11 @@
  */
 
 const JewelryMemoController = {
-  selectedItems: [], // Array of jewelry item objects
+  selectedItems: [], // Array of jewelry item objects (catalog items)
   activePdfDocument: null,
-  editingMemoId: null, // When set, indicates we are editing an existing memo
+  editingMemoId: null,        // When set, we are editing an existing memo
+  lockedMemoItems: [],        // Sold/returned memo items shown read-only during edit
+  originalOpenItemIds: [],    // Item IDs that were open at the start of edit (for diffing)
 
   init() {
     // Nav triggers
@@ -114,7 +116,19 @@ const JewelryMemoController = {
     if (!memo) return;
 
     this.editingMemoId = memoId;
-    this.selectedItems = []; // not used in edit mode
+
+    // Separate open items (editable) from sold/returned (locked)
+    const openMemoItems = (memo.items || []).filter(mi => mi.status === 'open');
+    const lockedItems   = (memo.items || []).filter(mi => mi.status !== 'open');
+
+    // Resolve catalog objects for the open items so selectedItems has full item data
+    this.selectedItems = openMemoItems
+      .map(mi => DBManager.getItems().find(i => i.id === mi.itemId || i.sku === mi.sku))
+      .filter(Boolean);
+
+    // Store locked items and the original open IDs for diffing on save
+    this.lockedMemoItems    = lockedItems;
+    this.originalOpenItemIds = openMemoItems.map(mi => mi.itemId);
 
     // Pre-fill header fields
     const personInput = document.getElementById('jewelry-memo-person-name');
@@ -134,15 +148,19 @@ const JewelryMemoController = {
     const catSelect = document.getElementById('jewelry-memo-create-category');
     if (catSelect) catSelect.value = '';
 
-    // Hide the item picker — items cannot be changed when editing
+    // Show item picker — items CAN be changed in edit mode
     const pickerEl = document.getElementById('jewelry-memo-create-item-picker');
-    if (pickerEl) pickerEl.style.display = 'none';
+    if (pickerEl) pickerEl.style.display = '';
 
     // Update modal title & save button label
     const titleEl = document.getElementById('jewelry-memo-modal-title');
     if (titleEl) titleEl.textContent = `Edit Jewelry Memo — ${memo.memoNumber}`;
     const saveBtn = document.getElementById('btn-save-jewelry-memo');
     if (saveBtn) saveBtn.textContent = 'Save Changes';
+
+    // Render tables & refresh picker
+    this.filterCreateJewelry();
+    this.renderSelectedItemsTable();
 
     UI.closeModal('modal-jewelry-memo-detail');
     UI.openModal('modal-create-jewelry-memo');
@@ -187,11 +205,19 @@ const JewelryMemoController = {
     const query = (document.getElementById('jewelry-memo-create-search').value || '').toLowerCase().trim();
     const catVal = document.getElementById('jewelry-memo-create-category').value;
 
+    // In edit mode, items that are "Issued" to THIS memo but not yet in selectedItems are also eligible to re-add
+    const editingMemo = this.editingMemoId
+      ? DBManager.getJewelryMemos().find(m => m.id === this.editingMemoId)
+      : null;
+
     const items = DBManager.getItems();
     const filtered = items.filter(item => {
-      // Must be in stock
       const status = item.status || 'In Stock';
-      if (status !== 'In Stock') return false;
+      const isInStock = status === 'In Stock';
+      const isIssuedToThisMemo = editingMemo && status === 'Issued'
+        && item.issuedMemoNumber === editingMemo.memoNumber;
+
+      if (!isInStock && !isIssuedToThisMemo) return false;
 
       // Must not be already in our selections
       if (this.selectedItems.some(sel => sel.id === item.id)) return false;
@@ -245,14 +271,16 @@ const JewelryMemoController = {
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    if (this.selectedItems.length === 0) {
+    const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
+    const hasLocked = this.editingMemoId && this.lockedMemoItems.length > 0;
+
+    if (this.selectedItems.length === 0 && !hasLocked) {
       tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:15px;color:var(--text-muted);">No pieces added to memo. Select a piece above and click "Add Piece".</td></tr>';
       this.updateSelectedTotals();
       return;
     }
 
-    const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
-
+    // Render active / open items with Remove button
     this.selectedItems.forEach((item, index) => {
       const evalItem = Calc.evaluateItem(item, goldRate);
       const tr = document.createElement('tr');
@@ -272,9 +300,7 @@ const JewelryMemoController = {
       `;
 
       const thumbImg = tr.querySelector('.memo-thumb-img');
-      if (thumbImg) {
-        thumbImg.addEventListener('click', () => App.openJewelryDetailModal(item));
-      }
+      if (thumbImg) thumbImg.addEventListener('click', () => App.openJewelryDetailModal(item));
 
       tr.querySelector('.btn-danger').addEventListener('click', () => {
         this.selectedItems.splice(index, 1);
@@ -284,6 +310,35 @@ const JewelryMemoController = {
 
       tbody.appendChild(tr);
     });
+
+    // In edit mode, render locked (sold/returned) items as read-only rows at the bottom
+    if (hasLocked) {
+      const dividerTr = document.createElement('tr');
+      dividerTr.innerHTML = `<td colspan="6" style="padding:6px 10px;background:var(--bg-base);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);border-top:2px solid var(--border-light);">Already Sold / Returned — Cannot Change</td>`;
+      tbody.appendChild(dividerTr);
+
+      this.lockedMemoItems.forEach(mi => {
+        const mainItem = DBManager.getItems().find(i => i.id === mi.itemId || i.sku === mi.sku);
+        const imgSrc = mi.image || (mainItem ? mainItem.image : null);
+        const imgHtml = imgSrc
+          ? `<img src="${imgSrc}" alt="${UI.escapeHtml(mi.name)}" style="width:36px;height:36px;object-fit:cover;border-radius:4px;border:1px solid var(--border-light);opacity:0.5;">`
+          : `<div style="width:36px;height:36px;border-radius:4px;border:1px solid var(--border-light);background:var(--bg-base);opacity:0.4;"></div>`;
+        const badge = mi.status === 'sold'
+          ? `<span style="padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;background:rgba(212,175,55,0.15);color:var(--text-gold-dark);">SOLD</span>`
+          : `<span style="padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;background:rgba(80,200,120,0.12);color:var(--success-color);">RETURNED</span>`;
+        const tr = document.createElement('tr');
+        tr.style.opacity = '0.6';
+        tr.innerHTML = `
+          <td style="padding:6px 10px;text-align:center;">${imgHtml}</td>
+          <td style="padding:8px 12px;font-weight:700;">${UI.escapeHtml(mi.sku)}</td>
+          <td style="padding:8px 12px;">${UI.escapeHtml(mi.name)}</td>
+          <td style="padding:8px 12px;">${UI.escapeHtml(mi.category)}</td>
+          <td style="padding:8px 12px;text-align:right;font-weight:700;color:var(--text-muted);">₹${(mi.sellingPrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+          <td style="padding:8px 12px;text-align:center;">${badge}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
 
     this.updateSelectedTotals();
   },
@@ -318,34 +373,82 @@ const JewelryMemoController = {
       const memo = DBManager.getJewelryMemos().find(m => m.id === this.editingMemoId);
       if (!memo) { UI.showToast('Memo not found.', true); return; }
 
-      const oldPersonName = memo.personName;
-      const oldBrokerName = memo.brokerName;
+      const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
 
+      // Diff: what changed vs what was originally open
+      const newOpenIds      = new Set(this.selectedItems.map(i => i.id));
+      const originalIds     = new Set(this.originalOpenItemIds);
+      const removedIds      = [...originalIds].filter(id => !newOpenIds.has(id));
+      const addedItems      = this.selectedItems.filter(i => !originalIds.has(i.id));
+
+      // Process removals: revert catalog item to In Stock, remove from memo.items
+      removedIds.forEach(id => {
+        const mainItem = DBManager.database.items.find(i => i.id === id);
+        if (mainItem) {
+          mainItem.status = 'In Stock';
+          mainItem.issuedTo = null;
+          mainItem.issuedBroker = null;
+          mainItem.issuedMemoNumber = null;
+          mainItem.updatedAt = new Date().toISOString();
+        }
+        memo.items = memo.items.filter(mi => mi.itemId !== id);
+      });
+
+      // Process additions: add to memo.items and mark catalog item as Issued
+      addedItems.forEach(item => {
+        const evalItem = Calc.evaluateItem(item, goldRate);
+        const mfgCost = (evalItem && evalItem.mfgGrandTotal) ? evalItem.mfgGrandTotal : (item.mfgCostPrice || evalItem.marketCostPrice || 0);
+        memo.items.push({
+          itemId: item.id,
+          sku: item.sku,
+          name: item.name,
+          category: item.category,
+          image: item.image || null,
+          mfgCost,
+          sellingPrice: evalItem.sellingPrice,
+          status: 'open'
+        });
+        const mainItem = DBManager.database.items.find(i => i.id === item.id);
+        if (mainItem) {
+          mainItem.status = 'Issued';
+          mainItem.issuedTo = personName;
+          mainItem.issuedBroker = brokerName || '—';
+          mainItem.issuedMemoNumber = memo.memoNumber;
+          mainItem.updatedAt = new Date().toISOString();
+        }
+      });
+
+      // Update issuedTo / issuedBroker on remaining open items if name/broker changed
+      memo.items.filter(mi => mi.status === 'open').forEach(mi => {
+        const mainItem = DBManager.database.items.find(i => i.id === mi.itemId || i.sku === mi.sku);
+        if (mainItem) {
+          mainItem.issuedTo = personName;
+          mainItem.issuedBroker = brokerName || '—';
+          mainItem.updatedAt = new Date().toISOString();
+        }
+      });
+
+      // Recalculate total value from all open memo items
+      memo.totalValue = memo.items
+        .filter(mi => mi.status === 'open')
+        .reduce((sum, mi) => sum + (mi.sellingPrice || 0), 0);
+
+      // Update header fields
       memo.personName = personName;
       memo.brokerName = brokerName || '—';
       memo.date = date;
       memo.notes = notes;
 
-      // Update issuedTo / issuedBroker on any still-open items
-      (memo.items || []).forEach(memoItem => {
-        if (memoItem.status === 'open') {
-          const mainItem = DBManager.database.items.find(i => i.id === memoItem.itemId || i.sku === memoItem.sku);
-          if (mainItem) {
-            mainItem.issuedTo = personName;
-            mainItem.issuedBroker = brokerName || '—';
-            mainItem.updatedAt = new Date().toISOString();
-          }
-        }
-      });
-
       DBManager.addLog(
         'EDIT', memo.id, `Jewelry Memo ${memo.memoNumber}`,
-        `Edited Jewelry Memo ${memo.memoNumber}: person changed from "${oldPersonName}" to "${personName}", broker from "${oldBrokerName}" to "${brokerName || '—'}".`,
+        `Edited Jewelry Memo ${memo.memoNumber} — ${removedIds.length} piece(s) removed, ${addedItems.length} piece(s) added. Person: "${personName}", Broker: "${brokerName || '—'}".`,
         []
       );
 
       try {
         this.editingMemoId = null;
+        this.lockedMemoItems = [];
+        this.originalOpenItemIds = [];
         UI.closeModal('modal-create-jewelry-memo');
         UI.showToast(`Jewelry Memo ${memo.memoNumber} updated successfully.`);
         App.refreshAllDisplays();
