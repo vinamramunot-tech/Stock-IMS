@@ -9,6 +9,7 @@ const MemoController = {
   selectedItems: [],
   activeCreateSelectedId: null,
   activeOutcomeContext: null,
+  editingMemoId: null, // When set, we are editing an existing memo (header-only)
 
   // ── Initialisation ──────────────────────────────────────────────────────────
 
@@ -239,9 +240,54 @@ const MemoController = {
   // ── Create Memo ─────────────────────────────────────────────────────────────
 
   openCreateMemoModal() {
+    this.editingMemoId = null;
     this.selectedItems = [];
     this.activeCreateSelectedId = null;
     this.resetCreateMemoForm();
+    const titleEl = document.getElementById('memo-modal-title');
+    if (titleEl) titleEl.textContent = 'Issue Emerald Memo';
+    const saveBtn = document.getElementById('btn-save-memo');
+    if (saveBtn) saveBtn.textContent = 'Issue Memo';
+    const pickerEl = document.getElementById('memo-create-item-picker');
+    if (pickerEl) pickerEl.style.display = '';
+    UI.openModal('modal-create-memo');
+  },
+
+  openEditMemoModal(memoId) {
+    const memo = DBManager.getMemos().find(m => m.id === memoId);
+    if (!memo) return;
+
+    this.editingMemoId = memoId;
+    this.selectedItems = []; // not used in edit mode
+    this.activeCreateSelectedId = null;
+
+    // Pre-fill header fields
+    const brokerInput = document.getElementById('memo-broker-name');
+    if (brokerInput) brokerInput.value = memo.brokerName || '';
+    const clientInput = document.getElementById('memo-client-name');
+    if (clientInput) clientInput.value = memo.clientName || '';
+    const dateInput = document.getElementById('memo-date');
+    if (dateInput) dateInput.value = memo.date || '';
+    const notesInput = document.getElementById('memo-notes');
+    if (notesInput) notesInput.value = memo.notes || '';
+
+    this.populateBrokerDatalist();
+
+    // Clear search/filter fields
+    const searchInp = document.getElementById('memo-create-search');
+    if (searchInp) searchInp.value = '';
+
+    // Hide the item picker — items cannot be modified after issuance
+    const pickerEl = document.getElementById('memo-create-item-picker');
+    if (pickerEl) pickerEl.style.display = 'none';
+
+    // Update modal title & save button label
+    const titleEl = document.getElementById('memo-modal-title');
+    if (titleEl) titleEl.textContent = `Edit Emerald Memo — ${memo.memoNumber}`;
+    const saveBtn = document.getElementById('btn-save-memo');
+    if (saveBtn) saveBtn.textContent = 'Save Changes';
+
+    UI.closeModal('modal-memo-detail');
     UI.openModal('modal-create-memo');
   },
 
@@ -559,6 +605,40 @@ const MemoController = {
 
     if (!brokerName) { UI.showToast('Please enter a broker name.', true); return; }
     if (!date)       { UI.showToast('Please select a memo date.', true); return; }
+
+    // ── EDIT MODE ────────────────────────────────────────────────────────────
+    if (this.editingMemoId) {
+      const memo = DBManager.getMemos().find(m => m.id === this.editingMemoId);
+      if (!memo) { UI.showToast('Memo not found.', true); return; }
+
+      const oldBrokerName = memo.brokerName;
+      const oldClientName = memo.clientName;
+
+      memo.brokerName = brokerName;
+      memo.clientName = clientName || null;
+      memo.date = date;
+      memo.notes = notes;
+
+      DBManager.addLog(
+        'EDIT', memo.id, `Memo ${memo.memoNumber}`,
+        `Edited Memo ${memo.memoNumber}: broker changed from "${oldBrokerName}" to "${brokerName}"` +
+        (clientName !== (oldClientName || '') ? `, client from "${oldClientName || '—'}" to "${clientName || '—'}"` : '') + '.',
+        []
+      );
+
+      try {
+        this.editingMemoId = null;
+        UI.closeModal('modal-create-memo');
+        UI.showToast(`Memo ${memo.memoNumber} updated successfully.`);
+        App.refreshAllDisplays();
+        await DBManager.saveVault();
+      } catch (err) {
+        UI.showToast(err.message, true);
+      }
+      return;
+    }
+
+    // ── CREATE MODE ───────────────────────────────────────────────────────────
     if (this.selectedItems.length === 0) {
       UI.showToast('Please add at least one Pudia to the memo.', true);
       return;
@@ -777,6 +857,7 @@ const MemoController = {
     if (actionsEl) {
       actionsEl.innerHTML = `
         ${memo.status === 'open' ? `
+          <button type="button" class="btn btn-secondary" id="btn-detail-edit" style="font-size:12px;">✏️ Edit Memo</button>
           <button type="button" class="btn btn-primary" id="btn-detail-outcome" style="min-width:140px;">
             Record Outcome
           </button>
@@ -790,6 +871,12 @@ const MemoController = {
           Delete Memo
         </button>
       `;
+      const btnEdit = document.getElementById('btn-detail-edit');
+      if (btnEdit) {
+        btnEdit.addEventListener('click', () => {
+          this.openEditMemoModal(memo.id);
+        });
+      }
       const btnOutcome = document.getElementById('btn-detail-outcome');
       if (btnOutcome) {
         btnOutcome.addEventListener('click', () => {

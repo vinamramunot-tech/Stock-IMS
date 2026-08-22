@@ -7,6 +7,7 @@
 const JewelryMemoController = {
   selectedItems: [], // Array of jewelry item objects
   activePdfDocument: null,
+  editingMemoId: null, // When set, indicates we are editing an existing memo
 
   init() {
     // Nav triggers
@@ -24,9 +25,12 @@ const JewelryMemoController = {
       btnSave.addEventListener('click', () => this.handleSaveMemo());
     }
 
-    // Close buttons inside jewelry memo modals
+    // Close buttons inside jewelry memo modals — reset editingMemoId on close/cancel
     document.querySelectorAll('.modal-close-trigger-jewelry-memo').forEach(btn => {
-      btn.addEventListener('click', () => UI.closeModal('modal-create-jewelry-memo'));
+      btn.addEventListener('click', () => {
+        this.editingMemoId = null;
+        UI.closeModal('modal-create-jewelry-memo');
+      });
     });
     document.querySelectorAll('.modal-close-trigger-jewelry-memo-detail').forEach(btn => {
       btn.addEventListener('click', () => UI.closeModal('modal-jewelry-memo-detail'));
@@ -93,8 +97,54 @@ const JewelryMemoController = {
   },
 
   openCreateMemoModal() {
+    this.editingMemoId = null;
     this.selectedItems = [];
     this.resetCreateMemoForm();
+    const titleEl = document.getElementById('jewelry-memo-modal-title');
+    if (titleEl) titleEl.textContent = 'Issue Finished Jewelry Memo';
+    const saveBtn = document.getElementById('btn-save-jewelry-memo');
+    if (saveBtn) saveBtn.textContent = 'Issue Memo';
+    const pickerEl = document.getElementById('jewelry-memo-create-item-picker');
+    if (pickerEl) pickerEl.style.display = '';
+    UI.openModal('modal-create-jewelry-memo');
+  },
+
+  openEditMemoModal(memoId) {
+    const memo = DBManager.getJewelryMemos().find(m => m.id === memoId);
+    if (!memo) return;
+
+    this.editingMemoId = memoId;
+    this.selectedItems = []; // not used in edit mode
+
+    // Pre-fill header fields
+    const personInput = document.getElementById('jewelry-memo-person-name');
+    if (personInput) personInput.value = memo.personName || '';
+    const brokerInput = document.getElementById('jewelry-memo-broker-name');
+    if (brokerInput) brokerInput.value = (memo.brokerName && memo.brokerName !== '—') ? memo.brokerName : '';
+    const dateInput = document.getElementById('jewelry-memo-date');
+    if (dateInput) dateInput.value = memo.date || '';
+    const notesInput = document.getElementById('jewelry-memo-notes');
+    if (notesInput) notesInput.value = memo.notes || '';
+
+    this.populateBrokerDatalist();
+
+    // Clear search fields
+    const searchInp = document.getElementById('jewelry-memo-create-search');
+    if (searchInp) searchInp.value = '';
+    const catSelect = document.getElementById('jewelry-memo-create-category');
+    if (catSelect) catSelect.value = '';
+
+    // Hide the item picker — items cannot be changed when editing
+    const pickerEl = document.getElementById('jewelry-memo-create-item-picker');
+    if (pickerEl) pickerEl.style.display = 'none';
+
+    // Update modal title & save button label
+    const titleEl = document.getElementById('jewelry-memo-modal-title');
+    if (titleEl) titleEl.textContent = `Edit Jewelry Memo — ${memo.memoNumber}`;
+    const saveBtn = document.getElementById('btn-save-jewelry-memo');
+    if (saveBtn) saveBtn.textContent = 'Save Changes';
+
+    UI.closeModal('modal-jewelry-memo-detail');
     UI.openModal('modal-create-jewelry-memo');
   },
 
@@ -262,6 +312,51 @@ const JewelryMemoController = {
 
     if (!personName) { UI.showToast('Please enter the person / client name to whom the items are issued.', true); return; }
     if (!date) { UI.showToast('Please select an issue date.', true); return; }
+
+    // ── EDIT MODE ──────────────────────────────────────────────────────────────
+    if (this.editingMemoId) {
+      const memo = DBManager.getJewelryMemos().find(m => m.id === this.editingMemoId);
+      if (!memo) { UI.showToast('Memo not found.', true); return; }
+
+      const oldPersonName = memo.personName;
+      const oldBrokerName = memo.brokerName;
+
+      memo.personName = personName;
+      memo.brokerName = brokerName || '—';
+      memo.date = date;
+      memo.notes = notes;
+
+      // Update issuedTo / issuedBroker on any still-open items
+      (memo.items || []).forEach(memoItem => {
+        if (memoItem.status === 'open') {
+          const mainItem = DBManager.database.items.find(i => i.id === memoItem.itemId || i.sku === memoItem.sku);
+          if (mainItem) {
+            mainItem.issuedTo = personName;
+            mainItem.issuedBroker = brokerName || '—';
+            mainItem.updatedAt = new Date().toISOString();
+          }
+        }
+      });
+
+      DBManager.addLog(
+        'EDIT', memo.id, `Jewelry Memo ${memo.memoNumber}`,
+        `Edited Jewelry Memo ${memo.memoNumber}: person changed from "${oldPersonName}" to "${personName}", broker from "${oldBrokerName}" to "${brokerName || '—'}".`,
+        []
+      );
+
+      try {
+        this.editingMemoId = null;
+        UI.closeModal('modal-create-jewelry-memo');
+        UI.showToast(`Jewelry Memo ${memo.memoNumber} updated successfully.`);
+        App.refreshAllDisplays();
+        await DBManager.saveVault();
+      } catch (err) {
+        UI.showToast(err.message, true);
+      }
+      return;
+    }
+
+    // ── CREATE MODE ────────────────────────────────────────────────────────────
     if (this.selectedItems.length === 0) {
       UI.showToast('Please add at least one jewelry piece to issue on memo.', true);
       return;
@@ -512,11 +607,14 @@ const JewelryMemoController = {
     if (actionsFooter) {
       actionsFooter.innerHTML = `
         ${memo.status === 'open' ? `
+          <button type="button" class="btn btn-secondary" id="btn-memo-detail-edit-memo" style="font-size:12px;">✏️ Edit Memo</button>
           <button type="button" class="btn btn-secondary" id="btn-memo-detail-return-all">Return All to Stock</button>
           <button type="button" class="btn btn-primary" id="btn-memo-detail-sell-all" style="background:#22c55e;border-color:#22c55e;color:#fff;">Sell All Pieces</button>
         ` : ''}
         <button type="button" class="btn btn-secondary" id="btn-memo-detail-delete-memo" style="color:var(--danger-red, #ef4444);border-color:rgba(239,68,68,0.3);">Delete Memo</button>
       `;
+      const editBtn = document.getElementById('btn-memo-detail-edit-memo');
+      if (editBtn) editBtn.onclick = () => this.openEditMemoModal(memo.id);
       const retAllBtn = document.getElementById('btn-memo-detail-return-all');
       if (retAllBtn) retAllBtn.onclick = () => this.handleBatchMemoAction(memo.id, 'returned');
       const sellAllBtn = document.getElementById('btn-memo-detail-sell-all');
