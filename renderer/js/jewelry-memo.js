@@ -876,7 +876,9 @@ const JewelryMemoController = {
 
     const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
     const evalItem = mainItem ? Calc.evaluateItem(mainItem, goldRate) : null;
-    const mfgCost = (evalItem && evalItem.mfgGrandTotal) ? evalItem.mfgGrandTotal : (memoItem ? memoItem.mfgCost : (mainItem?.mfgCostPrice || 0));
+    const mfgCost = (mainItem && mainItem.mfgCostPrice && Number(mainItem.mfgCostPrice) > 0)
+      ? Number(mainItem.mfgCostPrice)
+      : ((evalItem && evalItem.mfgGrandTotal) ? evalItem.mfgGrandTotal : (memoItem?.mfgCost || (mainItem?.mfgCostPrice || 0)));
     const replacementCost = (evalItem && evalItem.marketCostPrice) ? evalItem.marketCostPrice : mfgCost;
 
     const mfgCostEl = document.getElementById('jewelry-sale-mfg-cost');

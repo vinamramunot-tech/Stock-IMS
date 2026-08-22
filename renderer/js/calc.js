@@ -143,7 +143,7 @@ const Calc = {
     const globalRate = Number(goldRate24kt || 0);
     const mfgRate = (mfgGoldRate24kt !== undefined && mfgGoldRate24kt !== null && Number(mfgGoldRate24kt) > 0)
       ? Number(mfgGoldRate24kt)
-      : Number(itemData?.mfgGoldRate24kt || itemData?.goldRateAtAddition || globalRate);
+      : Number(itemData?.mfgGoldRate24kt || itemData?.goldRateAtAddition || itemData?.goldRateMfg || 0);
 
     const defaultWastage = Number(itemData?.wastage !== undefined && itemData.wastage !== null && itemData.wastage !== '' ? itemData.wastage : 15);
 
@@ -158,19 +158,26 @@ const Calc = {
           ? Number(part.directValue)
           : null);
 
-      if (manualVal !== null) {
-        // Direct manual purchase value specified
-        metalTotalGlobal += manualVal;
-        metalTotalMfg += manualVal;
-      } else {
-        const partWastage = (part.wastage !== undefined && part.wastage !== null && part.wastage !== '') ? Number(part.wastage) : defaultWastage;
-        const wastageFactor = 1 + (partWastage / 100);
+      const partWastage = (part.wastage !== undefined && part.wastage !== null && part.wastage !== '') ? Number(part.wastage) : defaultWastage;
+      const wastageFactor = 1 + (partWastage / 100);
 
+      // Global / Replacement Metal Value (at live gold rate)
+      if (part.netWeight > 0 && globalRate > 0) {
         const partValGlobal = this.calculateMetalValue(part.netWeight, part.karat, globalRate);
         metalTotalGlobal += partValGlobal * wastageFactor;
+      } else if (manualVal !== null) {
+        metalTotalGlobal += manualVal;
+      }
 
+      // Historical Manufacturing Metal Value (at mfg date gold rate or manual purchase cost)
+      if (manualVal !== null) {
+        metalTotalMfg += manualVal;
+      } else if (part.netWeight > 0 && mfgRate > 0) {
         const partValMfg = this.calculateMetalValue(part.netWeight, part.karat, mfgRate);
         metalTotalMfg += partValMfg * wastageFactor;
+      } else if (part.netWeight > 0 && globalRate > 0) {
+        const partValGlobal = this.calculateMetalValue(part.netWeight, part.karat, globalRate);
+        metalTotalMfg += partValGlobal * wastageFactor;
       }
     });
 
@@ -209,11 +216,13 @@ const Calc = {
     const finalCommValueMfg = finalCommValue;
 
     // 7. Overall Grand Totals
-    // Market Cost Price calculated using Global Gold Rate
+    // Market Cost Price / Replacement Cost calculated using Global Gold Rate
     const marketCostPrice = Number((subtotalGlobal + finalCommValueGlobal).toFixed(2));
 
-    // Home Cost Price / Manufacturing Grand Total
-    const grandTotalMfg = Number((subtotalMfg + finalCommValueMfg).toFixed(2));
+    // Home Cost Price / Manufacturing Grand Total calculated using Mfg Gold Rate / historical cost
+    const grandTotalMfg = (itemData?.mfgCostPrice && Number(itemData.mfgCostPrice) > 0)
+      ? Number(Number(itemData.mfgCostPrice).toFixed(2))
+      : Number((subtotalMfg + finalCommValueMfg).toFixed(2));
     // Home Cost Price calculated using Global Gold Rate with 50% Emerald deduction
     const homeCostPrice = Number((marketCostPrice - (emeraldTotal * 0.5)).toFixed(2));
 

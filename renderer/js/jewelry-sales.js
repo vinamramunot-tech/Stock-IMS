@@ -54,6 +54,8 @@ const JewelrySalesController = {
   enrichSaleRecord(sale) {
     const items = DBManager.getItems();
     const mainItem = items.find(i => i.id === sale.itemId || i.sku === sale.sku);
+    const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
+    const evalItem = mainItem ? Calc.evaluateItem(mainItem, goldRate) : null;
 
     const saleDate = sale.saleDate || (sale.createdAt ? sale.createdAt.split('T')[0] : new Date().toISOString().split('T')[0]);
     const mfgDate = sale.mfgDate || (mainItem && mainItem.mfgDate) || (mainItem && mainItem.createdAt ? mainItem.createdAt.split('T')[0] : saleDate);
@@ -67,10 +69,38 @@ const JewelrySalesController = {
 
     const monthsElapsed = Math.max(0.1, Number((daysElapsed / 30.4375).toFixed(2)));
 
-    const mfgCost = Number(sale.mfgCost) || 0;
+    // Manufacturing cost: historical production cost
+    let mfgCost = Number(sale.mfgCost || 0);
+    if (!mfgCost && (evalItem || mainItem)) {
+      mfgCost = (mainItem && mainItem.mfgCostPrice && Number(mainItem.mfgCostPrice) > 0)
+        ? Number(mainItem.mfgCostPrice)
+        : (evalItem ? (evalItem.mfgGrandTotal || evalItem.marketCostPrice) : 0);
+    }
+
+    // Replacement cost: current replacement cost at live/sale gold rate
+    let replacementCost = Number(sale.replacementCost || 0);
+    if ((!replacementCost || replacementCost === mfgCost) && evalItem && evalItem.marketCostPrice) {
+      replacementCost = evalItem.marketCostPrice;
+    }
+    if (!replacementCost) replacementCost = mfgCost;
+
     const soldPrice = Number(sale.soldPrice) || 0;
-    const profit = Number(sale.profit !== undefined ? sale.profit : (soldPrice - mfgCost));
-    const marginPct = mfgCost > 0 ? ((profit / mfgCost) * 100) : 0;
+    const mfgProfit = (sale.mfgProfit !== undefined && sale.mfgProfit !== null)
+      ? Number(sale.mfgProfit)
+      : (soldPrice - mfgCost);
+    const mfgMarginPct = mfgCost > 0 ? ((mfgProfit / mfgCost) * 100) : 0;
+
+    const replacementProfit = (sale.replacementProfit !== undefined && sale.replacementProfit !== null)
+      ? Number(sale.replacementProfit)
+      : (soldPrice - replacementCost);
+    const replacementMarginPct = replacementCost > 0 ? ((replacementProfit / replacementCost) * 100) : 0;
+
+    const goldCommodityGain = (sale.goldCommodityGain !== undefined && sale.goldCommodityGain !== null)
+      ? Number(sale.goldCommodityGain)
+      : (replacementCost - mfgCost);
+
+    const profit = mfgProfit;
+    const marginPct = mfgMarginPct;
     const monthlyProfitPct = (sale.monthlyProfitPct !== undefined && sale.monthlyProfitPct !== null)
       ? Number(sale.monthlyProfitPct)
       : Number((marginPct / monthsElapsed).toFixed(2));
@@ -82,9 +112,15 @@ const JewelrySalesController = {
       daysElapsed,
       monthsElapsed,
       mfgCost,
+      replacementCost,
       soldPrice,
       profit,
+      mfgProfit,
       marginPct,
+      mfgMarginPct,
+      replacementProfit,
+      replacementMarginPct,
+      goldCommodityGain,
       monthlyProfitPct
     };
   },
@@ -100,8 +136,11 @@ const JewelrySalesController = {
     items.forEach(item => {
       if (item.status === 'Sold' && !records.some(r => r.itemId === item.id || r.sku === item.sku)) {
         const evalItem = Calc.evaluateItem(item, goldRate);
-        const mfgCost = (evalItem && evalItem.mfgGrandTotal) ? evalItem.mfgGrandTotal : (item.mfgCostPrice || evalItem.marketCostPrice || 0);
-        const soldPrice = item.soldPrice || evalItem.sellingPrice || 0;
+        const mfgCost = (item.mfgCostPrice && Number(item.mfgCostPrice) > 0)
+          ? Number(item.mfgCostPrice)
+          : ((evalItem && evalItem.mfgGrandTotal) ? evalItem.mfgGrandTotal : (evalItem?.marketCostPrice || 0));
+        const replacementCost = (evalItem && evalItem.marketCostPrice) ? evalItem.marketCostPrice : mfgCost;
+        const soldPrice = Number(item.soldPrice) || (evalItem ? evalItem.sellingPrice : 0);
         const saleDate = item.soldDate || (item.updatedAt ? item.updatedAt.split('T')[0] : new Date().toISOString().split('T')[0]);
         const mfgDate = item.mfgDate || (item.createdAt ? item.createdAt.split('T')[0] : saleDate);
 
@@ -109,9 +148,13 @@ const JewelrySalesController = {
         const saleTime = new Date(saleDate + 'T00:00:00').getTime();
         const daysElapsed = Math.round(Math.max(0, saleTime - mfgTime) / (1000 * 60 * 60 * 24));
         const monthsElapsed = Math.max(0.1, Number((daysElapsed / 30.4375).toFixed(2)));
-        const profit = soldPrice - mfgCost;
-        const marginPct = mfgCost > 0 ? (profit / mfgCost) * 100 : 0;
-        const monthlyProfitPct = Number((marginPct / monthsElapsed).toFixed(2));
+        
+        const mfgProfit = soldPrice - mfgCost;
+        const mfgMarginPct = mfgCost > 0 ? (mfgProfit / mfgCost) * 100 : 0;
+        const replacementProfit = soldPrice - replacementCost;
+        const replacementMarginPct = replacementCost > 0 ? (replacementProfit / replacementCost) * 100 : 0;
+        const goldCommodityGain = replacementCost - mfgCost;
+        const monthlyProfitPct = Number((mfgMarginPct / monthsElapsed).toFixed(2));
 
         records.push({
           id: 'legacy_sale_' + item.id,
@@ -129,9 +172,15 @@ const JewelrySalesController = {
           customerName: item.soldTo || item.issuedTo || 'Direct Sale',
           brokerName: item.soldBroker || item.issuedBroker || '—',
           mfgCost,
+          replacementCost,
           soldPrice,
-          profit,
-          marginPct,
+          profit: mfgProfit,
+          mfgProfit,
+          marginPct: mfgMarginPct,
+          mfgMarginPct,
+          replacementProfit,
+          replacementMarginPct,
+          goldCommodityGain,
           monthlyProfitPct,
           notes: item.notes || '',
           createdAt: item.updatedAt || new Date().toISOString()

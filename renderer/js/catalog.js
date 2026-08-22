@@ -576,17 +576,13 @@ const Catalog = {
     activeItems.forEach(item => {
       const evalItem = Calc.evaluateItem(item, liveGoldRate);
       totalStockSellingValue += evalItem.sellingPrice;
-      totalStockMfgCost += (evalItem.mfgGrandTotal || evalItem.marketCostPrice);
+      const mfgCost = (item.mfgCostPrice && Number(item.mfgCostPrice) > 0)
+        ? Number(item.mfgCostPrice)
+        : (evalItem.mfgGrandTotal || evalItem.marketCostPrice);
+      totalStockMfgCost += mfgCost;
 
-      const netMetals = Calc.getNetMetals(item);
-      netMetals.forEach(m => {
-        const karat = Number(m.karat || 22);
-        const netW = Number(m.netWeight || 0);
-        const mfgRate = item.goldRateMfg ? Number(item.goldRateMfg) : (liveGoldRate * 0.88);
-        const delta = Math.max(0, liveGoldRate - mfgRate);
-        const gain = (netW * (karat / 24)) * delta;
-        totalStockGoldGain += gain;
-      });
+      const gain = Math.max(0, evalItem.marketCostPrice - (evalItem.mfgGrandTotal || mfgCost));
+      totalStockGoldGain += gain;
     });
 
     const totalStockCraftMargin = Math.max(0, totalStockSellingValue - totalStockMfgCost - totalStockGoldGain);
@@ -595,18 +591,15 @@ const Catalog = {
     craftMarginEl.textContent = `₹${totalStockCraftMargin.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
 
     // Realized Sales Gold Gain & Replacement Profit
-    const sales = DBManager.database?.jewelrySales || [];
+    const sales = window.JewelrySalesController ? window.JewelrySalesController.getSalesRecords() : (DBManager.database?.jewelrySales || []);
     let salesCommodityGain = 0;
     sales.forEach(sale => {
-      if (sale.goldCommodityGain !== undefined && sale.goldCommodityGain !== null) {
-        salesCommodityGain += Number(sale.goldCommodityGain);
-      } else {
-        const soldPrice = Number(sale.soldPrice || 0);
-        const mfgCost = Number(sale.mfgCost || 0);
-        const repCost = Number(sale.replacementCost || mfgCost);
-        const gain = Math.max(0, repCost - mfgCost);
-        salesCommodityGain += gain;
-      }
+      const mfgCost = Number(sale.mfgCost || 0);
+      const repCost = Number(sale.replacementCost || mfgCost);
+      const gain = (sale.goldCommodityGain !== undefined && sale.goldCommodityGain !== null)
+        ? Number(sale.goldCommodityGain)
+        : Math.max(0, repCost - mfgCost);
+      salesCommodityGain += gain;
     });
 
     if (salesGoldGainEl) {
