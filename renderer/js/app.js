@@ -1149,7 +1149,7 @@ const App = {
       const workspace = document.getElementById('app-workspace');
       if (!workspace || workspace.classList.contains('hidden')) return;
 
-      // When user is typing inside an input/textarea/select, allow Escape or Enter to blur, but don't hijack typing
+      // When user is typing inside an input/textarea/select, allow smooth navigation
       const activeEl = document.activeElement;
       const isInputActive = activeEl && ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeEl.tagName);
 
@@ -1158,13 +1158,47 @@ const App = {
           activeEl.blur();
           return;
         }
-        // If it's a search input and user presses Down or Tab, jump to the next interactive option
-        if ((e.key === 'ArrowDown' || e.key === 'Tab') && (activeEl.type === 'text' || activeEl.type === 'search')) {
+
+        // Inside a <select> dropdown:
+        // ArrowUp / ArrowDown change options natively.
+        // ArrowRight, ArrowLeft, or Tab move to the next/prev element in the app!
+        if (activeEl.tagName === 'SELECT') {
+          if (e.key === 'ArrowRight' || (e.key === 'Tab' && !e.shiftKey)) {
+            e.preventDefault();
+            activeEl.blur();
+            const elements = this.getVisibleWorkspaceFocusableElements();
+            const currentIdx = elements.indexOf(activeEl);
+            this.workspaceFocusIndex = currentIdx >= 0 ? (currentIdx + 1) % elements.length : 0;
+            this.updateWorkspaceFocus(elements);
+            return;
+          } else if (e.key === 'ArrowLeft' || (e.key === 'Tab' && e.shiftKey)) {
+            e.preventDefault();
+            activeEl.blur();
+            const elements = this.getVisibleWorkspaceFocusableElements();
+            const currentIdx = elements.indexOf(activeEl);
+            this.workspaceFocusIndex = currentIdx >= 0 ? (currentIdx - 1 + elements.length) % elements.length : 0;
+            this.updateWorkspaceFocus(elements);
+            return;
+          }
+          // Let ArrowUp and ArrowDown operate natively on the select dropdown
+          return;
+        }
+
+        // Inside a text/search input:
+        if ((e.key === 'ArrowDown' || e.key === 'Tab') && !e.shiftKey) {
           e.preventDefault();
           activeEl.blur();
           const elements = this.getVisibleWorkspaceFocusableElements();
           const currentIdx = elements.indexOf(activeEl);
           this.workspaceFocusIndex = currentIdx >= 0 ? (currentIdx + 1) % elements.length : 0;
+          this.updateWorkspaceFocus(elements);
+          return;
+        } else if (e.key === 'ArrowUp' || (e.key === 'Tab' && e.shiftKey)) {
+          e.preventDefault();
+          activeEl.blur();
+          const elements = this.getVisibleWorkspaceFocusableElements();
+          const currentIdx = elements.indexOf(activeEl);
+          this.workspaceFocusIndex = currentIdx >= 0 ? (currentIdx - 1 + elements.length) % elements.length : 0;
           this.updateWorkspaceFocus(elements);
           return;
         }
