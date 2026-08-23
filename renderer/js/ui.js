@@ -573,6 +573,7 @@ const UI = {
       wastage: Number(document.getElementById('item-wastage')?.value || 0),
       labourCost: Number(document.getElementById('item-labour')?.value || 0),
       profitPercentage: Number(document.getElementById('item-profit-pct')?.value || 40),
+      emeraldDiscountPercentage: Number(document.getElementById('item-emerald-discount-pct')?.value !== '' && document.getElementById('item-emerald-discount-pct') ? document.getElementById('item-emerald-discount-pct').value : 50),
       commission: {
         value: Number(document.getElementById('item-commission')?.value || 0),
         isManual: this.activeItemState && this.activeItemState.commission ? this.activeItemState.commission.isManual : false
@@ -665,6 +666,7 @@ const UI = {
     const _karatEl = document.getElementById('item-karat'); if (_karatEl) _karatEl.value = '18';
     const _formWastageEl = document.getElementById('item-wastage'); if (_formWastageEl) _formWastageEl.value = '15.00';
     document.getElementById('item-profit-pct').value = '40.0';
+    const _emDiscFormEl = document.getElementById('item-emerald-discount-pct'); if (_emDiscFormEl) _emDiscFormEl.value = '50.0';
     const _mfgDateEl = document.getElementById('item-mfg-date');
     if (_mfgDateEl) _mfgDateEl.value = new Date().toISOString().split('T')[0];
     // Pre-fill the per-item mfg gold rate from the current global rate
@@ -805,6 +807,8 @@ const UI = {
     const _editGoldRateEl = document.getElementById('item-gold-rate-24kt');
     if (_editGoldRateEl) _editGoldRateEl.value = _savedRate > 0 ? _savedRate : '';
     document.getElementById('item-profit-pct').value = item.profitPercentage !== undefined ? Number(item.profitPercentage).toFixed(1) : '40.0';
+    const emDiscEl = document.getElementById('item-emerald-discount-pct');
+    if (emDiscEl) emDiscEl.value = (item.emeraldDiscountPercentage !== undefined && item.emeraldDiscountPercentage !== null) ? Number(item.emeraldDiscountPercentage).toFixed(1) : ((item.emeraldDiscount !== undefined && item.emeraldDiscount !== null) ? Number(item.emeraldDiscount).toFixed(1) : '50.0');
     document.getElementById('item-description').value = item.description || '';
 
     // Image Setup

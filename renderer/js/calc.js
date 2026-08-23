@@ -223,8 +223,15 @@ const Calc = {
     const grandTotalMfg = (itemData?.mfgCostPrice && Number(itemData.mfgCostPrice) > 0)
       ? Number(Number(itemData.mfgCostPrice).toFixed(2))
       : Number((subtotalMfg + finalCommValueMfg).toFixed(2));
-    // Home Cost Price calculated using Global Gold Rate with 50% Emerald deduction
-    const homeCostPrice = Number((marketCostPrice - (emeraldTotal * 0.5)).toFixed(2));
+    
+    // Home Cost Price calculated using Global Gold Rate with configurable Emerald discount percentage (default 50%)
+    const emeraldDiscountPct = (itemData?.emeraldDiscountPercentage !== undefined && itemData?.emeraldDiscountPercentage !== null && itemData?.emeraldDiscountPercentage !== '')
+      ? Number(itemData.emeraldDiscountPercentage)
+      : ((itemData?.emeraldDiscount !== undefined && itemData?.emeraldDiscount !== null && itemData?.emeraldDiscount !== '')
+        ? Number(itemData.emeraldDiscount)
+        : 50);
+    const emeraldDiscountFactor = Math.max(0, emeraldDiscountPct) / 100;
+    const homeCostPrice = Number((marketCostPrice - (emeraldTotal * emeraldDiscountFactor)).toFixed(2));
 
     const profitPct = Number(itemData?.profitPercentage !== undefined ? itemData.profitPercentage : 40);
     const sellingPrice = Number((((marketCostPrice - emeraldTotal) * (1 + profitPct / 100)) + emeraldTotal).toFixed(2));
@@ -248,6 +255,7 @@ const Calc = {
       mfgGrandTotal: grandTotalMfg,
       homeCostPrice: homeCostPrice,
       emeraldTotal: emeraldTotal,
+      emeraldDiscountPercentage: emeraldDiscountPct,
       sellingPrice: sellingPrice,
       hasEmerald: emeraldTotal > 0,
       totalGrossWeight: totalGrossWeight,

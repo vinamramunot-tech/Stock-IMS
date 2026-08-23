@@ -109,6 +109,10 @@ const App = {
     // Labour cost, profit percentage, gross weight, karat, wastage, and per-item gold rate change listeners
     document.getElementById('item-labour').addEventListener('input', () => UI.updateFormCalculations());
     document.getElementById('item-profit-pct').addEventListener('input', () => UI.updateFormCalculations());
+    const emDiscountInput = document.getElementById('item-emerald-discount-pct');
+    if (emDiscountInput) {
+      emDiscountInput.addEventListener('input', () => UI.updateFormCalculations());
+    }
     const itemGoldRateInput = document.getElementById('item-gold-rate-24kt');
     if (itemGoldRateInput) {
       itemGoldRateInput.addEventListener('input', () => UI.updateFormCalculations());

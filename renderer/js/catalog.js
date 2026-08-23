@@ -1046,6 +1046,7 @@ const Catalog = {
       diamondsPolki: [],
       labourCost,
       profitPercentage: Number(document.getElementById('item-profit-pct').value || 40),
+      emeraldDiscountPercentage: Number(document.getElementById('item-emerald-discount-pct')?.value !== '' && document.getElementById('item-emerald-discount-pct') ? document.getElementById('item-emerald-discount-pct').value : 50),
       commission: {
         value: Number(document.getElementById('item-commission').value || 0),
         isManual: UI.activeItemState.commission ? UI.activeItemState.commission.isManual : false
@@ -2397,13 +2398,14 @@ const Catalog = {
       cellN.border = BORDER_ALL;
 
       // =========================================================
-      //  Column O: Home Cost Price (Uses Global Gold Rate via Market CP + 50% Emerald discount)
+      //  Column O: Home Cost Price (Uses Global Gold Rate via Market CP + Emerald discount)
       // =========================================================
       const cellO = ws.getCell(mtlR, C.O);
+      const emDiscountFactor = (item.evaluation?.emeraldDiscountPercentage !== undefined ? Number(item.evaluation.emeraldDiscountPercentage) : 50) / 100;
       if (emeraldLRefs.length > 0) {
         const emSum = emeraldLRefs.join('+');
         cellO.value = {
-          formula: `ROUND(${colLetter(C.M)}${mtlR}-(${emSum})*0.5, 2)`,
+          formula: `ROUND(${colLetter(C.M)}${mtlR}-(${emSum})*${emDiscountFactor.toFixed(4)}, 2)`,
           result: Number(item.evaluation.homeCostPrice.toFixed(2))
         };
       } else {
