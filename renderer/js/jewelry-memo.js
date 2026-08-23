@@ -44,7 +44,8 @@ const JewelryMemoController = {
     // Create Modal Search/Filters
     const searchInp = document.getElementById('jewelry-memo-create-search');
     if (searchInp) {
-      searchInp.addEventListener('input', UI.debounce(() => this.filterCreateJewelry(), 200));
+      searchInp.addEventListener('input', () => this.filterCreateJewelry());
+      searchInp.addEventListener('keyup', () => this.filterCreateJewelry());
     }
     const catSelect = document.getElementById('jewelry-memo-create-category');
     if (catSelect) {
@@ -202,8 +203,9 @@ const JewelryMemoController = {
     if (!selectEl) return;
     selectEl.innerHTML = '';
 
-    const query = (document.getElementById('jewelry-memo-create-search').value || '').toLowerCase().trim();
-    const catVal = document.getElementById('jewelry-memo-create-category').value;
+    const query = (document.getElementById('jewelry-memo-create-search')?.value || '').toLowerCase().trim();
+    const catSelect = document.getElementById('jewelry-memo-create-category');
+    const catVal = catSelect ? catSelect.value : '';
 
     // In edit mode, items that are "Issued" to THIS memo but not yet in selectedItems are also eligible to re-add
     const editingMemo = this.editingMemoId
@@ -222,12 +224,21 @@ const JewelryMemoController = {
       // Must not be already in our selections
       if (this.selectedItems.some(sel => sel.id === item.id)) return false;
 
-      if (catVal && item.category !== catVal) return false;
+      // Category filter check (only if category is selected)
+      if (catVal && (item.category || '').toLowerCase() !== catVal.toLowerCase()) return false;
 
       if (query) {
-        const matchName = (item.name || '').toLowerCase().includes(query);
-        const matchSku = (item.sku || '').toLowerCase().includes(query);
-        return matchName || matchSku;
+        const name = (item.name || '').toLowerCase();
+        const sku = (item.sku || '').toLowerCase();
+        const desc = (item.description || '').toLowerCase();
+        const cat = (item.category || '').toLowerCase();
+        const sno = String(item.sno || '');
+        
+        // Also match stones & metals inside the piece
+        const stonesMatch = (item.stones || []).some(s => (s.type || '').toLowerCase().includes(query) || (s.name || '').toLowerCase().includes(query));
+        const metalsMatch = (item.metals || []).some(m => (m.name || '').toLowerCase().includes(query) || String(m.karat || '').includes(query));
+
+        return name.includes(query) || sku.includes(query) || desc.includes(query) || cat.includes(query) || sno.includes(query) || stonesMatch || metalsMatch;
       }
       return true;
     });
@@ -245,7 +256,7 @@ const JewelryMemoController = {
       opt.value = item.id;
       const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
       const evaluation = Calc.evaluateItem(item, goldRate);
-      opt.textContent = `${item.sku} - ${item.name} (Val: ₹${evaluation.sellingPrice.toLocaleString()})`;
+      opt.textContent = `${item.sku || 'No SKU'} — ${item.name || 'Untitled'} (${item.category || 'Piece'} | Val: ₹${evaluation.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })})`;
       selectEl.appendChild(opt);
     });
   },
