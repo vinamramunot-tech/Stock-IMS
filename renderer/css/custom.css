@@ -1697,6 +1697,36 @@
   flex-shrink: 0;
 }
 
+.jewelry-print-status-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1px 7px;
+  border-radius: 12px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.jewelry-print-status-badge.sold {
+  background-color: rgba(212, 175, 55, 0.18);
+  color: var(--text-gold-dark, #d4af37);
+  border: 1px solid rgba(212, 175, 55, 0.4);
+}
+
+.jewelry-print-status-badge.stock {
+  background-color: rgba(80, 200, 120, 0.15);
+  color: var(--success-color, #2ecc71);
+  border: 1px solid rgba(80, 200, 120, 0.3);
+}
+
+.jewelry-print-status-badge.issued,
+.jewelry-print-status-badge.memo {
+  background-color: rgba(245, 158, 11, 0.18);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
 .jewelry-print-item-right {
   display: flex;
   align-items: center;
@@ -1710,6 +1740,12 @@
   font-family: var(--font-mono);
   color: var(--text-gold, #d4af37);
   white-space: nowrap;
+}
+
+@media (max-width: 680px) {
+  .jewelry-print-filters-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
 }
 
 /* ==========================================================================

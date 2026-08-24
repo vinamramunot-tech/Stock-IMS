@@ -1606,6 +1606,14 @@
             </div>
 
             <div class="filters-group">
+              <select id="filter-jewelry-status" class="filter-select">
+                <option value="active" selected>Active Stock (In Stock & Memo)</option>
+                <option value="all">All Inventory (incl. Sold)</option>
+                <option value="In Stock">In Stock Only</option>
+                <option value="Issued">On Memo / Issued</option>
+                <option value="Sold">Sold Pieces</option>
+              </select>
+
               <select id="filter-category" class="filter-select">
                 <option value="">All Categories</option>
                 <option value="Ring">Rings</option>
@@ -3806,7 +3814,18 @@
       <div class="modal-body">
         <p class="modal-instructions">Filter and select the specific jewelry pieces you want to print or export.</p>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 12px; margin-bottom: 12px;">
+        <div class="jewelry-print-filters-grid" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1.2fr; gap: 10px; margin-bottom: 12px;">
+          <div>
+            <div class="input-group" style="margin-bottom: 0;">
+              <label for="jewelry-print-select-status">Filter by Status</label>
+              <select id="jewelry-print-select-status">
+                <option value="" selected>All Statuses (incl. Sold)</option>
+                <option value="In Stock">In Stock</option>
+                <option value="Issued">On Memo / Issued</option>
+                <option value="Sold">Sold Pieces</option>
+              </select>
+            </div>
+          </div>
           <div>
             <div class="input-group" style="margin-bottom: 0;">
               <label for="jewelry-print-select-category">Filter by Category</label>
@@ -3832,7 +3851,7 @@
           <div>
             <div class="input-group" style="margin-bottom: 0;">
               <label for="jewelry-print-search-text">Search Piece / SKU</label>
-              <input type="text" id="jewelry-print-search-text" placeholder="Search by name, SKU..." style="width: 100%;">
+              <input type="text" id="jewelry-print-search-text" placeholder="Search name, SKU..." style="width: 100%;">
             </div>
           </div>
         </div>

@@ -9,6 +9,10 @@ const Catalog = {
 
     // Search & Filter event listeners
     document.getElementById('search-input').addEventListener('input', UI.debounce(() => this.renderCatalogGrid(), 200));
+    const statusFilterEl = document.getElementById('filter-jewelry-status');
+    if (statusFilterEl) {
+      statusFilterEl.addEventListener('change', () => this.renderCatalogGrid());
+    }
     document.getElementById('filter-category').addEventListener('change', () => this.renderCatalogGrid());
     document.getElementById('filter-karat').addEventListener('change', () => this.renderCatalogGrid());
     document.getElementById('sort-items').addEventListener('change', () => this.renderCatalogGrid());
@@ -18,12 +22,16 @@ const Catalog = {
     if (selectAllCheckbox) {
       selectAllCheckbox.addEventListener('change', (e) => {
         const query = document.getElementById('search-input').value.toLowerCase().trim();
+        const statusFilter = document.getElementById('filter-jewelry-status')?.value || 'active';
         const filterCat = document.getElementById('filter-category').value;
         const filterKarat = document.getElementById('filter-karat').value;
-        const allItems = DBManager.getItems();
+        const allItems = this.getAllCatalogItems();
 
         const visibleItems = allItems.filter(item => {
-          if (item.status === 'Sold') return false;
+          if (statusFilter === 'active' && item.status === 'Sold') return false;
+          if (statusFilter === 'In Stock' && item.status && item.status !== 'In Stock') return false;
+          if (statusFilter === 'Issued' && item.status !== 'On Memo' && item.status !== 'Issued') return false;
+          if (statusFilter === 'Sold' && item.status !== 'Sold') return false;
 
           const matchesSearch = !query ||
             (item.name || '').toLowerCase().includes(query) ||
@@ -129,6 +137,59 @@ const Catalog = {
     }
   },
 
+  /**
+   * Retrieves all catalog items from database including sold pieces from items and jewelrySales snapshots.
+   */
+  getAllCatalogItems() {
+    const items = [...(DBManager.getItems() || [])];
+    const existingIds = new Set(items.map(i => i.id));
+    const existingSkus = new Set(items.map(i => (i.sku || '').toLowerCase()));
+
+    // Also include any sales records from jewelrySales that might be archived or missing from database.items
+    const sales = DBManager.getJewelrySales ? DBManager.getJewelrySales() : (DBManager.database?.jewelrySales || []);
+    sales.forEach(sale => {
+      if (sale.itemSnapshot && typeof sale.itemSnapshot === 'object') {
+        const snap = sale.itemSnapshot;
+        if (!existingIds.has(snap.id) && (!snap.sku || !existingSkus.has(snap.sku.toLowerCase()))) {
+          const itemCopy = JSON.parse(JSON.stringify(snap));
+          itemCopy.status = 'Sold';
+          itemCopy.soldPrice = sale.soldPrice || itemCopy.soldPrice;
+          itemCopy.soldDate = sale.saleDate || itemCopy.soldDate;
+          itemCopy.soldTo = sale.customerName || itemCopy.soldTo;
+          itemCopy.soldBroker = sale.brokerName || itemCopy.soldBroker;
+          items.push(itemCopy);
+          existingIds.add(itemCopy.id);
+          if (itemCopy.sku) existingSkus.add(itemCopy.sku.toLowerCase());
+        }
+      } else if (sale.itemId || sale.sku) {
+        const exists = items.some(i => (sale.itemId && i.id === sale.itemId) || (sale.sku && (i.sku || '').toLowerCase() === (sale.sku || '').toLowerCase()));
+        if (!exists) {
+          const saleItem = {
+            id: sale.itemId || ('sold_' + sale.id),
+            sku: sale.sku || '',
+            name: sale.name || 'Sold Piece',
+            category: sale.category || 'Other',
+            status: 'Sold',
+            soldPrice: sale.soldPrice,
+            soldDate: sale.saleDate,
+            soldTo: sale.customerName,
+            soldBroker: sale.brokerName,
+            mfgCostPrice: sale.mfgCost,
+            mfgDate: sale.mfgDate,
+            metals: [],
+            stones: [],
+            diamondsPolki: []
+          };
+          items.push(saleItem);
+          existingIds.add(saleItem.id);
+          if (saleItem.sku) existingSkus.add(saleItem.sku.toLowerCase());
+        }
+      }
+    });
+
+    return items;
+  },
+
   populateKaratFilterOptions() {
     const filterSelect = document.getElementById('filter-karat');
     if (!filterSelect) return;
@@ -136,8 +197,8 @@ const Catalog = {
     // Remember currently selected karat
     const currentSelected = filterSelect.value;
 
-    // Gather all unique karats from the active items
-    const allItems = DBManager.getItems().filter(i => i.status !== 'Sold');
+    // Gather all unique karats from catalog items
+    const allItems = this.getAllCatalogItems();
     const uniqueKarats = new Set();
 
     allItems.forEach(item => {
@@ -730,11 +791,12 @@ const Catalog = {
     // Dynamically populate the karat dropdown filter based on actual catalog items
     this.populateKaratFilterOptions();
 
+    const statusFilter = document.getElementById('filter-jewelry-status')?.value || 'active';
     const filterKarat = document.getElementById('filter-karat').value;
     const sortVal = document.getElementById('sort-items').value;
 
     const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
-    const allItems = DBManager.getItems();
+    const allItems = this.getAllCatalogItems();
 
     // Canonical chronological S.No map for all items in the database
     const chronological = [...allItems].sort((a, b) => {
@@ -752,8 +814,16 @@ const Catalog = {
 
     // Filter Items
     let filtered = allItems.filter(item => {
-      // Exclude sold pieces from active catalog inventory
-      if (item.status === 'Sold') return false;
+      // Status Filter:
+      // 'active': exclude sold pieces (default catalog inventory)
+      // 'all': include all pieces including sold
+      // 'In Stock': only in stock pieces
+      // 'Issued': only issued / on memo pieces
+      // 'Sold': only sold pieces
+      if (statusFilter === 'active' && item.status === 'Sold') return false;
+      if (statusFilter === 'In Stock' && item.status && item.status !== 'In Stock') return false;
+      if (statusFilter === 'Issued' && item.status !== 'On Memo' && item.status !== 'Issued') return false;
+      if (statusFilter === 'Sold' && item.status !== 'Sold') return false;
 
       // 1. Text Search
       const matchesSearch = !query ||
@@ -1169,6 +1239,11 @@ const Catalog = {
       btn.addEventListener('click', () => UI.closeModal('modal-print-jewelry-catalog'));
     });
 
+    const statusSel = document.getElementById('jewelry-print-select-status');
+    if (statusSel) {
+      statusSel.addEventListener('change', () => this.populatePrintItemsChecklist());
+    }
+
     const catSel = document.getElementById('jewelry-print-select-category');
     if (catSel) {
       catSel.addEventListener('change', () => this.populatePrintItemsChecklist());
@@ -1213,6 +1288,8 @@ const Catalog = {
   openPrintModal() {
     const searchInput = document.getElementById('jewelry-print-search-text');
     if (searchInput) searchInput.value = '';
+    const statusSel = document.getElementById('jewelry-print-select-status');
+    if (statusSel) statusSel.value = '';
     const catSel = document.getElementById('jewelry-print-select-category');
     if (catSel) catSel.value = '';
     this.populatePrintKaratFilter();
@@ -1224,7 +1301,7 @@ const Catalog = {
     const karatSel = document.getElementById('jewelry-print-select-karat');
     if (!karatSel) return;
 
-    const allItems = DBManager.getItems();
+    const allItems = this.getAllCatalogItems();
     const karats = new Set();
     allItems.forEach(item => {
       (item.metals || []).forEach(m => {
@@ -1247,14 +1324,20 @@ const Catalog = {
     if (!container) return;
     container.innerHTML = '';
 
+    const selectedStatus = (document.getElementById('jewelry-print-select-status') || {}).value || '';
     const selectedCategory = (document.getElementById('jewelry-print-select-category') || {}).value || '';
     const selectedKarat = (document.getElementById('jewelry-print-select-karat') || {}).value || '';
     const searchText = (document.getElementById('jewelry-print-search-text')?.value || '').toLowerCase().trim();
 
     const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
-    const allItems = DBManager.getItems();
+    const allItems = this.getAllCatalogItems();
 
     const filtered = allItems.filter(item => {
+      // Status filtering
+      if (selectedStatus === 'In Stock' && item.status && item.status !== 'In Stock') return false;
+      if (selectedStatus === 'Issued' && item.status !== 'On Memo' && item.status !== 'Issued') return false;
+      if (selectedStatus === 'Sold' && item.status !== 'Sold') return false;
+
       const matchesCat = !selectedCategory || item.category === selectedCategory;
       const matchesKarat = !selectedKarat || (item.metals || []).some(m => Number(m.karat) === Number(selectedKarat));
       const matchesSearch = !searchText || (
@@ -1281,6 +1364,18 @@ const Catalog = {
     filtered.forEach((item) => {
       const serialNumber = item.sno || this.getItemSno(item, allItems);
       const evaluation = Calc.evaluateItem(item, goldRate);
+
+      const status = item.status || 'In Stock';
+      let statusClass = 'stock';
+      let statusLabel = 'In Stock';
+      if (status === 'On Memo' || status === 'Issued') {
+        statusClass = 'issued';
+        statusLabel = 'Issued';
+      } else if (status === 'Sold') {
+        statusClass = 'sold';
+        statusLabel = 'Sold';
+      }
+
       const row = document.createElement('label');
       row.className = 'jewelry-print-item-row';
       row.innerHTML = `
@@ -1290,6 +1385,7 @@ const Catalog = {
           <span class="jewelry-print-sku-tag">${UI.escapeHtml(item.sku || '')}</span>
           <span class="jewelry-print-item-name" title="${UI.escapeHtml(item.name || 'Unnamed Piece')}">${UI.escapeHtml(item.name || 'Unnamed Piece')}</span>
           <span class="jewelry-print-cat-badge">${UI.escapeHtml(item.category || '—')}</span>
+          <span class="jewelry-print-status-badge ${statusClass}">${statusLabel}</span>
         </div>
         <div class="jewelry-print-item-right">
           <span class="jewelry-print-val-tag">₹${evaluation.marketCostPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
@@ -1313,7 +1409,7 @@ const Catalog = {
 
     const selectedIds = Array.from(checkedBoxes).map(cb => cb.value);
     const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
-    const allItems = DBManager.getItems();
+    const allItems = this.getAllCatalogItems();
     const filtered = allItems
       .filter(item => selectedIds.includes(item.id))
       .map(item => ({
@@ -1337,7 +1433,7 @@ const Catalog = {
   generatePDF(filtered, goldRate) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const allDbItems = DBManager.getItems();
+    const allDbItems = this.getAllCatalogItems();
 
     const totalItems = filtered.length;
     const marginL = 12;
@@ -1591,9 +1687,9 @@ const Catalog = {
 
         const catY = y + 4.5 + nameLines.length * 3.4;
         doc.setFont("helvetica", "normal");
-        doc.setFontSize(6.3);
-        doc.setTextColor(140, 120, 80);
-        doc.text((item.category || 'Jewelry').toUpperCase(), 48, catY);
+        const isSold = item.status === 'Sold';
+        const statusSuffix = isSold ? ' \u2022 SOLD' : (item.status === 'Issued' || item.status === 'On Memo' ? ' \u2022 ISSUED' : '');
+        doc.text(((item.category || 'Jewelry') + statusSuffix).toUpperCase(), 48, catY);
 
         // Column 4: Metal Specs
         doc.setFont("helvetica", "normal");
@@ -1778,7 +1874,7 @@ const Catalog = {
 
     const selectedIds = Array.from(checkedBoxes).map(cb => cb.value);
     const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
-    const allItems = DBManager.getItems();
+    const allItems = this.getAllCatalogItems();
     const filtered = allItems
       .filter(item => selectedIds.includes(item.id))
       .map(item => ({
@@ -3933,7 +4029,7 @@ const Catalog = {
       return;
     }
 
-    const allItems = DBManager.getItems();
+    const allItems = this.getAllCatalogItems();
     const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
     const selectedItems = allItems.filter(item => this.selectedItemIds.has(item.id));
 
@@ -3982,7 +4078,7 @@ const Catalog = {
   },
 
   launchSlideshow() {
-    const allItems = DBManager.getItems();
+    const allItems = this.getAllCatalogItems();
     const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
     const selectedItems = allItems.filter(item => this.selectedItemIds.has(item.id));
 
@@ -4221,7 +4317,7 @@ const Catalog = {
     const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
     let selectedItems = (this.slideshowState && this.slideshowState.items && this.slideshowState.items.length > 0)
       ? this.slideshowState.items
-      : DBManager.getItems().filter(item => this.selectedItemIds.has(item.id));
+      : this.getAllCatalogItems().filter(item => this.selectedItemIds.has(item.id));
 
     if (!selectedItems || selectedItems.length === 0) {
       UI.showToast("Please select at least one jewelry item to export presentation.", true);
