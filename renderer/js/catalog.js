@@ -1283,6 +1283,20 @@ const Catalog = {
     if (btnExcelSubmit) {
       btnExcelSubmit.addEventListener('click', () => this.exportFromSelection());
     }
+
+    const multSelect = document.getElementById('jewelry-export-price-multiplier');
+    const multCustom = document.getElementById('jewelry-export-price-multiplier-custom');
+    if (multSelect && multCustom) {
+      multSelect.addEventListener('change', () => {
+        if (multSelect.value === 'custom') {
+          multCustom.style.display = 'inline-block';
+          multCustom.value = '1.0';
+          multCustom.focus();
+        } else {
+          multCustom.style.display = 'none';
+        }
+      });
+    }
   },
 
   openPrintModal() {
@@ -1292,6 +1306,13 @@ const Catalog = {
     if (statusSel) statusSel.value = '';
     const catSel = document.getElementById('jewelry-print-select-category');
     if (catSel) catSel.value = '';
+    const multSelect = document.getElementById('jewelry-export-price-multiplier');
+    if (multSelect) multSelect.value = '1.0';
+    const multCustom = document.getElementById('jewelry-export-price-multiplier-custom');
+    if (multCustom) {
+      multCustom.style.display = 'none';
+      multCustom.value = '1.0';
+    }
     this.populatePrintKaratFilter();
     this.populatePrintItemsChecklist();
     UI.openModal('modal-print-jewelry-catalog');
@@ -1872,26 +1893,75 @@ const Catalog = {
       return;
     }
 
+    const multSelect = document.getElementById('jewelry-export-price-multiplier');
+    const multCustom = document.getElementById('jewelry-export-price-multiplier-custom');
+    let multiplier = 1.0;
+    if (multSelect) {
+      if (multSelect.value === 'custom') {
+        multiplier = parseFloat(multCustom?.value) || 1.0;
+      } else {
+        multiplier = parseFloat(multSelect.value) || 1.0;
+      }
+    }
+    if (isNaN(multiplier) || multiplier <= 0) multiplier = 1.0;
+
     const selectedIds = Array.from(checkedBoxes).map(cb => cb.value);
     const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
+    const effectiveGoldRate = goldRate * multiplier;
     const allItems = this.getAllCatalogItems();
     const filtered = allItems
       .filter(item => selectedIds.includes(item.id))
-      .map(item => ({
-        ...item,
-        evaluation: Calc.evaluateItem(item, goldRate)
-      }));
+      .map(item => {
+        const clonedItem = JSON.parse(JSON.stringify(item));
+        if (multiplier !== 1.0) {
+          if (clonedItem.labourCost) {
+            clonedItem.labourCost = Number((Number(clonedItem.labourCost) * multiplier).toFixed(2));
+          }
+          if (clonedItem.commission && typeof clonedItem.commission === 'object' && clonedItem.commission.value !== undefined) {
+            clonedItem.commission.value = Number((Number(clonedItem.commission.value) * multiplier).toFixed(2));
+          } else if (clonedItem.commission && typeof clonedItem.commission === 'number') {
+            clonedItem.commission = Number((Number(clonedItem.commission) * multiplier).toFixed(2));
+          }
+          if (Array.isArray(clonedItem.stones)) {
+            clonedItem.stones.forEach(s => {
+              if (s.ratePerCarat) s.ratePerCarat = Number((Number(s.ratePerCarat) * multiplier).toFixed(2));
+              if (s.totalValue) s.totalValue = Number((Number(s.totalValue) * multiplier).toFixed(2));
+            });
+          }
+          if (Array.isArray(clonedItem.diamondsPolki)) {
+            clonedItem.diamondsPolki.forEach(d => {
+              if (d.ratePerCarat) d.ratePerCarat = Number((Number(d.ratePerCarat) * multiplier).toFixed(2));
+              if (d.totalValue) d.totalValue = Number((Number(d.totalValue) * multiplier).toFixed(2));
+            });
+          }
+          if (Array.isArray(clonedItem.metals)) {
+            clonedItem.metals.forEach(m => {
+              if (m.directValue !== undefined && m.directValue !== null && m.directValue !== '') {
+                m.directValue = Number((Number(m.directValue) * multiplier).toFixed(2));
+              }
+              if (m.totalValue !== undefined && m.totalValue !== null && m.totalValue !== '') {
+                m.totalValue = Number((Number(m.totalValue) * multiplier).toFixed(2));
+              }
+            });
+          }
+        }
+        return {
+          ...clonedItem,
+          evaluation: Calc.evaluateItem(clonedItem, effectiveGoldRate)
+        };
+      });
 
     UI.closeModal('modal-print-jewelry-catalog');
     UI.showToast("Generating Excel file with photos…");
 
     try {
-      const xlsxBase64 = await this.generateExcel(filtered, goldRate);
+      const xlsxBase64 = await this.generateExcel(filtered, goldRate, multiplier);
       const today = new Date();
       const dd = String(today.getDate()).padStart(2, '0');
       const mm = String(today.getMonth() + 1).padStart(2, '0');
       const yyyy = today.getFullYear();
-      const defaultName = `Jewelry Catalog ${dd}-${mm}-${yyyy}.xlsx`;
+      const multSuffix = multiplier !== 1.0 ? ` (${multiplier.toFixed(2)}x)` : '';
+      const defaultName = `Jewelry Catalog${multSuffix} ${dd}-${mm}-${yyyy}.xlsx`;
       const savePath = await window.electronAPI.saveFileDialog(defaultName);
       if (!savePath) return;
       await window.electronAPI.saveXlsxFile(xlsxBase64, savePath);
@@ -1907,7 +1977,7 @@ const Catalog = {
    * including embedded jewelry photos in Column Q merged across the item rows.
    * Returns a base64 string of the .xlsx binary.
    */
-  async generateExcel(filteredItems, goldRate) {
+  async generateExcel(filteredItems, goldRate, multiplier = 1.0) {
     const ExcelJS = window.ExcelJS || (typeof require !== 'undefined' ? require('./exceljs.min.js') : null);
     if (!ExcelJS) {
       throw new Error("ExcelJS library not loaded. Please restart the app.");
@@ -1978,7 +2048,8 @@ const Catalog = {
 
     const GLOBAL_WASTAGE = (filteredItems[0] ? Number(filteredItems[0].wastage || 15) : 15);
     const WASTAGE_FACTOR = 1 + GLOBAL_WASTAGE / 100;
-    const GOLD_RATE_PER_10G = goldRate * 10;
+    const EFFECTIVE_GOLD_RATE = goldRate * multiplier;
+    const GOLD_RATE_PER_10G = EFFECTIVE_GOLD_RATE * 10;
     const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' });
     const goldDate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.effectiveDate : today;
     const goldDateFmt = goldDate ? new Date(goldDate).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' }) : today;
@@ -1996,7 +2067,9 @@ const Catalog = {
     //  Pre-header rows (Rows 1-5)
     // =========================================================
     // Row 1: Title
-    ws.getCell('A1').value = 'MAVA GEMS — JEWELRY LATEST PRICE';
+    ws.getCell('A1').value = multiplier !== 1.0
+      ? `MAVA GEMS — JEWELRY LATEST PRICE (${multiplier.toFixed(2)}x Multiplier)`
+      : 'MAVA GEMS — JEWELRY LATEST PRICE';
     ws.getCell('A1').font = { bold: true, size: 12, name: 'Calibri' };
     ws.getCell('A1').alignment = ALIGN_CENTER;
     ws.mergeCells('A1:C1');
@@ -2014,6 +2087,16 @@ const Catalog = {
     ws.getCell('C2').font = { size: 10, name: 'Calibri' };
     ws.getCell('C2').alignment = ALIGN_CENTER;
     ws.getCell('C2').border = BORDER_ALL;
+
+    if (multiplier !== 1.0) {
+      ws.getCell('D2').value = 'Multiplier';
+      ws.getCell('D2').font = { bold: true, size: 10, name: 'Calibri' };
+      ws.getCell('D2').border = BORDER_ALL;
+      ws.getCell('E2').value = `${multiplier.toFixed(2)}x`;
+      ws.getCell('E2').font = { bold: true, size: 10, name: 'Calibri' };
+      ws.getCell('E2').alignment = ALIGN_CENTER;
+      ws.getCell('E2').border = BORDER_ALL;
+    }
 
     // Row 3: Wastage multiplier
     ws.getCell('A3').value = 'wastage';
@@ -2152,7 +2235,8 @@ const Catalog = {
       cellJ.alignment = ALIGN_CENTER;
       cellJ.border = BORDER_ALL;
 
-      const itemMfgRate24kt = Number(item.mfgGoldRate24kt || item.goldRateAtAddition || (goldRate ? goldRate * 10 / 10 : 0) || (GOLD_RATE_PER_10G / 10));
+      const baseMfgRate24kt = Number(item.mfgGoldRate24kt || item.goldRateAtAddition || (goldRate ? goldRate : 0) || (GOLD_RATE_PER_10G / 10));
+      const itemMfgRate24kt = baseMfgRate24kt * (multiplier || 1.0);
       const mfgKaratRate = Number(((itemMfgRate24kt / 24) * mainKarat).toFixed(2));
 
       const cellK = ws.getCell(mtlR, C.K);
