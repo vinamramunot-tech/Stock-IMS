@@ -233,33 +233,52 @@ jobs:
           export PATH="$HOME/.cargo/bin:$PATH"
           npx tauri android init --ci --skip-targets-install
 
-      - name: Build Android APK
+      - name: Build Android App (APK & AAB Bundles)
         run: |
           export PATH="$HOME/.cargo/bin:$PATH"
+          # Build APK
           npx tauri android build --apk
+          # Build AAB App Bundle
+          npx tauri android build || true
 
-      - name: Prepare Unsigned Android APK
+      - name: Organize Android Artifacts & Bundles
+        shell: bash
         run: |
-          # Find the unsigned release APK
-          UNSIGNED_APK=$(find src-tauri/gen/android -name "*release-unsigned.apk" | head -n 1)
-          if [ -z "$UNSIGNED_APK" ]; then
-            UNSIGNED_APK=$(find src-tauri/gen/android -name "*release.apk" | grep -v "signed" | head -n 1)
-          fi
+          mkdir -p dist-android/bundle-files
           
-          if [ -z "$UNSIGNED_APK" ]; then
-            echo "Error: Unsigned APK not found!"
-            exit 1
-          fi
+          # Find and copy all release APKs
+          find src-tauri/gen/android -type f -name "*release*.apk" | while read -r apk; do
+            echo "Found APK: $apk"
+            cp "$apk" dist-android/bundle-files/
+          done
           
-          echo "Found unsigned APK: $UNSIGNED_APK"
-          cp "$UNSIGNED_APK" "mava-gems-stock-android-${{ needs.prepare.outputs.version }}-unsigned.apk"
+          # Find and copy all release AAB bundles
+          find src-tauri/gen/android -type f -name "*release*.aab" | while read -r aab; do
+            echo "Found AAB Bundle: $aab"
+            cp "$aab" dist-android/bundle-files/
+          done
 
-      # Upload built APK to workflow artifacts
+          # Standardize primary filenames in dist-android
+          PRIMARY_APK=$(find dist-android/bundle-files -name "*release-unsigned.apk" -o -name "*release.apk" | head -n 1)
+          if [ -n "$PRIMARY_APK" ]; then
+            cp "$PRIMARY_APK" "dist-android/mava-gems-stock-android-${{ needs.prepare.outputs.version }}-unsigned.apk"
+          fi
+
+          PRIMARY_AAB=$(find dist-android/bundle-files -name "*.aab" | head -n 1)
+          if [ -n "$PRIMARY_AAB" ]; then
+            cp "$PRIMARY_AAB" "dist-android/mava-gems-stock-android-${{ needs.prepare.outputs.version }}.aab"
+          fi
+
+          # Create a zip archive containing the whole android app bundles folder
+          (cd dist-android/bundle-files && zip -r "../../dist-android/mava-gems-stock-android-${{ needs.prepare.outputs.version }}-bundles.zip" .)
+          rm -rf dist-android/bundle-files
+
+      # Upload Android Artifacts folder
       - name: Upload Android Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: android-artifacts
-          path: mava-gems-stock-android-${{ needs.prepare.outputs.version }}-unsigned.apk
+          path: dist-android/
           if-no-files-found: error
 
   publish-ios:
