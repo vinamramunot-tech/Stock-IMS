@@ -661,7 +661,12 @@ const UI = {
     };
 
     document.getElementById('jewelry-form').reset();
-    const _snoEl = document.getElementById('item-sno'); if (_snoEl) _snoEl.value = '';
+    const _activeCount = (DBManager.getItems ? DBManager.getItems() : []).filter(i => i.status !== 'Sold').length;
+    const _snoEl = document.getElementById('item-sno');
+    if (_snoEl) {
+      _snoEl.value = '';
+      _snoEl.placeholder = `Auto-assigned (#${_activeCount + 1})`;
+    }
     const _grossWtEl = document.getElementById('item-gross-weight'); if (_grossWtEl) _grossWtEl.value = '';
     const _karatEl = document.getElementById('item-karat'); if (_karatEl) _karatEl.value = '18';
     const _formWastageEl = document.getElementById('item-wastage'); if (_formWastageEl) _formWastageEl.value = '15.00';
@@ -763,7 +768,7 @@ const UI = {
       badgeEl.replaceChildren(span);
     }
 
-    const snoVal = item.sno || (window.Catalog && Catalog.getItemSno ? Catalog.getItemSno(item) : '');
+    const snoVal = item.status === 'Sold' ? '' : (item.sno || (window.Catalog && Catalog.getItemSno ? Catalog.getItemSno(item) : ''));
     const snoInput = document.getElementById('item-sno');
     if (snoInput) {
       snoInput.value = snoVal || '';

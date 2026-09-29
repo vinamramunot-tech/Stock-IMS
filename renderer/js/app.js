@@ -677,17 +677,21 @@ const App = {
     const queryInput = document.getElementById('photo-search-input');
     const query = queryInput ? queryInput.value.toLowerCase().trim() : '';
 
-    // Retrieve all items
+    // Retrieve all active items
     const allItems = DBManager.getItems();
+    const activeDbItems = allItems.filter(i => i.status !== 'Sold');
 
-    // Canonical chronological S.No map for all items in the database
-    const chronological = [...allItems].sort((a, b) => {
+    // Canonical S.No map for active inventory items in the database
+    activeDbItems.sort((a, b) => {
+      const snoA = (typeof a.sno === 'number' && !isNaN(a.sno) && a.sno > 0) ? a.sno : Infinity;
+      const snoB = (typeof b.sno === 'number' && !isNaN(b.sno) && b.sno > 0) ? b.sno : Infinity;
+      if (snoA !== snoB) return snoA - snoB;
       const tA = a.createdAt ? new Date(a.createdAt).getTime() : Number(a.id?.split('_')[1] || 0);
       const tB = b.createdAt ? new Date(b.createdAt).getTime() : Number(b.id?.split('_')[1] || 0);
       return tA - tB;
     });
     const itemSnoMap = new Map();
-    chronological.forEach((it, idx) => {
+    activeDbItems.forEach((it, idx) => {
       itemSnoMap.set(it.id, it.sno || (idx + 1));
     });
 

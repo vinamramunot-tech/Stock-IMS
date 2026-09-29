@@ -1137,12 +1137,16 @@ const JewelryMemoController = {
     // Mark item as Sold in main catalog
     if (mainItem) {
       mainItem.status = 'Sold';
+      mainItem.sno = null;
       mainItem.soldPrice = finalSoldPrice;
       mainItem.soldDate = saleDate;
       mainItem.soldTo = customerName;
       mainItem.soldBroker = brokerName;
       mainItem.updatedAt = new Date().toISOString();
     }
+
+    // Resequence remaining active inventory serial numbers
+    DBManager.resequenceJewelrySno();
 
     DBManager.addLog(
       'EDIT',
@@ -1186,6 +1190,7 @@ const JewelryMemoController = {
           if (mainItem) {
             mainItem.status = action === 'sold' ? 'Sold' : 'In Stock';
             if (action === 'sold') {
+              mainItem.sno = null;
               mainItem.soldPrice = item.sellingPrice;
               mainItem.soldDate = saleDate;
               mainItem.soldTo = memo.personName;
@@ -1237,6 +1242,9 @@ const JewelryMemoController = {
           }
         }
       });
+
+      // Resequence remaining active inventory serial numbers
+      DBManager.resequenceJewelrySno();
 
       memo.status = 'closed';
       memo.closedAt = new Date().toISOString();

@@ -563,6 +563,9 @@ const JewelrySalesController = {
         DBManager.database.jewelrySales = DBManager.database.jewelrySales.filter(s => s.id !== saleRecord.id && s.itemId !== saleRecord.itemId);
       }
 
+      // Resequence active inventory serial numbers
+      DBManager.resequenceJewelrySno();
+
       DBManager.addLog(
         "RETURN",
         mainItem ? mainItem.id : (saleRecord.itemId || 'item_' + Date.now()),

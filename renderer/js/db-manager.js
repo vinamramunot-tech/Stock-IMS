@@ -98,6 +98,9 @@ const DBManager = {
       this.activePath = customPath;
       this.isLoaded = true;
 
+      // Resequence jewelry serial numbers so active inventory count is strictly continuous
+      this.resequenceJewelrySno();
+
       // Save path to local persistent configuration
       await window.electronAPI.setLastDbPath(customPath);
 
@@ -298,6 +301,38 @@ const DBManager = {
    */
   getJewelrySales() {
     return this.database ? this.database.jewelrySales || [] : [];
+  },
+
+  /**
+   * Resequences serial numbers (sno) for active jewelry items (status !== 'Sold').
+   * Serial numbers act as the exact count of active inventory (1, 2, 3... N).
+   * When items are sold, returned, deleted, or added, serial numbers update sequentially.
+   */
+  resequenceJewelrySno() {
+    if (!this.database || !Array.isArray(this.database.items)) return;
+
+    const activeItems = this.database.items.filter(i => i.status !== 'Sold');
+    const soldItems = this.database.items.filter(i => i.status === 'Sold');
+
+    // Sort active items by current valid sno ascending, fallback to createdAt or ID timestamp
+    activeItems.sort((a, b) => {
+      const snoA = (typeof a.sno === 'number' && !isNaN(a.sno) && a.sno > 0) ? a.sno : Infinity;
+      const snoB = (typeof b.sno === 'number' && !isNaN(b.sno) && b.sno > 0) ? b.sno : Infinity;
+      if (snoA !== snoB) return snoA - snoB;
+      const tA = a.createdAt ? new Date(a.createdAt).getTime() : Number(a.id?.split('_')[1] || 0);
+      const tB = b.createdAt ? new Date(b.createdAt).getTime() : Number(b.id?.split('_')[1] || 0);
+      return tA - tB;
+    });
+
+    // Assign consecutive 1..N count
+    activeItems.forEach((item, index) => {
+      item.sno = index + 1;
+    });
+
+    // Sold items do not hold active inventory serial numbers
+    soldItems.forEach(item => {
+      item.sno = null;
+    });
   },
 
   /**

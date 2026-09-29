@@ -763,9 +763,14 @@ const Catalog = {
   },
 
   getItemSno(item, allItems = null) {
-    if (item && item.sno) return item.sno;
-    const items = allItems || DBManager.getItems();
+    if (!item) return '—';
+    if (item.status === 'Sold') return item.sno || '—';
+    if (typeof item.sno === 'number' && !isNaN(item.sno) && item.sno > 0) return item.sno;
+    const items = (allItems || DBManager.getItems()).filter(i => i.status !== 'Sold');
     const chronological = [...items].sort((a, b) => {
+      const snoA = (typeof a.sno === 'number' && !isNaN(a.sno) && a.sno > 0) ? a.sno : Infinity;
+      const snoB = (typeof b.sno === 'number' && !isNaN(b.sno) && b.sno > 0) ? b.sno : Infinity;
+      if (snoA !== snoB) return snoA - snoB;
       const tA = a.createdAt ? new Date(a.createdAt).getTime() : Number(a.id?.split('_')[1] || 0);
       const tB = b.createdAt ? new Date(b.createdAt).getTime() : Number(b.id?.split('_')[1] || 0);
       return tA - tB;
@@ -798,14 +803,18 @@ const Catalog = {
     const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
     const allItems = this.getAllCatalogItems();
 
-    // Canonical chronological S.No map for all items in the database
-    const chronological = [...allItems].sort((a, b) => {
+    // Canonical S.No map for active inventory items in the database
+    const activeDbItems = (DBManager.getItems() || []).filter(i => i.status !== 'Sold');
+    activeDbItems.sort((a, b) => {
+      const snoA = (typeof a.sno === 'number' && !isNaN(a.sno) && a.sno > 0) ? a.sno : Infinity;
+      const snoB = (typeof b.sno === 'number' && !isNaN(b.sno) && b.sno > 0) ? b.sno : Infinity;
+      if (snoA !== snoB) return snoA - snoB;
       const tA = a.createdAt ? new Date(a.createdAt).getTime() : Number(a.id?.split('_')[1] || 0);
       const tB = b.createdAt ? new Date(b.createdAt).getTime() : Number(b.id?.split('_')[1] || 0);
       return tA - tB;
     });
     const itemSnoMap = new Map();
-    chronological.forEach((it, idx) => {
+    activeDbItems.forEach((it, idx) => {
       itemSnoMap.set(it.id, it.sno || (idx + 1));
     });
 
@@ -1073,27 +1082,17 @@ const Catalog = {
       return;
     }
 
-    // Assign permanent S.No (or read custom user-specified S.No)
+    // Assign S.No (or read custom user-specified S.No)
+    const activeItems = allItems.filter(i => i.status !== 'Sold');
     const customSnoInput = document.getElementById('item-sno')?.value;
     let sno = (customSnoInput !== undefined && customSnoInput !== null && customSnoInput.trim() !== '') ? Number(customSnoInput) : null;
     if (!sno || isNaN(sno) || sno <= 0) {
       if (isEdit) {
-        sno = UI.activeItemState.sno || this.getItemSno(UI.activeItemState, allItems);
+        sno = UI.activeItemState.sno || this.getItemSno(UI.activeItemState, activeItems);
       } else {
-        const maxSno = allItems.reduce((max, it) => Math.max(max, it.sno || 0), 0);
-        sno = (maxSno > 0) ? maxSno + 1 : (allItems.length + 1);
+        const maxSno = activeItems.reduce((max, it) => Math.max(max, it.sno || 0), 0);
+        sno = (maxSno > 0) ? maxSno + 1 : (activeItems.length + 1);
       }
-    }
-
-    // Check duplicate S.No across other existing items (prevent saving if S.No already exists)
-    const isSnoDuplicate = allItems.some(i => {
-      const existingSno = i.sno || this.getItemSno(i, allItems);
-      return Number(existingSno) === Number(sno) && (!isEdit || i.id !== UI.activeItemState.id);
-    });
-
-    if (isSnoDuplicate) {
-      UI.showToast(`S.No "${sno}" already exists for another piece. Please choose a unique S.No.`, true);
-      return;
     }
 
     // Reconstruct updated / new item
@@ -1196,6 +1195,9 @@ const Catalog = {
         UI.showToast("New jewelry piece added successfully!");
       }
 
+      // Resequence jewelry serial numbers to ensure unbroken 1..N order
+      DBManager.resequenceJewelrySno();
+
       UI.closeModal('modal-jewelry-item');
       UI.resetForm();
       App.refreshAllDisplays();
@@ -1213,6 +1215,7 @@ const Catalog = {
         const index = DBManager.database.items.findIndex(i => i.id === item.id);
         if (index !== -1) {
           DBManager.database.items.splice(index, 1);
+          DBManager.resequenceJewelrySno();
         }
 
         App.refreshAllDisplays();
@@ -3071,6 +3074,9 @@ const Catalog = {
         DBManager.database.items = DBManager.database.items.filter(item => !this.selectedItemIds.has(item.id));
         const deletedCount = initialCount - DBManager.database.items.length;
 
+        // Resequence remaining active items
+        DBManager.resequenceJewelrySno();
+
         // Log deletion
         DBManager.addLog("DELETE", "bulk_delete", "Multiple Pieces", `Bulk deleted ${deletedCount} jewelry piece(s) from stock`, []);
         UI.showToast(`Successfully deleted ${deletedCount} stock item(s).`);
@@ -4001,6 +4007,9 @@ const Catalog = {
       DBManager.database.items.push(finalItem);
       importedCount++;
     });
+
+    // Resequence jewelry serial numbers after import
+    DBManager.resequenceJewelrySno();
 
     try {
       UI.closeModal('modal-import-excel-preview');
