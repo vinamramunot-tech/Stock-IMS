@@ -2007,7 +2007,7 @@ const Catalog = {
 
     // Column indices (1-based for ExcelJS)
     const C = {
-      A: 1,  // S.No
+      A: 1,  // SKU
       B: 2,  // Description
       C: 3,  // Date of MFG
       D: 4,  // Grading (karat)
@@ -2023,13 +2023,12 @@ const Catalog = {
       N: 14, // Home CP
       O: 15, // SP for Market
       P: 16, // Spacer
-      P: 16, // SP for market
       Q: 17, // Spacer
       R: 18  // Photo
     };
 
     ws.columns = [
-      { key: 'A' }, // S.No
+      { key: 'A' }, // SKU
       { key: 'B' }, // Description
       { key: 'C' }, // Date of MFG
       { key: 'D' }, // Grading (karat)
@@ -2130,7 +2129,7 @@ const Catalog = {
     //  Header Row (Row 7)
     // =========================================================
     const headers = [
-      'S No.', 'Description', 'Date of MFG', 'Grading', 'Type',
+      'SKU', 'Description', 'Date of MFG', 'Grading', 'Type',
       'Gross WT', 'Net WT', 'Stone Description', 'Pieces', 'CTS', '@', 'Total',
       'market C.P', 'mfg cost', 'home C.P', 'SP for market', '', 'Photo'
     ];
@@ -2191,7 +2190,7 @@ const Catalog = {
 
       // MTL Row
       const cellA = ws.getCell(mtlR, C.A);
-      cellA.value = sNo++;
+      cellA.value = item.sku ? String(item.sku) : String(sNo++);
       cellA.font = { bold: true, name: 'Calibri' };
       cellA.alignment = ALIGN_CENTER;
       cellA.border = BORDER_ALL;
@@ -2632,7 +2631,7 @@ const Catalog = {
 
       // Vertical item block merges
       if (commR > mtlR) {
-        ws.mergeCells(mtlR, C.A, commR, C.A); // S No.
+        ws.mergeCells(mtlR, C.A, commR, C.A); // SKU
         ws.mergeCells(mtlR, C.B, commR, C.B); // Description
         ws.mergeCells(mtlR, C.C, commR, C.C); // Date of MFG
         ws.mergeCells(mtlR, C.M, commR, C.M); // market C.P
@@ -2778,7 +2777,7 @@ const Catalog = {
 
     // Column widths for sheet 2
     ws2.columns = [
-      { key: 'A', width: 8  }, // S.No
+      { key: 'A', width: 14 }, // SKU
       { key: 'B', width: 32 }, // Description
       { key: 'C', width: 12 }, // Date of MFG
       { key: 'D', width: 9  }, // Purity
@@ -2803,7 +2802,7 @@ const Catalog = {
     // Rows 2-7: spacer (match sheet 1 layout visually)
     // Row 8: Column headers
     ws2.getRow(8).height = 28;
-    const s2Headers = ['S No.', 'Description by 5', 'Date of MFG', 'Purity', '', 'Gross WT(gm)', 'Net WT(gm)', 'CTS', 'Selling Price', 'Image'];
+    const s2Headers = ['SKU', 'Description by 5', 'Date of MFG', 'Purity', '', 'Gross WT(gm)', 'Net WT(gm)', 'CTS', 'Selling Price', 'Image'];
     s2Headers.forEach((h, idx) => {
       const cell = ws2.getRow(8).getCell(idx + 1);
       cell.value = h;
@@ -2827,7 +2826,7 @@ const Catalog = {
       // ── MTL row ──────────────────────────────────────────────
       ws2.getRow(s2Row).height = 22;
 
-      ws2.getCell(s2Row, 1).value = s2SNo++;
+      ws2.getCell(s2Row, 1).value = item.sku ? String(item.sku) : String(s2SNo++);
       ws2.getCell(s2Row, 1).font  = { bold: true, name: 'Calibri' };
       ws2.getCell(s2Row, 1).alignment = S2_ALIGN_CTR;
       ws2.getCell(s2Row, 1).border = S2_BORDER_ALL;
@@ -2950,7 +2949,7 @@ const Catalog = {
 
       // ── Vertical merges across item block ────────────────────
       if (s2EndRow > s2StartRow) {
-        ws2.mergeCells(s2StartRow, 1, s2EndRow, 1); // S.No
+        ws2.mergeCells(s2StartRow, 1, s2EndRow, 1); // SKU
         ws2.mergeCells(s2StartRow, 2, s2EndRow, 2); // Description
         ws2.mergeCells(s2StartRow, 3, s2EndRow, 3); // Date
         ws2.mergeCells(s2StartRow, 9, s2EndRow, 9); // Selling Price
@@ -3383,8 +3382,8 @@ const Catalog = {
         }
       }
 
-      // Detect the header row: must contain 'S No.' or 'Description by 5'
-      if (rowStr.includes('s no') || rowStr.includes('description by 5')) {
+      // Detect the header row: must contain 'S No.' or 'Description by 5' or 'SKU'
+      if (rowStr.includes('s no') || rowStr.includes('description by 5') || rowStr.includes('sku')) {
         isBlockLayout = true;
         headerRowIdx = r;
         break;
@@ -3420,11 +3419,14 @@ const Catalog = {
         const col8 = parseFloat(num(row[8]).toFixed(2));       // I: @ rate per carat
         const col9 = parseFloat(num(row[9]).toFixed(2));       // J: Stone / line total
 
-        const sNoNum = Number(col0);
-        // A new item starts when A has a positive number AND E = 'MTL' (item header row)
+        const rawCol0 = col0 !== null && col0 !== undefined ? String(col0).trim() : '';
+        const sNoNum = Number(rawCol0);
+        // A new item starts when A has a non-empty SKU/S.No AND E = 'MTL' (item header row)
         const isNewItem =
-          col0 !== '' && col0 !== null && col0 !== undefined &&
-          !isNaN(sNoNum) && sNoNum > 0 && col4 === 'mtl';
+          rawCol0 !== '' &&
+          rawCol0.toLowerCase() !== 'grand total' &&
+          rawCol0.toLowerCase() !== 'total' &&
+          col4 === 'mtl';
 
         if (isNewItem) {
           if (currentItem) parsed.push(currentItem);
@@ -3433,8 +3435,8 @@ const Catalog = {
 
           currentItem = {
             tempId: 'imp_' + parsed.length + '_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
-            name: col1 || `Jewelry Piece #${sNoNum}`,
-            sku: String(sNoNum),   // sequence from Excel — will be replaced by category SKU on import
+            name: col1 || `Jewelry Piece #${rawCol0}`,
+            sku: rawCol0,   // SKU or sequence from Excel
             category: guessCategory(col1),
             description: col1 + (col2 ? ` (MFG: ${col2})` : ''),
             mfgDate: col2 || '',

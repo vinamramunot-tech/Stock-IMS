@@ -24,4 +24,13 @@ if (fs.existsSync(cargoPath)) {
   fs.writeFileSync(cargoPath, cargoContent);
 }
 
+// 3. Clean previous iOS build output to prevent "Directory not empty" rename error
+const iosBuildDir = path.join(__dirname, '../src-tauri/gen/apple/build');
+if (fs.existsSync(iosBuildDir)) {
+  try {
+    fs.rmSync(path.join(iosBuildDir, 'arm64-sim'), { recursive: true, force: true });
+    fs.rmSync(path.join(iosBuildDir, 'mava-gems-stock_iOS.xcarchive'), { recursive: true, force: true });
+  } catch (e) {}
+}
+
 console.log('Version sync completed!');
