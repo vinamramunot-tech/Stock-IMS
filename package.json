@@ -25,6 +25,7 @@
     "ios:dev:device": "tauri ios dev",
     "preios:build": "node scripts/sync-version.js",
     "ios:build": "tauri ios build",
+    "ios:build:release-lib": "bash scripts/build-ios-release-lib.sh",
     "preios:build:sim": "node scripts/sync-version.js",
     "ios:build:sim": "tauri ios build --target aarch64-sim --debug",
     "release": "bash scripts/release.sh",
