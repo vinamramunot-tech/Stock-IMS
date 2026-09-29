@@ -351,50 +351,58 @@ fn convert_heic_to_jpeg(base64_heic: String) -> Result<String, String> {
 }
 
 fn convert_heic_bytes_to_jpeg_bytes(heic_bytes: &[u8]) -> Result<Vec<u8>, String> {
-    let temp_dir = std::env::temp_dir();
-    let unique_id = format!("{}_{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos());
-    let temp_heic = temp_dir.join(format!("input_{}.heic", unique_id));
-    let temp_jpg = temp_dir.join(format!("output_{}.jpg", unique_id));
+    #[cfg(target_os = "macos")]
+    {
+        let temp_dir = std::env::temp_dir();
+        let unique_id = format!("{}_{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos());
+        let temp_heic = temp_dir.join(format!("input_{}.heic", unique_id));
+        let temp_jpg = temp_dir.join(format!("output_{}.jpg", unique_id));
 
-    std::fs::write(&temp_heic, heic_bytes)
-        .map_err(|e| format!("Failed to write temp HEIC file: {:?}", e))?;
+        std::fs::write(&temp_heic, heic_bytes)
+            .map_err(|e| format!("Failed to write temp HEIC file: {:?}", e))?;
 
-    let output = std::process::Command::new("sips")
-        .arg("-s")
-        .arg("format")
-        .arg("jpeg")
-        .arg("-s")
-        .arg("formatOptions")
-        .arg("90")
-        .arg("-z")
-        .arg("1200")
-        .arg("1200")
-        .arg(&temp_heic)
-        .arg("--out")
-        .arg(&temp_jpg)
-        .output();
+        let output = std::process::Command::new("sips")
+            .arg("-s")
+            .arg("format")
+            .arg("jpeg")
+            .arg("-s")
+            .arg("formatOptions")
+            .arg("90")
+            .arg("-z")
+            .arg("1200")
+            .arg("1200")
+            .arg(&temp_heic)
+            .arg("--out")
+            .arg(&temp_jpg)
+            .output();
 
-    let _ = std::fs::remove_file(&temp_heic);
+        let _ = std::fs::remove_file(&temp_heic);
 
-    let output = match output {
-        Ok(out) => out,
-        Err(e) => {
+        let output = match output {
+            Ok(out) => out,
+            Err(e) => {
+                let _ = std::fs::remove_file(&temp_jpg);
+                return Err(format!("Failed to execute sips: {:?}", e));
+            }
+        };
+
+        if !output.status.success() {
             let _ = std::fs::remove_file(&temp_jpg);
-            return Err(format!("Failed to execute sips: {:?}", e));
+            let err_msg = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("sips conversion failed: {}", err_msg));
         }
-    };
 
-    if !output.status.success() {
+        let jpg_bytes = std::fs::read(&temp_jpg)
+            .map_err(|e| format!("Failed to read temp JPEG file: {:?}", e))?;
+
         let _ = std::fs::remove_file(&temp_jpg);
-        let err_msg = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("sips conversion failed: {}", err_msg));
+        Ok(jpg_bytes)
     }
-
-    let jpg_bytes = std::fs::read(&temp_jpg)
-        .map_err(|e| format!("Failed to read temp JPEG file: {:?}", e))?;
-
-    let _ = std::fs::remove_file(&temp_jpg);
-    Ok(jpg_bytes)
+    #[cfg(not(target_os = "macos"))]
+    {
+        // On iOS and other platforms, sips command does not exist. Return raw bytes as WebKit handles HEIC natively.
+        Ok(heic_bytes.to_vec())
+    }
 }
 
 fn convert_db_heic_images(val: &mut serde_json::Value) {

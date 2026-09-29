@@ -23,7 +23,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost;"
     }
   },
   "bundle": {
@@ -34,7 +34,7 @@
       "nsis"
     ],
     "iOS": {
-      "developmentTeam": "652N8WU385"
+      "developmentTeam": "2T66TXYDZ4"
     },
     "icon": [
       "icons/32x32.png",
