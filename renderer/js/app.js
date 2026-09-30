@@ -944,6 +944,12 @@ const App = {
     const mfgGoldRateEl = document.getElementById('detail-jewelry-mfg-gold-rate');
     if (mfgGoldRateEl) mfgGoldRateEl.textContent = mfgRate > 0 ? `₹${mfgRate.toLocaleString()}/g` : 'N/A';
 
+    const commVal = typeof item.commission === 'object' ? Number(item.commission.value || 0) : Number(item.commission || 0);
+    const metaCommEl = document.getElementById('detail-jewelry-meta-commission');
+    if (metaCommEl) {
+      metaCommEl.textContent = `₹${commVal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    }
+
     // 6. Gemstones Breakdown
     const gemCard = document.getElementById('detail-jewelry-gemstones-card');
     const gemList = document.getElementById('detail-jewelry-gemstones-list');
@@ -997,6 +1003,11 @@ const App = {
       document.getElementById('detail-jewelry-home-price').textContent = `₹${evaluation.homeCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
     } else {
       if (homeCostWrapper) homeCostWrapper.style.display = 'none';
+    }
+
+    const detailCommEl = document.getElementById('detail-jewelry-commission');
+    if (detailCommEl) {
+      detailCommEl.textContent = `₹${commVal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
     }
     
     document.getElementById('detail-jewelry-selling-price').textContent = `₹${evaluation.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;

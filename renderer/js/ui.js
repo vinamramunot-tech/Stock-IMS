@@ -630,6 +630,11 @@ const UI = {
 
     document.getElementById('summary-subtotal').textContent = `₹${evalResult.mfgSubtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
 
+    const commSubtotalEl = document.getElementById('summary-commission-subtotal');
+    if (commSubtotalEl) {
+      commSubtotalEl.textContent = `₹${(evalResult.commissionValue || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    }
+
     document.getElementById('summary-grand-total').textContent = `₹${evalResult.marketCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
 
     const mfgCostEl = document.getElementById('summary-mfg-cost');

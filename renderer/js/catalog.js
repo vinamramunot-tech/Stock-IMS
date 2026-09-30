@@ -961,6 +961,9 @@ const Catalog = {
         <span class="catalog-custom-checkbox"></span>
       </label>`;
 
+      const commVal = typeof item.commission === 'object' ? Number(item.commission.value || 0) : Number(item.commission || 0);
+      const commHtml = commVal > 0 ? `<div class="specs-line"><strong>Commission:</strong> ₹${commVal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>` : '';
+
       card.innerHTML = `
         ${checkboxHtml}
         ${badgeStatusHtml}
@@ -986,6 +989,7 @@ const Catalog = {
           
           <div class="product-price-row">
             <div class="product-price-specs">
+              ${commHtml}
               <div class="specs-line"><strong>Market Cost:</strong> ₹${item.evaluation.marketCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
               ${item.evaluation.hasEmerald ? `<div class="specs-line"><strong>Home Cost:</strong> ₹${item.evaluation.homeCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>` : ''}
               <div class="specs-line"><strong>Selling Price:</strong> ₹${item.evaluation.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>

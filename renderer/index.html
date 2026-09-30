@@ -2050,6 +2050,7 @@
                   <div><strong>Gemstones Weight:</strong> <span id="detail-jewelry-gem-wt"></span> cts</div>
                   <div><strong>Date of Mfg:</strong> <span id="detail-jewelry-mfg-date"></span></div>
                   <div><strong>Mfg 24KT Gold Rate:</strong> <span id="detail-jewelry-mfg-gold-rate"></span></div>
+                  <div><strong>Commission:</strong> <span id="detail-jewelry-meta-commission" style="color: var(--text-gold); font-weight: 600;">₹0.00</span></div>
                 </div>
               </div>
             </div>
@@ -2076,7 +2077,7 @@
 
             <!-- Valuations Section -->
             <div
-              style="background-color: var(--bg-base); padding: 20px; border-radius: 8px; border: 1px solid var(--border-dark); display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 15px; align-items: center;">
+              style="background-color: var(--bg-base); padding: 20px; border-radius: 8px; border: 1px solid var(--border-dark); display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px; align-items: center;">
               <div>
                 <span
                   style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Market
@@ -2097,6 +2098,12 @@
                   Cost Price</span>
                 <span id="detail-jewelry-home-price"
                   style="font-size: 18px; font-weight: 700; color: var(--text-main);"></span>
+              </div>
+              <div id="detail-jewelry-commission-wrapper">
+                <span
+                  style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Commission</span>
+                <span id="detail-jewelry-commission"
+                  style="font-size: 18px; font-weight: 700; color: var(--text-gold-dark, #b8860b);">₹0.00</span>
               </div>
               <div>
                 <span
@@ -2340,6 +2347,10 @@
                 <div class="subtotal-item grand-subtotal-row">
                   <span class="subtotal-lbl font-bold">SUBTOTAL (M+S+D+L):</span>
                   <span class="subtotal-val font-bold" id="summary-subtotal">₹0.00</span>
+                </div>
+                <div class="subtotal-item" style="color: var(--text-gold); border-bottom: 1px dashed var(--border-gold-subtle, rgba(212, 175, 55, 0.3));">
+                  <span class="subtotal-lbl font-bold" style="color: var(--text-gold);">+ Commission:</span>
+                  <span class="subtotal-val font-bold" id="summary-commission-subtotal" style="color: var(--text-gold);">₹0.00</span>
                 </div>
               </div>
 

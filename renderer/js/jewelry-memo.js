@@ -256,7 +256,9 @@ const JewelryMemoController = {
       opt.value = item.id;
       const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
       const evaluation = Calc.evaluateItem(item, goldRate);
-      opt.textContent = `${item.sku || 'No SKU'} — ${item.name || 'Untitled'} (${item.category || 'Piece'} | Val: ₹${evaluation.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })})`;
+      const commVal = typeof item.commission === 'object' ? Number(item.commission.value || 0) : Number(item.commission || 0);
+      const commStr = commVal > 0 ? ` | Comm: ₹${commVal.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '';
+      opt.textContent = `${item.sku || 'No SKU'} — ${item.name || 'Untitled'} (${item.category || 'Piece'} | Val: ₹${evaluation.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}${commStr})`;
       selectEl.appendChild(opt);
     });
   },
@@ -294,6 +296,8 @@ const JewelryMemoController = {
     // Render active / open items with Remove button
     this.selectedItems.forEach((item, index) => {
       const evalItem = Calc.evaluateItem(item, goldRate);
+      const commVal = typeof item.commission === 'object' ? Number(item.commission.value || 0) : Number(item.commission || 0);
+      const commHtml = commVal > 0 ? `<div style="font-size:11px;color:var(--text-muted);font-weight:400;">Comm: ₹${commVal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>` : '';
       const tr = document.createElement('tr');
       const imgHtml = item.image
         ? `<img src="${item.image}" alt="${UI.escapeHtml(item.name)}" style="width:36px;height:36px;object-fit:cover;border-radius:4px;border:1px solid var(--border-light);cursor:pointer;" class="memo-thumb-img">`
@@ -304,7 +308,7 @@ const JewelryMemoController = {
         <td style="padding:8px 12px;font-weight:700;">${UI.escapeHtml(item.sku)}</td>
         <td style="padding:8px 12px;">${UI.escapeHtml(item.name)}</td>
         <td style="padding:8px 12px;">${UI.escapeHtml(item.category)}</td>
-        <td style="padding:8px 12px;text-align:right;font-weight:700;color:var(--text-gold-dark);">₹${evalItem.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+        <td style="padding:8px 12px;text-align:right;font-weight:700;color:var(--text-gold-dark);">₹${evalItem.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}${commHtml}</td>
         <td style="padding:8px 12px;text-align:center;">
           <button type="button" class="btn btn-danger btn-small" style="font-size:10px;padding:3px 6px;" data-index="${index}">Remove</button>
         </td>
