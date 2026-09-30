@@ -186,67 +186,96 @@ fn start_watching_db_file(handle: AppHandle, path: String) {
 
 #[tauri::command]
 fn get_last_db_path(handle: AppHandle) -> Option<String> {
-    let config_dir = handle.path().app_config_dir().ok()?;
-    let config_path = config_dir.join("app_config.json");
-    if config_path.exists() {
-        if let Ok(content) = std::fs::read_to_string(&config_path) {
-            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
-                if let Some(path_str) = json.get("lastActiveDbPath").and_then(|v| v.as_str()) {
-                    if std::path::Path::new(path_str).exists() {
-                        start_watching_db_file(handle.clone(), path_str.to_string());
-                        return Some(path_str.to_string());
-                    }
-                }
-            }
-        }
-    }
-    
-    // On mobile targets, return a default path in the document directory
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     {
         if let Ok(doc_dir) = handle.path().document_dir() {
+            let config_path = doc_dir.join("app_config.json");
+            if config_path.exists() {
+                if let Ok(content) = std::fs::read_to_string(&config_path) {
+                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                        if let Some(path_str) = json.get("lastActiveDbPath").and_then(|v| v.as_str()) {
+                            if std::path::Path::new(path_str).exists() {
+                                return Some(path_str.to_string());
+                            }
+                        }
+                    }
+                }
+            }
             let default_db_path = doc_dir.join("mava_gems_stock.db");
             let path_str = default_db_path.to_string_lossy().to_string();
-            // Automatically write it as last path
             let config = serde_json::json!({
                 "lastActiveDbPath": path_str
             });
             if let Ok(content) = serde_json::to_string_pretty(&config) {
-                let _ = std::fs::create_dir_all(&config_dir);
                 let _ = std::fs::write(&config_path, content);
             }
             return Some(path_str);
         }
+        return Some("mava_gems_stock.db".to_string());
     }
-    
-    None
+
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    {
+        let config_dir = handle.path().app_config_dir().ok()?;
+        let config_path = config_dir.join("app_config.json");
+        if config_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&config_path) {
+                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                    if let Some(path_str) = json.get("lastActiveDbPath").and_then(|v| v.as_str()) {
+                        if std::path::Path::new(path_str).exists() {
+                            start_watching_db_file(handle.clone(), path_str.to_string());
+                            return Some(path_str.to_string());
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
 }
 
 #[tauri::command]
 fn set_last_db_path(handle: AppHandle, db_path: Option<String>) -> bool {
-    let config_dir = match handle.path().app_config_dir() {
-        Ok(dir) => dir,
-        Err(_) => return false,
-    };
-    if !config_dir.exists() {
-        let _ = std::fs::create_dir_all(&config_dir);
-    }
-    let config_path = config_dir.join("app_config.json");
-    let config = serde_json::json!({
-        "lastActiveDbPath": db_path
-    });
-    
-    if let Ok(content) = serde_json::to_string_pretty(&config) {
-        if std::fs::write(&config_path, content).is_ok() {
-            if let Some(ref path) = db_path {
-                start_watching_db_file(handle, path.clone());
-            } else {
-                stop_watching_db_file();
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    {
+        if let Ok(doc_dir) = handle.path().document_dir() {
+            let config_path = doc_dir.join("app_config.json");
+            let config = serde_json::json!({
+                "lastActiveDbPath": db_path
+            });
+            if let Ok(content) = serde_json::to_string_pretty(&config) {
+                return std::fs::write(&config_path, content).is_ok();
             }
-            return true;
         }
+        return false;
     }
-    false
+
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    {
+        let config_dir = match handle.path().app_config_dir() {
+            Ok(dir) => dir,
+            Err(_) => return false,
+        };
+        if !config_dir.exists() {
+            let _ = std::fs::create_dir_all(&config_dir);
+        }
+        let config_path = config_dir.join("app_config.json");
+        let config = serde_json::json!({
+            "lastActiveDbPath": db_path
+        });
+        
+        if let Ok(content) = serde_json::to_string_pretty(&config) {
+            if std::fs::write(&config_path, content).is_ok() {
+                if let Some(ref path) = db_path {
+                    start_watching_db_file(handle, path.clone());
+                } else {
+                    stop_watching_db_file();
+                }
+                return true;
+            }
+        }
+        false
+    }
 }
 
 #[tauri::command]
@@ -863,8 +892,11 @@ mod tests {
             emeralds: vec![],
             memos: vec![],
             stones: vec![],
+            stone_memos: vec![],
             jewel_stone_memos: vec![],
             jewelry_memos: vec![],
+            jewelry_sales: vec![],
+            emerald_sales: vec![],
             logs: vec![],
         };
 

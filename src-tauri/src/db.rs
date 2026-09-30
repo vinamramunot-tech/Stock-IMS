@@ -12,10 +12,16 @@ pub struct VaultDatabase {
     pub memos: Vec<serde_json::Value>,
     #[serde(default)]
     pub stones: Vec<serde_json::Value>,
+    #[serde(rename = "stoneMemos", default)]
+    pub stone_memos: Vec<serde_json::Value>,
     #[serde(rename = "jewelStoneMemos", default)]
     pub jewel_stone_memos: Vec<serde_json::Value>,
     #[serde(rename = "jewelryMemos", default)]
     pub jewelry_memos: Vec<serde_json::Value>,
+    #[serde(rename = "jewelrySales", default)]
+    pub jewelry_sales: Vec<serde_json::Value>,
+    #[serde(rename = "emeraldSales", default)]
+    pub emerald_sales: Vec<serde_json::Value>,
     #[serde(default)]
     pub logs: Vec<serde_json::Value>,
 }

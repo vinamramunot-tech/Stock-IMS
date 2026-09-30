@@ -8,13 +8,29 @@
 
   <meta name="color-scheme" content="light dark">
   <script>
-    {
-      const theme = localStorage.getItem("color-scheme");
-      if (theme) {
-        document.querySelector('meta[name="color-scheme"]').content = theme;
-        document.documentElement.setAttribute('data-theme', theme);
-      }
-    }
+    (function() {
+      // 1. Theme initializer
+      try {
+        const theme = localStorage.getItem("color-scheme");
+        if (theme) {
+          const meta = document.querySelector('meta[name="color-scheme"]');
+          if (meta) meta.content = theme;
+          document.documentElement.setAttribute('data-theme', theme);
+        }
+      } catch (e) {}
+
+      // 2. Global WebKit Error Boundary to guarantee screen is never blank
+      window.addEventListener('error', function(e) {
+        console.error("[MavaGems WebKit Error]", e.message, e.filename, e.lineno);
+        var launcher = document.getElementById('app-launcher-screen');
+        if (launcher) launcher.classList.remove('hidden');
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        console.error("[MavaGems WebKit Promise Rejection]", e.reason);
+        var launcher = document.getElementById('app-launcher-screen');
+        if (launcher) launcher.classList.remove('hidden');
+      });
+    })();
   </script>
 
   <!-- Standard System Fonts (Offline Compatible) -->
@@ -107,7 +123,7 @@
   </div>
 
   <!-- ==================== APP LAUNCHER / PORTAL SCREEN ==================== -->
-  <div id="app-launcher-screen" class="startup-overlay-container hidden">
+  <div id="app-launcher-screen" class="startup-overlay-container">
     <div class="startup-card" style="max-width: 900px; width: 95%;">
       <div class="startup-header-row">
         <div class="startup-brand-row">
@@ -132,7 +148,7 @@
       </div>
 
       <p class="startup-desc" style="margin-bottom: 25px;">
-        Database Connected: <strong id="launcher-db-path-text" style="color: var(--text-main);"></strong><br>
+        Database Connected: <strong id="launcher-db-path-text" style="color: var(--text-main);">mava_gems_stock.db</strong><br>
         Select a dedicated catalog application suite to launch below.
       </p>
 
@@ -4505,10 +4521,7 @@
     </svg>
   </button>
 
-  <!-- Load Scripts -->
-  <script src="js/xlsx.full.min.js"></script>
-  <script src="js/exceljs.min.js"></script>
-  <script src="js/jspdf.umd.min.js"></script>
+  <!-- Load Scripts: Core Framework & App Logic First -->
   <script src="js/tauri-shim.js"></script>
   <script src="js/db-manager.js"></script>
   <script src="js/calc.js"></script>
@@ -4527,6 +4540,11 @@
   <script src="js/emerald-sales.js"></script>
   <script src="js/image-editor.js"></script>
   <script src="js/app.js"></script>
+
+  <!-- Heavy Export Engines (Deferred for Instant First Paint) -->
+  <script src="js/xlsx.full.min.js" defer></script>
+  <script src="js/exceljs.min.js" defer></script>
+  <script src="js/jspdf.umd.min.js" defer></script>
 </body>
 
 </html>

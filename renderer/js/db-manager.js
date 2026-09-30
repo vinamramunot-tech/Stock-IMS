@@ -4,9 +4,32 @@
  */
 
 const DBManager = {
-  database: null,       // Loaded database state in JSON format
-  activePath: null,     // Active file path of the database
-  isLoaded: false,
+  database: {
+    settings: {
+      currency: "₹",
+      goldRate24kt: {
+        ratePerGram: 0,
+        effectiveDate: new Date().toISOString().split('T')[0],
+        updatedAt: new Date().toISOString()
+      },
+      usdToInr: {
+        rate: 0,
+        effectiveDate: new Date().toISOString().split('T')[0],
+        updatedAt: new Date().toISOString()
+      }
+    },
+    items: [],
+    emeralds: [],
+    memos: [],
+    stones: [],
+    stoneMemos: [],
+    jewelStoneMemos: [],
+    jewelryMemos: [],
+    jewelrySales: [],
+    logs: []
+  },
+  activePath: 'mava_gems_stock.db',
+  isLoaded: true,
 
   // Empty default database structure
   getDefaultStructure() {

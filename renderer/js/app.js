@@ -7,37 +7,21 @@ const App = {
   activeTab: 'tab-jewelry-analyzer',
 
   async init() {
-    // 1. Initialize Modules
-    Startup.init();
-    Catalog.init();
-    Settings.init();
-    this.initTheme();
-    if (window.EmeraldController) {
-      EmeraldController.init();
-    }
-    if (window.EmeraldDashboardController) {
-      EmeraldDashboardController.init();
-    }
-    if (window.MemoController) {
-      MemoController.init();
-    }
-    if (window.StoneController) {
-      StoneController.init();
-    }
-    if (window.JewelStoneMemoController) {
-      JewelStoneMemoController.init();
-    }
-    if (window.JewelryMemoController) {
-      JewelryMemoController.init();
-    }
-    if (window.JewelrySalesController) {
-      JewelrySalesController.init();
-    }
-    if (window.SalesController) {
-      SalesController.init();
-    }
-    this.initLogs();
-    UI.initScrollToTop();
+    // 1. Initialize Modules safely
+    try { Startup.init(); } catch (e) { console.error("Startup.init error:", e); }
+    try { Catalog.init(); } catch (e) { console.error("Catalog.init error:", e); }
+    try { Settings.init(); } catch (e) { console.error("Settings.init error:", e); }
+    try { this.initTheme(); } catch (e) { console.error("initTheme error:", e); }
+    if (window.EmeraldController) { try { EmeraldController.init(); } catch (e) { console.error(e); } }
+    if (window.EmeraldDashboardController) { try { EmeraldDashboardController.init(); } catch (e) { console.error(e); } }
+    if (window.MemoController) { try { MemoController.init(); } catch (e) { console.error(e); } }
+    if (window.StoneController) { try { StoneController.init(); } catch (e) { console.error(e); } }
+    if (window.JewelStoneMemoController) { try { JewelStoneMemoController.init(); } catch (e) { console.error(e); } }
+    if (window.JewelryMemoController) { try { JewelryMemoController.init(); } catch (e) { console.error(e); } }
+    if (window.JewelrySalesController) { try { JewelrySalesController.init(); } catch (e) { console.error(e); } }
+    if (window.SalesController) { try { SalesController.init(); } catch (e) { console.error(e); } }
+    try { this.initLogs(); } catch (e) { console.error("initLogs error:", e); }
+    try { UI.initScrollToTop(); } catch (e) { console.error("initScrollToTop error:", e); }
 
     // 2. Tab switching navigation listeners
     const navItems = document.querySelectorAll('.nav-item[data-target]');
@@ -82,15 +66,21 @@ const App = {
     UI.initStoneSelectors();
 
     // SKU helper updates on category change
-    document.getElementById('item-category').addEventListener('change', () => {
-      UI.updateSkuSuggestion();
-    });
+    const itemCatEl = document.getElementById('item-category');
+    if (itemCatEl) {
+      itemCatEl.addEventListener('change', () => {
+        UI.updateSkuSuggestion();
+      });
+    }
 
     // Dynamic metal row button click
-    document.getElementById('btn-add-metal-part').addEventListener('click', () => {
-      UI.createMetalPartRow();
-      UI.updateFormCalculations();
-    });
+    const btnAddMetalPart = document.getElementById('btn-add-metal-part');
+    if (btnAddMetalPart) {
+      btnAddMetalPart.addEventListener('click', () => {
+        UI.createMetalPartRow();
+        UI.updateFormCalculations();
+      });
+    }
 
     // Commission manual typing listener
     const commInput = document.getElementById('item-commission');
@@ -107,8 +97,10 @@ const App = {
     }
 
     // Labour cost, profit percentage, gross weight, karat, wastage, and per-item gold rate change listeners
-    document.getElementById('item-labour').addEventListener('input', () => UI.updateFormCalculations());
-    document.getElementById('item-profit-pct').addEventListener('input', () => UI.updateFormCalculations());
+    const itemLabourEl = document.getElementById('item-labour');
+    if (itemLabourEl) itemLabourEl.addEventListener('input', () => UI.updateFormCalculations());
+    const itemProfitEl = document.getElementById('item-profit-pct');
+    if (itemProfitEl) itemProfitEl.addEventListener('input', () => UI.updateFormCalculations());
     const emDiscountInput = document.getElementById('item-emerald-discount-pct');
     if (emDiscountInput) {
       emDiscountInput.addEventListener('input', () => UI.updateFormCalculations());
@@ -1372,13 +1364,16 @@ const App = {
     this.activeApp = null;
     this.clearWorkspaceHighlights();
     this.workspaceFocusIndex = -1;
-    document.getElementById('app-workspace').classList.add('hidden');
-    document.getElementById('startup-screen').classList.add('hidden');
-    document.getElementById('app-launcher-screen').classList.remove('hidden');
+    const ws = document.getElementById('app-workspace');
+    if (ws) ws.classList.add('hidden');
+    const ss = document.getElementById('startup-screen');
+    if (ss) ss.classList.add('hidden');
+    const ls = document.getElementById('app-launcher-screen');
+    if (ls) ls.classList.remove('hidden');
 
     const dbPathText = document.getElementById('launcher-db-path-text');
     if (dbPathText) {
-      dbPathText.textContent = DBManager.activePath || '';
+      dbPathText.textContent = DBManager.activePath || 'mava_gems_stock.db';
     }
 
     // Default highlighter to first suite (Jewelry Suite) on launcher open
@@ -1389,7 +1384,11 @@ const App = {
 
 window.App = App;
 
-// Bootstrap Application on fully loaded page
-window.addEventListener('DOMContentLoaded', () => {
+// Bootstrap Application safely regardless of whether DOMContentLoaded already fired
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', () => {
+    App.init();
+  });
+} else {
   App.init();
-});
+}

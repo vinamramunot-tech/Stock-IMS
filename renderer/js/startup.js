@@ -81,20 +81,39 @@ const Startup = {
     if (isMobile) {
       this.autoBootMobile();
     } else {
-      this.showStartupScreen();
+      // On desktop, check if remembered path exists
+      window.electronAPI.getLastDbPath().then(path => {
+        if (!path) {
+          this.showStartupScreen();
+        } else {
+          this.bootstrapDatabase(path);
+        }
+      }).catch(() => {
+        this.showStartupScreen();
+      });
     }
   },
 
   async autoBootMobile() {
     try {
-      let targetPath = await window.electronAPI.getLastDbPath();
+      let targetPath = null;
+      try {
+        targetPath = await Promise.race([
+          window.electronAPI.getLastDbPath(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 2500))
+        ]);
+      } catch (timeoutErr) {
+        console.warn("Mobile last db path lookup timed out, using default:", timeoutErr);
+      }
       if (!targetPath) {
         targetPath = 'mava_gems_stock.db';
       }
       await this.bootstrapDatabase(targetPath);
     } catch (err) {
       console.error("Auto boot mobile failed:", err);
-      this.showStartupScreen();
+      if (window.App) {
+        window.App.showLauncher();
+      }
     }
   },
 
@@ -285,13 +304,16 @@ const Startup = {
           activeInput.value = customPath;
           activeInput.title = customPath;
         }
-        document.getElementById('settings-vault-path').textContent = customPath;
+        const settingsPath = document.getElementById('settings-vault-path');
+        if (settingsPath) settingsPath.textContent = customPath;
+        const launcherDb = document.getElementById('launcher-db-path-text');
+        if (launcherDb) launcherDb.textContent = customPath;
         
         UI.showToast("Database successfully loaded!");
         App.refreshAllDisplays();
       }
     } catch (err) {
-      console.error(err);
+      console.warn("Vault load note:", err.message);
       const isMobile = window.isMobilePlatform ? window.isMobilePlatform() : (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
       if (isMobile) {
         // Automatically initialize default database file if it doesn't exist on mobile
@@ -303,16 +325,21 @@ const Startup = {
             activeInput.value = customPath;
             activeInput.title = customPath;
           }
-          document.getElementById('settings-vault-path').textContent = customPath;
+          const settingsPath = document.getElementById('settings-vault-path');
+          if (settingsPath) settingsPath.textContent = customPath;
+          const launcherDb = document.getElementById('launcher-db-path-text');
+          if (launcherDb) launcherDb.textContent = customPath;
           UI.showToast("Database successfully initialized!");
           App.refreshAllDisplays();
           return;
         } catch (initErr) {
-          console.error("Auto-initialization failed on mobile:", initErr);
+          console.error("Auto-initialization fallback on mobile:", initErr);
+          this.hideStartupScreen();
+          return;
         }
       }
       UI.showToast("Database file read failure: " + err.message, true);
-      await this.showStartupScreen(); // Redirect back to setup screen if file is corrupted/missing
+      await this.showStartupScreen(); // Redirect back to setup screen on desktop if file is corrupted/missing
     }
   },
 

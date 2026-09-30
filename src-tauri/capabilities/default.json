@@ -3,7 +3,7 @@
   "identifier": "default",
   "description": "Minimal permissions for Mava Gems: only custom invoke commands and the database-file-changed event listener.",
   "windows": [
-    "main"
+    "*"
   ],
   "permissions": [
     "core:event:default",

@@ -9,311 +9,396 @@
       (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   };
 
-  if (window.__TAURI__) {
-    console.log("💎 Tauri environment detected. Initializing global translation bridge...");
+  function getTauriCore() {
+    if (window.__TAURI__ && window.__TAURI__.core && typeof window.__TAURI__.core.invoke === 'function') {
+      return window.__TAURI__.core;
+    }
+    if (window.__TAURI_INTERNALS__ && typeof window.__TAURI_INTERNALS__.invoke === 'function') {
+      return window.__TAURI_INTERNALS__;
+    }
+    return null;
+  }
 
-    window.electronAPI = {
-      // Basic configuration getters/setters
-      getLastDbPath: () => window.__TAURI__.core.invoke('get_last_db_path'),
-      setLastDbPath: (dbPath) => window.__TAURI__.core.invoke('set_last_db_path', { db_path: dbPath, dbPath }),
+  async function safeInvoke(cmd, args, timeoutMs = 3500) {
+    const core = getTauriCore();
+    if (!core) {
+      throw new Error("Tauri IPC bridge not ready");
+    }
+    return Promise.race([
+      core.invoke(cmd, args),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout invoking " + cmd)), timeoutMs))
+    ]);
+  }
 
-      // Native file/folder picker dialogs
-      createDbDialog: () => window.__TAURI__.core.invoke('create_db_dialog'),
-      
-      openDbDialog: async () => {
-        const isMobile = window.isMobilePlatform();
-        if (isMobile) {
-          return new Promise((resolve) => {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.onchange = async (e) => {
-              const file = e.target.files[0];
-              if (!file) {
-                resolve(null);
-                return;
-              }
-              const reader = new FileReader();
-              reader.onload = async (evt) => {
-                try {
-                  const dataUrl = evt.target.result;
-                  const base64Data = dataUrl.split(',')[1];
-                  let targetPath = DBManager.activePath;
-                  if (!targetPath) {
-                    targetPath = await window.electronAPI.getLastDbPath();
-                  }
-                  if (!targetPath) {
-                    targetPath = 'mava_gems_stock.db';
-                  }
-                  await window.__TAURI__.core.invoke('import_db_file', { base64_data: base64Data, base64Data, custom_path: targetPath, customPath: targetPath });
-                  resolve(targetPath);
-                } catch (err) {
-                  alert("Failed to import database file: " + err.message);
-                  resolve(null);
-                }
-              };
-              reader.readAsDataURL(file);
-            };
-            input.click();
-          });
-        } else {
-          return window.__TAURI__.core.invoke('open_db_dialog');
+  console.log("💎 Initializing universal translation bridge for Mava Gems...");
+
+  window.electronAPI = {
+    // Basic configuration getters/setters
+    getLastDbPath: async () => {
+      try {
+        const core = getTauriCore();
+        if (core) {
+          const res = await safeInvoke('get_last_db_path', {}, 2500);
+          if (res) return res;
         }
-      },
-
-      selectDirectory: () => window.__TAURI__.core.invoke('select_directory'),
-      exportBackupDialog: (defaultName) => window.__TAURI__.core.invoke('export_backup_dialog', { _default_name: defaultName, default_name: defaultName, defaultName }),
-      
-      importBackupDialog: async () => {
-        const isMobile = window.isMobilePlatform();
-        if (isMobile) {
-          return new Promise((resolve) => {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.onchange = async (e) => {
-              const file = e.target.files[0];
-              if (!file) {
-                resolve(null);
-                return;
-              }
-              const reader = new FileReader();
-              reader.onload = async (evt) => {
-                try {
-                  const dataUrl = evt.target.result;
-                  const base64Data = dataUrl.split(',')[1];
-                  const targetPath = DBManager.activePath || 'mava_gems_stock.db';
-                  await window.__TAURI__.core.invoke('import_db_file', { base64_data: base64Data, base64Data, custom_path: targetPath, customPath: targetPath });
-                  resolve(targetPath);
-                } catch (err) {
-                  alert("Failed to import backup file: " + err.message);
-                  resolve(null);
-                }
-              };
-              reader.readAsDataURL(file);
-            };
-            input.click();
-          });
-        } else {
-          return window.__TAURI__.core.invoke('import_backup_dialog');
-        }
-      },
-
-      // Mobile-only: pick a .db file from the document picker, write it to a
-      // known fixed path (so activePath is never null), and return that path.
-      mobilePickAndLoadDb: () => new Promise((resolve) => {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.onchange = async (e) => {
-          const file = e.target.files[0];
-          if (!file) { resolve(null); return; }
-          const reader = new FileReader();
-          reader.onload = async (evt) => {
-            try {
-              const dataUrl = evt.target.result;
-              const base64Data = dataUrl.split(',')[1];
-              let targetPath = await window.electronAPI.getLastDbPath();
-              if (!targetPath) {
-                targetPath = 'mava_gems_stock.db';
-              }
-              await window.__TAURI__.core.invoke('import_db_file', { base64_data: base64Data, base64Data, custom_path: targetPath, customPath: targetPath });
-              resolve(targetPath);
-            } catch (err) {
-              alert('Failed to read database file: ' + err.message);
-              resolve(null);
-            }
-          };
-          reader.readAsDataURL(file);
-        };
-        input.click();
-      }),
-
-      // Database reads and writes (AES-256-CBC)
-      readVault: (customPath) => window.__TAURI__.core.invoke('read_vault', { custom_path: customPath, customPath }),
-      writeVault: (payload, customPath) => window.__TAURI__.core.invoke('write_vault', { payload, custom_path: customPath, customPath }),
-
-      // Local utility functions
-      copyFile: (sourcePath, destPath) => window.__TAURI__.core.invoke('copy_file', { source_path: sourcePath, sourcePath, dest_path: destPath, destPath }),
-      
-      // PDF saving dialog and file writing
-      saveFileDialog: async (defaultName) => {
-        const isMobile = window.isMobilePlatform();
-        if (isMobile) {
-          return "MOBILE_SHARE_PATH:" + defaultName;
-        } else {
-          return window.__TAURI__.core.invoke('save_file_dialog', { default_name: defaultName, defaultName });
-        }
-      },
-      savePdfFile: async (base64Data, path) => {
-        if (path && path.startsWith("MOBILE_SHARE_PATH:")) {
-          const filename = path.substring("MOBILE_SHARE_PATH:".length);
-          try {
-            const byteCharacters = atob(base64Data);
-            const byteNumbers = new Array(byteCharacters.length);
-            for (let i = 0; i < byteCharacters.length; i++) {
-              byteNumbers[i] = byteCharacters.charCodeAt(i);
-            }
-            const byteArray = new Uint8Array(byteNumbers);
-            let mimeType = 'application/pdf';
-            if (filename.toLowerCase().endsWith('.png')) {
-              mimeType = 'image/png';
-            } else if (filename.toLowerCase().endsWith('.jpg') || filename.toLowerCase().endsWith('.jpeg')) {
-              mimeType = 'image/jpeg';
-            }
-            const blob = new Blob([byteArray], { type: mimeType });
-            
-            if (navigator.canShare && navigator.share) {
-              const file = new File([blob], filename, { type: mimeType });
-              if (navigator.canShare({ files: [file] })) {
-                await navigator.share({
-                  files: [file],
-                  title: filename,
-                  text: 'Exported from Mava Gems'
-                });
-                return true;
-              }
-            }
-            
-            // Fallback: blob download
-            const blobUrl = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = blobUrl;
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-            return true;
-          } catch (e) {
-            console.error("Mobile share/save PDF failed:", e);
-            alert("Failed to share PDF: " + e.message);
-            return false;
-          }
-        } else {
-          return window.__TAURI__.core.invoke('save_pdf_file', { base64_data: base64Data, base64Data, path });
-        }
-      },
-
-      // Excel (.xlsx) file saver — reuses the same Tauri command as PDF (generic base64 writer)
-      saveXlsxFile: async (base64Data, path) => {
-        if (path && path.startsWith("MOBILE_SHARE_PATH:")) {
-          const filename = path.substring("MOBILE_SHARE_PATH:".length);
-          try {
-            const byteCharacters = atob(base64Data);
-            const byteNumbers = new Array(byteCharacters.length);
-            for (let i = 0; i < byteCharacters.length; i++) {
-              byteNumbers[i] = byteCharacters.charCodeAt(i);
-            }
-            const byteArray = new Uint8Array(byteNumbers);
-            const mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-            const blob = new Blob([byteArray], { type: mimeType });
-            if (navigator.canShare && navigator.share) {
-              const file = new File([blob], filename, { type: mimeType });
-              if (navigator.canShare({ files: [file] })) {
-                await navigator.share({ files: [file], title: filename, text: 'Exported from Mava Gems' });
-                return true;
-              }
-            }
-            const blobUrl = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = blobUrl;
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-            return true;
-          } catch (e) {
-            console.error("Mobile share/save XLSX failed:", e);
-            alert("Failed to save Excel file: " + e.message);
-            return false;
-          }
-        } else {
-          // Reuse the generic base64-to-file Tauri command
-          return window.__TAURI__.core.invoke('save_pdf_file', { base64_data: base64Data, base64Data, path });
-        }
-      },
-
-      // Real-time Database File Change Hook (Tauri Events)
-      onDatabaseChanged: (callback) => {
-        window.__TAURI__.event.listen('database-file-changed', (event) => {
-          console.log("📝 Database changed externally, reloading:", event.payload);
-          callback(event.payload);
-        });
+      } catch (e) {
+        console.warn("getLastDbPath IPC fallback:", e.message);
       }
-    };
-  } else {
-    console.log("⚡ Electron environment or dev-browser detected. Initializing browser mock translation bridge...");
-    window.electronAPI = {
-      getLastDbPath: async () => {
-        return localStorage.getItem('lastActiveDbPath') || '';
-      },
-      setLastDbPath: async (dbPath) => {
+      return localStorage.getItem('lastActiveDbPath') || (window.isMobilePlatform() ? 'mava_gems_stock.db' : '');
+    },
+
+    setLastDbPath: async (dbPath) => {
+      try {
         if (dbPath) {
           localStorage.setItem('lastActiveDbPath', dbPath);
         } else {
           localStorage.removeItem('lastActiveDbPath');
         }
-        return true;
-      },
-      createDbDialog: async () => {
-        return prompt("Enter path for new database:", "mava_gems_stock.db");
-      },
-      openDbDialog: async () => {
-        return prompt("Enter path of database to open:", "mava_gems_stock.db");
-      },
-      selectDirectory: async () => {
-        return "/mock/directory";
-      },
-      exportBackupDialog: async (defaultName) => {
-        return defaultName || "mava_gems_stock_backup.db";
-      },
-      importBackupDialog: async () => {
-        return "mava_gems_stock_backup.db";
-      },
-      readVault: async (customPath) => {
-        const key = "mock_db_" + customPath;
-        let data = localStorage.getItem(key);
-        if (!data) {
-          data = JSON.stringify({
-            settings: {
-              currency: "₹",
-              goldRate24kt: {
-                ratePerGram: 0,
-                effectiveDate: new Date().toISOString().split('T')[0],
-                updatedAt: new Date().toISOString()
-              }
-            },
-            items: [],
-            logs: []
-          });
-          localStorage.setItem(key, data);
+        const core = getTauriCore();
+        if (core) {
+          return await safeInvoke('set_last_db_path', { db_path: dbPath, dbPath }, 2500);
         }
-        return { exists: true, data, path: customPath };
-      },
-      writeVault: async (payload, customPath) => {
-        localStorage.setItem("mock_db_" + customPath, payload);
-        return { success: true, path: customPath };
-      },
-      copyFile: async (sourcePath, destPath) => {
-        const data = localStorage.getItem("mock_db_" + sourcePath);
-        if (data) {
-          localStorage.setItem("mock_db_" + destPath, data);
-        }
-        return true;
-      },
-      saveFileDialog: async (defaultName) => {
-        return prompt("Save PDF to path:", defaultName);
-      },
-      savePdfFile: async (base64Data, path) => {
-        console.log(`Mock: Saved PDF file to ${path}`);
-        return true;
-      },
-      saveXlsxFile: async (base64Data, path) => {
-        console.log(`Mock: Saved XLSX file to ${path}`);
-        return true;
-      },
-      onDatabaseChanged: (callback) => {
-        console.log("📝 Mock database changed watcher registered.");
+      } catch (e) {
+        console.warn("setLastDbPath IPC fallback:", e.message);
       }
-    };
-  }
+      return true;
+    },
+
+    // Native file/folder picker dialogs
+    createDbDialog: async () => {
+      const core = getTauriCore();
+      if (core) {
+        try {
+          return await safeInvoke('create_db_dialog', {}, 10000);
+        } catch (e) {
+          console.warn("createDbDialog failed:", e);
+        }
+      }
+      return prompt("Enter path for new database:", "mava_gems_stock.db");
+    },
+    
+    openDbDialog: async () => {
+      const isMobile = window.isMobilePlatform();
+      if (isMobile) {
+        return new Promise((resolve) => {
+          const input = document.createElement('input');
+          input.type = 'file';
+          input.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) {
+              resolve(null);
+              return;
+            }
+            const reader = new FileReader();
+            reader.onload = async (evt) => {
+              try {
+                const dataUrl = evt.target.result;
+                const base64Data = dataUrl.split(',')[1];
+                let targetPath = (window.DBManager && window.DBManager.activePath) || 'mava_gems_stock.db';
+                const core = getTauriCore();
+                if (core) {
+                  await safeInvoke('import_db_file', { base64_data: base64Data, base64Data, custom_path: targetPath, customPath: targetPath }, 10000);
+                }
+                resolve(targetPath);
+              } catch (err) {
+                alert("Failed to import database file: " + err.message);
+                resolve(null);
+              }
+            };
+            reader.readAsDataURL(file);
+          };
+          input.click();
+        });
+      } else {
+        const core = getTauriCore();
+        if (core) {
+          try {
+            return await safeInvoke('open_db_dialog', {}, 10000);
+          } catch (e) {
+            console.warn("openDbDialog failed:", e);
+          }
+        }
+        return prompt("Enter path of database to open:", "mava_gems_stock.db");
+      }
+    },
+
+    selectDirectory: async () => {
+      const core = getTauriCore();
+      if (core) {
+        try {
+          return await safeInvoke('select_directory', {}, 10000);
+        } catch (e) {
+          console.warn("selectDirectory failed:", e);
+        }
+      }
+      return "/mock/directory";
+    },
+
+    exportBackupDialog: async (defaultName) => {
+      const core = getTauriCore();
+      if (core) {
+        try {
+          return await safeInvoke('export_backup_dialog', { _default_name: defaultName, default_name: defaultName, defaultName }, 10000);
+        } catch (e) {
+          console.warn("exportBackupDialog failed:", e);
+        }
+      }
+      return defaultName || "mava_gems_stock_backup.db";
+    },
+    
+    importBackupDialog: async () => {
+      const isMobile = window.isMobilePlatform();
+      if (isMobile) {
+        return new Promise((resolve) => {
+          const input = document.createElement('input');
+          input.type = 'file';
+          input.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) {
+              resolve(null);
+              return;
+            }
+            const reader = new FileReader();
+            reader.onload = async (evt) => {
+              try {
+                const dataUrl = evt.target.result;
+                const base64Data = dataUrl.split(',')[1];
+                const targetPath = (window.DBManager && window.DBManager.activePath) || 'mava_gems_stock.db';
+                const core = getTauriCore();
+                if (core) {
+                  await safeInvoke('import_db_file', { base64_data: base64Data, base64Data, custom_path: targetPath, customPath: targetPath }, 10000);
+                }
+                resolve(targetPath);
+              } catch (err) {
+                alert("Failed to import backup file: " + err.message);
+                resolve(null);
+              }
+            };
+            reader.readAsDataURL(file);
+          };
+          input.click();
+        });
+      } else {
+        const core = getTauriCore();
+        if (core) {
+          try {
+            return await safeInvoke('import_backup_dialog', {}, 10000);
+          } catch (e) {
+            console.warn("importBackupDialog failed:", e);
+          }
+        }
+        return "mava_gems_stock_backup.db";
+      }
+    },
+
+    // Mobile-only: pick a .db file from the document picker
+    mobilePickAndLoadDb: () => new Promise((resolve) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) { resolve(null); return; }
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+          try {
+            const dataUrl = evt.target.result;
+            const base64Data = dataUrl.split(',')[1];
+            let targetPath = (window.DBManager && window.DBManager.activePath) || 'mava_gems_stock.db';
+            const core = getTauriCore();
+            if (core) {
+              await safeInvoke('import_db_file', { base64_data: base64Data, base64Data, custom_path: targetPath, customPath: targetPath }, 10000);
+            }
+            resolve(targetPath);
+          } catch (err) {
+            alert('Failed to read database file: ' + err.message);
+            resolve(null);
+          }
+        };
+        reader.readAsDataURL(file);
+      };
+      input.click();
+    }),
+
+    // Database reads and writes (AES-256-CBC)
+    readVault: async (customPath) => {
+      const core = getTauriCore();
+      if (core) {
+        try {
+          return await safeInvoke('read_vault', { custom_path: customPath, customPath }, 5000);
+        } catch (e) {
+          console.warn("readVault IPC failed, checking storage fallback:", e.message);
+        }
+      }
+      const key = "mock_db_" + (customPath || 'default');
+      const data = localStorage.getItem(key);
+      if (data) {
+        return { exists: true, data, path: customPath };
+      }
+      return { exists: false, data: null };
+    },
+
+    writeVault: async (payload, customPath) => {
+      const key = "mock_db_" + (customPath || 'default');
+      try {
+        localStorage.setItem(key, payload);
+      } catch (lsErr) {
+        console.warn("localStorage quota:", lsErr);
+      }
+      const core = getTauriCore();
+      if (core) {
+        try {
+          return await safeInvoke('write_vault', { payload, custom_path: customPath, customPath }, 6000);
+        } catch (e) {
+          console.warn("writeVault IPC failed:", e.message);
+        }
+      }
+      return { success: true, path: customPath };
+    },
+
+    // Local utility functions
+    copyFile: async (sourcePath, destPath) => {
+      const core = getTauriCore();
+      if (core) {
+        try {
+          return await safeInvoke('copy_file', { source_path: sourcePath, sourcePath, dest_path: destPath, destPath }, 5000);
+        } catch (e) {
+          console.warn("copyFile IPC failed:", e);
+        }
+      }
+      const data = localStorage.getItem("mock_db_" + sourcePath);
+      if (data) {
+        localStorage.setItem("mock_db_" + destPath, data);
+      }
+      return true;
+    },
+    
+    // PDF / Image saving dialog and file writing
+    saveFileDialog: async (defaultName) => {
+      const isMobile = window.isMobilePlatform();
+      if (isMobile) {
+        return "MOBILE_SHARE_PATH:" + defaultName;
+      } else {
+        const core = getTauriCore();
+        if (core) {
+          try {
+            return await safeInvoke('save_file_dialog', { default_name: defaultName, defaultName }, 10000);
+          } catch (e) {
+            console.warn("saveFileDialog failed:", e);
+          }
+        }
+        return defaultName;
+      }
+    },
+
+    savePdfFile: async (base64Data, path) => {
+      if (path && path.startsWith("MOBILE_SHARE_PATH:")) {
+        const filename = path.substring("MOBILE_SHARE_PATH:".length);
+        try {
+          const byteCharacters = atob(base64Data);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          let mimeType = 'application/pdf';
+          if (filename.toLowerCase().endsWith('.png')) {
+            mimeType = 'image/png';
+          } else if (filename.toLowerCase().endsWith('.jpg') || filename.toLowerCase().endsWith('.jpeg')) {
+            mimeType = 'image/jpeg';
+          }
+          const blob = new Blob([byteArray], { type: mimeType });
+          
+          if (navigator.canShare && navigator.share) {
+            const file = new File([blob], filename, { type: mimeType });
+            if (navigator.canShare({ files: [file] })) {
+              await navigator.share({
+                files: [file],
+                title: filename,
+                text: 'Exported from Mava Gems'
+              });
+              return true;
+            }
+          }
+          
+          // Fallback: blob download
+          const blobUrl = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+          return true;
+        } catch (e) {
+          console.error("Mobile share/save PDF failed:", e);
+          alert("Failed to share PDF: " + e.message);
+          return false;
+        }
+      } else {
+        const core = getTauriCore();
+        if (core) {
+          return await safeInvoke('save_pdf_file', { base64_data: base64Data, base64Data, path }, 10000);
+        }
+        return true;
+      }
+    },
+
+    // Excel (.xlsx) file saver
+    saveXlsxFile: async (base64Data, path) => {
+      if (path && path.startsWith("MOBILE_SHARE_PATH:")) {
+        const filename = path.substring("MOBILE_SHARE_PATH:".length);
+        try {
+          const byteCharacters = atob(base64Data);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+          const blob = new Blob([byteArray], { type: mimeType });
+          if (navigator.canShare && navigator.share) {
+            const file = new File([blob], filename, { type: mimeType });
+            if (navigator.canShare({ files: [file] })) {
+              await navigator.share({ files: [file], title: filename, text: 'Exported from Mava Gems' });
+              return true;
+            }
+          }
+          const blobUrl = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+          return true;
+        } catch (e) {
+          console.error("Mobile share/save XLSX failed:", e);
+          alert("Failed to save Excel file: " + e.message);
+          return false;
+        }
+      } else {
+        const core = getTauriCore();
+        if (core) {
+          return await safeInvoke('save_pdf_file', { base64_data: base64Data, base64Data, path }, 10000);
+        }
+        return true;
+      }
+    },
+
+    // Real-time Database File Change Hook (Tauri Events)
+    onDatabaseChanged: (callback) => {
+      try {
+        if (window.__TAURI__ && window.__TAURI__.event && typeof window.__TAURI__.event.listen === 'function') {
+          window.__TAURI__.event.listen('database-file-changed', (event) => {
+            console.log("📝 Database changed externally, reloading:", event.payload);
+            callback(event.payload);
+          });
+        }
+      } catch (e) {
+        console.warn("Event listener not registered:", e);
+      }
+    }
+  };
 })();

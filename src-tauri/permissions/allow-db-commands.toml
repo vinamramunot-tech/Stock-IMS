@@ -16,5 +16,6 @@ allow = [
   "copy_file",
   "import_db_file",
   "save_file_dialog",
-  "save_pdf_file"
+  "save_pdf_file",
+  "convert_heic_to_jpeg"
 ]
