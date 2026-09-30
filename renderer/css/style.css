@@ -2721,6 +2721,20 @@ datalist option {
     height: 100%;
     overflow: hidden;
     /* prevent double-scroll; content scrolls inside .workspace-main */
+    -webkit-text-size-adjust: 100%;
+    touch-action: manipulation;
+  }
+
+  /* Prevent auto-zooming on focus in iOS Safari / WKWebView */
+  input[type="text"],
+  input[type="number"],
+  input[type="search"],
+  input[type="date"],
+  input[type="email"],
+  input[type="password"],
+  select,
+  textarea {
+    font-size: 16px !important;
   }
 
   /* ── 2. STARTUP / ONBOARDING: fixed overlay, card scrolls ── */

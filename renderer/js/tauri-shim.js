@@ -154,6 +154,10 @@
     },
 
     exportBackupDialog: async (defaultName) => {
+      const isMobile = window.isMobilePlatform();
+      if (isMobile) {
+        return "MOBILE_SHARE_PATH:" + (defaultName || "mava_gems_stock_backup.db");
+      }
       const core = getTauriCore();
       if (core) {
         try {
@@ -294,12 +298,6 @@
     },
 
     writeVault: async (payload, customPath) => {
-      const key = "mock_db_" + (customPath || 'default');
-      try {
-        localStorage.setItem(key, payload);
-      } catch (lsErr) {
-        console.warn("localStorage quota:", lsErr);
-      }
       const core = getTauriCore();
       if (core) {
         try {
@@ -308,11 +306,36 @@
           console.warn("writeVault IPC failed:", e.message);
         }
       }
+      const key = "mock_db_" + (customPath || 'default');
+      try {
+        localStorage.setItem(key, payload);
+      } catch (lsErr) {
+        console.warn("localStorage quota:", lsErr);
+      }
       return { success: true, path: customPath };
     },
 
     // Local utility functions
     copyFile: async (sourcePath, destPath) => {
+      if (destPath && destPath.startsWith("MOBILE_SHARE_PATH:")) {
+        const filename = destPath.substring("MOBILE_SHARE_PATH:".length);
+        try {
+          const core = getTauriCore();
+          let base64Data = null;
+          if (core) {
+            const fileInfo = await safeInvoke('read_vault', { custom_path: sourcePath, customPath: sourcePath }, 5000);
+            if (fileInfo && fileInfo.data) {
+              const str = typeof fileInfo.data === 'string' ? fileInfo.data : JSON.stringify(fileInfo.data);
+              base64Data = btoa(unescape(encodeURIComponent(str)));
+            }
+          }
+          if (base64Data) {
+            return await window.electronAPI.savePdfFile(base64Data, destPath);
+          }
+        } catch (e) {
+          console.warn("Mobile share backup fallback:", e);
+        }
+      }
       const core = getTauriCore();
       if (core) {
         try {
@@ -350,7 +373,11 @@
       if (path && path.startsWith("MOBILE_SHARE_PATH:")) {
         const filename = path.substring("MOBILE_SHARE_PATH:".length);
         try {
-          const byteCharacters = atob(base64Data);
+          let cleanBase64 = base64Data || '';
+          if (cleanBase64.includes(',')) {
+            cleanBase64 = cleanBase64.split(',')[1];
+          }
+          const byteCharacters = atob(cleanBase64);
           const byteNumbers = new Array(byteCharacters.length);
           for (let i = 0; i < byteCharacters.length; i++) {
             byteNumbers[i] = byteCharacters.charCodeAt(i);
@@ -361,6 +388,8 @@
             mimeType = 'image/png';
           } else if (filename.toLowerCase().endsWith('.jpg') || filename.toLowerCase().endsWith('.jpeg')) {
             mimeType = 'image/jpeg';
+          } else if (filename.toLowerCase().endsWith('.db') || filename.toLowerCase().endsWith('.json')) {
+            mimeType = 'application/octet-stream';
           }
           const blob = new Blob([byteArray], { type: mimeType });
           
@@ -387,8 +416,11 @@
           setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
           return true;
         } catch (e) {
+          if (e.name === 'AbortError') {
+            return true; // User tapped cancel or closed iOS share sheet
+          }
           console.error("Mobile share/save PDF failed:", e);
-          alert("Failed to share PDF: " + e.message);
+          if (window.UI) UI.showToast("Failed to share file: " + e.message, true);
           return false;
         }
       } else {
@@ -405,7 +437,11 @@
       if (path && path.startsWith("MOBILE_SHARE_PATH:")) {
         const filename = path.substring("MOBILE_SHARE_PATH:".length);
         try {
-          const byteCharacters = atob(base64Data);
+          let cleanBase64 = base64Data || '';
+          if (cleanBase64.includes(',')) {
+            cleanBase64 = cleanBase64.split(',')[1];
+          }
+          const byteCharacters = atob(cleanBase64);
           const byteNumbers = new Array(byteCharacters.length);
           for (let i = 0; i < byteCharacters.length; i++) {
             byteNumbers[i] = byteCharacters.charCodeAt(i);
@@ -430,8 +466,11 @@
           setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
           return true;
         } catch (e) {
+          if (e.name === 'AbortError') {
+            return true; // User tapped cancel or closed iOS share sheet
+          }
           console.error("Mobile share/save XLSX failed:", e);
-          alert("Failed to save Excel file: " + e.message);
+          if (window.UI) UI.showToast("Failed to save Excel file: " + e.message, true);
           return false;
         }
       } else {

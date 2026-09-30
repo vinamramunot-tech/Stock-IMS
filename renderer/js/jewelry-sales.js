@@ -1112,9 +1112,20 @@ const JewelrySalesController = {
     });
     ws['!cols'] = colWidths;
 
-    XLSX.writeFile(wb, `Jewelry_Sales_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
-    UI.showToast('Sales & Velocity report exported to Excel successfully.');
+    const filename = `Jewelry_Sales_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+    if (window.electronAPI && window.electronAPI.saveFileDialog && window.electronAPI.saveXlsxFile) {
+      const savePath = await window.electronAPI.saveFileDialog(filename);
+      if (!savePath) return;
+      const xlsxBase64 = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
+      await window.electronAPI.saveXlsxFile(xlsxBase64, savePath);
+      UI.showToast('Sales & Velocity report exported to Excel successfully.');
+    } else {
+      XLSX.writeFile(wb, filename);
+      UI.showToast('Sales & Velocity report exported to Excel successfully.');
+    }
   },
+
+  activePdfDocument: null,
 
   // ── Print Sales Report ──────────────────────────────────────────────────────
 
@@ -1201,6 +1212,9 @@ const JewelrySalesController = {
       doc.setFont("helvetica", "normal");
       y += 6.5;
     });
+
+    this.activePdfDocument = doc;
+    if (window.UI) window.UI.activePdfDocument = doc;
 
     const iframe = document.getElementById('print-preview-iframe');
     if (iframe) {

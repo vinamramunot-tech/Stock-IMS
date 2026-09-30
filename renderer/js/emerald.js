@@ -2615,18 +2615,32 @@ const EmeraldController = {
   },
 
   async handleSavePdfClick() {
-    // Use the most recently generated PDF document — could be emerald's or jewelry catalog's
-    const doc = this.activePdfDocument || (window.Catalog && window.Catalog.activePdfDocument ? window.Catalog.activePdfDocument : null);
+    // Use the most recently generated PDF document across all suites
+    const doc = this.activePdfDocument
+      || (window.Catalog && window.Catalog.activePdfDocument)
+      || (window.StoneController && window.StoneController.activePdfDocument)
+      || (window.JewelryMemoController && window.JewelryMemoController.activePdfDocument)
+      || (window.JewelrySalesController && window.JewelrySalesController.activePdfDocument)
+      || (window.UI && window.UI.activePdfDocument)
+      || null;
+
     if (!doc) return;
 
-    const isJewelry = !this.activePdfDocument && window.Catalog && window.Catalog.activePdfDocument;
+    let defaultName = `report_${new Date().toISOString().split('T')[0]}.pdf`;
+    if (this.activePdfDocument) {
+      defaultName = `emerald_stock_report_${new Date().toISOString().split('T')[0]}.pdf`;
+    } else if (window.Catalog && window.Catalog.activePdfDocument) {
+      defaultName = `jewelry_catalog_report_${new Date().toISOString().split('T')[0]}.pdf`;
+    } else if (window.StoneController && window.StoneController.activePdfDocument) {
+      defaultName = `stones_inventory_report_${new Date().toISOString().split('T')[0]}.pdf`;
+    } else if (window.JewelryMemoController && window.JewelryMemoController.activePdfDocument) {
+      defaultName = `jewelry_memo_receipt_${new Date().toISOString().split('T')[0]}.pdf`;
+    } else if (window.JewelrySalesController && window.JewelrySalesController.activePdfDocument) {
+      defaultName = `jewelry_sales_ledger_${new Date().toISOString().split('T')[0]}.pdf`;
+    }
 
     try {
-      const defaultName = isJewelry
-        ? `jewelry_catalog_report_${new Date().toISOString().split('T')[0]}.pdf`
-        : `emerald_stock_report_${new Date().toISOString().split('T')[0]}.pdf`;
       const savePath = await window.electronAPI.saveFileDialog(defaultName);
-
       if (!savePath) return; // user cancelled/closed dialog
 
       // Get pdf raw string and convert to base64
@@ -3024,13 +3038,7 @@ const EmeraldController = {
         const filename = `${gradePart}_${pudiaPart}.png`;
 
         if (isMobile) {
-          // Sequential mobile download triggers
-          const link = document.createElement('a');
-          link.download = filename;
-          link.href = dataUrl;
-          link.click();
-          // Small delay between trigger events to allow sequential mobile downloads
-          await new Promise(r => setTimeout(r, 300));
+          await window.electronAPI.savePdfFile(base64Data, "MOBILE_SHARE_PATH:" + filename);
         } else {
           // Save using Native Electron/Tauri bridge
           const separator = chosenDir.includes('\\') ? '\\' : '/';
@@ -3450,23 +3458,12 @@ const EmeraldController = {
       const defaultName = `${gradePart}_${pudiaPart}.png`;
       const base64Data = this.activeShareCanvas.toDataURL('image/png').split(',')[1];
 
-      const isMobile = window.isMobilePlatform ? window.isMobilePlatform() : (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
-      if (isMobile) {
-        // Fallback for mobile browser: standard anchor trigger
-        const link = document.createElement('a');
-        link.download = defaultName;
-        link.href = this.activeShareCanvas.toDataURL('image/png');
-        link.click();
-        UI.showToast("Export trigger complete!");
-      } else {
-        // Desktop native save dialog
-        const chosenPath = await window.electronAPI.saveFileDialog(defaultName);
-        if (!chosenPath) return; // User cancelled
+      const chosenPath = await window.electronAPI.saveFileDialog(defaultName);
+      if (!chosenPath) return; // User cancelled
 
-        await window.electronAPI.savePdfFile(base64Data, chosenPath);
-        UI.showToast("Share card exported successfully!");
-        UI.closeModal('modal-share-emerald');
-      }
+      await window.electronAPI.savePdfFile(base64Data, chosenPath);
+      UI.showToast("Share card exported successfully!");
+      UI.closeModal('modal-share-emerald');
     } catch (err) {
       console.error(err);
       UI.showToast("Export failed: " + err.message, true);
