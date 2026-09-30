@@ -44,7 +44,7 @@
       } catch (e) {
         console.warn("getLastDbPath IPC fallback:", e.message);
       }
-      return localStorage.getItem('lastActiveDbPath') || (window.isMobilePlatform() ? 'mava_gems_stock.db' : '');
+      return localStorage.getItem('lastActiveDbPath') || '';
     },
 
     setLastDbPath: async (dbPath) => {
@@ -67,14 +67,14 @@
     // Native file/folder picker dialogs
     createDbDialog: async () => {
       const core = getTauriCore();
-      if (core) {
+      if (core && !window.isMobilePlatform()) {
         try {
           return await safeInvoke('create_db_dialog', {}, 10000);
         } catch (e) {
           console.warn("createDbDialog failed:", e);
         }
       }
-      return prompt("Enter path for new database:", "mava_gems_stock.db");
+      return "mava_gems_stock.db";
     },
     
     openDbDialog: async () => {
@@ -83,9 +83,26 @@
         return new Promise((resolve) => {
           const input = document.createElement('input');
           input.type = 'file';
+          input.accept = ".db,.json,application/octet-stream,text/plain";
+          let resolved = false;
+
+          const onFocus = () => {
+            window.removeEventListener('focus', onFocus);
+            setTimeout(() => {
+              if (!resolved && (!input.files || input.files.length === 0)) {
+                resolved = true;
+                resolve(null);
+              }
+            }, 600);
+          };
+          window.addEventListener('focus', onFocus);
+
           input.onchange = async (e) => {
-            const file = e.target.files[0];
+            window.removeEventListener('focus', onFocus);
+            if (resolved) return;
+            const file = e.target.files && e.target.files[0];
             if (!file) {
+              resolved = true;
               resolve(null);
               return;
             }
@@ -94,14 +111,16 @@
               try {
                 const dataUrl = evt.target.result;
                 const base64Data = dataUrl.split(',')[1];
-                let targetPath = (window.DBManager && window.DBManager.activePath) || 'mava_gems_stock.db';
+                let targetPath = file.name || (window.DBManager && window.DBManager.activePath) || 'mava_gems_stock.db';
                 const core = getTauriCore();
                 if (core) {
                   await safeInvoke('import_db_file', { base64_data: base64Data, base64Data, custom_path: targetPath, customPath: targetPath }, 10000);
                 }
+                resolved = true;
                 resolve(targetPath);
               } catch (err) {
                 alert("Failed to import database file: " + err.message);
+                resolved = true;
                 resolve(null);
               }
             };
@@ -152,9 +171,26 @@
         return new Promise((resolve) => {
           const input = document.createElement('input');
           input.type = 'file';
+          input.accept = ".db,.json,application/octet-stream,text/plain";
+          let resolved = false;
+
+          const onFocus = () => {
+            window.removeEventListener('focus', onFocus);
+            setTimeout(() => {
+              if (!resolved && (!input.files || input.files.length === 0)) {
+                resolved = true;
+                resolve(null);
+              }
+            }, 600);
+          };
+          window.addEventListener('focus', onFocus);
+
           input.onchange = async (e) => {
-            const file = e.target.files[0];
+            window.removeEventListener('focus', onFocus);
+            if (resolved) return;
+            const file = e.target.files && e.target.files[0];
             if (!file) {
+              resolved = true;
               resolve(null);
               return;
             }
@@ -163,14 +199,16 @@
               try {
                 const dataUrl = evt.target.result;
                 const base64Data = dataUrl.split(',')[1];
-                const targetPath = (window.DBManager && window.DBManager.activePath) || 'mava_gems_stock.db';
+                const targetPath = file.name || (window.DBManager && window.DBManager.activePath) || 'mava_gems_stock.db';
                 const core = getTauriCore();
                 if (core) {
                   await safeInvoke('import_db_file', { base64_data: base64Data, base64Data, custom_path: targetPath, customPath: targetPath }, 10000);
                 }
+                resolved = true;
                 resolve(targetPath);
               } catch (err) {
                 alert("Failed to import backup file: " + err.message);
+                resolved = true;
                 resolve(null);
               }
             };
@@ -195,22 +233,40 @@
     mobilePickAndLoadDb: () => new Promise((resolve) => {
       const input = document.createElement('input');
       input.type = 'file';
+      input.accept = ".db,.json,application/octet-stream,text/plain";
+      let resolved = false;
+
+      const onFocus = () => {
+        window.removeEventListener('focus', onFocus);
+        setTimeout(() => {
+          if (!resolved && (!input.files || input.files.length === 0)) {
+            resolved = true;
+            resolve(null);
+          }
+        }, 600);
+      };
+      window.addEventListener('focus', onFocus);
+
       input.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) { resolve(null); return; }
+        window.removeEventListener('focus', onFocus);
+        if (resolved) return;
+        const file = e.target.files && e.target.files[0];
+        if (!file) { resolved = true; resolve(null); return; }
         const reader = new FileReader();
         reader.onload = async (evt) => {
           try {
             const dataUrl = evt.target.result;
             const base64Data = dataUrl.split(',')[1];
-            let targetPath = (window.DBManager && window.DBManager.activePath) || 'mava_gems_stock.db';
+            let targetPath = file.name || (window.DBManager && window.DBManager.activePath) || 'mava_gems_stock.db';
             const core = getTauriCore();
             if (core) {
               await safeInvoke('import_db_file', { base64_data: base64Data, base64Data, custom_path: targetPath, customPath: targetPath }, 10000);
             }
+            resolved = true;
             resolve(targetPath);
           } catch (err) {
             alert('Failed to read database file: ' + err.message);
+            resolved = true;
             resolve(null);
           }
         };

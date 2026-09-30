@@ -77,44 +77,10 @@ const Startup = {
     if (btnMobileHome) {
       btnMobileHome.addEventListener('click', () => this.showStartupScreen());
     }
-    const isMobile = window.isMobilePlatform ? window.isMobilePlatform() : (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
-    if (isMobile) {
-      this.autoBootMobile();
-    } else {
-      // On desktop, check if remembered path exists
-      window.electronAPI.getLastDbPath().then(path => {
-        if (!path) {
-          this.showStartupScreen();
-        } else {
-          this.bootstrapDatabase(path);
-        }
-      }).catch(() => {
-        this.showStartupScreen();
-      });
-    }
-  },
 
-  async autoBootMobile() {
-    try {
-      let targetPath = null;
-      try {
-        targetPath = await Promise.race([
-          window.electronAPI.getLastDbPath(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 2500))
-        ]);
-      } catch (timeoutErr) {
-        console.warn("Mobile last db path lookup timed out, using default:", timeoutErr);
-      }
-      if (!targetPath) {
-        targetPath = 'mava_gems_stock.db';
-      }
-      await this.bootstrapDatabase(targetPath);
-    } catch (err) {
-      console.error("Auto boot mobile failed:", err);
-      if (window.App) {
-        window.App.showLauncher();
-      }
-    }
+    // Always show the Startup / Database Setup landing screen on launch
+    // (exact same behavior on both desktop and mobile/TestFlight)
+    this.showStartupScreen();
   },
 
   startupFocusIndex: 0,
@@ -133,24 +99,34 @@ const Startup = {
   },
 
   async showStartupScreen() {
+    const ws = document.getElementById('app-workspace');
+    if (ws) ws.classList.add('hidden');
+    const ls = document.getElementById('app-launcher-screen');
+    if (ls) ls.classList.add('hidden');
+    const ss = document.getElementById('startup-screen');
+    if (ss) ss.classList.remove('hidden');
+
     try {
       const rememberedPath = await window.electronAPI.getLastDbPath();
-      if (rememberedPath) {
-        document.getElementById('startup-initial-setup-view').classList.add('hidden');
-        document.getElementById('startup-confirm-path-view').classList.remove('hidden');
-        document.getElementById('startup-db-path-text').textContent = rememberedPath;
+      const initView = document.getElementById('startup-initial-setup-view');
+      const confView = document.getElementById('startup-confirm-path-view');
+      const pathText = document.getElementById('startup-db-path-text');
+
+      if (rememberedPath && String(rememberedPath).trim().length > 0) {
+        if (initView) initView.classList.add('hidden');
+        if (confView) confView.classList.remove('hidden');
+        if (pathText) pathText.textContent = rememberedPath;
       } else {
-        document.getElementById('startup-confirm-path-view').classList.add('hidden');
-        document.getElementById('startup-initial-setup-view').classList.remove('hidden');
+        if (confView) confView.classList.add('hidden');
+        if (initView) initView.classList.remove('hidden');
       }
     } catch (err) {
-      console.error("Failed to get last DB path:", err);
-      document.getElementById('startup-confirm-path-view').classList.add('hidden');
-      document.getElementById('startup-initial-setup-view').classList.remove('hidden');
+      console.warn("Failed to get last DB path:", err);
+      const confView = document.getElementById('startup-confirm-path-view');
+      if (confView) confView.classList.add('hidden');
+      const initView = document.getElementById('startup-initial-setup-view');
+      if (initView) initView.classList.remove('hidden');
     }
-    document.getElementById('app-workspace').classList.add('hidden');
-    document.getElementById('app-launcher-screen').classList.add('hidden');
-    document.getElementById('startup-screen').classList.remove('hidden');
 
     this.startupFocusIndex = 0;
     const confirmView = document.getElementById('startup-confirm-path-view');
@@ -170,34 +146,63 @@ const Startup = {
 
   async handleStartupCreate() {
     try {
-      let chosenPath;
       const isMobile = window.isMobilePlatform ? window.isMobilePlatform() : (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
 
       if (isMobile) {
-        // Native file dialog unavailable on iOS — use a fixed default path
-        // (Tauri on iOS places app data in the app sandbox Documents dir)
-        chosenPath = await window.electronAPI.getLastDbPath() || 'mava_gems_stock.db';
+        if (window.UI && typeof window.UI.prompt === 'function') {
+          window.UI.prompt(
+            "Create New Database",
+            "Enter a name for your new database file:",
+            "mava_gems_stock.db",
+            async (dbName) => {
+              if (!dbName) return;
+              dbName = dbName.trim();
+              if (!dbName.endsWith('.db') && !dbName.endsWith('.json')) {
+                dbName += '.db';
+              }
+              await this.executeCreateDatabase(dbName);
+            }
+          );
+        } else {
+          let dbName = prompt("Enter a name for your new database file:\n(e.g. mava_gems_stock.db)", "mava_gems_stock.db");
+          if (dbName === null) return;
+          dbName = (dbName || "mava_gems_stock.db").trim();
+          if (!dbName.endsWith('.db') && !dbName.endsWith('.json')) {
+            dbName += '.db';
+          }
+          await this.executeCreateDatabase(dbName);
+        }
       } else {
-        chosenPath = await window.electronAPI.createDbDialog();
+        const chosenPath = await window.electronAPI.createDbDialog();
+        if (!chosenPath) return; // User canceled
+        await this.executeCreateDatabase(chosenPath);
       }
+    } catch (err) {
+      console.error("handleStartupCreate error:", err);
+      if (window.UI) UI.showToast('Database initialization failure: ' + err.message, true);
+    }
+  },
 
-      if (!chosenPath) return; // User canceled (desktop only)
-
+  async executeCreateDatabase(chosenPath) {
+    try {
       const initResult = await DBManager.initVault(chosenPath);
-      if (initResult.success) {
+      if (initResult && initResult.success) {
         this.hideStartupScreen();
         const activeInput = document.getElementById('active-vault-input');
         if (activeInput) {
           activeInput.value = chosenPath;
           activeInput.title = chosenPath;
         }
-        document.getElementById('settings-vault-path').textContent = chosenPath;
-        UI.showToast('Database successfully initialized!');
-        App.refreshAllDisplays();
+        const settingsPath = document.getElementById('settings-vault-path');
+        if (settingsPath) settingsPath.textContent = chosenPath;
+        const launcherDb = document.getElementById('launcher-db-path-text');
+        if (launcherDb) launcherDb.textContent = chosenPath;
+        if (window.UI) UI.showToast('Database successfully initialized!');
+        if (window.App) App.refreshAllDisplays();
       }
     } catch (err) {
-      console.error(err);
-      UI.showToast('Database initialization failure: ' + err.message, true);
+      console.error("executeCreateDatabase error:", err);
+      if (window.UI) UI.showToast('Database initialization failure: ' + err.message, true);
     }
   },
 
@@ -206,7 +211,8 @@ const Startup = {
       const selectedPath = await window.electronAPI.openDbDialog();
       if (!selectedPath) return;
 
-      if (DBManager.isLoaded) {
+      const isStartupScreenVisible = !document.getElementById('startup-screen')?.classList.contains('hidden');
+      if (DBManager.isLoaded && !isStartupScreenVisible) {
         UI.confirm('Select a database file (.db) to switch to. Your current session will be replaced.', async () => {
           try {
             await Startup.bootstrapDatabase(selectedPath);

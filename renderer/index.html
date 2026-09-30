@@ -22,13 +22,13 @@
       // 2. Global WebKit Error Boundary to guarantee screen is never blank
       window.addEventListener('error', function(e) {
         console.error("[MavaGems WebKit Error]", e.message, e.filename, e.lineno);
-        var launcher = document.getElementById('app-launcher-screen');
-        if (launcher) launcher.classList.remove('hidden');
+        var startup = document.getElementById('startup-screen');
+        if (startup) startup.classList.remove('hidden');
       });
       window.addEventListener('unhandledrejection', function(e) {
         console.error("[MavaGems WebKit Promise Rejection]", e.reason);
-        var launcher = document.getElementById('app-launcher-screen');
-        if (launcher) launcher.classList.remove('hidden');
+        var startup = document.getElementById('startup-screen');
+        if (startup) startup.classList.remove('hidden');
       });
     })();
   </script>
@@ -41,7 +41,7 @@
 <body>
 
   <!-- ==================== STARTUP / ONBOARDING SCREEN ==================== -->
-  <div id="startup-screen" class="startup-overlay-container hidden">
+  <div id="startup-screen" class="startup-overlay-container">
     <div class="startup-card">
       <div class="startup-header-row">
         <div class="startup-brand-row">
@@ -123,7 +123,7 @@
   </div>
 
   <!-- ==================== APP LAUNCHER / PORTAL SCREEN ==================== -->
-  <div id="app-launcher-screen" class="startup-overlay-container">
+  <div id="app-launcher-screen" class="startup-overlay-container hidden">
     <div class="startup-card" style="max-width: 900px; width: 95%;">
       <div class="startup-header-row">
         <div class="startup-brand-row">
@@ -2488,6 +2488,26 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary modal-close-trigger">Cancel</button>
         <button type="button" id="btn-generic-confirm-action" class="btn btn-danger">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== PROMPT DIALOG: GENERIC INPUT ==================== -->
+  <div id="modal-generic-prompt" class="modal-overlay hidden" style="z-index: 10000;">
+    <div class="modal-card mini">
+      <div class="modal-header">
+        <h3 id="generic-prompt-title">New Database</h3>
+        <button type="button" class="btn-close modal-close-trigger">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-instructions font-bold" id="generic-prompt-msg">Enter a name for your new database file:</p>
+        <div style="margin-top: 14px;">
+          <input type="text" id="generic-prompt-input" class="filter-input" style="width: 100%; height: 44px; font-size: 15px; border-radius: 8px; padding: 0 12px; box-sizing: border-box;" placeholder="mava_gems_stock.db" value="mava_gems_stock.db">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="btn-generic-prompt-cancel" class="btn btn-secondary modal-close-trigger">Cancel</button>
+        <button type="button" id="btn-generic-prompt-confirm" class="btn btn-primary">Create Database</button>
       </div>
     </div>
   </div>

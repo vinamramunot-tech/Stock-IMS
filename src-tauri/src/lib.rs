@@ -194,24 +194,16 @@ fn get_last_db_path(handle: AppHandle) -> Option<String> {
                 if let Ok(content) = std::fs::read_to_string(&config_path) {
                     if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
                         if let Some(path_str) = json.get("lastActiveDbPath").and_then(|v| v.as_str()) {
-                            if std::path::Path::new(path_str).exists() {
+                            let resolved = resolve_db_path(&handle, path_str);
+                            if resolved.exists() {
                                 return Some(path_str.to_string());
                             }
                         }
                     }
                 }
             }
-            let default_db_path = doc_dir.join("mava_gems_stock.db");
-            let path_str = default_db_path.to_string_lossy().to_string();
-            let config = serde_json::json!({
-                "lastActiveDbPath": path_str
-            });
-            if let Ok(content) = serde_json::to_string_pretty(&config) {
-                let _ = std::fs::write(&config_path, content);
-            }
-            return Some(path_str);
         }
-        return Some("mava_gems_stock.db".to_string());
+        None
     }
 
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
@@ -297,12 +289,7 @@ fn create_db_dialog(_handle: AppHandle) -> Option<String> {
     }
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     {
-        if let Ok(doc_dir) = _handle.path().document_dir() {
-            let default_db_path = doc_dir.join("mava_gems_stock.db");
-            Some(default_db_path.to_string_lossy().to_string())
-        } else {
-            Some("mava_gems_stock.db".to_string())
-        }
+        None
     }
 }
 
@@ -319,12 +306,7 @@ fn open_db_dialog(_handle: AppHandle) -> Option<String> {
     }
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     {
-        if let Ok(doc_dir) = _handle.path().document_dir() {
-            let default_db_path = doc_dir.join("mava_gems_stock.db");
-            Some(default_db_path.to_string_lossy().to_string())
-        } else {
-            Some("mava_gems_stock.db".to_string())
-        }
+        None
     }
 }
 

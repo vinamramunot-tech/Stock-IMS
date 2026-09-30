@@ -86,6 +86,68 @@ const UI = {
     this.openModal('modal-generic-confirm');
   },
 
+  // Custom generic prompt dialog to bypass WKWebView prompt blocking
+  prompt(title, message, defaultValue = '', callback) {
+    const modal = document.getElementById('modal-generic-prompt');
+    if (!modal) {
+      const res = window.prompt ? window.prompt(message, defaultValue) : defaultValue;
+      if (res !== null && callback) callback(res);
+      return;
+    }
+
+    const titleEl = document.getElementById('generic-prompt-title');
+    if (titleEl) titleEl.textContent = title || 'Input Required';
+
+    const msgEl = document.getElementById('generic-prompt-msg');
+    if (msgEl) msgEl.textContent = message || '';
+
+    const inputEl = document.getElementById('generic-prompt-input');
+    if (inputEl) {
+      inputEl.value = defaultValue || '';
+    }
+
+    const btnCancel = document.getElementById('btn-generic-prompt-cancel') || modal.querySelector('.btn-secondary');
+    const btnConfirm = document.getElementById('btn-generic-prompt-confirm') || modal.querySelector('.btn-primary');
+    const btnClose = modal.querySelector('.btn-close');
+
+    const closeAndCleanup = () => {
+      this.closeModal('modal-generic-prompt');
+    };
+
+    if (btnCancel) btnCancel.onclick = closeAndCleanup;
+    if (btnClose) btnClose.onclick = closeAndCleanup;
+
+    const handleConfirm = () => {
+      const val = inputEl ? inputEl.value.trim() : '';
+      closeAndCleanup();
+      if (callback && val) {
+        setTimeout(() => callback(val), 50);
+      }
+    };
+
+    if (btnConfirm) btnConfirm.onclick = handleConfirm;
+
+    if (inputEl) {
+      inputEl.onkeydown = (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleConfirm();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          closeAndCleanup();
+        }
+      };
+    }
+
+    this.openModal('modal-generic-prompt');
+    setTimeout(() => {
+      if (inputEl) {
+        inputEl.focus();
+        inputEl.select();
+      }
+    }, 100);
+  },
+
   // Modal Lifecycles
   openModal(modalId) {
     const modal = document.getElementById(modalId);
