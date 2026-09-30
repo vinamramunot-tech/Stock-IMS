@@ -1048,7 +1048,7 @@ const JewelrySalesController = {
 
   // ── Excel Export ────────────────────────────────────────────────────────────
 
-  exportSalesExcel() {
+  async exportSalesExcel() {
     const records = this.getSalesRecords();
     if (records.length === 0) {
       UI.showToast('No sales records available to export.', true);
