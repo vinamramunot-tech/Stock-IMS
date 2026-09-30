@@ -1870,6 +1870,19 @@
               </div>
             </div>
 
+            <!-- Card: About & Privacy Policy -->
+            <div class="settings-card">
+              <h3>About & Privacy</h3>
+              <p class="settings-card-desc">Mava Gems operates with an offline-first architecture. All database vaults, records, and imagery remain strictly local on your device.</p>
+              <div class="settings-info-box" style="margin-bottom: 14px;">
+                <span class="label">APP VERSION:</span>
+                <span class="value code" id="app-version-display">14.0.4</span>
+              </div>
+              <div class="settings-actions-row">
+                <button type="button" id="btn-view-privacy-policy" class="btn btn-secondary">View Privacy Policy</button>
+              </div>
+            </div>
+
             <!-- Card: Reset System -->
             <div class="settings-card dangerous">
               <h3>Erase System Vault</h3>
@@ -1938,6 +1951,38 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary modal-close-trigger">Cancel</button>
         <button type="button" id="btn-save-usd-rate" class="btn btn-primary">Update Exchange Rate</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: PRIVACY POLICY ==================== -->
+  <div id="modal-privacy-policy" class="modal-overlay hidden">
+    <div class="modal-card" style="width: 640px; max-width: 92vw; max-height: 85vh;">
+      <div class="modal-header">
+        <h3 style="margin: 0;">Privacy Policy &mdash; Mava Gems</h3>
+        <button type="button" class="btn-close modal-close-trigger">&times;</button>
+      </div>
+      <div class="modal-body" style="overflow-y: auto; max-height: 60vh; font-size: 13px; line-height: 1.6; color: var(--text-main); padding: 20px 24px;">
+        <p style="margin-bottom: 12px; color: var(--text-gold); font-weight: 600;">Last updated: September 29, 2026</p>
+        <p style="margin-bottom: 12px;">This Privacy Policy describes how <strong>Mava Gems</strong> handles information when you use our mobile and desktop inventory application.</p>
+        <div style="background: rgba(212, 175, 55, 0.08); border-left: 3px solid var(--text-gold); padding: 10px 14px; margin-bottom: 16px; border-radius: 0 6px 6px 0;">
+          <strong>Privacy-First Architecture:</strong> We do <em>not</em> collect, track, transmit, or sell your personal data or inventory records. All data remains exclusively on your device.
+        </div>
+        <h4 style="color: var(--text-gold); margin-top: 14px; margin-bottom: 6px;">1. Information We Access and How It Is Used</h4>
+        <ul style="padding-left: 20px; margin-bottom: 12px;">
+          <li><strong>Camera Access:</strong> Used solely to allow you to take photos of your jewelry pieces and gemstones to attach to item records. Photos are processed locally and never transmitted externally.</li>
+          <li><strong>Photo Library Access:</strong> Used to select existing jewelry images from your gallery to include in inventory entries, or to save exported catalog cards to your photo library.</li>
+          <li><strong>Local Storage:</strong> Your jewelry database is stored locally on your device in an AES-256 encrypted file vault.</li>
+        </ul>
+        <h4 style="color: var(--text-gold); margin-top: 14px; margin-bottom: 6px;">2. Zero Data Collection & Tracking</h4>
+        <p style="margin-bottom: 12px;">We do not integrate third-party analytics SDKs, advertising frameworks, user profiling networks, or tracking cookies. No user account is required to use the application.</p>
+        <h4 style="color: var(--text-gold); margin-top: 14px; margin-bottom: 6px;">3. Data Security</h4>
+        <p style="margin-bottom: 12px;">Local database files are protected using industry-standard AES-256 encryption. Because your data is stored locally, you maintain complete ownership and control over your files.</p>
+        <h4 style="color: var(--text-gold); margin-top: 14px; margin-bottom: 6px;">4. Developer & Support Contact</h4>
+        <p style="margin-bottom: 6px;">Developer: Ayush Munot &bull; Support: support@mavagems.com</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary modal-close-trigger">Close</button>
       </div>
     </div>
   </div>

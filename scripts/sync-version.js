@@ -24,7 +24,25 @@ if (fs.existsSync(cargoPath)) {
   fs.writeFileSync(cargoPath, cargoContent);
 }
 
-// 3. Clean previous iOS build output to prevent "Directory not empty" rename error
+// 3. Sync project.yml
+const projectYmlPath = path.join(__dirname, '../src-tauri/gen/apple/project.yml');
+if (fs.existsSync(projectYmlPath)) {
+  let ymlContent = fs.readFileSync(projectYmlPath, 'utf8');
+  ymlContent = ymlContent.replace(/CFBundleShortVersionString: [^\n]+/g, `CFBundleShortVersionString: ${version}`);
+  ymlContent = ymlContent.replace(/CFBundleVersion: "[^"]*"/g, `CFBundleVersion: "${version}"`);
+  fs.writeFileSync(projectYmlPath, ymlContent);
+}
+
+// 4. Sync Info.plist
+const infoPlistPath = path.join(__dirname, '../src-tauri/gen/apple/mava-gems-stock_iOS/Info.plist');
+if (fs.existsSync(infoPlistPath)) {
+  let plistContent = fs.readFileSync(infoPlistPath, 'utf8');
+  plistContent = plistContent.replace(/(<key>CFBundleShortVersionString<\/key>\s*<string>)[^<]*(<\/string>)/g, `$1${version}$2`);
+  plistContent = plistContent.replace(/(<key>CFBundleVersion<\/key>\s*<string>)[^<]*(<\/string>)/g, `$1${version}$2`);
+  fs.writeFileSync(infoPlistPath, plistContent);
+}
+
+// 5. Clean previous iOS build output to prevent "Directory not empty" rename error
 const iosBuildDir = path.join(__dirname, '../src-tauri/gen/apple/build');
 if (fs.existsSync(iosBuildDir)) {
   try {

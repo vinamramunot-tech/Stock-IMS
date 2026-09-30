@@ -44,6 +44,12 @@ const Settings = {
       UI.openModal('modal-usd-rate');
     });
     document.getElementById('btn-save-usd-rate').addEventListener('click', () => this.handleUpdateUsdRate());
+
+    // Privacy Policy modal trigger
+    const privacyBtn = document.getElementById('btn-view-privacy-policy');
+    if (privacyBtn) {
+      privacyBtn.addEventListener('click', () => UI.openModal('modal-privacy-policy'));
+    }
   },
 
   handleDisconnectVault() {
