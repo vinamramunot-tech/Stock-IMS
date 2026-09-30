@@ -7,7 +7,9 @@ use std::sync::OnceLock;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 use std::thread;
+#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 use std::time::Duration;
 use std::io::{Read, Write};
 use flate2::Compression;
@@ -19,7 +21,9 @@ use sha2::{Digest, Sha256};
 use rand::Rng;
 #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 use rfd::FileDialog;
-use tauri::{AppHandle, Emitter, Manager};
+#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+use tauri::Emitter;
+use tauri::{AppHandle, Manager};
 
 // AES-256 secure encryption configuration
 const APP_SECRET: &str = "mava-gems-luxury-jewelry-vault-security-key-2026";
@@ -115,6 +119,12 @@ fn stop_watching_db_file() {
     }
 }
 
+#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+fn start_watching_db_file(_handle: AppHandle, _path: String) {
+    // No-op on mobile platforms: mobile apps are strictly sandboxed and single-tenant
+}
+
+#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 fn start_watching_db_file(handle: AppHandle, path: String) {
     // 1. Check if we are already watching this exact file
     if let Ok(guard) = get_current_watched_file().lock() {
@@ -534,11 +544,24 @@ pub fn parse_vault_bytes(raw_buffer: &[u8]) -> Result<String, String> {
     Err("Database payload is unreadable (neither MessagePack nor valid JSON)".to_string())
 }
 
+fn resolve_db_path(handle: &AppHandle, custom_path: &str) -> std::path::PathBuf {
+    let p = std::path::Path::new(custom_path);
+    if p.is_absolute() {
+        p.to_path_buf()
+    } else {
+        handle.path().document_dir()
+            .unwrap_or_else(|_| std::path::PathBuf::from("."))
+            .join(custom_path)
+    }
+}
+
 #[tauri::command]
 async fn read_vault(handle: AppHandle, custom_path: String) -> Result<serde_json::Value, String> {
-    let custom_path_clone = custom_path.clone();
+    let resolved_path = resolve_db_path(&handle, &custom_path);
+    let resolved_path_str = resolved_path.to_string_lossy().to_string();
+    let read_path = resolved_path.clone();
     let read_result = tokio::task::spawn_blocking(move || {
-        let file_path = std::path::Path::new(&custom_path_clone);
+        let file_path = &read_path;
         if !file_path.exists() {
             return Ok(None);
         }
@@ -550,7 +573,7 @@ async fn read_vault(handle: AppHandle, custom_path: String) -> Result<serde_json
             Ok(data) => data,
             Err(err) => {
                 // Automatic backup recovery attempt if main file is unreadable
-                let backup_path = format!("{}.bak", custom_path_clone);
+                let backup_path = format!("{}.bak", read_path.to_string_lossy());
                 let b_path = std::path::Path::new(&backup_path);
                 if b_path.exists() {
                     if let Ok(b_buffer) = std::fs::read(b_path) {
@@ -572,11 +595,11 @@ async fn read_vault(handle: AppHandle, custom_path: String) -> Result<serde_json
 
     match read_result? {
         Some(json_str) => {
-            start_watching_db_file(handle, custom_path.clone());
+            start_watching_db_file(handle, resolved_path_str.clone());
             Ok(serde_json::json!({
                 "exists": true,
                 "data": json_str,
-                "path": custom_path
+                "path": resolved_path_str
             }))
         }
         None => {
@@ -589,9 +612,11 @@ async fn read_vault(handle: AppHandle, custom_path: String) -> Result<serde_json
 async fn write_vault(handle: AppHandle, payload: String, custom_path: String) -> Result<serde_json::Value, String> {
     stop_watching_db_file();
     
-    let custom_path_clone = custom_path.clone();
+    let resolved_path = resolve_db_path(&handle, &custom_path);
+    let resolved_path_str = resolved_path.to_string_lossy().to_string();
+    let write_path = resolved_path.clone();
     let write_result = tokio::task::spawn_blocking(move || {
-        let file_path = std::path::Path::new(&custom_path_clone);
+        let file_path = &write_path;
         if let Some(parent) = file_path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
@@ -611,14 +636,14 @@ async fn write_vault(handle: AppHandle, payload: String, custom_path: String) ->
             
         let encrypted_buffer = encrypt_data_bytes(&compressed_data)?;
         
-        let temp_path_str = format!("{}.tmp", custom_path_clone);
+        let temp_path_str = format!("{}.tmp", write_path.to_string_lossy());
         let temp_path = std::path::Path::new(&temp_path_str);
         
         std::fs::write(temp_path, &encrypted_buffer)
             .map_err(|e| format!("Failed to write temp file: {:?}", e))?;
             
         if file_path.exists() {
-            let backup_path_str = format!("{}.bak", custom_path_clone);
+            let backup_path_str = format!("{}.bak", write_path.to_string_lossy());
             let backup_path = std::path::Path::new(&backup_path_str);
             let _ = std::fs::copy(file_path, backup_path);
         }
@@ -633,11 +658,11 @@ async fn write_vault(handle: AppHandle, payload: String, custom_path: String) ->
     
     write_result?;
     
-    start_watching_db_file(handle, custom_path.clone());
+    start_watching_db_file(handle, resolved_path_str.clone());
     
     Ok(serde_json::json!({
         "success": true,
-        "path": custom_path
+        "path": resolved_path_str
     }))
 }
 

@@ -2205,7 +2205,7 @@ dependencies = [
 
 [[package]]
 name = "mava-gems-stock"
-version = "14.0.4"
+version = "14.0.7"
 dependencies = [
  "aes",
  "base64 0.21.7",

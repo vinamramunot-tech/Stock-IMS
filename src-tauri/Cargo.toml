@@ -1,6 +1,6 @@
 [package]
 name = "mava-gems-stock"
-version = "14.0.4"
+version = "14.0.7"
 description = "Premium, secure desktop stock management for jewelry inventory."
 authors = ["Antigravity"]
 license = "ISC"
@@ -15,6 +15,10 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2.6.2", features = [] }
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
 
 [dependencies]
 serde_json = "1.0"
