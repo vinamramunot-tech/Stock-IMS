@@ -2990,7 +2990,7 @@ const EmeraldController = {
     const includeBrand = document.getElementById('bulk-share-include-brand').checked;
     const theme = document.getElementById('bulk-share-bg-theme').value;
 
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const isMobile = window.isMobilePlatform ? window.isMobilePlatform() : (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
 
     try {
       let chosenDir = "";
@@ -3450,7 +3450,7 @@ const EmeraldController = {
       const defaultName = `${gradePart}_${pudiaPart}.png`;
       const base64Data = this.activeShareCanvas.toDataURL('image/png').split(',')[1];
 
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      const isMobile = window.isMobilePlatform ? window.isMobilePlatform() : (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
       if (isMobile) {
         // Fallback for mobile browser: standard anchor trigger
         const link = document.createElement('a');

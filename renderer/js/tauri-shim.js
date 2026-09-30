@@ -4,6 +4,11 @@
  * Exposing this shim prevents modifying any core database driver or UI rendering code.
  */
 (function() {
+  window.isMobilePlatform = function() {
+    return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  };
+
   if (window.__TAURI__) {
     console.log("💎 Tauri environment detected. Initializing global translation bridge...");
 
@@ -16,7 +21,7 @@
       createDbDialog: () => window.__TAURI__.core.invoke('create_db_dialog'),
       
       openDbDialog: async () => {
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        const isMobile = window.isMobilePlatform();
         if (isMobile) {
           return new Promise((resolve) => {
             const input = document.createElement('input');
@@ -59,7 +64,7 @@
       exportBackupDialog: (defaultName) => window.__TAURI__.core.invoke('export_backup_dialog', { _default_name: defaultName, default_name: defaultName, defaultName }),
       
       importBackupDialog: async () => {
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        const isMobile = window.isMobilePlatform();
         if (isMobile) {
           return new Promise((resolve) => {
             const input = document.createElement('input');
@@ -130,7 +135,7 @@
       
       // PDF saving dialog and file writing
       saveFileDialog: async (defaultName) => {
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        const isMobile = window.isMobilePlatform();
         if (isMobile) {
           return "MOBILE_SHARE_PATH:" + defaultName;
         } else {

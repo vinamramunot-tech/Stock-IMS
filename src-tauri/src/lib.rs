@@ -258,12 +258,17 @@ fn create_db_dialog(_handle: AppHandle) -> Option<String> {
     }
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     {
-        None
+        if let Ok(doc_dir) = _handle.path().document_dir() {
+            let default_db_path = doc_dir.join("mava_gems_stock.db");
+            Some(default_db_path.to_string_lossy().to_string())
+        } else {
+            Some("mava_gems_stock.db".to_string())
+        }
     }
 }
 
 #[tauri::command]
-fn open_db_dialog() -> Option<String> {
+fn open_db_dialog(_handle: AppHandle) -> Option<String> {
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     {
         FileDialog::new()
@@ -275,7 +280,12 @@ fn open_db_dialog() -> Option<String> {
     }
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     {
-        None
+        if let Ok(doc_dir) = _handle.path().document_dir() {
+            let default_db_path = doc_dir.join("mava_gems_stock.db");
+            Some(default_db_path.to_string_lossy().to_string())
+        } else {
+            Some("mava_gems_stock.db".to_string())
+        }
     }
 }
 

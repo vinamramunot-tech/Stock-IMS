@@ -77,12 +77,25 @@ const Startup = {
     if (btnMobileHome) {
       btnMobileHome.addEventListener('click', () => this.showStartupScreen());
     }
-    const btnMobileChangeDb = document.getElementById('btn-mobile-change-db');
-    if (btnMobileChangeDb) {
-      btnMobileChangeDb.addEventListener('click', () => this.handleMobileChangeDb());
+    const isMobile = window.isMobilePlatform ? window.isMobilePlatform() : (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+    if (isMobile) {
+      this.autoBootMobile();
+    } else {
+      this.showStartupScreen();
     }
+  },
 
-    this.showStartupScreen();
+  async autoBootMobile() {
+    try {
+      let targetPath = await window.electronAPI.getLastDbPath();
+      if (!targetPath) {
+        targetPath = 'mava_gems_stock.db';
+      }
+      await this.bootstrapDatabase(targetPath);
+    } catch (err) {
+      console.error("Auto boot mobile failed:", err);
+      this.showStartupScreen();
+    }
   },
 
   startupFocusIndex: 0,
@@ -139,7 +152,7 @@ const Startup = {
   async handleStartupCreate() {
     try {
       let chosenPath;
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      const isMobile = window.isMobilePlatform ? window.isMobilePlatform() : (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
 
       if (isMobile) {
         // Native file dialog unavailable on iOS — use a fixed default path
@@ -279,7 +292,7 @@ const Startup = {
       }
     } catch (err) {
       console.error(err);
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      const isMobile = window.isMobilePlatform ? window.isMobilePlatform() : (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
       if (isMobile) {
         // Automatically initialize default database file if it doesn't exist on mobile
         try {
