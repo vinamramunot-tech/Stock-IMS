@@ -1248,7 +1248,11 @@ const Catalog = {
 
     const statusSel = document.getElementById('jewelry-print-select-status');
     if (statusSel) {
-      statusSel.addEventListener('change', () => this.populatePrintItemsChecklist());
+      statusSel.addEventListener('change', () => {
+        // When user switches status filter, re-sync printSelectedItemIds to default for that status
+        this.resetPrintSelectionsForStatus(statusSel.value);
+        this.populatePrintItemsChecklist();
+      });
     }
 
     const catSel = document.getElementById('jewelry-print-select-category');
@@ -1274,6 +1278,16 @@ const Catalog = {
     const btnNone = document.getElementById('btn-jewelry-print-select-none');
     if (btnNone) {
       btnNone.addEventListener('click', () => this.toggleAllPrintItems(false));
+    }
+
+    const btnAllGlobal = document.getElementById('btn-jewelry-print-select-all-global');
+    if (btnAllGlobal) {
+      btnAllGlobal.addEventListener('click', () => this.selectAllPrintItemsGlobal());
+    }
+
+    const btnClearAll = document.getElementById('btn-jewelry-print-clear-all');
+    if (btnClearAll) {
+      btnClearAll.addEventListener('click', () => this.clearAllPrintItems());
     }
 
     const btnExcelMain = document.getElementById('btn-export-excel-jewelry-catalog');
@@ -1302,8 +1316,78 @@ const Catalog = {
         } else {
           multCustom.style.display = 'none';
         }
+        this.populatePrintItemsChecklist();
+      });
+      multCustom.addEventListener('input', () => {
+        this.populatePrintItemsChecklist();
       });
     }
+  },
+
+  getPrintMultiplier() {
+    const multSelect = document.getElementById('jewelry-export-price-multiplier');
+    const multCustom = document.getElementById('jewelry-export-price-multiplier-custom');
+    let multiplier = 1.0;
+    if (multSelect) {
+      if (multSelect.value === 'custom') {
+        multiplier = parseFloat(multCustom?.value) || 1.0;
+      } else {
+        multiplier = parseFloat(multSelect.value) || 1.0;
+      }
+    }
+    if (isNaN(multiplier) || multiplier <= 0) multiplier = 1.0;
+    return multiplier;
+  },
+
+  applyMultiplierToItems(items, goldRate, multiplier = 1.0) {
+    const rate = Number(goldRate || 0);
+    return items.map(item => {
+      // Evaluate item with authentic unmultiplied gold rate and real component costs
+      const evaluation = Calc.evaluateItem(item, rate);
+      const baseSellingPrice = Number(item.sellingPrice || evaluation.sellingPrice || evaluation.marketCostPrice || 0);
+      const multipliedSellingPrice = Number((baseSellingPrice * multiplier).toFixed(2));
+
+      return {
+        ...item,
+        evaluation: {
+          ...evaluation,
+          baseSellingPrice: baseSellingPrice,
+          multipliedSellingPrice: multipliedSellingPrice,
+          sellingPrice: multipliedSellingPrice,
+          unitSellingPrice: multipliedSellingPrice,
+          // Cost prices remain strictly original and unmultiplied
+          marketCostPrice: evaluation.marketCostPrice,
+          homeCostPrice: evaluation.homeCostPrice
+        }
+      };
+    });
+  },
+
+  updatePrintSelectedCountBadge() {
+    const badge = document.getElementById('jewelry-print-selected-badge');
+    if (badge) {
+      const count = this.printSelectedItemIds ? this.printSelectedItemIds.size : 0;
+      badge.textContent = `${count} selected`;
+    }
+  },
+
+  resetPrintSelectionsForStatus(status = 'active') {
+    this.printSelectedItemIds = new Set();
+    const allItems = this.getAllCatalogItems();
+    allItems.forEach(item => {
+      if (status === 'Sold') {
+        if (item.status === 'Sold') this.printSelectedItemIds.add(item.id);
+      } else if (status === 'In Stock') {
+        if (item.status === 'In Stock' || !item.status) this.printSelectedItemIds.add(item.id);
+      } else if (status === 'Issued') {
+        if (item.status === 'Issued' || item.status === 'On Memo') this.printSelectedItemIds.add(item.id);
+      } else if (status === 'all') {
+        this.printSelectedItemIds.add(item.id);
+      } else {
+        // 'active': exclude sold
+        if (item.status !== 'Sold') this.printSelectedItemIds.add(item.id);
+      }
+    });
   },
 
   openPrintModal() {
@@ -1322,6 +1406,8 @@ const Catalog = {
     }
     const catSel = document.getElementById('jewelry-print-select-category');
     if (catSel) catSel.value = '';
+    const karatSel = document.getElementById('jewelry-print-select-karat');
+    if (karatSel) karatSel.value = '';
     const multSelect = document.getElementById('jewelry-export-price-multiplier');
     if (multSelect) multSelect.value = '1.0';
     const multCustom = document.getElementById('jewelry-export-price-multiplier-custom');
@@ -1329,20 +1415,76 @@ const Catalog = {
       multCustom.style.display = 'none';
       multCustom.value = '1.0';
     }
+
+    // Initialize persistent printSelectedItemIds
+    this.printSelectedItemIds = new Set();
+    const allItems = this.getAllCatalogItems();
+    const currentStatus = statusSel ? statusSel.value : 'active';
+    const hasMainPreselection = this.selectedItemIds && this.selectedItemIds.size > 0;
+
+    if (hasMainPreselection) {
+      allItems.forEach(item => {
+        if (this.selectedItemIds.has(item.id)) {
+          if (currentStatus === 'Sold' || item.status !== 'Sold') {
+            this.printSelectedItemIds.add(item.id);
+          }
+        }
+      });
+    } else {
+      this.resetPrintSelectionsForStatus(currentStatus);
+    }
+
+    this.populatePrintCategoryFilter();
     this.populatePrintKaratFilter();
     this.populatePrintItemsChecklist();
     UI.openModal('modal-print-jewelry-catalog');
+  },
+
+  populatePrintCategoryFilter() {
+    const catSel = document.getElementById('jewelry-print-select-category');
+    if (!catSel) return;
+
+    const currentVal = catSel.value;
+    const allItems = this.getAllCatalogItems();
+    const standardCategories = ['Ring', 'Necklace', 'Earrings', 'Bracelet', 'Pendant', 'Other'];
+    const dynamicCategories = new Set(standardCategories);
+
+    allItems.forEach(item => {
+      if (item.category && typeof item.category === 'string' && item.category.trim()) {
+        dynamicCategories.add(item.category.trim());
+      }
+    });
+
+    let html = '<option value="">All Categories</option>';
+    dynamicCategories.forEach(cat => {
+      const label = cat === 'Ring' ? 'Rings' :
+                    cat === 'Necklace' ? 'Necklaces' :
+                    cat === 'Earrings' ? 'Earrings' :
+                    cat === 'Bracelet' ? 'Bracelets' :
+                    cat === 'Pendant' ? 'Pendants' :
+                    cat === 'Other' ? 'Others' : cat;
+      html += `<option value="${UI.escapeHtml(cat)}">${UI.escapeHtml(label)}</option>`;
+    });
+
+    catSel.innerHTML = html;
+    if (currentVal && dynamicCategories.has(currentVal)) {
+      catSel.value = currentVal;
+    }
   },
 
   populatePrintKaratFilter() {
     const karatSel = document.getElementById('jewelry-print-select-karat');
     if (!karatSel) return;
 
+    const currentVal = karatSel.value;
     const allItems = this.getAllCatalogItems();
     const karats = new Set();
     allItems.forEach(item => {
+      if (item.karat !== undefined && item.karat !== null && !isNaN(item.karat) && Number(item.karat) > 0) {
+        karats.add(Number(item.karat));
+      }
       (item.metals || []).forEach(m => {
-        if (m.karat !== undefined && m.karat !== null && !isNaN(m.karat)) {
+        if (m.karat !== undefined && m.karat !== null && !isNaN(m.karat) && Number(m.karat) > 0) {
           karats.add(Number(m.karat));
         }
       });
@@ -1354,6 +1496,9 @@ const Catalog = {
       html += `<option value="${kt}">${kt}KT Gold</option>`;
     });
     karatSel.innerHTML = html;
+    if (currentVal && karats.has(Number(currentVal))) {
+      karatSel.value = currentVal;
+    }
   },
 
   populatePrintItemsChecklist() {
@@ -1367,6 +1512,7 @@ const Catalog = {
     const searchText = (document.getElementById('jewelry-print-search-text')?.value || '').toLowerCase().trim();
 
     const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
+    const multiplier = this.getPrintMultiplier();
     const allItems = this.getAllCatalogItems();
 
     const filtered = allItems.filter(item => {
@@ -1378,7 +1524,9 @@ const Catalog = {
       // if selectedStatus === 'all', include both active and sold items
 
       const matchesCat = !selectedCategory || item.category === selectedCategory;
-      const matchesKarat = !selectedKarat || (item.metals || []).some(m => Number(m.karat) === Number(selectedKarat));
+      const matchesKarat = !selectedKarat ||
+        (Number(item.karat) === Number(selectedKarat)) ||
+        (item.metals || []).some(m => Number(m.karat) === Number(selectedKarat));
       const matchesSearch = !searchText || (
         (item.name || '').toLowerCase().includes(searchText) ||
         (item.sku || '').toLowerCase().includes(searchText) ||
@@ -1397,14 +1545,14 @@ const Catalog = {
 
     if (filtered.length === 0) {
       container.innerHTML = '<div style="font-size:12px; color:var(--text-muted); padding: 12px; text-align: center;">No items found for these criteria.</div>';
+      this.updatePrintSelectedCountBadge();
       return;
     }
 
-    const hasPreselection = this.selectedItemIds && this.selectedItemIds.size > 0;
-
     filtered.forEach((item) => {
       const serialNumber = item.sno || this.getItemSno(item, allItems);
-      const evaluation = Calc.evaluateItem(item, goldRate);
+      const evaluatedItem = this.applyMultiplierToItems([item], goldRate, multiplier)[0];
+      const evaluation = evaluatedItem.evaluation;
 
       const status = item.status || 'In Stock';
       let statusClass = 'stock';
@@ -1417,10 +1565,12 @@ const Catalog = {
         statusLabel = 'Sold';
       }
 
-      // Check item if it was preselected on the main grid, or if no preselection was made, default to checked for all active (non-sold) items.
-      const isChecked = (selectedStatus === 'Sold')
-        ? (hasPreselection ? this.selectedItemIds.has(item.id) : true)
-        : (hasPreselection ? (this.selectedItemIds.has(item.id) && status !== 'Sold') : (status !== 'Sold'));
+      // Checkbox state read from persistent Set
+      const isChecked = this.printSelectedItemIds ? this.printSelectedItemIds.has(item.id) : false;
+
+      const multBadge = multiplier !== 1.0
+        ? `<span style="font-size:10px; color:var(--text-gold); margin-left:4px; font-weight:600;">(${multiplier.toFixed(2)}x)</span>`
+        : '';
 
       const row = document.createElement('label');
       row.className = 'jewelry-print-item-row';
@@ -1434,37 +1584,90 @@ const Catalog = {
           <span class="jewelry-print-status-badge ${statusClass}">${statusLabel}</span>
         </div>
         <div class="jewelry-print-item-right">
-          <span class="jewelry-print-val-tag">₹${evaluation.marketCostPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+          <span class="jewelry-print-val-tag" title="Selling Price">₹${Math.round(evaluation.sellingPrice).toLocaleString('en-IN')}${multBadge}</span>
         </div>
       `;
+
+      const cb = row.querySelector('.jewelry-print-item-checkbox');
+      cb.addEventListener('change', (e) => {
+        if (!this.printSelectedItemIds) this.printSelectedItemIds = new Set();
+        if (e.target.checked) {
+          this.printSelectedItemIds.add(item.id);
+        } else {
+          this.printSelectedItemIds.delete(item.id);
+        }
+        this.updatePrintSelectedCountBadge();
+      });
+
       container.appendChild(row);
     });
+
+    this.updatePrintSelectedCountBadge();
   },
 
   toggleAllPrintItems(checked) {
+    if (!this.printSelectedItemIds) this.printSelectedItemIds = new Set();
     const checkBoxes = document.querySelectorAll('.jewelry-print-item-checkbox');
-    checkBoxes.forEach(cb => cb.checked = checked);
+    checkBoxes.forEach(cb => {
+      cb.checked = checked;
+      if (checked) {
+        this.printSelectedItemIds.add(cb.value);
+      } else {
+        this.printSelectedItemIds.delete(cb.value);
+      }
+    });
+    this.updatePrintSelectedCountBadge();
+  },
+
+  selectAllPrintItemsGlobal() {
+    if (!this.printSelectedItemIds) this.printSelectedItemIds = new Set();
+    const allItems = this.getAllCatalogItems();
+    const statusSel = document.getElementById('jewelry-print-select-status')?.value || 'active';
+    allItems.forEach(item => {
+      if (statusSel === 'Sold') {
+        if (item.status === 'Sold') this.printSelectedItemIds.add(item.id);
+      } else if (statusSel === 'In Stock') {
+        if (item.status === 'In Stock' || !item.status) this.printSelectedItemIds.add(item.id);
+      } else if (statusSel === 'Issued') {
+        if (item.status === 'Issued' || item.status === 'On Memo') this.printSelectedItemIds.add(item.id);
+      } else if (statusSel === 'all') {
+        this.printSelectedItemIds.add(item.id);
+      } else {
+        // active: exclude sold
+        if (item.status !== 'Sold') this.printSelectedItemIds.add(item.id);
+      }
+    });
+    this.populatePrintItemsChecklist();
+  },
+
+  clearAllPrintItems() {
+    if (this.printSelectedItemIds) {
+      this.printSelectedItemIds.clear();
+    }
+    this.populatePrintItemsChecklist();
   },
 
   printFromSelection() {
-    const checkedBoxes = document.querySelectorAll('.jewelry-print-item-checkbox:checked');
-    if (checkedBoxes.length === 0) {
+    if (!this.printSelectedItemIds || this.printSelectedItemIds.size === 0) {
       UI.showToast("Please select at least one jewelry piece to print.", true);
       return;
     }
 
-    const selectedIds = Array.from(checkedBoxes).map(cb => cb.value);
+    const multiplier = this.getPrintMultiplier();
     const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
     const allItems = this.getAllCatalogItems();
-    const filtered = allItems
-      .filter(item => selectedIds.includes(item.id))
-      .map(item => ({
-        ...item,
-        evaluation: Calc.evaluateItem(item, goldRate)
-      }));
+    const selectedItems = allItems.filter(item => this.printSelectedItemIds.has(item.id));
 
-    const doc = this.generatePDF(filtered, goldRate);
+    if (selectedItems.length === 0) {
+      UI.showToast("No matching items found for the current selection.", true);
+      return;
+    }
+
+    const filtered = this.applyMultiplierToItems(selectedItems, goldRate, multiplier);
+
+    const doc = this.generatePDF(filtered, goldRate, multiplier);
     this.activePdfDocument = doc;
+    this.activePdfMultiplier = multiplier;
     // Clear emerald's active PDF so the shared save button picks this one
     if (window.EmeraldController) window.EmeraldController.activePdfDocument = null;
 
@@ -1476,7 +1679,7 @@ const Catalog = {
     UI.openModal('modal-print-preview');
   },
 
-  generatePDF(filtered, goldRate) {
+  generatePDF(filtered, goldRate, multiplier = 1.0) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const allDbItems = this.getAllCatalogItems();
@@ -1508,7 +1711,8 @@ const Catalog = {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(8.5);
         doc.setTextColor(255, 255, 255);
-        doc.text("JEWELRY INVENTORY & CATALOG REPORT", marginL, 17.5);
+        const docSubTitle = "JEWELRY INVENTORY & CATALOG REPORT";
+        doc.text(docSubTitle, marginL, 17.5);
 
         // Metadata line
         doc.setFont("helvetica", "normal");
@@ -1516,15 +1720,13 @@ const Catalog = {
         doc.setTextColor(190, 195, 205);
         const dateStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) +
           ' ' + new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-        const goldStr = goldRate > 0 ? `  |  Gold Ref (24KT): INR ${Number(goldRate).toLocaleString('en-IN')}/g` : '';
-        doc.text(`Generated: ${dateStr}${goldStr}`, marginL, 23.5);
+        doc.text(`Generated: ${dateStr}`, marginL, 23.5);
 
-        // Right-side total pieces badge
+        // Right-side total pieces & multiplier badge
         doc.setFillColor(255, 255, 255, 0.1);
         doc.setDrawColor(212, 175, 55);
         doc.setLineWidth(0.3);
         doc.roundedRect(154, 7, 44, 14, 1.5, 1.5, 'FD');
-
         doc.setFont("helvetica", "bold");
         doc.setFontSize(6.5);
         doc.setTextColor(212, 175, 55);
@@ -1576,28 +1778,30 @@ const Catalog = {
       doc.text("METAL SPECS", 96, startY + 4.8);
       doc.text("STONES / DIAMONDS", 128, startY + 4.8);
       doc.text("GROSS WT", 175, startY + 4.8, { align: 'right' });
-      doc.text("VALUATION (INR)", 197, startY + 4.8, { align: 'right' });
+      doc.text("PRICE (INR)", 197, startY + 4.8, { align: 'right' });
 
       return startY + 7;
     };
 
-    // Group items by category
+    // Group items by category (track Selling Price)
     const groups = {};
-    let grandTotalValue = 0;
     let grandTotalSellingPrice = 0;
     let grandTotalGrossWt = 0;
     let grandTotalNetMetalWt = 0;
 
     filtered.forEach(item => {
       const catName = item.category || 'Other';
-      if (!groups[catName]) groups[catName] = { items: [], totalValue: 0, totalSelling: 0, totalGrossWt: 0 };
+      if (!groups[catName]) groups[catName] = { items: [], totalSelling: 0, totalGrossWt: 0 };
       groups[catName].items.push(item);
+
       const evalData = item.evaluation || Calc.evaluateItem(item, goldRate);
-      groups[catName].totalValue += (evalData.marketCostPrice || 0);
-      groups[catName].totalSelling += (evalData.sellingPrice || 0);
+      const itemPrice = evalData.multipliedSellingPrice !== undefined
+        ? Number(evalData.multipliedSellingPrice)
+        : Number(((item.sellingPrice || evalData.sellingPrice || evalData.marketCostPrice || 0) * multiplier).toFixed(2));
+
+      groups[catName].totalSelling += itemPrice;
       groups[catName].totalGrossWt += (evalData.totalGrossWeight || item.grossWeight || 0);
-      grandTotalValue += (evalData.marketCostPrice || 0);
-      grandTotalSellingPrice += (evalData.sellingPrice || 0);
+      grandTotalSellingPrice += itemPrice;
       grandTotalGrossWt += (evalData.totalGrossWeight || item.grossWeight || 0);
       grandTotalNetMetalWt += (evalData.totalNetMetalWeight || 0);
     });
@@ -1650,7 +1854,7 @@ const Catalog = {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7.2);
       doc.setTextColor(100, 116, 139);
-      doc.text(`Subtotal: INR ${Math.round(group.totalValue).toLocaleString('en-IN')}`, marginR - 3, y + 4.5, { align: 'right' });
+      doc.text(`Subtotal: INR ${Math.round(group.totalSelling).toLocaleString('en-IN')}`, marginR - 3, y + 4.5, { align: 'right' });
 
       y += 7.5;
 
@@ -1686,7 +1890,9 @@ const Catalog = {
         const stonesStr = allStonesArr.join(', ') || 'Plain Gold';
 
         const grossWt = evalData.totalGrossWeight || item.grossWeight || 0;
-        const marketCost = evalData.marketCostPrice || 0;
+        const itemSellingPrice = evalData.multipliedSellingPrice !== undefined
+          ? evalData.multipliedSellingPrice
+          : Number(((item.sellingPrice || evalData.sellingPrice || evalData.marketCostPrice || 0) * multiplier).toFixed(2));
 
         // Split text to fit columns cleanly
         const nameLines = doc.splitTextToSize(item.name || 'Unnamed Piece', 46);
@@ -1755,11 +1961,11 @@ const Catalog = {
         doc.setTextColor(30, 41, 59);
         doc.text(`${grossWt.toFixed(2)} g`, 175, y + 4.8, { align: 'right' });
 
-        // Column 7: Valuation
+        // Column 7: Price
         doc.setFont("helvetica", "bold");
         doc.setFontSize(7.5);
         doc.setTextColor(15, 23, 42);
-        doc.text(`INR ${Math.round(marketCost).toLocaleString('en-IN')}`, 197, y + 4.8, { align: 'right' });
+        doc.text(`INR ${Math.round(itemSellingPrice).toLocaleString('en-IN')}`, 197, y + 4.8, { align: 'right' });
 
         // Subtle row bottom divider line
         doc.setDrawColor(241, 245, 249);
@@ -1784,7 +1990,7 @@ const Catalog = {
       doc.text(`Subtotal (${catName}) \u2014 ${group.items.length} ${group.items.length === 1 ? 'pc' : 'pcs'}`, 48, y + 3.8);
 
       doc.text(`${group.totalGrossWt.toFixed(2)} g`, 175, y + 3.8, { align: 'right' });
-      doc.text(`INR ${Math.round(group.totalValue).toLocaleString('en-IN')}`, 197, y + 3.8, { align: 'right' });
+      doc.text(`INR ${Math.round(group.totalSelling).toLocaleString('en-IN')}`, 197, y + 3.8, { align: 'right' });
 
       y += 8;
     });
@@ -1834,35 +2040,36 @@ const Catalog = {
     doc.setTextColor(100, 116, 139);
     doc.text(`Net Metal: ${grandTotalNetMetalWt.toFixed(2)} g`, m2X, boxY + 22);
 
-    // Metric 3: Total Market Cost
+    // Metric 3: Total Selling Valuation
     const m3X = marginL + colW * 2 + 4;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(6.5);
     doc.setTextColor(100, 116, 139);
-    doc.text("MARKET VALUATION", m3X, boxY + 8);
+    doc.text("TOTAL VALUATION", m3X, boxY + 8);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.setTextColor(15, 23, 42);
-    doc.text(`INR ${Math.round(grandTotalValue).toLocaleString('en-IN')}`, m3X, boxY + 16);
+    doc.text(`INR ${Math.round(grandTotalSellingPrice).toLocaleString('en-IN')}`, m3X, boxY + 16);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(6.5);
     doc.setTextColor(100, 116, 139);
-    doc.text("Live metal & gemstone cost", m3X, boxY + 22);
+    doc.text("Catalog retail selling value", m3X, boxY + 22);
 
-    // Metric 4: Total Selling Price
+    // Metric 4: Average Selling Price per Piece
     const m4X = marginL + colW * 3 + 4;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(6.5);
     doc.setTextColor(100, 116, 139);
-    doc.text("ESTIMATED SELLING VALUE", m4X, boxY + 8);
+    doc.text("AVG PRICE / PIECE", m4X, boxY + 8);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.setTextColor(184, 134, 11);
-    doc.text(`INR ${Math.round(grandTotalSellingPrice).toLocaleString('en-IN')}`, m4X, boxY + 16);
+    const avgPrice = totalItems > 0 ? Math.round(grandTotalSellingPrice / totalItems) : 0;
+    doc.text(`INR ${avgPrice.toLocaleString('en-IN')}`, m4X, boxY + 16);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(6.5);
     doc.setTextColor(100, 116, 139);
-    doc.text("Target catalog retail", m4X, boxY + 22);
+    doc.text("Average piece selling price", m4X, boxY + 22);
 
     // Two-pass running footers on all pages
     const totalPages = doc.internal.getNumberOfPages();
@@ -1880,7 +2087,7 @@ const Catalog = {
       doc.setFont("helvetica", "normal");
       doc.setFontSize(6.5);
       doc.setTextColor(148, 163, 184);
-      doc.text("CONFIDENTIAL \u2022 INTERNAL STOCK & VALUATION REPORT", 105, 291.5, { align: 'center' });
+      doc.text("CONFIDENTIAL \u2022 JEWELRY CATALOG & VALUATION REPORT", 105, 291.5, { align: 'center' });
 
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7);
@@ -1912,69 +2119,22 @@ const Catalog = {
   // ==================== EXCEL EXPORT ====================
 
   async exportFromSelection() {
-    const checkedBoxes = document.querySelectorAll('.jewelry-print-item-checkbox:checked');
-    if (checkedBoxes.length === 0) {
+    if (!this.printSelectedItemIds || this.printSelectedItemIds.size === 0) {
       UI.showToast("Please select at least one jewelry piece to export.", true);
       return;
     }
 
-    const multSelect = document.getElementById('jewelry-export-price-multiplier');
-    const multCustom = document.getElementById('jewelry-export-price-multiplier-custom');
-    let multiplier = 1.0;
-    if (multSelect) {
-      if (multSelect.value === 'custom') {
-        multiplier = parseFloat(multCustom?.value) || 1.0;
-      } else {
-        multiplier = parseFloat(multSelect.value) || 1.0;
-      }
-    }
-    if (isNaN(multiplier) || multiplier <= 0) multiplier = 1.0;
-
-    const selectedIds = Array.from(checkedBoxes).map(cb => cb.value);
+    const multiplier = this.getPrintMultiplier();
     const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
-    const effectiveGoldRate = goldRate * multiplier;
     const allItems = this.getAllCatalogItems();
-    const filtered = allItems
-      .filter(item => selectedIds.includes(item.id))
-      .map(item => {
-        const clonedItem = JSON.parse(JSON.stringify(item));
-        if (multiplier !== 1.0) {
-          if (clonedItem.labourCost) {
-            clonedItem.labourCost = Number((Number(clonedItem.labourCost) * multiplier).toFixed(2));
-          }
-          if (clonedItem.commission && typeof clonedItem.commission === 'object' && clonedItem.commission.value !== undefined) {
-            clonedItem.commission.value = Number((Number(clonedItem.commission.value) * multiplier).toFixed(2));
-          } else if (clonedItem.commission && typeof clonedItem.commission === 'number') {
-            clonedItem.commission = Number((Number(clonedItem.commission) * multiplier).toFixed(2));
-          }
-          if (Array.isArray(clonedItem.stones)) {
-            clonedItem.stones.forEach(s => {
-              if (s.ratePerCarat) s.ratePerCarat = Number((Number(s.ratePerCarat) * multiplier).toFixed(2));
-              if (s.totalValue) s.totalValue = Number((Number(s.totalValue) * multiplier).toFixed(2));
-            });
-          }
-          if (Array.isArray(clonedItem.diamondsPolki)) {
-            clonedItem.diamondsPolki.forEach(d => {
-              if (d.ratePerCarat) d.ratePerCarat = Number((Number(d.ratePerCarat) * multiplier).toFixed(2));
-              if (d.totalValue) d.totalValue = Number((Number(d.totalValue) * multiplier).toFixed(2));
-            });
-          }
-          if (Array.isArray(clonedItem.metals)) {
-            clonedItem.metals.forEach(m => {
-              if (m.directValue !== undefined && m.directValue !== null && m.directValue !== '') {
-                m.directValue = Number((Number(m.directValue) * multiplier).toFixed(2));
-              }
-              if (m.totalValue !== undefined && m.totalValue !== null && m.totalValue !== '') {
-                m.totalValue = Number((Number(m.totalValue) * multiplier).toFixed(2));
-              }
-            });
-          }
-        }
-        return {
-          ...clonedItem,
-          evaluation: Calc.evaluateItem(clonedItem, effectiveGoldRate)
-        };
-      });
+    const selectedItems = allItems.filter(item => this.printSelectedItemIds.has(item.id));
+
+    if (selectedItems.length === 0) {
+      UI.showToast("No matching items found for the current selection.", true);
+      return;
+    }
+
+    const filtered = this.applyMultiplierToItems(selectedItems, goldRate, multiplier);
 
     UI.closeModal('modal-print-jewelry-catalog');
     UI.showToast("Generating Excel file with photos…");
@@ -1985,8 +2145,7 @@ const Catalog = {
       const dd = String(today.getDate()).padStart(2, '0');
       const mm = String(today.getMonth() + 1).padStart(2, '0');
       const yyyy = today.getFullYear();
-      const multSuffix = multiplier !== 1.0 ? ` (${multiplier.toFixed(2)}x)` : '';
-      const defaultName = `Jewelry Catalog${multSuffix} ${dd}-${mm}-${yyyy}.xlsx`;
+      const defaultName = `Jewelry Catalog ${dd}-${mm}-${yyyy}.xlsx`;
       const savePath = await window.electronAPI.saveFileDialog(defaultName);
       if (!savePath) return;
       await window.electronAPI.saveXlsxFile(xlsxBase64, savePath);
@@ -2072,7 +2231,7 @@ const Catalog = {
 
     const GLOBAL_WASTAGE = (filteredItems[0] ? Number(filteredItems[0].wastage || 15) : 15);
     const WASTAGE_FACTOR = 1 + GLOBAL_WASTAGE / 100;
-    const EFFECTIVE_GOLD_RATE = goldRate * multiplier;
+    const EFFECTIVE_GOLD_RATE = Number(goldRate || 0);
     const GOLD_RATE_PER_10G = EFFECTIVE_GOLD_RATE * 10;
     const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' });
     const goldDate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.effectiveDate : today;
@@ -2091,9 +2250,7 @@ const Catalog = {
     //  Pre-header rows (Rows 1-5)
     // =========================================================
     // Row 1: Title
-    ws.getCell('A1').value = multiplier !== 1.0
-      ? `MAVA GEMS — JEWELRY LATEST PRICE (${multiplier.toFixed(2)}x Multiplier)`
-      : 'MAVA GEMS — JEWELRY LATEST PRICE';
+    ws.getCell('A1').value = 'MAVA GEMS — JEWELRY LATEST PRICE';
     ws.getCell('A1').font = { bold: true, size: 12, name: 'Calibri' };
     ws.getCell('A1').alignment = ALIGN_CENTER;
     ws.mergeCells('A1:C1');
@@ -2112,15 +2269,7 @@ const Catalog = {
     ws.getCell('C2').alignment = ALIGN_CENTER;
     ws.getCell('C2').border = BORDER_ALL;
 
-    if (multiplier !== 1.0) {
-      ws.getCell('D2').value = 'Multiplier';
-      ws.getCell('D2').font = { bold: true, size: 10, name: 'Calibri' };
-      ws.getCell('D2').border = BORDER_ALL;
-      ws.getCell('E2').value = `${multiplier.toFixed(2)}x`;
-      ws.getCell('E2').font = { bold: true, size: 10, name: 'Calibri' };
-      ws.getCell('E2').alignment = ALIGN_CENTER;
-      ws.getCell('E2').border = BORDER_ALL;
-    }
+    // Multiplier not shown in client sheet
 
     // Row 3: Wastage multiplier
     ws.getCell('A3').value = 'wastage';
@@ -2626,16 +2775,19 @@ const Catalog = {
       //  Column P: SP for Market (1.4x markup on Market CP non-emeralds + Emeralds)
       // =========================================================
       const cellP = ws.getCell(mtlR, C.P);
+      const effectiveMarkup = Number((1.4 * multiplier).toFixed(4));
       if (emeraldLRefs.length > 0) {
         const emSum = emeraldLRefs.join('+');
         cellP.value = {
-          formula: `ROUND(((${colLetter(C.M)}${mtlR}-(${emSum}))*1.4)+(${emSum}), 2)`,
-          result: Number(item.evaluation.sellingPrice.toFixed(2))
+          formula: multiplier === 1.0
+            ? `ROUND((((${colLetter(C.M)}${mtlR}-(${emSum}))*1.4)+(${emSum})), 2)`
+            : `ROUND((((${colLetter(C.M)}${mtlR}-(${emSum}))*${effectiveMarkup})+(${emSum}*${Number(multiplier.toFixed(4))})), 2)`,
+          result: Number((item.evaluation.sellingPrice).toFixed(2))
         };
       } else {
         cellP.value = {
-          formula: `ROUND(${colLetter(C.M)}${mtlR}*1.4, 2)`,
-          result: Number(item.evaluation.sellingPrice.toFixed(2))
+          formula: `ROUND(${colLetter(C.M)}${mtlR}*${effectiveMarkup}, 2)`,
+          result: Number((item.evaluation.sellingPrice).toFixed(2))
         };
       }
       cellP.numFmt = '#,##0.00';
@@ -4586,8 +4738,7 @@ const Catalog = {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(7);
         doc.setTextColor(...pal.textMuted);
-        const goldStr = goldRate > 0 ? `  |  Gold Ref (24KT): ₹${goldRate.toLocaleString('en-IN')}/g` : '';
-        doc.text(`Date: ${new Date().toLocaleDateString('en-IN')}  |  Collection: ${totalItems} Item(s)${goldStr}`, marginX, 20);
+        doc.text(`Date: ${new Date().toLocaleDateString('en-IN')}  |  Collection: ${totalItems} Item(s)`, marginX, 20);
 
         // Right side badge
         doc.setFillColor(...pal.badgeBg);
