@@ -135,6 +135,11 @@
 //! [`raw_window_handle`]: ./window/struct.Window.html#method.raw_window_handle
 //! [`raw_display_handle`]: ./window/struct.Window.html#method.raw_display_handle
 #![allow(
+  unused_imports,
+  deprecated,
+  unused_unsafe,
+  dead_code,
+  unused_variables,
   clippy::match_str_case_mismatch,
   clippy::upper_case_acronyms,
   clippy::from_over_into,

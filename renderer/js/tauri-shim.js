@@ -40,7 +40,57 @@
     return null;
   }
 
-  // ── Helper Utilities for Binary & Gzip Processing ──────────────────────────
+  // ── Helper Utilities for Binary, AES-256-CBC Encryption & Gzip Processing ──
+
+  const VAULT_SECRET = "mava-gems-luxury-jewelry-vault-security-key-2026";
+  let cachedCryptoKey = null;
+
+  async function getCryptoKey() {
+    if (cachedCryptoKey) return cachedCryptoKey;
+    if (typeof crypto !== 'undefined' && crypto.subtle) {
+      try {
+        const keyBytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(VAULT_SECRET));
+        cachedCryptoKey = await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-CBC' }, false, ['encrypt', 'decrypt']);
+        return cachedCryptoKey;
+      } catch (e) {
+        console.warn("Crypto key derivation error:", e);
+      }
+    }
+    return null;
+  }
+
+  async function decryptAesCbcBytes(bytes) {
+    if (!bytes || bytes.length <= 16) return bytes;
+    try {
+      const key = await getCryptoKey();
+      if (!key) return bytes;
+      const iv = bytes.slice(0, 16);
+      const ciphertext = bytes.slice(16);
+      const decryptedBuf = await crypto.subtle.decrypt({ name: 'AES-CBC', iv }, key, ciphertext);
+      return new Uint8Array(decryptedBuf);
+    } catch (e) {
+      // If not encrypted or invalid key, return original bytes
+      return bytes;
+    }
+  }
+
+  async function encryptAesCbcBytes(bytes) {
+    if (!bytes || bytes.length === 0) return bytes;
+    try {
+      const key = await getCryptoKey();
+      if (!key) return bytes;
+      const iv = crypto.getRandomValues(new Uint8Array(16));
+      const ciphertextBuf = await crypto.subtle.encrypt({ name: 'AES-CBC', iv }, key, bytes);
+      const ciphertext = new Uint8Array(ciphertextBuf);
+      const combined = new Uint8Array(16 + ciphertext.length);
+      combined.set(iv, 0);
+      combined.set(ciphertext, 16);
+      return combined;
+    } catch (e) {
+      console.warn("Encryption failed:", e);
+      return bytes;
+    }
+  }
 
   function uint8ArrayToBase64(bytes) {
     let binary = '';
@@ -149,23 +199,52 @@
     }
 
     if (bytes && bytes.length > 0) {
-      // Check for Gzip magic bytes: [0x1f, 0x8b]
+      // 1. Direct UTF-8 JSON check
+      try {
+        const directText = new TextDecoder('utf-8').decode(bytes).trim();
+        if (directText.startsWith('{') && directText.endsWith('}')) {
+          return directText;
+        }
+      } catch (_) {}
+
+      // 2. Decrypt with AES-256-CBC (standard desktop vault format)
+      let payloadBytes = await decryptAesCbcBytes(bytes);
+
+      // 3. Decompress Gzip if magic bytes present [0x1f, 0x8b]
+      if (payloadBytes.length >= 2 && payloadBytes[0] === 0x1f && payloadBytes[1] === 0x8b) {
+        const decompressed = await decompressGzipBytes(payloadBytes);
+        if (decompressed && decompressed.trim().startsWith('{')) {
+          return decompressed;
+        }
+      }
+
+      // 4. Try UTF-8 on decrypted bytes
+      try {
+        const text = new TextDecoder('utf-8').decode(payloadBytes).trim();
+        if (text.startsWith('{') && text.endsWith('}')) {
+          return text;
+        }
+      } catch (_) {}
+
+      // 5. Fallback for unencrypted Gzip bytes
       if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
         const decompressed = await decompressGzipBytes(bytes);
-        return decompressed;
-      }
-      try {
-        const text = new TextDecoder('utf-8').decode(bytes);
-        const trimmed = text.trim();
-        if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-          return trimmed;
+        if (decompressed && decompressed.trim().startsWith('{')) {
+          return decompressed;
         }
-      } catch (e) {
-        console.warn("UTF-8 text decoding error:", e);
       }
     }
 
     return typeof raw === 'string' ? raw : null;
+  }
+
+  async function encodeVaultPayload(jsonString) {
+    // 1. Gzip compression
+    const gzipped = await compressGzipString(jsonString);
+    // 2. AES-256-CBC encryption with 16-byte random IV
+    const encrypted = await encryptAesCbcBytes(gzipped);
+    // 3. Return base64 string
+    return uint8ArrayToBase64(encrypted);
   }
 
   console.log("💎 Initializing universal translation bridge for Mava Gems (Tauri & Capacitor dual-mode)...");
@@ -178,19 +257,7 @@
       input.accept = ".db,.json,application/octet-stream,text/plain,*/*";
       let resolved = false;
 
-      const onFocus = () => {
-        window.removeEventListener('focus', onFocus);
-        setTimeout(() => {
-          if (!resolved && (!input.files || input.files.length === 0)) {
-            resolved = true;
-            resolve(null);
-          }
-        }, 800);
-      };
-      window.addEventListener('focus', onFocus);
-
       input.onchange = async (e) => {
-        window.removeEventListener('focus', onFocus);
         if (resolved) return;
         const file = e.target.files && e.target.files[0];
         if (!file) {
@@ -220,8 +287,7 @@
             const fs = getCapacitorPlugin('Filesystem');
             if (fs) {
               try {
-                const compressedBytes = await compressGzipString(jsonString);
-                const base64Data = uint8ArrayToBase64(compressedBytes);
+                const base64Data = await encodeVaultPayload(jsonString);
                 await fs.writeFile({
                   path: targetName,
                   data: base64Data,
@@ -267,6 +333,14 @@
         };
         reader.readAsArrayBuffer(file);
       };
+
+      input.oncancel = () => {
+        if (!resolved) {
+          resolved = true;
+          resolve(null);
+        }
+      };
+
       input.click();
     });
   }
@@ -448,8 +522,7 @@
       const fs = getCapacitorPlugin('Filesystem');
       if (fs) {
         try {
-          const compressedBytes = await compressGzipString(content);
-          const base64Data = uint8ArrayToBase64(compressedBytes);
+          const base64Data = await encodeVaultPayload(content);
           await fs.writeFile({
             path: fileName,
             data: base64Data,
@@ -483,8 +556,7 @@
           const fileInfo = await window.electronAPI.readVault(sourcePath);
           if (fileInfo && fileInfo.data) {
             const str = typeof fileInfo.data === 'string' ? fileInfo.data : JSON.stringify(fileInfo.data);
-            const compressed = await compressGzipString(str);
-            const base64Data = uint8ArrayToBase64(compressed);
+            const base64Data = await encodeVaultPayload(str);
             return await window.electronAPI.savePdfFile(base64Data, destPath);
           }
         } catch (e) {
