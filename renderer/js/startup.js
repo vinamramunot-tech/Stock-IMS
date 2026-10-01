@@ -316,7 +316,21 @@ const Startup = {
         if (launcherDb) launcherDb.textContent = customPath;
         
         UI.showToast("Database successfully loaded!");
-        App.refreshAllDisplays();
+        if (window.App && window.App.dirtyTabs) {
+          window.App.dirtyTabs.clear();
+        }
+        if (window.App && typeof window.App.refreshAllDisplays === 'function') {
+          window.App.refreshAllDisplays();
+        }
+        if (window.Catalog && typeof window.Catalog.renderCatalogGrid === 'function') {
+          window.Catalog.renderCatalogGrid();
+        }
+        if (window.EmeraldController && typeof window.EmeraldController.renderEmeraldGrid === 'function') {
+          window.EmeraldController.renderEmeraldGrid();
+        }
+        if (window.StoneController && typeof window.StoneController.renderStoneGrid === 'function') {
+          window.StoneController.renderStoneGrid();
+        }
       }
     } catch (err) {
       console.warn("Vault load failure:", err.message);

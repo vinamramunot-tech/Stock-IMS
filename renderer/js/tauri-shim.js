@@ -43,53 +43,127 @@
   // ── Helper Utilities for Binary, AES-256-CBC Encryption & Gzip Processing ──
 
   const VAULT_SECRET = "mava-gems-luxury-jewelry-vault-security-key-2026";
+  // Precomputed SHA-256 hash of VAULT_SECRET (32 bytes) for instant key import
+  const RAW_KEY_BYTES = new Uint8Array([29,46,29,31,12,172,20,255,184,70,245,63,154,149,70,25,74,74,246,248,31,158,42,130,214,241,196,219,170,15,237,62]);
   let cachedCryptoKey = null;
 
   async function getCryptoKey() {
     if (cachedCryptoKey) return cachedCryptoKey;
     if (typeof crypto !== 'undefined' && crypto.subtle) {
       try {
-        const keyBytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(VAULT_SECRET));
-        cachedCryptoKey = await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-CBC' }, false, ['encrypt', 'decrypt']);
+        cachedCryptoKey = await crypto.subtle.importKey('raw', RAW_KEY_BYTES, { name: 'AES-CBC' }, false, ['encrypt', 'decrypt']);
         return cachedCryptoKey;
       } catch (e) {
-        console.warn("Crypto key derivation error:", e);
+        console.warn("Crypto key import error:", e);
       }
     }
     return null;
   }
 
+  function decryptAesCbcWithCryptoJS(bytes) {
+    if (typeof CryptoJS === 'undefined' || !bytes || bytes.length <= 16) return bytes;
+    try {
+      const iv = bytes.subarray(0, 16);
+      const ciphertext = bytes.subarray(16);
+      const keyWA = CryptoJS.lib.WordArray.create(RAW_KEY_BYTES);
+      const ivWA = CryptoJS.lib.WordArray.create(iv);
+      const cipherWA = CryptoJS.lib.WordArray.create(ciphertext);
+      const cipherParams = CryptoJS.lib.CipherParams.create({ ciphertext: cipherWA });
+      const decrypted = CryptoJS.AES.decrypt(cipherParams, keyWA, {
+        iv: ivWA,
+        mode: CryptoJS.mode.CBC,
+        padding: CryptoJS.pad.Pkcs7
+      });
+      const words = decrypted.words;
+      const sigBytes = decrypted.sigBytes;
+      if (!sigBytes || sigBytes <= 0) return bytes;
+      const u8 = new Uint8Array(sigBytes);
+      for (let i = 0; i < sigBytes; i++) {
+        u8[i] = (words[i >>> 2] >>> (24 - (i % 4) * 8)) & 0xff;
+      }
+      return u8;
+    } catch (e) {
+      console.warn("CryptoJS decrypt fallback note:", e);
+      return bytes;
+    }
+  }
+
   async function decryptAesCbcBytes(bytes) {
     if (!bytes || bytes.length <= 16) return bytes;
+    // 1. Try native WebCrypto first (hardware accelerated, ~35ms)
     try {
       const key = await getCryptoKey();
-      if (!key) return bytes;
-      const iv = bytes.slice(0, 16);
-      const ciphertext = bytes.slice(16);
-      const decryptedBuf = await crypto.subtle.decrypt({ name: 'AES-CBC', iv }, key, ciphertext);
-      return new Uint8Array(decryptedBuf);
+      if (key) {
+        const iv = bytes.subarray(0, 16);
+        const ciphertext = bytes.subarray(16);
+        const decryptedBuf = await crypto.subtle.decrypt({ name: 'AES-CBC', iv }, key, ciphertext);
+        return new Uint8Array(decryptedBuf);
+      }
     } catch (e) {
-      // If not encrypted or invalid key, return original bytes
+      console.warn("WebCrypto decrypt note:", e.message);
+    }
+    // 2. Pure JS fallback via CryptoJS (~290ms, works in all webviews)
+    try {
+      const jsDecrypted = decryptAesCbcWithCryptoJS(bytes);
+      if (jsDecrypted && jsDecrypted !== bytes && jsDecrypted.length > 0) {
+        return jsDecrypted;
+      }
+    } catch (e) {
+      console.warn("CryptoJS decrypt note:", e.message);
+    }
+    return bytes;
+  }
+
+  function encryptAesCbcWithCryptoJS(bytes) {
+    if (typeof CryptoJS === 'undefined' || !bytes || bytes.length === 0) return bytes;
+    try {
+      const iv = new Uint8Array(16);
+      if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+        crypto.getRandomValues(iv);
+      } else {
+        for (let i = 0; i < 16; i++) iv[i] = Math.floor(Math.random() * 256);
+      }
+      const keyWA = CryptoJS.lib.WordArray.create(RAW_KEY_BYTES);
+      const ivWA = CryptoJS.lib.WordArray.create(iv);
+      const plainWA = CryptoJS.lib.WordArray.create(bytes);
+      const encrypted = CryptoJS.AES.encrypt(plainWA, keyWA, {
+        iv: ivWA,
+        mode: CryptoJS.mode.CBC,
+        padding: CryptoJS.pad.Pkcs7
+      });
+      const cipherWords = encrypted.ciphertext.words;
+      const cipherLen = encrypted.ciphertext.sigBytes;
+      const combined = new Uint8Array(16 + cipherLen);
+      combined.set(iv, 0);
+      for (let i = 0; i < cipherLen; i++) {
+        combined[16 + i] = (cipherWords[i >>> 2] >>> (24 - (i % 4) * 8)) & 0xff;
+      }
+      return combined;
+    } catch (e) {
+      console.warn("CryptoJS encrypt note:", e);
       return bytes;
     }
   }
 
   async function encryptAesCbcBytes(bytes) {
     if (!bytes || bytes.length === 0) return bytes;
+    // 1. Try native WebCrypto
     try {
       const key = await getCryptoKey();
-      if (!key) return bytes;
-      const iv = crypto.getRandomValues(new Uint8Array(16));
-      const ciphertextBuf = await crypto.subtle.encrypt({ name: 'AES-CBC', iv }, key, bytes);
-      const ciphertext = new Uint8Array(ciphertextBuf);
-      const combined = new Uint8Array(16 + ciphertext.length);
-      combined.set(iv, 0);
-      combined.set(ciphertext, 16);
-      return combined;
+      if (key && typeof crypto !== 'undefined' && crypto.getRandomValues) {
+        const iv = crypto.getRandomValues(new Uint8Array(16));
+        const ciphertextBuf = await crypto.subtle.encrypt({ name: 'AES-CBC', iv }, key, bytes);
+        const ciphertext = new Uint8Array(ciphertextBuf);
+        const combined = new Uint8Array(16 + ciphertext.length);
+        combined.set(iv, 0);
+        combined.set(ciphertext, 16);
+        return combined;
+      }
     } catch (e) {
-      console.warn("Encryption failed:", e);
-      return bytes;
+      console.warn("WebCrypto encrypt note:", e.message);
     }
+    // 2. Pure JS fallback via CryptoJS
+    return encryptAesCbcWithCryptoJS(bytes);
   }
 
   function uint8ArrayToBase64(bytes) {
@@ -195,13 +269,36 @@
     }
   }
 
+  function decompressGzipBytesSync(uint8Array) {
+    if (!uint8Array || uint8Array.length < 2) return null;
+    if (uint8Array[0] !== 0x1f || uint8Array[1] !== 0x8b) return null;
+    if (typeof pako !== 'undefined' && typeof pako.ungzip === 'function') {
+      try {
+        return pako.ungzip(uint8Array, { to: 'string' });
+      } catch (e) {
+        try {
+          const raw = pako.ungzip(uint8Array);
+          return new TextDecoder('utf-8').decode(raw);
+        } catch (_) {}
+      }
+    }
+    return null;
+  }
+
   async function decompressGzipRawBytes(uint8Array) {
+    if (typeof pako !== 'undefined' && typeof pako.ungzip === 'function') {
+      try {
+        return pako.ungzip(uint8Array);
+      } catch (pakoErr) {
+        console.warn("pako.ungzip error:", pakoErr);
+      }
+    }
     if (typeof DecompressionStream !== 'undefined') {
       try {
         const ds = new DecompressionStream('gzip');
         const writer = ds.writable.getWriter();
-        writer.write(uint8Array);
-        writer.close();
+        await writer.write(uint8Array);
+        await writer.close();
         const output = [];
         const reader = ds.readable.getReader();
         let totalSize = 0;
@@ -226,17 +323,26 @@
   }
 
   async function decompressGzipBytes(uint8Array) {
+    const syncResult = decompressGzipBytesSync(uint8Array);
+    if (syncResult) return syncResult;
     const raw = await decompressGzipRawBytes(uint8Array);
     return new TextDecoder('utf-8').decode(raw);
   }
 
   async function compressGzipString(utf8String) {
+    if (typeof pako !== 'undefined' && typeof pako.gzip === 'function') {
+      try {
+        return pako.gzip(utf8String, { level: 1 });
+      } catch (e) {
+        console.warn("pako.gzip error:", e);
+      }
+    }
     if (typeof CompressionStream !== 'undefined') {
       try {
         const cs = new CompressionStream('gzip');
         const writer = cs.writable.getWriter();
-        writer.write(new TextEncoder().encode(utf8String));
-        writer.close();
+        await writer.write(new TextEncoder().encode(utf8String));
+        await writer.close();
         const output = [];
         const reader = cs.readable.getReader();
         let totalSize = 0;
@@ -297,6 +403,11 @@
 
       // 3. Decompress Gzip if magic bytes present [0x1f, 0x8b]
       if (payloadBytes.length >= 2 && payloadBytes[0] === 0x1f && payloadBytes[1] === 0x8b) {
+        const pakoString = decompressGzipBytesSync(payloadBytes);
+        if (pakoString && pakoString.trim().startsWith('{') && pakoString.trim().endsWith('}')) {
+          return pakoString.trim();
+        }
+
         const decompressedRaw = await decompressGzipRawBytes(payloadBytes);
         try {
           const text = new TextDecoder('utf-8').decode(decompressedRaw).trim();
@@ -328,6 +439,11 @@
 
       // 6. Fallback for unencrypted Gzip bytes
       if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
+        const pakoString = decompressGzipBytesSync(bytes);
+        if (pakoString && pakoString.trim().startsWith('{') && pakoString.trim().endsWith('}')) {
+          return pakoString.trim();
+        }
+
         const decompressedRaw = await decompressGzipRawBytes(bytes);
         try {
           const text = new TextDecoder('utf-8').decode(decompressedRaw).trim();
@@ -445,22 +561,53 @@
     return new Promise((resolve) => {
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = ".db,.json,application/octet-stream,text/plain,*/*";
+      input.accept = "*/*";
+      input.style.position = 'fixed';
+      input.style.top = '-10000px';
+      input.style.left = '-10000px';
+      input.style.opacity = '0';
+      input.style.pointerEvents = 'none';
+      document.body.appendChild(input);
+
       let resolved = false;
+      const cleanup = () => {
+        if (input.parentNode) {
+          input.parentNode.removeChild(input);
+        }
+      };
 
       input.onchange = async (e) => {
         if (resolved) return;
         const file = e.target.files && e.target.files[0];
         if (!file) {
           resolved = true;
+          cleanup();
           resolve(null);
           return;
         }
 
+        if (window.UI && typeof window.UI.showToast === 'function') {
+          window.UI.showToast("Reading database from OneDrive...", false);
+        }
+
         const reader = new FileReader();
+        reader.onerror = () => {
+          cleanup();
+          if (!resolved) {
+            resolved = true;
+            const msg = reader.error ? reader.error.message : "File read error";
+            alert("Unable to read selected file from OneDrive: " + msg);
+            resolve(null);
+          }
+        };
+
         reader.onload = async (evt) => {
           try {
             const arrayBuffer = evt.target.result;
+            if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+              throw new Error("Selected database file is empty (0 bytes). Please ensure the file has downloaded from OneDrive in the Files app.");
+            }
+
             const jsonString = await parseVaultPayload(arrayBuffer);
             if (!jsonString) {
               throw new Error("Unable to parse database file. Format must be a valid .db or .json file.");
@@ -476,7 +623,9 @@
 
             // 1. Save to IndexedDB (completely handles 25MB+ databases on iOS without quota errors)
             await idbSet("vault_" + targetName, jsonString);
+            await idbSet("vault_mava_gems_stock.db", jsonString);
             await idbSet("lastActiveDbPath", targetName);
+            await idbSet("lastActiveDbPayload", jsonString);
 
             // 2. Save to Capacitor native Filesystem Documents folder
             const fs = getCapacitorPlugin('Filesystem');
@@ -517,9 +666,11 @@
               }
             }
 
+            cleanup();
             resolved = true;
             resolve(targetName);
           } catch (err) {
+            cleanup();
             alert("Failed to load database file: " + err.message);
             resolved = true;
             resolve(null);
@@ -528,12 +679,17 @@
         reader.readAsArrayBuffer(file);
       };
 
-      input.oncancel = () => {
-        if (!resolved) {
-          resolved = true;
-          resolve(null);
-        }
+      // Safely handle cancel on window regain focus
+      const focusListener = () => {
+        setTimeout(() => {
+          if (!resolved && (!input.files || input.files.length === 0)) {
+            cleanup();
+            resolved = true;
+            resolve(null);
+          }
+        }, 1500);
       };
+      window.addEventListener('focus', focusListener, { once: true });
 
       input.click();
     });
@@ -658,7 +814,13 @@
 
       // 1. Check IndexedDB cache first (unlimited quota, persistent on iOS)
       try {
-        const idbData = await idbGet("vault_" + fileName);
+        let idbData = await idbGet("vault_" + fileName);
+        if (!idbData && fileName !== 'mava_gems_stock.db') {
+          idbData = await idbGet("vault_mava_gems_stock.db");
+        }
+        if (!idbData) {
+          idbData = await idbGet("lastActiveDbPayload");
+        }
         if (idbData) {
           const jsonStr = await parseVaultPayload(idbData);
           if (jsonStr) {
@@ -972,4 +1134,37 @@
       }
     }
   };
+
+  // Capacitor iOS: Handle files opened via "Open in Mava Gems" from OneDrive or Files app
+  if (isCapacitor() && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
+    try {
+      window.Capacitor.Plugins.App.addListener('appUrlOpen', async (data) => {
+        if (data && data.url) {
+          try {
+            console.log("💎 Mava Gems received external file URL:", data.url);
+            if (window.UI && typeof window.UI.showToast === 'function') {
+              window.UI.showToast("Importing database from OneDrive...", false);
+            }
+            const response = await fetch(data.url);
+            const arrayBuffer = await response.arrayBuffer();
+            if (arrayBuffer && arrayBuffer.byteLength > 0) {
+              const jsonString = await parseVaultPayload(arrayBuffer);
+              if (jsonString) {
+                const fileName = data.url.split('/').pop() || 'mava_gems_stock.db';
+                await idbSet("vault_" + fileName, jsonString);
+                await idbSet("vault_mava_gems_stock.db", jsonString);
+                await idbSet("lastActiveDbPath", fileName);
+                await idbSet("lastActiveDbPayload", jsonString);
+                if (window.Startup && typeof window.Startup.bootstrapDatabase === 'function') {
+                  await window.Startup.bootstrapDatabase(fileName);
+                }
+              }
+            }
+          } catch (urlErr) {
+            console.warn("appUrlOpen handling note:", urlErr);
+          }
+        }
+      });
+    } catch (_) {}
+  }
 })();
