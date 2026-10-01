@@ -51,4 +51,22 @@ if (fs.existsSync(iosBuildDir)) {
   } catch (e) {}
 }
 
+// 6. Sync Capacitor iOS Info.plist
+const capPlistPath = path.join(__dirname, '../ios/App/App/Info.plist');
+if (fs.existsSync(capPlistPath)) {
+  let capPlistContent = fs.readFileSync(capPlistPath, 'utf8');
+  capPlistContent = capPlistContent.replace(/(<key>CFBundleShortVersionString<\/key>\s*<string>)[^<]*(<\/string>)/g, `$1${version}$2`);
+  capPlistContent = capPlistContent.replace(/(<key>CFBundleVersion<\/key>\s*<string>)[^<]*(<\/string>)/g, `$1${version}$2`);
+  fs.writeFileSync(capPlistPath, capPlistContent);
+}
+
+// 7. Sync Capacitor project.pbxproj MARKETING_VERSION and CURRENT_PROJECT_VERSION
+const pbxPath = path.join(__dirname, '../ios/App/App.xcodeproj/project.pbxproj');
+if (fs.existsSync(pbxPath)) {
+  let pbxContent = fs.readFileSync(pbxPath, 'utf8');
+  pbxContent = pbxContent.replace(/MARKETING_VERSION = [^;]+;/g, `MARKETING_VERSION = ${version};`);
+  pbxContent = pbxContent.replace(/CURRENT_PROJECT_VERSION = [^;]+;/g, `CURRENT_PROJECT_VERSION = ${version};`);
+  fs.writeFileSync(pbxPath, pbxContent);
+}
+
 console.log('Version sync completed!');

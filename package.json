@@ -20,14 +20,11 @@
     "preandroid:build": "node scripts/sync-version.js",
     "android:build": "tauri android build",
     "android:build:signed": "npm run android:build -- --apk && ./scripts/sign-android.sh",
-    "ios:init": "tauri ios init",
-    "ios:dev": "bash scripts/ios-dev.sh",
-    "ios:dev:device": "tauri ios dev",
-    "preios:build": "node scripts/sync-version.js",
-    "ios:build": "tauri ios build",
-    "ios:build:release-lib": "bash scripts/build-ios-release-lib.sh",
-    "preios:build:sim": "node scripts/sync-version.js",
-    "ios:build:sim": "tauri ios build --target aarch64-sim --debug",
+    "ios:sync": "npx cap sync ios",
+    "ios:open": "npx cap open ios",
+    "ios:dev": "npx cap run ios",
+    "ios:build": "node scripts/sync-version.js && npx cap sync ios && xcodebuild -project ios/App/App.xcodeproj -scheme App -destination 'generic/platform=iOS' -configuration Release build",
+    "ios:archive": "node scripts/sync-version.js && npx cap sync ios && xcodebuild -project ios/App/App.xcodeproj -scheme App -destination 'generic/platform=iOS' -configuration Release -archivePath build/App.xcarchive archive",
     "release": "bash scripts/release.sh",
     "version": "node scripts/sync-version.js && cargo check --manifest-path src-tauri/Cargo.toml && git add src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock",
     "tauri": "tauri"
@@ -43,9 +40,17 @@
   "author": "Antigravity",
   "license": "ISC",
   "devDependencies": {
+    "@capacitor/cli": "^8.5.2",
     "@tauri-apps/cli": "^2.0.0"
   },
   "dependencies": {
+    "@capacitor/camera": "^8.2.4",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/filesystem": "^8.1.3",
+    "@capacitor/ios": "^8.5.2",
+    "@capacitor/share": "^8.0.2",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.3",
     "exceljs": "^4.4.0"
   }
 }

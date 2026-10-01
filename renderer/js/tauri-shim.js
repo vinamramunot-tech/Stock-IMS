@@ -30,7 +30,18 @@
     ]);
   }
 
-  console.log("💎 Initializing universal translation bridge for Mava Gems...");
+  function isCapacitor() {
+    return !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform());
+  }
+
+  function getCapacitorPlugin(name) {
+    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins[name]) {
+      return window.Capacitor.Plugins[name];
+    }
+    return null;
+  }
+
+  console.log("💎 Initializing universal translation bridge for Mava Gems (Tauri & Capacitor dual-mode)...");
 
   window.electronAPI = {
     // Basic configuration getters/setters
@@ -279,8 +290,27 @@
       input.click();
     }),
 
-    // Database reads and writes (AES-256-CBC)
+    // Database reads and writes (AES-256-CBC / Sandboxed Filesystem)
     readVault: async (customPath) => {
+      // 1. Capacitor Native Filesystem (iOS)
+      const fs = getCapacitorPlugin('Filesystem');
+      if (fs) {
+        try {
+          const fileName = (customPath || 'mava_gems_stock.db').split('/').pop() || 'mava_gems_stock.db';
+          const res = await fs.readFile({
+            path: fileName,
+            directory: 'DOCUMENTS',
+            encoding: 'utf8'
+          });
+          if (res && res.data) {
+            return { exists: true, data: res.data, path: fileName };
+          }
+        } catch (capErr) {
+          console.log("Capacitor readFile:", capErr.message);
+        }
+      }
+
+      // 2. Desktop Tauri IPC (macOS / Windows)
       const core = getTauriCore();
       if (core) {
         try {
@@ -289,6 +319,8 @@
           console.warn("readVault IPC failed, checking storage fallback:", e.message);
         }
       }
+
+      // 3. Browser fallback
       const key = "mock_db_" + (customPath || 'default');
       const data = localStorage.getItem(key);
       if (data) {
@@ -298,6 +330,26 @@
     },
 
     writeVault: async (payload, customPath) => {
+      // 1. Capacitor Native Filesystem (iOS Documents directory)
+      const fs = getCapacitorPlugin('Filesystem');
+      if (fs) {
+        try {
+          const fileName = (customPath || 'mava_gems_stock.db').split('/').pop() || 'mava_gems_stock.db';
+          const content = typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2);
+          await fs.writeFile({
+            path: fileName,
+            data: content,
+            directory: 'DOCUMENTS',
+            encoding: 'utf8',
+            recursive: true
+          });
+          return { success: true, path: fileName };
+        } catch (capErr) {
+          console.warn("Capacitor writeFile failed:", capErr.message);
+        }
+      }
+
+      // 2. Desktop Tauri IPC (macOS / Windows)
       const core = getTauriCore();
       if (core) {
         try {
@@ -306,9 +358,11 @@
           console.warn("writeVault IPC failed:", e.message);
         }
       }
+
+      // 3. Browser fallback
       const key = "mock_db_" + (customPath || 'default');
       try {
-        localStorage.setItem(key, payload);
+        localStorage.setItem(key, typeof payload === 'string' ? payload : JSON.stringify(payload));
       } catch (lsErr) {
         console.warn("localStorage quota:", lsErr);
       }
@@ -370,13 +424,41 @@
     },
 
     savePdfFile: async (base64Data, path) => {
-      if (path && path.startsWith("MOBILE_SHARE_PATH:")) {
-        const filename = path.substring("MOBILE_SHARE_PATH:".length);
-        try {
-          let cleanBase64 = base64Data || '';
-          if (cleanBase64.includes(',')) {
-            cleanBase64 = cleanBase64.split(',')[1];
+      const isMobile = window.isMobilePlatform() || isCapacitor();
+      if (isMobile) {
+        const rawFilename = (path && path.startsWith("MOBILE_SHARE_PATH:"))
+          ? path.substring("MOBILE_SHARE_PATH:".length)
+          : (path || 'report.pdf');
+        const filename = rawFilename.split('/').pop() || 'report.pdf';
+        let cleanBase64 = base64Data || '';
+        if (cleanBase64.includes(',')) cleanBase64 = cleanBase64.split(',')[1];
+
+        // 1. Capacitor Native Filesystem + Share Sheet
+        const fs = getCapacitorPlugin('Filesystem');
+        const share = getCapacitorPlugin('Share');
+        if (fs && share) {
+          try {
+            const writeRes = await fs.writeFile({
+              path: filename,
+              data: cleanBase64,
+              directory: 'CACHE',
+              recursive: true
+            });
+            if (writeRes && writeRes.uri) {
+              await share.share({
+                title: filename,
+                url: writeRes.uri,
+                dialogTitle: 'Share ' + filename
+              });
+              return true;
+            }
+          } catch (capShareErr) {
+            console.warn("Capacitor share failed, trying Web Share fallback:", capShareErr);
           }
+        }
+
+        // 2. Web Share API fallback
+        try {
           const byteCharacters = atob(cleanBase64);
           const byteNumbers = new Array(byteCharacters.length);
           for (let i = 0; i < byteCharacters.length; i++) {
@@ -384,28 +466,20 @@
           }
           const byteArray = new Uint8Array(byteNumbers);
           let mimeType = 'application/pdf';
-          if (filename.toLowerCase().endsWith('.png')) {
-            mimeType = 'image/png';
-          } else if (filename.toLowerCase().endsWith('.jpg') || filename.toLowerCase().endsWith('.jpeg')) {
-            mimeType = 'image/jpeg';
-          } else if (filename.toLowerCase().endsWith('.db') || filename.toLowerCase().endsWith('.json')) {
-            mimeType = 'application/octet-stream';
-          }
+          if (filename.toLowerCase().endsWith('.png')) mimeType = 'image/png';
+          else if (filename.toLowerCase().endsWith('.jpg') || filename.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
+          else if (filename.toLowerCase().endsWith('.db') || filename.toLowerCase().endsWith('.json')) mimeType = 'application/octet-stream';
+
           const blob = new Blob([byteArray], { type: mimeType });
-          
           if (navigator.canShare && navigator.share) {
             const file = new File([blob], filename, { type: mimeType });
             if (navigator.canShare({ files: [file] })) {
-              await navigator.share({
-                files: [file],
-                title: filename,
-                text: 'Exported from Mava Gems'
-              });
+              await navigator.share({ files: [file], title: filename, text: 'Exported from Mava Gems' });
               return true;
             }
           }
-          
-          // Fallback: blob download
+
+          // 3. Fallback: Blob download link
           const blobUrl = URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.href = blobUrl;
@@ -416,9 +490,7 @@
           setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
           return true;
         } catch (e) {
-          if (e.name === 'AbortError') {
-            return true; // User tapped cancel or closed iOS share sheet
-          }
+          if (e.name === 'AbortError') return true;
           console.error("Mobile share/save PDF failed:", e);
           if (window.UI) UI.showToast("Failed to share file: " + e.message, true);
           return false;
@@ -434,13 +506,41 @@
 
     // Excel (.xlsx) file saver
     saveXlsxFile: async (base64Data, path) => {
-      if (path && path.startsWith("MOBILE_SHARE_PATH:")) {
-        const filename = path.substring("MOBILE_SHARE_PATH:".length);
-        try {
-          let cleanBase64 = base64Data || '';
-          if (cleanBase64.includes(',')) {
-            cleanBase64 = cleanBase64.split(',')[1];
+      const isMobile = window.isMobilePlatform() || isCapacitor();
+      if (isMobile) {
+        const rawFilename = (path && path.startsWith("MOBILE_SHARE_PATH:"))
+          ? path.substring("MOBILE_SHARE_PATH:".length)
+          : (path || 'report.xlsx');
+        const filename = rawFilename.split('/').pop() || 'report.xlsx';
+        let cleanBase64 = base64Data || '';
+        if (cleanBase64.includes(',')) cleanBase64 = cleanBase64.split(',')[1];
+
+        // 1. Capacitor Native Filesystem + Share Sheet
+        const fs = getCapacitorPlugin('Filesystem');
+        const share = getCapacitorPlugin('Share');
+        if (fs && share) {
+          try {
+            const writeRes = await fs.writeFile({
+              path: filename,
+              data: cleanBase64,
+              directory: 'CACHE',
+              recursive: true
+            });
+            if (writeRes && writeRes.uri) {
+              await share.share({
+                title: filename,
+                url: writeRes.uri,
+                dialogTitle: 'Share ' + filename
+              });
+              return true;
+            }
+          } catch (capShareErr) {
+            console.warn("Capacitor share failed, trying Web Share fallback:", capShareErr);
           }
+        }
+
+        // 2. Web Share API fallback
+        try {
           const byteCharacters = atob(cleanBase64);
           const byteNumbers = new Array(byteCharacters.length);
           for (let i = 0; i < byteCharacters.length; i++) {
@@ -466,9 +566,7 @@
           setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
           return true;
         } catch (e) {
-          if (e.name === 'AbortError') {
-            return true; // User tapped cancel or closed iOS share sheet
-          }
+          if (e.name === 'AbortError') return true;
           console.error("Mobile share/save XLSX failed:", e);
           if (window.UI) UI.showToast("Failed to save Excel file: " + e.message, true);
           return false;

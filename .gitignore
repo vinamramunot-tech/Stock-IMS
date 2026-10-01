@@ -23,6 +23,8 @@ src-tauri/gen/
 
 # Compiled Desktop App Distribution Installers & Packages
 dist/
+build/
+.build/
 out/
 release/
 *.zip

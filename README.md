@@ -144,6 +144,35 @@ The final signed APK will be generated at:
 
 ---
 
+## 📱 Building and Running for iOS (TestFlight / App Store)
+
+The iOS target uses a clean, standard native **Capacitor** container with Swift Package Manager (SPM):
+
+### 1. Syncing Web Assets to iOS
+Whenever you make updates to the HTML, CSS, or JS in `renderer/`, run:
+```bash
+npm run ios:sync
+```
+
+### 2. Opening in Xcode
+To launch the native Xcode project (`ios/App/App.xcodeproj`) directly in Xcode:
+```bash
+npm run ios:open
+```
+From Xcode, you can select your connected physical iPhone, iPad, or Simulator and click **Run** (Cmd + R), or select **Product -> Archive** to distribute to TestFlight.
+
+### 3. Command-Line Release Build & Archive
+- To build the iOS Release binary:
+  ```bash
+  npm run ios:build
+  ```
+- To create a full Xcode Archive (`.xcarchive`) ready for TestFlight upload:
+  ```bash
+  npm run ios:archive
+  ```
+
+---
+
 ## ⛓️ GitHub Actions Workflow (CI/CD)
 
 The project includes an automated GitHub Actions workflow defined in `.github/workflows/release.yml` that compiles and drafts a release of the application.
