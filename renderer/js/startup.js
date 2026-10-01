@@ -77,6 +77,10 @@ const Startup = {
     if (btnMobileHome) {
       btnMobileHome.addEventListener('click', () => this.showStartupScreen());
     }
+    const btnMobileChangeDb = document.getElementById('btn-mobile-change-db');
+    if (btnMobileChangeDb) {
+      btnMobileChangeDb.addEventListener('click', () => this.handleOpenExistingVault());
+    }
 
     // Always show the Startup / Database Setup landing screen on launch
     // (exact same behavior on both desktop and mobile/TestFlight)

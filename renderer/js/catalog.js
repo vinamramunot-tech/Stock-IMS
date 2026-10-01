@@ -17,6 +17,9 @@ const Catalog = {
     document.getElementById('filter-karat').addEventListener('change', () => this.renderCatalogGrid());
     document.getElementById('sort-items').addEventListener('change', () => this.renderCatalogGrid());
 
+    // Mobile quick filter chips
+    this.initMobileChips();
+
     // Bulk Select All Listener
     const selectAllCheckbox = document.getElementById('bulk-select-all');
     if (selectAllCheckbox) {
@@ -114,6 +117,43 @@ const Catalog = {
 
     // Initialize Presentation & Share functionality
     this.initPresentation();
+  },
+
+  initMobileChips() {
+    const chips = document.querySelectorAll('#mobile-catalog-chips .mobile-chip');
+    if (!chips || !chips.length) return;
+
+    chips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        const chipType = chip.getAttribute('data-chip-type');
+        const chipVal = chip.getAttribute('data-chip-val') || '';
+
+        chips.forEach(c => {
+          if (c.getAttribute('data-chip-type') === chipType) {
+            c.classList.remove('active');
+          }
+        });
+        chip.classList.add('active');
+
+        if (window.App && typeof App.triggerHaptic === 'function') {
+          App.triggerHaptic('light');
+        }
+
+        if (chipType === 'status') {
+          const statusSelect = document.getElementById('filter-jewelry-status');
+          if (statusSelect) {
+            statusSelect.value = chipVal;
+            statusSelect.dispatchEvent(new Event('change'));
+          }
+        } else if (chipType === 'cat') {
+          const catSelect = document.getElementById('filter-category');
+          if (catSelect) {
+            catSelect.value = chipVal;
+            catSelect.dispatchEvent(new Event('change'));
+          }
+        }
+      });
+    });
   },
 
   setViewType(type) {

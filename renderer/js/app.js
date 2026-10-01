@@ -421,10 +421,23 @@ const App = {
     });
   },
 
+  triggerHaptic(type = 'light') {
+    try {
+      if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics) {
+        window.Capacitor.Plugins.Haptics.impact({ style: type });
+      } else if (navigator.vibrate) {
+        navigator.vibrate(type === 'medium' ? 25 : 12);
+      }
+    } catch (e) {
+      // ignore if unsupported
+    }
+  },
+
   initMobileBottomNav() {
     const bottomNavBtns = document.querySelectorAll('.mobile-nav-btn[data-nav-target]');
     bottomNavBtns.forEach(btn => {
       btn.addEventListener('click', () => {
+        this.triggerHaptic('light');
         const target = btn.getAttribute('data-nav-target');
         const suite = this.activeApp || 'jewelry';
 
@@ -472,6 +485,7 @@ const App = {
   },
 
   toggleShowroomMode() {
+    this.triggerHaptic('medium');
     const isShowroom = document.body.classList.toggle('showroom-client-mode');
     const msg = isShowroom 
       ? "Client Showroom Mode ON: Trade costs and margins hidden." 
