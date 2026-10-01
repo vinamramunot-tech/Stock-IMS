@@ -154,6 +154,20 @@ const Catalog = {
         }
       });
     });
+
+    // Mobile Advanced Filters Drawer Toggle
+    const toggleBtn = document.getElementById('btn-toggle-mobile-filters');
+    const filtersGroup = document.querySelector('#tab-catalog .filters-group');
+    if (toggleBtn && filtersGroup) {
+      toggleBtn.addEventListener('click', () => {
+        filtersGroup.classList.toggle('mobile-open');
+        const arrow = toggleBtn.querySelector('.filter-toggle-arrow');
+        if (arrow) arrow.textContent = filtersGroup.classList.contains('mobile-open') ? '▴' : '▾';
+        if (window.App && typeof App.triggerHaptic === 'function') {
+          App.triggerHaptic('light');
+        }
+      });
+    }
   },
 
   setViewType(type) {
@@ -1019,21 +1033,21 @@ const Catalog = {
           </div>
           
           <div class="product-specs">
-            <div class="specs-line" title="${UI.escapeHtml(metalsStr)}"><strong>Metal:</strong> ${UI.escapeHtml(metalsStr) || 'None added'}</div>
-            <div class="specs-line"><strong>Gemstones:</strong> ${stonesSum > 0 ? stonesSum.toFixed(2) + ' cts total' : 'None added'}</div>
-            <div class="specs-line"><strong>Gross Weight:</strong> ${grossWeight.toFixed(3)} g</div>
-            <div class="specs-line"><strong>Net Metal Wt:</strong> ${netMetalWeight.toFixed(3)} g</div>
-            <div class="specs-line" title="${UI.escapeHtml(item.description || '')}"><strong>Notes:</strong> ${UI.escapeHtml(item.description || 'No description')}</div>
-            <div class="specs-line" style="margin-bottom:0;"><strong>Mfg Cost:</strong> ₹${(item.evaluation.mfgGrandTotal || item.evaluation.marketCostPrice).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+            <div class="specs-line specs-metal-info" title="${UI.escapeHtml(metalsStr)}"><strong>Metal:</strong> ${UI.escapeHtml(metalsStr) || 'None added'}</div>
+            <div class="specs-line specs-gem-info"><strong>Gemstones:</strong> ${stonesSum > 0 ? stonesSum.toFixed(2) + ' cts total' : 'None added'}</div>
+            <div class="specs-line specs-gross-wt"><strong>Gross Wt:</strong> ${grossWeight.toFixed(3)} g</div>
+            <div class="specs-line specs-net-wt"><strong>Net Wt:</strong> ${netMetalWeight.toFixed(3)} g</div>
+            <div class="specs-line specs-notes-info" title="${UI.escapeHtml(item.description || '')}"><strong>Notes:</strong> ${UI.escapeHtml(item.description || 'No description')}</div>
+            <div class="specs-line specs-mfg-cost cost-price-data" style="margin-bottom:0;"><strong>Mfg Cost:</strong> ₹${(item.evaluation.mfgGrandTotal || item.evaluation.marketCostPrice).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
           </div>
           
           <div class="product-price-row">
             <div class="product-price-specs">
               ${commHtml}
-              <div class="specs-line"><strong>Market Cost:</strong> ₹${item.evaluation.marketCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
-              ${item.evaluation.hasEmerald ? `<div class="specs-line"><strong>Home Cost:</strong> ₹${item.evaluation.homeCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>` : ''}
-              <div class="specs-line"><strong>Selling Price:</strong> ₹${item.evaluation.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
-              <div class="specs-line" style="margin-bottom:0;"><strong>P/L:</strong> ${plFormatted}</div>
+              <div class="specs-line specs-market-cost cost-price-data"><strong>Market Cost:</strong> ₹${item.evaluation.marketCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+              ${item.evaluation.hasEmerald ? `<div class="specs-line specs-home-cost cost-price-data"><strong>Home Cost:</strong> ₹${item.evaluation.homeCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>` : ''}
+              <div class="specs-line specs-selling-price price-selling-highlight"><strong>Selling Price:</strong> ₹${item.evaluation.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+              <div class="specs-line specs-pl margin-data" style="margin-bottom:0;"><strong>P/L:</strong> ${plFormatted}</div>
             </div>
             <div class="product-actions">
               <button type="button" class="btn btn-secondary btn-small btn-edit" title="Edit details">Edit</button>
@@ -1043,7 +1057,12 @@ const Catalog = {
         </div>
       `;
 
-      // Event Wire up
+      // Event Wire up - tap card to view details
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('button, input, label, a, .catalog-select-label')) return;
+        App.openJewelryDetailModal(item);
+      });
+
       const imgBox = card.querySelector('.product-img-box');
       if (imgBox) {
         imgBox.addEventListener('click', () => {

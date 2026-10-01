@@ -938,6 +938,7 @@ datalist option {
   left: 15px;
   top: 12px;
   color: var(--text-muted);
+  pointer-events: none;
 }
 
 .filters-group {
@@ -2674,8 +2675,9 @@ datalist option {
 
 }
 
-/* Default state: hide mobile-only chips on desktop */
-.mobile-filter-chips-scroller {
+/* Default state: hide mobile-only chips and filter toggle on desktop */
+.mobile-filter-chips-scroller,
+.mobile-filters-toggle-btn {
   display: none;
 }
 
@@ -2688,7 +2690,7 @@ datalist option {
     height: 100%;
     overflow: hidden;
     -webkit-text-size-adjust: 100%;
-    touch-action: manipulation;
+    touch-action: pan-x pan-y !important;
   }
 
   /* Prevent auto-zooming on focus in iOS Safari / WKWebView */
@@ -3161,19 +3163,39 @@ datalist option {
   }
 
   .search-box {
-    width: 100%;
-    height: 44px;
-    background: var(--bg-card);
-    border-radius: 12px;
-    border: 1px solid var(--border-light);
-    display: flex;
-    align-items: center;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    position: relative !important;
+    width: 100% !important;
+    height: 46px !important;
+    background: var(--bg-card) !important;
+    border-radius: 12px !important;
+    border: 1px solid var(--border-light) !important;
+    display: flex !important;
+    align-items: center !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+    overflow: hidden !important;
+  }
+
+  .search-icon {
+    position: absolute !important;
+    left: 14px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    pointer-events: none !important;
+    color: var(--text-muted) !important;
+    z-index: 2 !important;
   }
 
   .search-box input {
-    font-size: 14px !important;
-    padding: 0 12px;
+    width: 100% !important;
+    height: 100% !important;
+    padding-left: 44px !important; /* CRITICAL: clears the search icon overlay completely */
+    padding-right: 14px !important;
+    border: none !important;
+    background: transparent !important;
+    font-size: 15px !important;
+    color: var(--text-main) !important;
+    box-sizing: border-box !important;
+    outline: none !important;
   }
 
   /* Mobile Quick Filter Chips Pill Scroller */
@@ -3216,12 +3238,41 @@ datalist option {
     box-shadow: 0 0 10px rgba(212, 175, 55, 0.25);
   }
 
-  /* Filters 2-Column Grid */
+  /* Mobile Toggle for Advanced Filters */
+  .mobile-filters-toggle-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    height: 36px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px dashed var(--border-light);
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    margin-bottom: 6px;
+    transition: all 0.15s ease;
+  }
+
+  .mobile-filters-toggle-btn:active {
+    background: var(--bg-hover);
+    color: var(--text-main);
+  }
+
+  /* Collapsible Filters 2-Column Grid (Keeps main screen clean for staff) */
   .filters-group {
-    display: grid;
+    display: none; /* Collapsed by default on mobile */
     grid-template-columns: 1fr 1fr;
     gap: 8px;
     width: 100%;
+    margin-bottom: 8px;
+  }
+
+  .filters-group.mobile-open {
+    display: grid !important;
   }
 
   .filter-select {
@@ -3247,7 +3298,7 @@ datalist option {
     display: none !important;
   }
 
-  /* ── 7. LUXURY 2-COLUMN CATALOG GRID ── */
+  /* ── 7. LUXURY 2-COLUMN CATALOG GRID (UNCLUTTERED & EASY TO READ) ── */
   .catalog-grid-container {
     display: grid !important;
     grid-template-columns: repeat(2, 1fr) !important;
@@ -3263,6 +3314,7 @@ datalist option {
     display: flex;
     flex-direction: column;
     position: relative;
+    cursor: pointer;
     transition: transform 0.15s ease, border-color 0.15s ease;
   }
 
@@ -3317,75 +3369,109 @@ datalist option {
     flex-direction: column;
     flex: 1;
     justify-content: space-between;
-    gap: 6px;
+    gap: 4px;
   }
 
   .catalog-grid-container .product-meta {
     min-width: 0;
   }
 
+  .catalog-grid-container .product-meta > div:first-child {
+    display: flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    margin-bottom: 2px !important;
+    flex-wrap: nowrap !important;
+    overflow: hidden !important;
+  }
+
   .catalog-grid-container .product-sno-badge {
     font-size: 9px !important;
     padding: 1px 5px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
   }
 
   .catalog-grid-container .product-sku {
-    font-size: 9px !important;
+    display: none !important; /* Hide redundant SKU on mobile cards to prevent text wrapping */
   }
 
   .catalog-grid-container .product-title {
-    font-size: 12px;
+    font-size: 13px !important;
     font-weight: 600;
-    line-height: 1.3;
-    margin: 3px 0 0 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+    line-height: 1.3 !important;
+    margin: 2px 0 4px 0 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
     color: var(--text-main);
   }
 
+  /* Clean specs: Show vital weight, hide dense secondary text */
   .catalog-grid-container .product-specs {
-    font-size: 10px;
-    color: var(--text-muted);
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
+    font-size: 11px !important;
+    color: var(--text-muted) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+    margin-bottom: 4px !important;
   }
 
   .catalog-grid-container .product-specs .specs-line {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    font-size: 11px !important;
   }
 
+  .catalog-grid-container .product-specs .specs-notes-info,
+  .catalog-grid-container .product-specs .specs-gem-info,
+  .catalog-grid-container .product-specs .specs-mfg-cost,
+  .catalog-grid-container .product-specs .specs-metal-info {
+    display: none !important; /* Hide dense clutter from 2-col card preview */
+  }
+
+  /* Clean price display: Bold Selling Price */
   .catalog-grid-container .product-price-row {
     border-top: 1px dashed var(--border-light);
     padding-top: 6px;
     margin-top: 2px;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
   }
 
-  .catalog-grid-container .product-price-specs .specs-line {
-    font-size: 10px;
+  .catalog-grid-container .product-price-specs .specs-pl,
+  .catalog-grid-container .product-price-specs .specs-home-cost,
+  .catalog-grid-container .product-price-specs .specs-market-cost {
+    display: none !important; /* Hide complex formulas & duplicate lines from mobile card */
+  }
+
+  .catalog-grid-container .price-selling-highlight {
+    font-size: 15px !important;
+    font-weight: 800 !important;
+    color: var(--text-gold, #D4AF37) !important;
+    margin-bottom: 2px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
   }
 
   .catalog-grid-container .product-actions {
     display: flex;
     gap: 6px;
     width: 100%;
+    margin-top: 4px;
   }
 
   .catalog-grid-container .product-actions .btn {
     flex: 1;
-    padding: 5px 0;
-    font-size: 10px;
-    height: 28px;
+    padding: 4px 0;
+    font-size: 11px !important;
+    font-weight: 600;
+    height: 30px !important;
     justify-content: center;
-    border-radius: 6px;
+    border-radius: 8px;
   }
 
   /* Mobile List View */

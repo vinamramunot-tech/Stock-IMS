@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Mava Gems | Stock Management System</title>
 
   <meta name="color-scheme" content="light dark">
@@ -19,7 +19,13 @@
         }
       } catch (e) {}
 
-      // 2. Global WebKit Error Boundary to guarantee screen is never blank
+      // 2. Prevent accidental pinch-zoom and double-tap zoom on iOS WKWebView
+      document.addEventListener('gesturestart', function(e) { e.preventDefault(); }, { passive: false });
+      document.addEventListener('gesturechange', function(e) { e.preventDefault(); }, { passive: false });
+      document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { passive: false });
+      document.addEventListener('dblclick', function(e) { e.preventDefault(); }, { passive: false });
+
+      // 3. Global WebKit Error Boundary to guarantee screen is never blank
       window.addEventListener('error', function(e) {
         console.error("[MavaGems WebKit Error]", e.message, e.filename, e.lineno);
         var startup = document.getElementById('startup-screen');
@@ -207,7 +213,7 @@
             <path fill="currentColor"
               d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V6h5.17l2 2H20v10z" />
           </svg>
-          Change DB
+          <span id="mobile-db-label">Database</span>
         </button>
         <div class="mobile-action-divider"></div>
         <button type="button" id="btn-client-showroom-mode" class="mobile-action-btn" title="Toggle Client Showroom View (Hides cost prices & margins)">
@@ -1634,8 +1640,16 @@
               <button type="button" class="mobile-chip" data-chip-type="cat" data-chip-val="Earrings">Earrings</button>
               <button type="button" class="mobile-chip" data-chip-type="cat" data-chip-val="Bracelet">Bracelets</button>
               <button type="button" class="mobile-chip" data-chip-type="cat" data-chip-val="Pendant">Pendants</button>
-              <button type="button" class="mobile-chip" data-chip-type="status" data-chip-val="Sold">Sold</button>
             </div>
+
+            <!-- Mobile Toggle Button for Advanced Filters -->
+            <button type="button" id="btn-toggle-mobile-filters" class="mobile-filters-toggle-btn">
+              <svg viewBox="0 0 24 24" width="14" height="14">
+                <path fill="currentColor" d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/>
+              </svg>
+              <span>More Filters & Sort</span>
+              <span class="filter-toggle-arrow">▾</span>
+            </button>
 
             <div class="filters-group">
               <select id="filter-jewelry-status" class="filter-select">
