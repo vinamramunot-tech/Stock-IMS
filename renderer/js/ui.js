@@ -6,6 +6,7 @@ const UI = {
   activeItemState: null, // Temporary store for the item currently being added/edited
 
   escapeHtml(value) {
+    if (value === undefined || value === null) return '';
     return String(value)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')

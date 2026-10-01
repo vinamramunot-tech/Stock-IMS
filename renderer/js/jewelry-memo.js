@@ -133,7 +133,7 @@ const JewelryMemoController = {
 
     // Pre-fill header fields
     const personInput = document.getElementById('jewelry-memo-person-name');
-    if (personInput) personInput.value = memo.personName || '';
+    if (personInput) personInput.value = memo.personName || memo.customerName || memo.issuedTo || '';
     const brokerInput = document.getElementById('jewelry-memo-broker-name');
     if (brokerInput) brokerInput.value = (memo.brokerName && memo.brokerName !== '—') ? memo.brokerName : '';
     const dateInput = document.getElementById('jewelry-memo-date');
@@ -155,7 +155,7 @@ const JewelryMemoController = {
 
     // Update modal title & save button label
     const titleEl = document.getElementById('jewelry-memo-modal-title');
-    if (titleEl) titleEl.textContent = `Edit Jewelry Memo — ${memo.memoNumber}`;
+    if (titleEl) titleEl.textContent = `Edit Jewelry Memo — ${memo.memoNumber || '—'}`;
     const saveBtn = document.getElementById('btn-save-jewelry-memo');
     if (saveBtn) saveBtn.textContent = 'Save Changes';
 
@@ -549,7 +549,7 @@ const JewelryMemoController = {
   renderMemoList() {
     const memos = DBManager.getJewelryMemos();
     const openMemos = memos.filter(m => m.status === 'open');
-    const totalValOnMemo = openMemos.reduce((s, m) => s + (m.totalValue || 0), 0);
+    const totalValOnMemo = openMemos.reduce((s, m) => s + (Number(m.totalValue) || 0), 0);
 
     const elCount = document.getElementById('metric-jewelry-memo-open-count');
     const elVal = document.getElementById('metric-jewelry-memo-value');
@@ -564,13 +564,17 @@ const JewelryMemoController = {
     let filtered = memos.filter(m => {
       const matchStatus = !filterVal || m.status === filterVal;
       const matchSearch = !query ||
-        (m.personName || '').toLowerCase().includes(query) ||
+        (m.personName || m.customerName || m.issuedTo || '').toLowerCase().includes(query) ||
         (m.brokerName || '').toLowerCase().includes(query) ||
         (m.memoNumber || '').toLowerCase().includes(query);
       return matchStatus && matchSearch;
     });
 
-    filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    filtered.sort((a, b) => {
+      const timeB = new Date(b.createdAt || b.date || 0).getTime() || 0;
+      const timeA = new Date(a.createdAt || a.date || 0).getTime() || 0;
+      return timeB - timeA;
+    });
 
     const tbody = document.getElementById('jewelry-memo-list-tbody');
     const emptyEl = document.getElementById('jewelry-memo-empty-state');
@@ -593,22 +597,34 @@ const JewelryMemoController = {
     const fragment = document.createDocumentFragment();
 
     filtered.forEach(memo => {
-      const dateFmt = new Date(memo.date + 'T00:00:00').toLocaleDateString('en-IN', {
-        day: '2-digit', month: 'short', year: 'numeric'
-      });
+      let dateFmt = '—';
+      if (memo.date) {
+        const d = new Date(memo.date.includes('T') ? memo.date : memo.date + 'T00:00:00');
+        if (!isNaN(d.getTime())) {
+          dateFmt = d.toLocaleDateString('en-IN', {
+            day: '2-digit', month: 'short', year: 'numeric'
+          });
+        }
+      }
       const st = statusStyle[memo.status] || statusStyle.closed;
 
-      const recipientDisplay = memo.personName
-        ? `<div><strong style="color:var(--text-main);">${UI.escapeHtml(memo.personName)}</strong>${memo.brokerName && memo.brokerName !== '—' ? `<br><span style="font-size:11px;color:var(--text-muted);">Broker: ${UI.escapeHtml(memo.brokerName)}</span>` : ''}</div>`
-        : UI.escapeHtml(memo.brokerName || '—');
+      const person = memo.personName || memo.customerName || memo.issuedTo;
+      const broker = memo.brokerName && memo.brokerName !== '—' ? memo.brokerName : '';
+      const recipientDisplay = person
+        ? `<div><strong style="color:var(--text-main);">${UI.escapeHtml(person)}</strong>${broker ? `<br><span style="font-size:11px;color:var(--text-muted);">Broker: ${UI.escapeHtml(broker)}</span>` : ''}</div>`
+        : UI.escapeHtml(broker || '—');
+
+      const memoNumberDisplay = memo.memoNumber || '—';
+      const totalVal = Number(memo.totalValue) || 0;
+      const itemCount = Array.isArray(memo.items) ? memo.items.length : 0;
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td style="font-weight:700;font-family:var(--font-serif);">${UI.escapeHtml(memo.memoNumber)}</td>
+        <td style="font-weight:700;font-family:var(--font-serif);">${UI.escapeHtml(memoNumberDisplay)}</td>
         <td>${dateFmt}</td>
         <td>${recipientDisplay}</td>
-        <td style="text-align:right;font-weight:700;color:var(--text-gold-dark);">₹${(memo.totalValue || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-        <td style="text-align:center;">${(memo.items || []).length}</td>
+        <td style="text-align:right;font-weight:700;color:var(--text-gold-dark);">₹${totalVal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+        <td style="text-align:center;">${itemCount}</td>
         <td>
           <span style="display:inline-block;padding:2px 10px;border-radius:20px;
             font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;
@@ -646,79 +662,99 @@ const JewelryMemoController = {
     const memo = DBManager.getJewelryMemos().find(m => m.id === memoId);
     if (!memo) return;
 
-    const dateFmt = new Date(memo.date + 'T00:00:00').toLocaleDateString('en-IN', {
-      day: '2-digit', month: 'short', year: 'numeric'
-    });
+    let dateFmt = '—';
+    if (memo.date) {
+      const d = new Date(memo.date.includes('T') ? memo.date : memo.date + 'T00:00:00');
+      if (!isNaN(d.getTime())) {
+        dateFmt = d.toLocaleDateString('en-IN', {
+          day: '2-digit', month: 'short', year: 'numeric'
+        });
+      }
+    }
 
-    document.getElementById('jewelry-memo-detail-number').textContent = memo.memoNumber;
+    const memoNumEl = document.getElementById('jewelry-memo-detail-number');
+    if (memoNumEl) memoNumEl.textContent = memo.memoNumber || '—';
     const personEl = document.getElementById('jewelry-memo-detail-person');
-    if (personEl) personEl.textContent = memo.personName || '—';
-    document.getElementById('jewelry-memo-detail-broker').textContent = memo.brokerName || '—';
-    document.getElementById('jewelry-memo-detail-date').textContent = dateFmt;
-    document.getElementById('jewelry-memo-detail-status').textContent = memo.status === 'open' ? 'ISSUED' : 'CLOSED';
-    document.getElementById('jewelry-memo-detail-notes').textContent = memo.notes || '—';
-    document.getElementById('jewelry-memo-detail-total-value').textContent = '₹' + (memo.totalValue || 0).toLocaleString(undefined, { minimumFractionDigits: 2 });
+    if (personEl) personEl.textContent = memo.personName || memo.customerName || memo.issuedTo || '—';
+    const brokerEl = document.getElementById('jewelry-memo-detail-broker');
+    if (brokerEl) brokerEl.textContent = memo.brokerName || '—';
+    const dateEl = document.getElementById('jewelry-memo-detail-date');
+    if (dateEl) dateEl.textContent = dateFmt;
+    const statusEl = document.getElementById('jewelry-memo-detail-status');
+    if (statusEl) statusEl.textContent = memo.status === 'open' ? 'ISSUED' : 'CLOSED';
+    const notesEl = document.getElementById('jewelry-memo-detail-notes');
+    if (notesEl) notesEl.textContent = memo.notes || '—';
+    const valEl = document.getElementById('jewelry-memo-detail-total-value');
+    if (valEl) valEl.textContent = '₹' + (Number(memo.totalValue) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 });
 
     const closedRow = document.getElementById('jewelry-memo-detail-closed-row');
     if (memo.closedAt && closedRow) {
-      document.getElementById('jewelry-memo-detail-closed-at').textContent =
-        new Date(memo.closedAt).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+      const cd = new Date(memo.closedAt);
+      const cdFmt = !isNaN(cd.getTime()) ? cd.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+      const closedAtEl = document.getElementById('jewelry-memo-detail-closed-at');
+      if (closedAtEl) closedAtEl.textContent = cdFmt;
       closedRow.classList.remove('hidden');
     } else if (closedRow) {
       closedRow.classList.add('hidden');
     }
 
     const tbody = document.getElementById('jewelry-memo-detail-items-tbody');
-    tbody.innerHTML = '';
+    if (tbody) {
+      tbody.innerHTML = '';
 
-    (memo.items || []).forEach((item, index) => {
-      const mainItem = DBManager.getItems().find(i => i.id === item.itemId || i.sku === item.sku);
-      const imgSrc = item.image || (mainItem ? mainItem.image : null);
+      (memo.items || []).forEach((item, index) => {
+        const mainItem = DBManager.getItems().find(i => i.id === item.itemId || i.sku === item.sku);
+        const imgSrc = item.image || (mainItem ? mainItem.image : null);
+        const sku = item.sku || mainItem?.sku || '—';
+        const name = item.name || mainItem?.name || 'Unnamed Piece';
+        const category = item.category || mainItem?.category || '—';
+        const price = Number(item.sellingPrice !== undefined ? item.sellingPrice : (mainItem?.sellingPrice || 0));
 
-      const imgHtml = imgSrc
-        ? `<img src="${imgSrc}" alt="${UI.escapeHtml(item.name)}" style="width:36px;height:36px;object-fit:cover;border-radius:4px;border:1px solid var(--border-light);cursor:pointer;" class="memo-detail-thumb-img">`
-        : `<div style="width:36px;height:36px;border-radius:4px;border:1px solid var(--border-light);background:var(--bg-base);display:flex;align-items:center;justify-content:center;color:var(--text-muted);opacity:0.6;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>`;
+        const imgHtml = imgSrc
+          ? `<img src="${imgSrc}" alt="${UI.escapeHtml(name)}" style="width:36px;height:36px;object-fit:cover;border-radius:4px;border:1px solid var(--border-light);cursor:pointer;" class="memo-detail-thumb-img">`
+          : `<div style="width:36px;height:36px;border-radius:4px;border:1px solid var(--border-light);background:var(--bg-base);display:flex;align-items:center;justify-content:center;color:var(--text-muted);opacity:0.6;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>`;
 
-      const statusBadge = item.status === 'open'
-        ? `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;background:rgba(245,158,11,0.18);color:#f59e0b;border:1px solid rgba(245,158,11,0.35);">ISSUED</span>`
-        : item.status === 'returned'
-        ? `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;background:rgba(80,200,120,0.15);color:var(--success-color);">RETURNED</span>`
-        : `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;background:rgba(212,175,55,0.15);color:var(--text-gold-dark);">SOLD</span>`;
+        const statusBadge = item.status === 'open'
+          ? `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;background:rgba(245,158,11,0.18);color:#f59e0b;border:1px solid rgba(245,158,11,0.35);">ISSUED</span>`
+          : item.status === 'returned'
+          ? `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;background:rgba(80,200,120,0.15);color:var(--success-color);">RETURNED</span>`
+          : `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;background:rgba(212,175,55,0.15);color:var(--text-gold-dark);">SOLD</span>`;
 
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td style="padding:6px 10px;text-align:center;">${imgHtml}</td>
-        <td style="padding:8px 10px;font-weight:700;">${UI.escapeHtml(item.sku)}</td>
-        <td style="padding:8px 10px;">${UI.escapeHtml(item.name)}</td>
-        <td style="padding:8px 10px;">${UI.escapeHtml(item.category)}</td>
-        <td style="padding:8px 10px;text-align:right;font-weight:700;color:var(--text-gold-dark);">₹${item.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-        <td style="padding:8px 10px;text-align:center;">
-          ${statusBadge}
-        </td>
-        <td style="padding:8px 10px;text-align:center;">
-          ${memo.status === 'open' && item.status === 'open' ? `
-            <div style="display:flex;gap:6px;justify-content:center;">
-              <button type="button" class="btn btn-secondary btn-small btn-row-return" style="font-size:11px;padding:3px 8px;" data-index="${index}">Return to Stock</button>
-              <button type="button" class="btn btn-primary btn-small btn-row-sell" style="font-size:11px;padding:3px 8px;background:#22c55e;border-color:#22c55e;color:#fff;" data-index="${index}">Sell Item</button>
-            </div>
-          ` : '—'}
-        </td>
-      `;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="padding:6px 10px;text-align:center;">${imgHtml}</td>
+          <td style="padding:8px 10px;font-weight:700;">${UI.escapeHtml(sku)}</td>
+          <td style="padding:8px 10px;">${UI.escapeHtml(name)}</td>
+          <td style="padding:8px 10px;">${UI.escapeHtml(category)}</td>
+          <td style="padding:8px 10px;text-align:right;font-weight:700;color:var(--text-gold-dark);">₹${price.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+          <td style="padding:8px 10px;text-align:center;">
+            ${statusBadge}
+          </td>
+          <td style="padding:8px 10px;text-align:center;">
+            ${memo.status === 'open' && item.status === 'open' ? `
+              <div style="display:flex;gap:6px;justify-content:center;">
+                <button type="button" class="btn btn-secondary btn-small btn-row-return" style="font-size:11px;padding:3px 8px;" data-index="${index}">Return to Stock</button>
+                <button type="button" class="btn btn-primary btn-small btn-row-sell" style="font-size:11px;padding:3px 8px;background:#22c55e;border-color:#22c55e;color:#fff;" data-index="${index}">Sell Item</button>
+              </div>
+            ` : '—'}
+          </td>
+        `;
 
-      const thumbImg = tr.querySelector('.memo-detail-thumb-img');
-      if (thumbImg) {
-        thumbImg.addEventListener('click', () => {
-          App.openJewelryDetailModal(mainItem || item);
-        });
-      }
+        const thumbImg = tr.querySelector('.memo-detail-thumb-img');
+        if (thumbImg) {
+          thumbImg.addEventListener('click', () => {
+            App.openJewelryDetailModal(mainItem || item);
+          });
+        }
 
-      if (memo.status === 'open' && item.status === 'open') {
-        tr.querySelector('.btn-row-return').addEventListener('click', () => this.handleReturnMemoItem(memo.id, index));
-        tr.querySelector('.btn-row-sell').addEventListener('click', () => this.openCompleteSaleModal(memo.id, index));
-      }
+        if (memo.status === 'open' && item.status === 'open') {
+          tr.querySelector('.btn-row-return').addEventListener('click', () => this.handleReturnMemoItem(memo.id, index));
+          tr.querySelector('.btn-row-sell').addEventListener('click', () => this.openCompleteSaleModal(memo.id, index));
+        }
 
-      tbody.appendChild(tr);
-    });
+        tbody.appendChild(tr);
+      });
+    }
 
     // Wire Batch Actions & Delete in footer
     const actionsFooter = document.getElementById('jewelry-memo-detail-actions');
@@ -1294,12 +1330,20 @@ const JewelryMemoController = {
     doc.setFontSize(18);
     doc.text("MAVA GEMS - JEWELRY MEMO RECEIPT", 14, 25);
 
+    let dateFmt = '—';
+    if (memo.date) {
+      const d = new Date(memo.date.includes('T') ? memo.date : memo.date + 'T00:00:00');
+      if (!isNaN(d.getTime())) {
+        dateFmt = d.toLocaleDateString('en-IN');
+      }
+    }
+
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
-    doc.text(`Memo Number: ${memo.memoNumber}`, 14, 33);
-    doc.text(`Issued To: ${memo.personName || '—'}`, 14, 38);
+    doc.text(`Memo Number: ${memo.memoNumber || '—'}`, 14, 33);
+    doc.text(`Issued To: ${memo.personName || memo.customerName || memo.issuedTo || '—'}`, 14, 38);
     doc.text(`Broker: ${memo.brokerName || '—'}`, 14, 43);
-    doc.text(`Issue Date: ${new Date(memo.date).toLocaleDateString('en-IN')}`, 14, 48);
+    doc.text(`Issue Date: ${dateFmt}`, 14, 48);
     doc.text(`Status: ${memo.status === 'open' ? 'ISSUED' : 'CLOSED'}`, 14, 53);
 
     doc.setDrawColor(200);
@@ -1324,7 +1368,7 @@ const JewelryMemoController = {
     (memo.items || []).forEach(item => {
       const mainItem = DBManager.getItems().find(i => i.id === item.itemId || i.sku === item.sku);
       const imgSrc = item.image || (mainItem ? mainItem.image : null);
-      const hasImg = imgSrc && imgSrc.startsWith('data:image/');
+      const hasImg = imgSrc && typeof imgSrc === 'string' && imgSrc.startsWith('data:image/');
       const rowHeight = hasImg ? 16 : 7.5;
 
       if (y + rowHeight > 275) {
@@ -1332,10 +1376,15 @@ const JewelryMemoController = {
         y = 25;
       }
 
+      const sku = item.sku || mainItem?.sku || '—';
+      const name = item.name || mainItem?.name || 'Unnamed Piece';
+      const category = item.category || mainItem?.category || 'Jewelry';
+      const price = Number(item.sellingPrice !== undefined ? item.sellingPrice : (mainItem?.sellingPrice || 0));
+
       doc.setFont("helvetica", "bold");
-      doc.text(item.sku, 14, y + (hasImg ? 4 : 0));
+      doc.text(sku, 14, y + (hasImg ? 4 : 0));
       doc.setFont("helvetica", "normal");
-      doc.text(item.name.substring(0, hasImg ? 26 : 38), 40, y + (hasImg ? 2 : 0));
+      doc.text(name.substring(0, hasImg ? 26 : 38), 40, y + (hasImg ? 2 : 0));
 
       if (hasImg) {
         try {
@@ -1346,9 +1395,9 @@ const JewelryMemoController = {
         }
       }
 
-      doc.text(item.category || 'Jewelry', 115, y + (hasImg ? 4 : 0));
+      doc.text(category, 115, y + (hasImg ? 4 : 0));
       doc.text((item.status || 'OPEN').toUpperCase(), 148, y + (hasImg ? 4 : 0));
-      doc.text(`Rs ${(Number(item.sellingPrice) || 0).toLocaleString()}`, 196, y + (hasImg ? 4 : 0), { align: 'right' });
+      doc.text(`Rs ${price.toLocaleString()}`, 196, y + (hasImg ? 4 : 0), { align: 'right' });
       y += rowHeight;
     });
 

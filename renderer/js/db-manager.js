@@ -116,6 +116,9 @@ const DBManager = {
       if (!db.jewelrySales) db.jewelrySales = [];
       if (!db.logs) db.logs = [];
 
+      // Heal any misallocated memos/logs across arrays
+      this.healVaultData(db);
+
       // Successful load
       this.database = db;
       this.activePath = customPath;
@@ -132,6 +135,82 @@ const DBManager = {
       console.error("Database load failed:", error);
       const errMsg = (error && error.message) || error;
       throw new Error("Failed to load database: " + errMsg);
+    }
+  },
+
+  /**
+   * Automatically heals vault database to ensure logs, finished jewelry memos,
+   * and stone memos are strictly separated into their dedicated arrays.
+   */
+  healVaultData(db) {
+    if (!db || typeof db !== 'object') return;
+    if (!Array.isArray(db.logs)) db.logs = [];
+    if (!Array.isArray(db.jewelryMemos)) db.jewelryMemos = [];
+    if (!Array.isArray(db.jewelStoneMemos)) db.jewelStoneMemos = [];
+
+    const logsToRestore = [];
+    const actualJewelryMemos = [];
+
+    // 1. Separate logs erroneously placed into jewelryMemos
+    const remainingJM = [];
+    for (const item of db.jewelryMemos) {
+      if (!item) continue;
+      const isLog = item.action !== undefined || item.targetId !== undefined || (item.details !== undefined && item.suite !== undefined);
+      if (isLog) {
+        logsToRestore.push(item);
+      } else {
+        remainingJM.push(item);
+      }
+    }
+    actualJewelryMemos.push(...remainingJM);
+
+    // 2. Separate finished jewelry memos placed into jewelStoneMemos or stoneMemos
+    for (const key of ['jewelStoneMemos', 'stoneMemos']) {
+      if (Array.isArray(db[key])) {
+        const remainingStones = [];
+        for (const item of db[key]) {
+          if (!item) continue;
+          const isJM = (typeof item.id === 'string' && item.id.startsWith('jewelry_memo_')) ||
+                       (typeof item.memoNumber === 'string' && item.memoNumber.startsWith('JM-')) ||
+                       item.personName !== undefined;
+          if (isJM) {
+            actualJewelryMemos.push(item);
+          } else {
+            remainingStones.push(item);
+          }
+        }
+        db[key] = remainingStones;
+      }
+    }
+
+    // 3. Deduplicate jewelry memos by id
+    const seenMemoIds = new Set();
+    const dedupedJM = [];
+    for (const m of actualJewelryMemos) {
+      if (m && m.id) {
+        if (!seenMemoIds.has(m.id)) {
+          seenMemoIds.add(m.id);
+          dedupedJM.push(m);
+        }
+      } else if (m) {
+        dedupedJM.push(m);
+      }
+    }
+    db.jewelryMemos = dedupedJM;
+
+    // 4. Merge restored logs into logs array (deduped by id)
+    if (logsToRestore.length > 0) {
+      const seenLogIds = new Set(db.logs.map(l => l && l.id).filter(Boolean));
+      for (const log of logsToRestore) {
+        if (log && log.id) {
+          if (!seenLogIds.has(log.id)) {
+            seenLogIds.add(log.id);
+            db.logs.push(log);
+          }
+        } else if (log) {
+          db.logs.push(log);
+        }
+      }
     }
   },
 
@@ -316,7 +395,8 @@ const DBManager = {
    * Retrieve all jewelry memo records
    */
   getJewelryMemos() {
-    return this.database ? this.database.jewelryMemos || [] : [];
+    if (!this.database || !Array.isArray(this.database.jewelryMemos)) return [];
+    return this.database.jewelryMemos.filter(m => m && !m.action && !m.targetId && !(m.details && m.suite));
   },
 
   /**

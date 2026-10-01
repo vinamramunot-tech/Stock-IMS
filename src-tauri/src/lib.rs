@@ -436,6 +436,80 @@ fn convert_heic_bytes_to_jpeg_bytes(heic_bytes: &[u8]) -> Result<Vec<u8>, String
     }
 }
 
+pub fn heal_vault_data(val: &mut serde_json::Value) {
+    if let Some(obj) = val.as_object_mut() {
+        let mut logs_to_restore = Vec::new();
+        let mut actual_jewelry_memos = Vec::new();
+
+        // 1. Separate logs that were erroneously placed into jewelryMemos
+        if let Some(jm) = obj.get_mut("jewelryMemos").and_then(|v| v.as_array_mut()) {
+            let mut remaining = Vec::new();
+            for item in jm.drain(..) {
+                let is_log = item.get("action").is_some()
+                    || item.get("targetId").is_some()
+                    || (item.get("details").is_some() && item.get("suite").is_some());
+                if is_log {
+                    logs_to_restore.push(item);
+                } else {
+                    remaining.push(item);
+                }
+            }
+            actual_jewelry_memos = remaining;
+        }
+
+        // 2. Separate finished jewelry memos that were placed into jewelStoneMemos or stoneMemos
+        for key in &["jewelStoneMemos", "stoneMemos"] {
+            if let Some(arr) = obj.get_mut(*key).and_then(|v| v.as_array_mut()) {
+                let mut stone_remaining = Vec::new();
+                for item in arr.drain(..) {
+                    let is_jm = item.get("id").and_then(|id| id.as_str()).map(|s| s.starts_with("jewelry_memo_")).unwrap_or(false)
+                        || item.get("memoNumber").and_then(|n| n.as_str()).map(|s| s.starts_with("JM-")).unwrap_or(false)
+                        || item.get("personName").is_some();
+                    if is_jm {
+                        actual_jewelry_memos.push(item);
+                    } else {
+                        stone_remaining.push(item);
+                    }
+                }
+                *arr = stone_remaining;
+            }
+        }
+
+        // 3. Deduplicate jewelry memos by id and restore to jewelryMemos
+        let mut seen_memo_ids = std::collections::HashSet::new();
+        let mut deduped_jewelry_memos = Vec::new();
+        for m in actual_jewelry_memos {
+            if let Some(id) = m.get("id").and_then(|i| i.as_str()) {
+                if seen_memo_ids.insert(id.to_string()) {
+                    deduped_jewelry_memos.push(m);
+                }
+            } else {
+                deduped_jewelry_memos.push(m);
+            }
+        }
+        obj.insert("jewelryMemos".to_string(), serde_json::Value::Array(deduped_jewelry_memos));
+
+        // 4. Merge restored logs into logs array (deduplicating by id)
+        if !logs_to_restore.is_empty() {
+            let logs_arr = obj.entry("logs".to_string()).or_insert_with(|| serde_json::Value::Array(Vec::new()));
+            if let Some(arr) = logs_arr.as_array_mut() {
+                let mut seen_log_ids: std::collections::HashSet<String> = arr.iter()
+                    .filter_map(|l| l.get("id").and_then(|i| i.as_str()).map(|s| s.to_string()))
+                    .collect();
+                for log in logs_to_restore {
+                    if let Some(id) = log.get("id").and_then(|i| i.as_str()) {
+                        if seen_log_ids.insert(id.to_string()) {
+                            arr.push(log);
+                        }
+                    } else {
+                        arr.push(log);
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn convert_db_heic_images(val: &mut serde_json::Value) {
     use base64::{Engine as _, engine::general_purpose};
     if let Some(obj) = val.as_object_mut() {
@@ -549,6 +623,7 @@ pub fn parse_vault_bytes(raw_buffer: &[u8]) -> Result<String, String> {
 
     if let Some(mut val) = raw_json_val {
         convert_db_heic_images(&mut val);
+        heal_vault_data(&mut val);
         return Ok(val.to_string());
     }
 
@@ -632,15 +707,16 @@ async fn write_vault(handle: AppHandle, payload: String, custom_path: String) ->
             let _ = std::fs::create_dir_all(parent);
         }
         
-        let parsed: db::VaultDatabase = serde_json::from_str(&payload)
+        let mut parsed: serde_json::Value = serde_json::from_str(&payload)
             .map_err(|e| format!("Failed to parse database payload: {:?}", e))?;
             
-        let binary_data = rmp_serde::to_vec(&parsed)
-            .map_err(|e| format!("Serialization error: {:?}", e))?;
+        heal_vault_data(&mut parsed);
+        
+        let json_string = parsed.to_string();
             
         // Use fast compression to optimize save speed
         let mut encoder = GzEncoder::new(Vec::new(), Compression::fast());
-        encoder.write_all(&binary_data)
+        encoder.write_all(json_string.as_bytes())
             .map_err(|e| format!("Compression failed: {:?}", e))?;
         let compressed_data = encoder.finish()
             .map_err(|e| format!("Compression finish failed: {:?}", e))?;
