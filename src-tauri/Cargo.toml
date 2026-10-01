@@ -1,6 +1,6 @@
 [package]
 name = "mava-gems-stock"
-version = "14.0.15"
+version = "14.0.16"
 description = "Premium, secure desktop stock management for jewelry inventory."
 authors = ["Antigravity"]
 license = "ISC"
@@ -47,3 +47,7 @@ lto = "thin"
 codegen-units = 4
 opt-level = 3
 strip = true   # strip debug symbols → smaller binary, faster artifact upload
+
+[patch.crates-io]
+tao = { path = "crates/tao" }
+
