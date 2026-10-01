@@ -361,6 +361,83 @@
     return uint8ArrayToBase64(encrypted);
   }
 
+  // ── IndexedDB Storage Driver (Unlimited Quota Storage on iOS) ──────────────
+
+  const IDB_NAME = "MavaGemsVaultDB";
+  const IDB_STORE = "vault_files";
+  const IDB_VERSION = 1;
+  let cachedIDB = null;
+
+  function openIndexedDB() {
+    if (cachedIDB) return Promise.resolve(cachedIDB);
+    return new Promise((resolve) => {
+      if (typeof indexedDB === 'undefined') {
+        resolve(null);
+        return;
+      }
+      try {
+        const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(IDB_STORE)) {
+            db.createObjectStore(IDB_STORE);
+          }
+        };
+        req.onsuccess = (e) => {
+          cachedIDB = e.target.result;
+          resolve(cachedIDB);
+        };
+        req.onerror = (e) => {
+          console.warn("IndexedDB open error:", e);
+          resolve(null);
+        };
+      } catch (e) {
+        console.warn("IndexedDB exception:", e);
+        resolve(null);
+      }
+    });
+  }
+
+  async function idbGet(key) {
+    try {
+      const db = await openIndexedDB();
+      if (!db) return null;
+      return new Promise((resolve) => {
+        try {
+          const tx = db.transaction(IDB_STORE, 'readonly');
+          const store = tx.objectStore(IDB_STORE);
+          const req = store.get(key);
+          req.onsuccess = () => resolve(req.result || null);
+          req.onerror = () => resolve(null);
+        } catch (e) {
+          resolve(null);
+        }
+      });
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function idbSet(key, value) {
+    try {
+      const db = await openIndexedDB();
+      if (!db) return false;
+      return new Promise((resolve) => {
+        try {
+          const tx = db.transaction(IDB_STORE, 'readwrite');
+          const store = tx.objectStore(IDB_STORE);
+          const req = store.put(value, key);
+          req.onsuccess = () => resolve(true);
+          req.onerror = () => resolve(false);
+        } catch (e) {
+          resolve(false);
+        }
+      });
+    } catch (e) {
+      return false;
+    }
+  }
+
   console.log("💎 Initializing universal translation bridge for Mava Gems (Tauri & Capacitor dual-mode)...");
 
   // Helper to handle native file picking from iOS Files / OneDrive / document picker
@@ -397,7 +474,11 @@
 
             const targetName = file.name || 'mava_gems_stock.db';
 
-            // 1. Save to Capacitor native Filesystem Documents folder
+            // 1. Save to IndexedDB (completely handles 25MB+ databases on iOS without quota errors)
+            await idbSet("vault_" + targetName, jsonString);
+            await idbSet("lastActiveDbPath", targetName);
+
+            // 2. Save to Capacitor native Filesystem Documents folder
             const fs = getCapacitorPlugin('Filesystem');
             if (fs) {
               try {
@@ -409,19 +490,18 @@
                   recursive: true
                 });
               } catch (fsErr) {
-                console.warn("Failed to write to Capacitor Filesystem:", fsErr.message);
+                console.warn("Capacitor Filesystem writeFile note:", fsErr.message);
               }
             }
 
-            // 2. Also save to local storage cache for instant offline access
+            // 3. Save lastActiveDbPath to localStorage
             try {
-              localStorage.setItem("mock_db_" + targetName, jsonString);
               localStorage.setItem("lastActiveDbPath", targetName);
             } catch (lsErr) {
               console.warn("localStorage note:", lsErr);
             }
 
-            // 3. If Desktop Tauri is available, import via IPC too
+            // 4. If Desktop Tauri is available, import via IPC too
             const core = getTauriCore();
             if (core) {
               try {
@@ -468,18 +548,19 @@
           const res = await safeInvoke('get_last_db_path', {}, 2500);
           if (res) return res;
         }
-      } catch (e) {
-        console.warn("getLastDbPath IPC fallback:", e.message);
-      }
+      } catch (e) {}
+      const idbPath = await idbGet("lastActiveDbPath");
+      if (idbPath) return idbPath;
       return localStorage.getItem('lastActiveDbPath') || '';
     },
 
     setLastDbPath: async (dbPath) => {
       try {
         if (dbPath) {
-          localStorage.setItem('lastActiveDbPath', dbPath);
+          await idbSet("lastActiveDbPath", dbPath);
+          try { localStorage.setItem('lastActiveDbPath', dbPath); } catch (_) {}
         } else {
-          localStorage.removeItem('lastActiveDbPath');
+          try { localStorage.removeItem('lastActiveDbPath'); } catch (_) {}
         }
         const core = getTauriCore();
         if (core) {
@@ -573,10 +654,22 @@
 
     // Database reads and writes
     readVault: async (customPath) => {
-      const isMobile = window.isMobilePlatform() || isCapacitor();
       const fileName = (customPath || 'mava_gems_stock.db').split('/').pop() || 'mava_gems_stock.db';
 
-      // 1. Capacitor Native Filesystem (iOS)
+      // 1. Check IndexedDB cache first (unlimited quota, persistent on iOS)
+      try {
+        const idbData = await idbGet("vault_" + fileName);
+        if (idbData) {
+          const jsonStr = await parseVaultPayload(idbData);
+          if (jsonStr) {
+            return { exists: true, data: jsonStr, path: fileName };
+          }
+        }
+      } catch (idbErr) {
+        console.warn("idbGet note:", idbErr);
+      }
+
+      // 2. Capacitor Native Filesystem (iOS Documents)
       const fs = getCapacitorPlugin('Filesystem');
       if (fs) {
         try {
@@ -587,6 +680,7 @@
           if (res && res.data) {
             const jsonStr = await parseVaultPayload(res.data);
             if (jsonStr) {
+              await idbSet("vault_" + fileName, jsonStr);
               return { exists: true, data: jsonStr, path: fileName };
             }
           }
@@ -595,7 +689,7 @@
         }
       }
 
-      // 2. Desktop Tauri IPC (macOS / Windows)
+      // 3. Desktop Tauri IPC (macOS / Windows)
       const core = getTauriCore();
       if (core) {
         try {
@@ -608,7 +702,7 @@
         }
       }
 
-      // 3. LocalStorage fallback
+      // 4. LocalStorage fallback
       const key = "mock_db_" + fileName;
       const data = localStorage.getItem(key) || localStorage.getItem("mock_db_" + customPath);
       if (data) {
@@ -625,14 +719,11 @@
       const fileName = (customPath || 'mava_gems_stock.db').split('/').pop() || 'mava_gems_stock.db';
       const content = typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2);
 
-      // Always update localStorage cache
-      try {
-        localStorage.setItem("mock_db_" + fileName, content);
-      } catch (lsErr) {
-        console.warn("localStorage quota:", lsErr);
-      }
+      // 1. Update IndexedDB cache (unlimited quota, persistent on iOS)
+      await idbSet("vault_" + fileName, content);
+      await idbSet("lastActiveDbPath", fileName);
 
-      // 1. Capacitor Native Filesystem (iOS Documents directory)
+      // 2. Capacitor Native Filesystem (iOS Documents directory)
       const fs = getCapacitorPlugin('Filesystem');
       if (fs) {
         try {
@@ -649,7 +740,7 @@
         }
       }
 
-      // 2. Desktop Tauri IPC (macOS / Windows)
+      // 3. Desktop Tauri IPC (macOS / Windows)
       const core = getTauriCore();
       if (core) {
         try {
