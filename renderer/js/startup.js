@@ -319,33 +319,9 @@ const Startup = {
         App.refreshAllDisplays();
       }
     } catch (err) {
-      console.warn("Vault load note:", err.message);
-      const isMobile = window.isMobilePlatform ? window.isMobilePlatform() : (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
-      if (isMobile) {
-        // Automatically initialize default database file if it doesn't exist on mobile
-        try {
-          await DBManager.initVault(customPath);
-          this.hideStartupScreen();
-          const activeInput = document.getElementById('active-vault-input');
-          if (activeInput) {
-            activeInput.value = customPath;
-            activeInput.title = customPath;
-          }
-          const settingsPath = document.getElementById('settings-vault-path');
-          if (settingsPath) settingsPath.textContent = customPath;
-          const launcherDb = document.getElementById('launcher-db-path-text');
-          if (launcherDb) launcherDb.textContent = customPath;
-          UI.showToast("Database successfully initialized!");
-          App.refreshAllDisplays();
-          return;
-        } catch (initErr) {
-          console.error("Auto-initialization fallback on mobile:", initErr);
-          this.hideStartupScreen();
-          return;
-        }
-      }
+      console.warn("Vault load failure:", err.message);
       UI.showToast("Database file read failure: " + err.message, true);
-      await this.showStartupScreen(); // Redirect back to setup screen on desktop if file is corrupted/missing
+      await this.showStartupScreen();
     }
   },
 

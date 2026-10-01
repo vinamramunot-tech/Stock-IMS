@@ -22,6 +22,7 @@ const App = {
     if (window.SalesController) { try { SalesController.init(); } catch (e) { console.error(e); } }
     try { this.initLogs(); } catch (e) { console.error("initLogs error:", e); }
     try { UI.initScrollToTop(); } catch (e) { console.error("initScrollToTop error:", e); }
+    try { this.initMobileBottomNav(); } catch (e) { console.error("initMobileBottomNav error:", e); }
 
     // 2. Tab switching navigation listeners
     const navItems = document.querySelectorAll('.nav-item[data-target]');
@@ -388,6 +389,87 @@ const App = {
 
     // Refresh header dashboard counters
     Catalog.renderDashboard();
+
+    // Sync mobile bottom navigation active state
+    this.syncMobileBottomNav(tabId);
+  },
+
+  syncMobileBottomNav(tabId) {
+    const bottomNavBtns = document.querySelectorAll('.mobile-nav-btn[data-nav-target]');
+    bottomNavBtns.forEach(btn => {
+      const navTarget = btn.getAttribute('data-nav-target');
+      let isMatch = false;
+      if (navTarget === 'catalog') {
+        isMatch = ['tab-jewelry-analyzer', 'tab-catalog', 'tab-jewelry-photos', 'tab-emerald-catalog', 'tab-emerald-analysis', 'tab-emerald-photos', 'tab-stone-catalog'].includes(tabId);
+      } else if (navTarget === 'memos') {
+        isMatch = ['tab-jewelry-memos', 'tab-memos', 'tab-jewel-stone-memos'].includes(tabId);
+      } else if (navTarget === 'sales') {
+        isMatch = ['tab-jewelry-sales', 'tab-emerald-sales'].includes(tabId);
+      }
+      if (isMatch) {
+        btn.classList.add('active');
+      } else if (navTarget !== 'add' && navTarget !== 'menu') {
+        btn.classList.remove('active');
+      }
+    });
+  },
+
+  initMobileBottomNav() {
+    const bottomNavBtns = document.querySelectorAll('.mobile-nav-btn[data-nav-target]');
+    bottomNavBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = btn.getAttribute('data-nav-target');
+        const suite = this.activeApp || 'jewelry';
+
+        if (target === 'catalog') {
+          if (suite === 'jewelry') this.switchTab('tab-jewelry-analyzer');
+          else if (suite === 'emerald') this.switchTab('tab-emerald-catalog');
+          else if (suite === 'stone') this.switchTab('tab-stone-catalog');
+        } else if (target === 'memos') {
+          if (suite === 'jewelry') this.switchTab('tab-jewelry-memos');
+          else if (suite === 'emerald') this.switchTab('tab-memos');
+          else if (suite === 'stone') this.switchTab('tab-jewel-stone-memos');
+        } else if (target === 'sales') {
+          if (suite === 'jewelry') this.switchTab('tab-jewelry-sales');
+          else if (suite === 'emerald') this.switchTab('tab-emerald-sales');
+          else if (suite === 'stone') this.switchTab('tab-jewel-stone-memos');
+        } else if (target === 'add') {
+          if (suite === 'jewelry') {
+            const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
+            if (!goldRate || goldRate <= 0) {
+              UI.showToast("Please set the Universal 24KT Gold Rate at the top of the screen before adding jewelry pieces.", true);
+              return;
+            }
+            UI.resetForm();
+            UI.openModal('modal-jewelry-item');
+          } else if (suite === 'emerald') {
+            if (window.EmeraldController) window.EmeraldController.openAddModal();
+          } else if (suite === 'stone') {
+            if (window.StoneController) window.StoneController.openAddModal();
+          }
+        } else if (target === 'menu') {
+          const mobileMenuOverlay = document.getElementById('mobile-menu-overlay');
+          if (mobileMenuOverlay) {
+            mobileMenuOverlay.classList.toggle('hidden');
+          }
+        }
+      });
+    });
+
+    // Showroom Privacy Mode Toggles
+    const btnShowroomMobile = document.getElementById('btn-client-showroom-mode');
+    const btnShowroomDesktop = document.getElementById('btn-toggle-showroom');
+    const handleShowroomToggle = () => this.toggleShowroomMode();
+    if (btnShowroomMobile) btnShowroomMobile.addEventListener('click', handleShowroomToggle);
+    if (btnShowroomDesktop) btnShowroomDesktop.addEventListener('click', handleShowroomToggle);
+  },
+
+  toggleShowroomMode() {
+    const isShowroom = document.body.classList.toggle('showroom-client-mode');
+    const msg = isShowroom 
+      ? "Client Showroom Mode ON: Trade costs and margins hidden." 
+      : "Client Showroom Mode OFF: Full financial data visible.";
+    UI.showToast(msg);
   },
 
   initLogs() {
@@ -1084,10 +1166,24 @@ const App = {
 
     // Automatically boot into the first/default tab of the selected app suite
     let defaultTab = 'tab-jewelry-analyzer';
-    if (appName === 'emerald') {
+    const suiteBadge = document.getElementById('active-suite-badge');
+    const navCatalogLabel = document.getElementById('mobile-nav-catalog-label');
+    const navAddLabel = document.getElementById('mobile-nav-add-label');
+
+    if (appName === 'jewelry') {
+      if (suiteBadge) suiteBadge.textContent = 'JEWELRY SUITE';
+      if (navCatalogLabel) navCatalogLabel.textContent = 'Catalog';
+      if (navAddLabel) navAddLabel.textContent = 'New Piece';
+    } else if (appName === 'emerald') {
       defaultTab = 'tab-emerald-catalog';
+      if (suiteBadge) suiteBadge.textContent = 'EMERALD SUITE';
+      if (navCatalogLabel) navCatalogLabel.textContent = 'Emeralds';
+      if (navAddLabel) navAddLabel.textContent = 'New Pudia';
     } else if (appName === 'stone') {
       defaultTab = 'tab-stone-catalog';
+      if (suiteBadge) suiteBadge.textContent = 'LOOSE STONES';
+      if (navCatalogLabel) navCatalogLabel.textContent = 'Stones';
+      if (navAddLabel) navAddLabel.textContent = 'New Stone';
     }
 
     this.switchTab(defaultTab);

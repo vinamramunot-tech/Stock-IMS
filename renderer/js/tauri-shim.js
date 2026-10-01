@@ -1,7 +1,6 @@
 /**
- * Tauri Global Bridge Shim for Mava Gems
- * Seamlessly bridges the Electron `window.electronAPI` interfaces to Tauri v2's `window.__TAURI__` context.
- * Exposing this shim prevents modifying any core database driver or UI rendering code.
+ * Tauri & Capacitor Universal Global Bridge Shim for Mava Gems
+ * Seamlessly bridges the Electron `window.electronAPI` interfaces to Tauri v2 and Capacitor context.
  */
 (function() {
   window.isMobilePlatform = function() {
@@ -41,7 +40,236 @@
     return null;
   }
 
+  // ── Helper Utilities for Binary & Gzip Processing ──────────────────────────
+
+  function uint8ArrayToBase64(bytes) {
+    let binary = '';
+    const len = bytes.byteLength;
+    const chunkSize = 0x8000; // 32KB chunking to prevent stack overflow
+    for (let i = 0; i < len; i += chunkSize) {
+      const chunk = bytes.subarray(i, Math.min(i + chunkSize, len));
+      binary += String.fromCharCode.apply(null, chunk);
+    }
+    return btoa(binary);
+  }
+
+  function base64ToUint8Array(base64Str) {
+    let clean = (base64Str || '').trim();
+    if (clean.includes(',')) clean = clean.split(',')[1];
+    const binary = atob(clean);
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+  }
+
+  async function decompressGzipBytes(uint8Array) {
+    if (typeof DecompressionStream !== 'undefined') {
+      try {
+        const ds = new DecompressionStream('gzip');
+        const writer = ds.writable.getWriter();
+        writer.write(uint8Array);
+        writer.close();
+        const output = [];
+        const reader = ds.readable.getReader();
+        let totalSize = 0;
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          output.push(value);
+          totalSize += value.byteLength;
+        }
+        const concatenated = new Uint8Array(totalSize);
+        let offset = 0;
+        for (const chunk of output) {
+          concatenated.set(chunk, offset);
+          offset += chunk.byteLength;
+        }
+        return new TextDecoder('utf-8').decode(concatenated);
+      } catch (streamErr) {
+        console.warn("DecompressionStream error:", streamErr);
+      }
+    }
+    return new TextDecoder('utf-8').decode(uint8Array);
+  }
+
+  async function compressGzipString(utf8String) {
+    if (typeof CompressionStream !== 'undefined') {
+      try {
+        const cs = new CompressionStream('gzip');
+        const writer = cs.writable.getWriter();
+        writer.write(new TextEncoder().encode(utf8String));
+        writer.close();
+        const output = [];
+        const reader = cs.readable.getReader();
+        let totalSize = 0;
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          output.push(value);
+          totalSize += value.byteLength;
+        }
+        const concatenated = new Uint8Array(totalSize);
+        let offset = 0;
+        for (const chunk of output) {
+          concatenated.set(chunk, offset);
+          offset += chunk.byteLength;
+        }
+        return concatenated;
+      } catch (streamErr) {
+        console.warn("CompressionStream error:", streamErr);
+      }
+    }
+    return new TextEncoder().encode(utf8String);
+  }
+
+  async function parseVaultPayload(raw) {
+    if (!raw) return null;
+    if (typeof raw === 'object' && !Array.isArray(raw) && !(raw instanceof Uint8Array) && !(raw instanceof ArrayBuffer)) {
+      return JSON.stringify(raw);
+    }
+
+    let bytes = null;
+    if (raw instanceof ArrayBuffer) {
+      bytes = new Uint8Array(raw);
+    } else if (raw instanceof Uint8Array) {
+      bytes = raw;
+    } else if (typeof raw === 'string') {
+      const trimmed = raw.trim();
+      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        return trimmed;
+      }
+      try {
+        bytes = base64ToUint8Array(trimmed);
+      } catch (e) {
+        return trimmed;
+      }
+    }
+
+    if (bytes && bytes.length > 0) {
+      // Check for Gzip magic bytes: [0x1f, 0x8b]
+      if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
+        const decompressed = await decompressGzipBytes(bytes);
+        return decompressed;
+      }
+      try {
+        const text = new TextDecoder('utf-8').decode(bytes);
+        const trimmed = text.trim();
+        if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+          return trimmed;
+        }
+      } catch (e) {
+        console.warn("UTF-8 text decoding error:", e);
+      }
+    }
+
+    return typeof raw === 'string' ? raw : null;
+  }
+
   console.log("💎 Initializing universal translation bridge for Mava Gems (Tauri & Capacitor dual-mode)...");
+
+  // Helper to handle native file picking from iOS Files / OneDrive / document picker
+  async function pickAndImportMobileFile() {
+    return new Promise((resolve) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = ".db,.json,application/octet-stream,text/plain,*/*";
+      let resolved = false;
+
+      const onFocus = () => {
+        window.removeEventListener('focus', onFocus);
+        setTimeout(() => {
+          if (!resolved && (!input.files || input.files.length === 0)) {
+            resolved = true;
+            resolve(null);
+          }
+        }, 800);
+      };
+      window.addEventListener('focus', onFocus);
+
+      input.onchange = async (e) => {
+        window.removeEventListener('focus', onFocus);
+        if (resolved) return;
+        const file = e.target.files && e.target.files[0];
+        if (!file) {
+          resolved = true;
+          resolve(null);
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+          try {
+            const arrayBuffer = evt.target.result;
+            const jsonString = await parseVaultPayload(arrayBuffer);
+            if (!jsonString) {
+              throw new Error("Unable to parse database file. Format must be a valid .db or .json file.");
+            }
+
+            // Validate that it parses as JSON object
+            const parsed = JSON.parse(jsonString);
+            if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+              throw new Error("Invalid database schema in selected file.");
+            }
+
+            const targetName = file.name || 'mava_gems_stock.db';
+
+            // 1. Save to Capacitor native Filesystem Documents folder
+            const fs = getCapacitorPlugin('Filesystem');
+            if (fs) {
+              try {
+                const compressedBytes = await compressGzipString(jsonString);
+                const base64Data = uint8ArrayToBase64(compressedBytes);
+                await fs.writeFile({
+                  path: targetName,
+                  data: base64Data,
+                  directory: 'DOCUMENTS',
+                  recursive: true
+                });
+              } catch (fsErr) {
+                console.warn("Failed to write to Capacitor Filesystem:", fsErr.message);
+              }
+            }
+
+            // 2. Also save to local storage cache for instant offline access
+            try {
+              localStorage.setItem("mock_db_" + targetName, jsonString);
+              localStorage.setItem("lastActiveDbPath", targetName);
+            } catch (lsErr) {
+              console.warn("localStorage note:", lsErr);
+            }
+
+            // 3. If Desktop Tauri is available, import via IPC too
+            const core = getTauriCore();
+            if (core) {
+              try {
+                const base64Data = uint8ArrayToBase64(new Uint8Array(arrayBuffer));
+                await safeInvoke('import_db_file', {
+                  base64_data: base64Data,
+                  base64Data,
+                  custom_path: targetName,
+                  customPath: targetName
+                }, 10000);
+              } catch (coreErr) {
+                console.warn("Tauri import_db_file fallback:", coreErr);
+              }
+            }
+
+            resolved = true;
+            resolve(targetName);
+          } catch (err) {
+            alert("Failed to load database file: " + err.message);
+            resolved = true;
+            resolve(null);
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      };
+      input.click();
+    });
+  }
 
   window.electronAPI = {
     // Basic configuration getters/setters
@@ -89,56 +317,9 @@
     },
     
     openDbDialog: async () => {
-      const isMobile = window.isMobilePlatform();
+      const isMobile = window.isMobilePlatform() || isCapacitor();
       if (isMobile) {
-        return new Promise((resolve) => {
-          const input = document.createElement('input');
-          input.type = 'file';
-          input.accept = ".db,.json,application/octet-stream,text/plain";
-          let resolved = false;
-
-          const onFocus = () => {
-            window.removeEventListener('focus', onFocus);
-            setTimeout(() => {
-              if (!resolved && (!input.files || input.files.length === 0)) {
-                resolved = true;
-                resolve(null);
-              }
-            }, 600);
-          };
-          window.addEventListener('focus', onFocus);
-
-          input.onchange = async (e) => {
-            window.removeEventListener('focus', onFocus);
-            if (resolved) return;
-            const file = e.target.files && e.target.files[0];
-            if (!file) {
-              resolved = true;
-              resolve(null);
-              return;
-            }
-            const reader = new FileReader();
-            reader.onload = async (evt) => {
-              try {
-                const dataUrl = evt.target.result;
-                const base64Data = dataUrl.split(',')[1];
-                let targetPath = file.name || (window.DBManager && window.DBManager.activePath) || 'mava_gems_stock.db';
-                const core = getTauriCore();
-                if (core) {
-                  await safeInvoke('import_db_file', { base64_data: base64Data, base64Data, custom_path: targetPath, customPath: targetPath }, 10000);
-                }
-                resolved = true;
-                resolve(targetPath);
-              } catch (err) {
-                alert("Failed to import database file: " + err.message);
-                resolved = true;
-                resolve(null);
-              }
-            };
-            reader.readAsDataURL(file);
-          };
-          input.click();
-        });
+        return await pickAndImportMobileFile();
       } else {
         const core = getTauriCore();
         if (core) {
@@ -165,7 +346,7 @@
     },
 
     exportBackupDialog: async (defaultName) => {
-      const isMobile = window.isMobilePlatform();
+      const isMobile = window.isMobilePlatform() || isCapacitor();
       if (isMobile) {
         return "MOBILE_SHARE_PATH:" + (defaultName || "mava_gems_stock_backup.db");
       }
@@ -181,56 +362,9 @@
     },
     
     importBackupDialog: async () => {
-      const isMobile = window.isMobilePlatform();
+      const isMobile = window.isMobilePlatform() || isCapacitor();
       if (isMobile) {
-        return new Promise((resolve) => {
-          const input = document.createElement('input');
-          input.type = 'file';
-          input.accept = ".db,.json,application/octet-stream,text/plain";
-          let resolved = false;
-
-          const onFocus = () => {
-            window.removeEventListener('focus', onFocus);
-            setTimeout(() => {
-              if (!resolved && (!input.files || input.files.length === 0)) {
-                resolved = true;
-                resolve(null);
-              }
-            }, 600);
-          };
-          window.addEventListener('focus', onFocus);
-
-          input.onchange = async (e) => {
-            window.removeEventListener('focus', onFocus);
-            if (resolved) return;
-            const file = e.target.files && e.target.files[0];
-            if (!file) {
-              resolved = true;
-              resolve(null);
-              return;
-            }
-            const reader = new FileReader();
-            reader.onload = async (evt) => {
-              try {
-                const dataUrl = evt.target.result;
-                const base64Data = dataUrl.split(',')[1];
-                const targetPath = file.name || (window.DBManager && window.DBManager.activePath) || 'mava_gems_stock.db';
-                const core = getTauriCore();
-                if (core) {
-                  await safeInvoke('import_db_file', { base64_data: base64Data, base64Data, custom_path: targetPath, customPath: targetPath }, 10000);
-                }
-                resolved = true;
-                resolve(targetPath);
-              } catch (err) {
-                alert("Failed to import backup file: " + err.message);
-                resolved = true;
-                resolve(null);
-              }
-            };
-            reader.readAsDataURL(file);
-          };
-          input.click();
-        });
+        return await pickAndImportMobileFile();
       } else {
         const core = getTauriCore();
         if (core) {
@@ -245,68 +379,31 @@
     },
 
     // Mobile-only: pick a .db file from the document picker
-    mobilePickAndLoadDb: () => new Promise((resolve) => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = ".db,.json,application/octet-stream,text/plain";
-      let resolved = false;
+    mobilePickAndLoadDb: async () => {
+      return await pickAndImportMobileFile();
+    },
 
-      const onFocus = () => {
-        window.removeEventListener('focus', onFocus);
-        setTimeout(() => {
-          if (!resolved && (!input.files || input.files.length === 0)) {
-            resolved = true;
-            resolve(null);
-          }
-        }, 600);
-      };
-      window.addEventListener('focus', onFocus);
-
-      input.onchange = async (e) => {
-        window.removeEventListener('focus', onFocus);
-        if (resolved) return;
-        const file = e.target.files && e.target.files[0];
-        if (!file) { resolved = true; resolve(null); return; }
-        const reader = new FileReader();
-        reader.onload = async (evt) => {
-          try {
-            const dataUrl = evt.target.result;
-            const base64Data = dataUrl.split(',')[1];
-            let targetPath = file.name || (window.DBManager && window.DBManager.activePath) || 'mava_gems_stock.db';
-            const core = getTauriCore();
-            if (core) {
-              await safeInvoke('import_db_file', { base64_data: base64Data, base64Data, custom_path: targetPath, customPath: targetPath }, 10000);
-            }
-            resolved = true;
-            resolve(targetPath);
-          } catch (err) {
-            alert('Failed to read database file: ' + err.message);
-            resolved = true;
-            resolve(null);
-          }
-        };
-        reader.readAsDataURL(file);
-      };
-      input.click();
-    }),
-
-    // Database reads and writes (AES-256-CBC / Sandboxed Filesystem)
+    // Database reads and writes
     readVault: async (customPath) => {
+      const isMobile = window.isMobilePlatform() || isCapacitor();
+      const fileName = (customPath || 'mava_gems_stock.db').split('/').pop() || 'mava_gems_stock.db';
+
       // 1. Capacitor Native Filesystem (iOS)
       const fs = getCapacitorPlugin('Filesystem');
       if (fs) {
         try {
-          const fileName = (customPath || 'mava_gems_stock.db').split('/').pop() || 'mava_gems_stock.db';
           const res = await fs.readFile({
             path: fileName,
-            directory: 'DOCUMENTS',
-            encoding: 'utf8'
+            directory: 'DOCUMENTS'
           });
           if (res && res.data) {
-            return { exists: true, data: res.data, path: fileName };
+            const jsonStr = await parseVaultPayload(res.data);
+            if (jsonStr) {
+              return { exists: true, data: jsonStr, path: fileName };
+            }
           }
         } catch (capErr) {
-          console.log("Capacitor readFile:", capErr.message);
+          console.log("Capacitor readFile note:", capErr.message);
         }
       }
 
@@ -314,33 +411,49 @@
       const core = getTauriCore();
       if (core) {
         try {
-          return await safeInvoke('read_vault', { custom_path: customPath, customPath }, 5000);
+          const res = await safeInvoke('read_vault', { custom_path: customPath, customPath }, 6000);
+          if (res && res.exists) {
+            return res;
+          }
         } catch (e) {
           console.warn("readVault IPC failed, checking storage fallback:", e.message);
         }
       }
 
-      // 3. Browser fallback
-      const key = "mock_db_" + (customPath || 'default');
-      const data = localStorage.getItem(key);
+      // 3. LocalStorage fallback
+      const key = "mock_db_" + fileName;
+      const data = localStorage.getItem(key) || localStorage.getItem("mock_db_" + customPath);
       if (data) {
-        return { exists: true, data, path: customPath };
+        const jsonStr = await parseVaultPayload(data);
+        if (jsonStr) {
+          return { exists: true, data: jsonStr, path: fileName };
+        }
       }
+
       return { exists: false, data: null };
     },
 
     writeVault: async (payload, customPath) => {
+      const fileName = (customPath || 'mava_gems_stock.db').split('/').pop() || 'mava_gems_stock.db';
+      const content = typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2);
+
+      // Always update localStorage cache
+      try {
+        localStorage.setItem("mock_db_" + fileName, content);
+      } catch (lsErr) {
+        console.warn("localStorage quota:", lsErr);
+      }
+
       // 1. Capacitor Native Filesystem (iOS Documents directory)
       const fs = getCapacitorPlugin('Filesystem');
       if (fs) {
         try {
-          const fileName = (customPath || 'mava_gems_stock.db').split('/').pop() || 'mava_gems_stock.db';
-          const content = typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2);
+          const compressedBytes = await compressGzipString(content);
+          const base64Data = uint8ArrayToBase64(compressedBytes);
           await fs.writeFile({
             path: fileName,
-            data: content,
+            data: base64Data,
             directory: 'DOCUMENTS',
-            encoding: 'utf8',
             recursive: true
           });
           return { success: true, path: fileName };
@@ -353,19 +466,12 @@
       const core = getTauriCore();
       if (core) {
         try {
-          return await safeInvoke('write_vault', { payload, custom_path: customPath, customPath }, 6000);
+          return await safeInvoke('write_vault', { payload: content, custom_path: customPath, customPath }, 6000);
         } catch (e) {
           console.warn("writeVault IPC failed:", e.message);
         }
       }
 
-      // 3. Browser fallback
-      const key = "mock_db_" + (customPath || 'default');
-      try {
-        localStorage.setItem(key, typeof payload === 'string' ? payload : JSON.stringify(payload));
-      } catch (lsErr) {
-        console.warn("localStorage quota:", lsErr);
-      }
       return { success: true, path: customPath };
     },
 
@@ -374,16 +480,11 @@
       if (destPath && destPath.startsWith("MOBILE_SHARE_PATH:")) {
         const filename = destPath.substring("MOBILE_SHARE_PATH:".length);
         try {
-          const core = getTauriCore();
-          let base64Data = null;
-          if (core) {
-            const fileInfo = await safeInvoke('read_vault', { custom_path: sourcePath, customPath: sourcePath }, 5000);
-            if (fileInfo && fileInfo.data) {
-              const str = typeof fileInfo.data === 'string' ? fileInfo.data : JSON.stringify(fileInfo.data);
-              base64Data = btoa(unescape(encodeURIComponent(str)));
-            }
-          }
-          if (base64Data) {
+          const fileInfo = await window.electronAPI.readVault(sourcePath);
+          if (fileInfo && fileInfo.data) {
+            const str = typeof fileInfo.data === 'string' ? fileInfo.data : JSON.stringify(fileInfo.data);
+            const compressed = await compressGzipString(str);
+            const base64Data = uint8ArrayToBase64(compressed);
             return await window.electronAPI.savePdfFile(base64Data, destPath);
           }
         } catch (e) {
@@ -407,7 +508,7 @@
     
     // PDF / Image saving dialog and file writing
     saveFileDialog: async (defaultName) => {
-      const isMobile = window.isMobilePlatform();
+      const isMobile = window.isMobilePlatform() || isCapacitor();
       if (isMobile) {
         return "MOBILE_SHARE_PATH:" + defaultName;
       } else {
