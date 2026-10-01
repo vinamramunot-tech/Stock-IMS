@@ -115,7 +115,87 @@
     return bytes;
   }
 
-  async function decompressGzipBytes(uint8Array) {
+  function decodeMsgPack(bytes) {
+    if (!bytes || bytes.length === 0) return null;
+    try {
+      let offset = 0;
+      const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      const textDecoder = new TextDecoder("utf-8");
+
+      function read() {
+        if (offset >= bytes.length) throw new Error("Unexpected end of MsgPack stream");
+        const byte = bytes[offset++];
+        if (byte <= 0x7f) return byte;
+        if (byte >= 0x80 && byte <= 0x8f) return readMap(byte & 0x0f);
+        if (byte >= 0x90 && byte <= 0x9f) return readArray(byte & 0x0f);
+        if (byte >= 0xa0 && byte <= 0xbf) return readString(byte & 0x1f);
+        if (byte === 0xc0) return null;
+        if (byte === 0xc2) return false;
+        if (byte === 0xc3) return true;
+        if (byte === 0xc4) return readBinary(view.getUint8(offset++));
+        if (byte === 0xc5) { const len = view.getUint16(offset); offset += 2; return readBinary(len); }
+        if (byte === 0xc6) { const len = view.getUint32(offset); offset += 4; return readBinary(len); }
+        if (byte === 0xca) { const val = view.getFloat32(offset); offset += 4; return val; }
+        if (byte === 0xcb) { const val = view.getFloat64(offset); offset += 8; return val; }
+        if (byte === 0xcc) return view.getUint8(offset++);
+        if (byte === 0xcd) { const val = view.getUint16(offset); offset += 2; return val; }
+        if (byte === 0xce) { const val = view.getUint32(offset); offset += 4; return val; }
+        if (byte === 0xcf) {
+          const hi = view.getUint32(offset);
+          const lo = view.getUint32(offset + 4);
+          offset += 8;
+          return hi * 4294967296 + lo;
+        }
+        if (byte === 0xd0) return view.getInt8(offset++);
+        if (byte === 0xd1) { const val = view.getInt16(offset); offset += 2; return val; }
+        if (byte === 0xd2) { const val = view.getInt32(offset); offset += 4; return val; }
+        if (byte === 0xd3) {
+          const hi = view.getInt32(offset);
+          const lo = view.getUint32(offset + 4);
+          offset += 8;
+          return hi * 4294967296 + lo;
+        }
+        if (byte === 0xd9) { const len = view.getUint8(offset++); return readString(len); }
+        if (byte === 0xda) { const len = view.getUint16(offset); offset += 2; return readString(len); }
+        if (byte === 0xdb) { const len = view.getUint32(offset); offset += 4; return readString(len); }
+        if (byte === 0xdc) { const len = view.getUint16(offset); offset += 2; return readArray(len); }
+        if (byte === 0xdd) { const len = view.getUint32(offset); offset += 4; return readArray(len); }
+        if (byte === 0xde) { const len = view.getUint16(offset); offset += 2; return readMap(len); }
+        if (byte === 0xdf) { const len = view.getUint32(offset); offset += 4; return readMap(len); }
+        if (byte >= 0xe0) return byte - 0x100;
+        throw new Error("Unsupported MsgPack byte: 0x" + byte.toString(16));
+      }
+      function readString(len) {
+        const sub = bytes.subarray(offset, offset + len);
+        offset += len;
+        return textDecoder.decode(sub);
+      }
+      function readBinary(len) {
+        const sub = bytes.subarray(offset, offset + len);
+        offset += len;
+        return sub;
+      }
+      function readArray(len) {
+        const arr = new Array(len);
+        for (let i = 0; i < len; i++) arr[i] = read();
+        return arr;
+      }
+      function readMap(len) {
+        const obj = {};
+        for (let i = 0; i < len; i++) {
+          const key = read();
+          const val = read();
+          obj[key] = val;
+        }
+        return obj;
+      }
+      return read();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function decompressGzipRawBytes(uint8Array) {
     if (typeof DecompressionStream !== 'undefined') {
       try {
         const ds = new DecompressionStream('gzip');
@@ -137,12 +217,17 @@
           concatenated.set(chunk, offset);
           offset += chunk.byteLength;
         }
-        return new TextDecoder('utf-8').decode(concatenated);
+        return concatenated;
       } catch (streamErr) {
         console.warn("DecompressionStream error:", streamErr);
       }
     }
-    return new TextDecoder('utf-8').decode(uint8Array);
+    return uint8Array;
+  }
+
+  async function decompressGzipBytes(uint8Array) {
+    const raw = await decompressGzipRawBytes(uint8Array);
+    return new TextDecoder('utf-8').decode(raw);
   }
 
   async function compressGzipString(utf8String) {
@@ -212,13 +297,22 @@
 
       // 3. Decompress Gzip if magic bytes present [0x1f, 0x8b]
       if (payloadBytes.length >= 2 && payloadBytes[0] === 0x1f && payloadBytes[1] === 0x8b) {
-        const decompressed = await decompressGzipBytes(payloadBytes);
-        if (decompressed && decompressed.trim().startsWith('{')) {
-          return decompressed;
+        const decompressedRaw = await decompressGzipRawBytes(payloadBytes);
+        try {
+          const text = new TextDecoder('utf-8').decode(decompressedRaw).trim();
+          if (text.startsWith('{') && text.endsWith('}')) {
+            return text;
+          }
+        } catch (_) {}
+
+        // Try MsgPack inside decompressed Gzip
+        const msgpackObj = decodeMsgPack(decompressedRaw);
+        if (msgpackObj && typeof msgpackObj === 'object') {
+          return JSON.stringify(msgpackObj);
         }
       }
 
-      // 4. Try UTF-8 on decrypted bytes
+      // 4. Try UTF-8 on decrypted payload bytes
       try {
         const text = new TextDecoder('utf-8').decode(payloadBytes).trim();
         if (text.startsWith('{') && text.endsWith('}')) {
@@ -226,12 +320,32 @@
         }
       } catch (_) {}
 
-      // 5. Fallback for unencrypted Gzip bytes
+      // 5. Try MsgPack on decrypted payload bytes
+      const decryptedMsgpack = decodeMsgPack(payloadBytes);
+      if (decryptedMsgpack && typeof decryptedMsgpack === 'object') {
+        return JSON.stringify(decryptedMsgpack);
+      }
+
+      // 6. Fallback for unencrypted Gzip bytes
       if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
-        const decompressed = await decompressGzipBytes(bytes);
-        if (decompressed && decompressed.trim().startsWith('{')) {
-          return decompressed;
+        const decompressedRaw = await decompressGzipRawBytes(bytes);
+        try {
+          const text = new TextDecoder('utf-8').decode(decompressedRaw).trim();
+          if (text.startsWith('{') && text.endsWith('}')) {
+            return text;
+          }
+        } catch (_) {}
+
+        const msgpackObj = decodeMsgPack(decompressedRaw);
+        if (msgpackObj && typeof msgpackObj === 'object') {
+          return JSON.stringify(msgpackObj);
         }
+      }
+
+      // 7. Try MsgPack on raw unencrypted bytes
+      const rawMsgpack = decodeMsgPack(bytes);
+      if (rawMsgpack && typeof rawMsgpack === 'object') {
+        return JSON.stringify(rawMsgpack);
       }
     }
 

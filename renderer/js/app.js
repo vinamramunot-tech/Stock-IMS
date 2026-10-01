@@ -267,6 +267,10 @@ const App = {
     switch (tabId) {
       case 'tab-catalog':
         Catalog.renderCatalogGrid();
+        Catalog.renderDashboard();
+        break;
+      case 'tab-jewelry-analyzer':
+        Catalog.renderDashboard();
         break;
       case 'tab-jewelry-photos':
         this.renderJewelryPhotos();
@@ -326,11 +330,14 @@ const App = {
 
     // 1. Immediately render active tab & top header metrics for instantaneous UI responsiveness
     Catalog.renderDashboard();
+    Catalog.renderCatalogGrid();
+    if (window.EmeraldController) EmeraldController.renderEmeraldGrid();
+    if (window.StoneController) StoneController.renderStoneGrid();
     this.renderTab(activeTab);
 
     // 2. Mark all other tabs as dirty so they only render when clicked
     const allTabIds = [
-      'tab-catalog', 'tab-jewelry-photos', 'tab-jewelry-memos', 'tab-jewelry-sales',
+      'tab-jewelry-analyzer', 'tab-catalog', 'tab-jewelry-photos', 'tab-jewelry-memos', 'tab-jewelry-sales',
       'tab-emerald-catalog', 'tab-emerald-photos', 'tab-emerald-analysis', 'tab-memos',
       'tab-stone-catalog', 'tab-jewel-stone-memos', 'tab-sales', 'tab-emerald-sales', 'tab-logs'
     ];
@@ -422,7 +429,7 @@ const App = {
         const suite = this.activeApp || 'jewelry';
 
         if (target === 'catalog') {
-          if (suite === 'jewelry') this.switchTab('tab-jewelry-analyzer');
+          if (suite === 'jewelry') this.switchTab('tab-catalog');
           else if (suite === 'emerald') this.switchTab('tab-emerald-catalog');
           else if (suite === 'stone') this.switchTab('tab-stone-catalog');
         } else if (target === 'memos') {
@@ -1165,12 +1172,13 @@ const App = {
     });
 
     // Automatically boot into the first/default tab of the selected app suite
-    let defaultTab = 'tab-jewelry-analyzer';
+    let defaultTab = 'tab-catalog';
     const suiteBadge = document.getElementById('active-suite-badge');
     const navCatalogLabel = document.getElementById('mobile-nav-catalog-label');
     const navAddLabel = document.getElementById('mobile-nav-add-label');
 
     if (appName === 'jewelry') {
+      defaultTab = 'tab-catalog';
       if (suiteBadge) suiteBadge.textContent = 'JEWELRY SUITE';
       if (navCatalogLabel) navCatalogLabel.textContent = 'Catalog';
       if (navAddLabel) navAddLabel.textContent = 'New Piece';
