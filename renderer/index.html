@@ -3901,17 +3901,18 @@
         <button type="button" class="btn-close modal-close-trigger-print-jewelry-catalog">&times;</button>
       </div>
       <div class="modal-body">
-        <p class="modal-instructions">Filter and select the specific jewelry pieces you want to print or export.</p>
+        <p class="modal-instructions">Filter and select the specific jewelry pieces you want to print or export. Active unsold stock is selected by default.</p>
 
         <div class="jewelry-print-filters-grid" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1.2fr; gap: 10px; margin-bottom: 12px;">
           <div>
             <div class="input-group" style="margin-bottom: 0;">
               <label for="jewelry-print-select-status">Filter by Status</label>
               <select id="jewelry-print-select-status">
-                <option value="" selected>All Statuses (incl. Sold)</option>
-                <option value="In Stock">In Stock</option>
+                <option value="active" selected>Active Stock (Exclude Sold)</option>
+                <option value="In Stock">In Stock Only</option>
                 <option value="Issued">On Memo / Issued</option>
-                <option value="Sold">Sold Pieces</option>
+                <option value="all">All Inventory (incl. Sold)</option>
+                <option value="Sold">Sold Pieces Only</option>
               </select>
             </div>
           </div>

@@ -1310,7 +1310,16 @@ const Catalog = {
     const searchInput = document.getElementById('jewelry-print-search-text');
     if (searchInput) searchInput.value = '';
     const statusSel = document.getElementById('jewelry-print-select-status');
-    if (statusSel) statusSel.value = '';
+    if (statusSel) {
+      // Default to active unsold stock so client reports never include sold items by default.
+      // If user had a specific filter on main catalog ('In Stock' or 'Issued'), carry it over.
+      const activeMainStatus = document.getElementById('filter-jewelry-status')?.value;
+      if (activeMainStatus === 'In Stock' || activeMainStatus === 'Issued') {
+        statusSel.value = activeMainStatus;
+      } else {
+        statusSel.value = 'active';
+      }
+    }
     const catSel = document.getElementById('jewelry-print-select-category');
     if (catSel) catSel.value = '';
     const multSelect = document.getElementById('jewelry-export-price-multiplier');
@@ -1352,7 +1361,7 @@ const Catalog = {
     if (!container) return;
     container.innerHTML = '';
 
-    const selectedStatus = (document.getElementById('jewelry-print-select-status') || {}).value || '';
+    const selectedStatus = (document.getElementById('jewelry-print-select-status') || {}).value || 'active';
     const selectedCategory = (document.getElementById('jewelry-print-select-category') || {}).value || '';
     const selectedKarat = (document.getElementById('jewelry-print-select-karat') || {}).value || '';
     const searchText = (document.getElementById('jewelry-print-search-text')?.value || '').toLowerCase().trim();
@@ -1361,10 +1370,12 @@ const Catalog = {
     const allItems = this.getAllCatalogItems();
 
     const filtered = allItems.filter(item => {
-      // Status filtering
+      // Status filtering: default to active (excludes sold pieces) for client reports
+      if ((selectedStatus === 'active' || !selectedStatus) && item.status === 'Sold') return false;
       if (selectedStatus === 'In Stock' && item.status && item.status !== 'In Stock') return false;
       if (selectedStatus === 'Issued' && item.status !== 'On Memo' && item.status !== 'Issued') return false;
       if (selectedStatus === 'Sold' && item.status !== 'Sold') return false;
+      // if selectedStatus === 'all', include both active and sold items
 
       const matchesCat = !selectedCategory || item.category === selectedCategory;
       const matchesKarat = !selectedKarat || (item.metals || []).some(m => Number(m.karat) === Number(selectedKarat));
@@ -1389,6 +1400,8 @@ const Catalog = {
       return;
     }
 
+    const hasPreselection = this.selectedItemIds && this.selectedItemIds.size > 0;
+
     filtered.forEach((item) => {
       const serialNumber = item.sno || this.getItemSno(item, allItems);
       const evaluation = Calc.evaluateItem(item, goldRate);
@@ -1404,11 +1417,16 @@ const Catalog = {
         statusLabel = 'Sold';
       }
 
+      // Check item if it was preselected on the main grid, or if no preselection was made, default to checked for all active (non-sold) items.
+      const isChecked = (selectedStatus === 'Sold')
+        ? (hasPreselection ? this.selectedItemIds.has(item.id) : true)
+        : (hasPreselection ? (this.selectedItemIds.has(item.id) && status !== 'Sold') : (status !== 'Sold'));
+
       const row = document.createElement('label');
       row.className = 'jewelry-print-item-row';
       row.innerHTML = `
         <div class="jewelry-print-item-left">
-          <input type="checkbox" class="jewelry-print-item-checkbox" value="${item.id}" checked>
+          <input type="checkbox" class="jewelry-print-item-checkbox" value="${item.id}" ${isChecked ? 'checked' : ''}>
           <span class="jewelry-print-sno-badge">S.No: ${serialNumber}</span>
           <span class="jewelry-print-sku-tag">${UI.escapeHtml(item.sku || '')}</span>
           <span class="jewelry-print-item-name" title="${UI.escapeHtml(item.name || 'Unnamed Piece')}">${UI.escapeHtml(item.name || 'Unnamed Piece')}</span>
@@ -4130,7 +4148,21 @@ const Catalog = {
 
     const allItems = this.getAllCatalogItems();
     const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
-    const selectedItems = allItems.filter(item => this.selectedItemIds.has(item.id));
+    let selectedItems = allItems.filter(item => this.selectedItemIds.has(item.id));
+
+    // Exclude previously sold items so client presentation never includes sold pieces
+    const initialCount = selectedItems.length;
+    selectedItems = selectedItems.filter(item => item.status !== 'Sold');
+
+    if (selectedItems.length === 0) {
+      UI.showToast("The selected item(s) are already sold and cannot be added to a client presentation.", true);
+      return;
+    }
+
+    if (selectedItems.length < initialCount) {
+      const excluded = initialCount - selectedItems.length;
+      UI.showToast(`Excluded ${excluded} previously sold piece${excluded > 1 ? 's' : ''} from client presentation.`);
+    }
 
     // Calculate evaluations for each item
     selectedItems.forEach(item => {
@@ -4179,10 +4211,10 @@ const Catalog = {
   launchSlideshow() {
     const allItems = this.getAllCatalogItems();
     const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
-    const selectedItems = allItems.filter(item => this.selectedItemIds.has(item.id));
+    const selectedItems = allItems.filter(item => this.selectedItemIds.has(item.id) && item.status !== 'Sold');
 
     if (selectedItems.length === 0) {
-      UI.showToast("No items selected for presentation.", true);
+      UI.showToast("No active (unsold) items selected for presentation.", true);
       return;
     }
 
@@ -4415,11 +4447,11 @@ const Catalog = {
     // 2. Identify and prepare items
     const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
     let selectedItems = (this.slideshowState && this.slideshowState.items && this.slideshowState.items.length > 0)
-      ? this.slideshowState.items
-      : this.getAllCatalogItems().filter(item => this.selectedItemIds.has(item.id));
+      ? this.slideshowState.items.filter(item => item.status !== 'Sold')
+      : this.getAllCatalogItems().filter(item => this.selectedItemIds.has(item.id) && item.status !== 'Sold');
 
     if (!selectedItems || selectedItems.length === 0) {
-      UI.showToast("Please select at least one jewelry item to export presentation.", true);
+      UI.showToast("Please select at least one active (unsold) jewelry item to export presentation.", true);
       return;
     }
 
