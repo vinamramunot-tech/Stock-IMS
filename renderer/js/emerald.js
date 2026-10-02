@@ -1474,9 +1474,9 @@ const EmeraldController = {
         </div>
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-left: 24px;">
           <span style="background-color: var(--bg-base); padding: 2px 8px; border-radius: 10px; font-size: 11px; color: var(--text-muted);">Weight: <strong style="color: var(--text-main);">${group.totalWeight.toFixed(2)} cts</strong></span>
-          <span style="background-color: var(--bg-base); padding: 2px 8px; border-radius: 10px; font-size: 11px; color: var(--text-muted);">Value: <strong style="color: var(--text-gold-dark);">₹${group.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
+          <span class="cost-price-data" style="background-color: var(--bg-base); padding: 2px 8px; border-radius: 10px; font-size: 11px; color: var(--text-muted);">Value: <strong style="color: var(--text-gold-dark);">₹${group.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
           <span style="background-color: var(--bg-base); padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; color: var(--text-main);">${group.items.length} Pudias</span>
-          <button type="button" class="btn btn-danger btn-small btn-delete-group" style="padding: 2px 8px; font-size: 11px; margin-left: auto;" title="Delete Entire Group">Delete</button>
+          <button type="button" class="btn btn-danger btn-small btn-delete-group" data-client-hide style="padding: 2px 8px; font-size: 11px; margin-left: auto;" title="Delete Entire Group">Delete</button>
         </div>`;
 
       groupHeader.innerHTML = groupHeaderHtml;
@@ -1504,9 +1504,9 @@ const EmeraldController = {
 
         const gradeStatsCol = `<div style="display: flex; align-items: center; gap: 15px; font-size: 12px; color: var(--text-muted);">
           <span>Weight: <strong style="color: var(--text-main);">${grade.totalWeight.toFixed(2)} cts</strong></span>
-          <span>Value: <strong style="color: var(--text-gold-dark);">₹${grade.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
+          <span class="cost-price-data">Value: <strong style="color: var(--text-gold-dark);">₹${grade.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
           <span style="background-color: var(--bg-base); padding: 1px 6px; border-radius: 10px; font-size: 10px; font-weight: 600; color: var(--text-main);">${grade.items.length} items</span>
-          <button type="button" class="btn btn-danger btn-small btn-delete-grade" style="padding: 2px 6px; font-size: 10px;" title="Delete Entire Grade">Delete</button>
+          <button type="button" class="btn btn-danger btn-small btn-delete-grade" data-client-hide style="padding: 2px 6px; font-size: 10px;" title="Delete Entire Grade">Delete</button>
         </div>`;
 
         gradeHeader.innerHTML = gradeTitleCol + gradeStatsCol;
@@ -1559,8 +1559,8 @@ const EmeraldController = {
             ${memoCarats > 0 ? `<span>In Company: <strong style="color: #30D158;">${inCompanyWeight.toFixed(2)} cts</strong></span>` : ''}
             ${memoCarats > 0 ? `<span>On Memo: <strong style="color: var(--text-gold-dark);">${memoCarats.toFixed(2)} cts</strong></span>` : ''}
             <span>Pcs: <strong style="color: var(--text-main);">${totalPieces}</strong></span>
-            <span>Rate: <strong style="color: var(--text-main);">${rateHtml}</strong></span>
-            <span>Value: <strong style="color: var(--text-gold-dark);">${valueHtml}</strong></span>
+            <span class="cost-price-data">Rate: <strong style="color: var(--text-main);">${rateHtml}</strong></span>
+            <span class="cost-price-data">Value: <strong style="color: var(--text-gold-dark);">${valueHtml}</strong></span>
           </div>`;
 
           pudiaHeader.innerHTML = pudiaTitleCol + pudiaStatsCol;
@@ -3510,7 +3510,7 @@ const EmeraldController = {
         usdValueDisplay = `<span style="text-decoration: line-through; opacity: 0.6;">$${totalValueUsd.toLocaleString()}</span> <strong>$${discountedValueUsd.toLocaleString()}</strong>`;
       }
       usdDisplay = `
-        <div style="font-size: 11px; color: var(--text-muted); border-top: 1px dashed var(--border-light); padding-top: 6px; margin-top: 6px; display: flex; flex-direction: column; gap: 2px;">
+        <div class="cost-price-data" style="font-size: 11px; color: var(--text-muted); border-top: 1px dashed var(--border-light); padding-top: 6px; margin-top: 6px; display: flex; flex-direction: column; gap: 2px;">
           <div>Rate (USD): <strong style="color: var(--text-main);">${usdRateDisplay}</strong></div>
           <div>Value (USD): <strong style="color: var(--text-main);">${usdValueDisplay}</strong></div>
         </div>
@@ -3570,11 +3570,11 @@ const EmeraldController = {
             <span class="flat-pudia-detail-label">Pieces:</span>
             <span class="flat-pudia-detail-val">${totalPieces} pcs</span>
           </div>
-          <div class="flat-pudia-detail-item">
+          <div class="flat-pudia-detail-item cost-price-data">
             <span class="flat-pudia-detail-label">Rate/ct:</span>
             <span class="flat-pudia-detail-val">${rateHtml}</span>
           </div>
-          <div class="flat-pudia-detail-item">
+          <div class="flat-pudia-detail-item cost-price-data">
             <span class="flat-pudia-detail-label">Valuation:</span>
             <span class="flat-pudia-detail-val" style="color: var(--text-gold-dark);">${valueHtml}</span>
           </div>
@@ -3602,10 +3602,10 @@ const EmeraldController = {
           <button type="button" class="btn btn-secondary btn-small btn-share-flat" style="padding: 4px 8px;" title="Share Card">
             Share
           </button>
-          <button type="button" class="btn btn-secondary btn-small btn-edit-flat" style="padding: 4px 8px;" title="Edit">
+          <button type="button" class="btn btn-secondary btn-small btn-edit-flat" data-client-hide style="padding: 4px 8px;" title="Edit">
             Edit
           </button>
-          <button type="button" class="btn btn-danger btn-small btn-delete-flat" style="padding: 4px 8px; background-color: var(--danger-red); border-color: var(--danger-red); color: white;" title="Delete">
+          <button type="button" class="btn btn-danger btn-small btn-delete-flat" data-client-hide style="padding: 4px 8px; background-color: var(--danger-red); border-color: var(--danger-red); color: white;" title="Delete">
             Delete
           </button>
         </div>

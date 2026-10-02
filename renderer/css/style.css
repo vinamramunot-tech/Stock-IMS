@@ -289,6 +289,12 @@ html[data-theme="light"] #btn-startup-toggle-theme .moon-icon {
   /* ABSOLUTELY NO CURVES, STRAIGHT EDGES GLOBALLY */
 }
 
+*,
+*::before,
+*::after {
+  touch-action: manipulation;
+}
+
 body {
   font-family: var(--font-sans);
   background-color: var(--bg-base);
@@ -296,6 +302,8 @@ body {
   overflow: hidden;
   height: 100vh;
   height: 100dvh;
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

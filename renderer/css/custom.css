@@ -1607,16 +1607,24 @@
 
 .jewelry-print-checklist-container {
   height: 280px;
-  min-height: 280px;
-  max-height: 280px;
+  min-height: 200px;
+  max-height: 320px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid var(--border-light);
   background-color: var(--bg-base);
   padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   border-radius: 6px;
+}
+
+.jewelry-print-filters-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1.2fr;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
 .jewelry-print-item-row {
@@ -1647,12 +1655,33 @@
 }
 
 .jewelry-print-item-left input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   accent-color: var(--text-gold, #d4af37);
   cursor: pointer;
   flex-shrink: 0;
   margin: 0;
+}
+
+.jewelry-print-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.jewelry-print-item-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.jewelry-print-item-title-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
 }
 
 .jewelry-print-sno-badge {
@@ -1679,6 +1708,7 @@
 
 .jewelry-print-item-name {
   font-size: 13px;
+  font-weight: 600;
   color: var(--text-main);
   white-space: nowrap;
   overflow: hidden;
@@ -1735,16 +1765,101 @@
 }
 
 .jewelry-print-val-tag {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   font-family: var(--font-mono);
   color: var(--text-gold, #d4af37);
   white-space: nowrap;
 }
 
-@media (max-width: 680px) {
+/* Dedicated Non-Squishing Stone Print Table Container */
+.print-stone-table-container {
+  max-height: 260px;
+  overflow-y: auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border-light);
+  background-color: var(--bg-base);
+  border-radius: 6px;
+}
+
+.print-stone-table {
+  width: 100%;
+  min-width: 520px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.print-stone-table th {
+  padding: 8px 10px;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-light);
+  background-color: var(--bg-card);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  white-space: nowrap;
+}
+
+.print-stone-row:hover {
+  background-color: rgba(212, 175, 55, 0.05);
+}
+
+@media (max-width: 768px) {
   .jewelry-print-filters-grid {
     grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+
+  .modal-card-print-jewelry {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .jewelry-print-filters-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  .jewelry-print-item-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .jewelry-print-item-left {
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .jewelry-print-item-left input[type="checkbox"] {
+    margin-top: 3px;
+  }
+
+  .jewelry-print-item-name {
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .jewelry-print-item-right {
+    display: flex;
+    justify-content: flex-end;
+    border-top: 1px dashed var(--border-light);
+    padding-top: 6px;
+    width: 100%;
+  }
+
+  .jewelry-print-checklist-container {
+    height: auto;
+    min-height: 160px;
+    max-height: 40vh;
   }
 }
 
@@ -2170,14 +2285,89 @@ body.showroom-client-mode .showroom-indicator-bar {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  background: linear-gradient(90deg, #1b5e20, #2e7d32, #1b5e20);
+  gap: 12px;
+  background: linear-gradient(90deg, #134e19, #1b5e20, #2e7d32, #1b5e20, #134e19);
   color: #ffffff;
-  padding: 4px 12px;
+  padding: 6px 16px;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+  position: relative;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.showroom-indicator-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #4ade80;
+  box-shadow: 0 0 8px #4ade80;
+  animation: pulse-showroom-dot 1.8s infinite ease-in-out;
+  flex-shrink: 0;
+}
+
+@keyframes pulse-showroom-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.85); }
+}
+
+.btn-showroom-exit {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  color: #ffffff;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: all 0.2s ease;
+  margin-left: 8px;
+}
+
+.btn-showroom-exit:hover,
+.btn-showroom-exit:active {
+  background: rgba(255, 255, 255, 0.35);
+  border-color: #ffffff;
+}
+
+/* Hide admin tabs and items in Showroom Mode */
+body.showroom-client-mode .admin-tab-item {
+  display: none !important;
+}
+
+/* Luxury Client Price Presentation in Item Detail */
+body.showroom-client-mode #detail-jewelry-valuations-container {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  text-align: center;
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.1), rgba(212, 175, 55, 0.03)) !important;
+  border: 1px solid rgba(212, 175, 55, 0.35) !important;
+  padding: 24px !important;
+  border-radius: 10px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+body.showroom-client-mode #detail-jewelry-selling-price-wrapper {
+  text-align: center !important;
+}
+
+body.showroom-client-mode #detail-jewelry-selling-price-wrapper span:first-child {
+  font-size: 11px !important;
+  letter-spacing: 0.12em !important;
+  color: var(--text-gold, #c5a059) !important;
+  font-weight: 700 !important;
+  margin-bottom: 6px !important;
+}
+
+body.showroom-client-mode #detail-jewelry-selling-price {
+  font-size: 30px !important;
+  font-weight: 800 !important;
+  color: var(--text-gold, #c5a059) !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 /* Mobile Sticky Modal Actions */

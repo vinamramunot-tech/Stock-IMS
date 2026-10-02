@@ -8,6 +8,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.disableWebViewZoom()
+        }
         return true
     }
 
@@ -27,6 +30,21 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func applicationDidBecomeActive(_ application: UIApplication) {
         // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
+        disableWebViewZoom()
+    }
+
+    private func disableWebViewZoom() {
+        let activeWindow = self.window ?? UIApplication.shared.windows.first(where: { $0.isKeyWindow })
+        if let bridgeVC = activeWindow?.rootViewController as? CAPBridgeViewController {
+            bridgeVC.webView?.scrollView.minimumZoomScale = 1.0
+            bridgeVC.webView?.scrollView.maximumZoomScale = 1.0
+            bridgeVC.webView?.scrollView.bouncesZoom = false
+            for gesture in bridgeVC.webView?.scrollView.gestureRecognizers ?? [] {
+                if let tap = gesture as? UITapGestureRecognizer, tap.numberOfTapsRequired == 2 {
+                    tap.isEnabled = false
+                }
+            }
+        }
     }
 
     func applicationWillTerminate(_ application: UIApplication) {

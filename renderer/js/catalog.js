@@ -986,8 +986,8 @@ const Catalog = {
       const plFormatted = plPct !== 0 ? `${plSign}${Math.abs(plPct).toFixed(2)}%` : '0.00%';
 
       const homeCostHtml = item.evaluation.hasEmerald
-        ? `<div class="price-lbl">HOME COST PRICE</div>
-           <div class="price-val" style="font-size: 15px; color: var(--text-muted); margin-bottom: 8px;">₹${item.evaluation.homeCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>`
+        ? `<div class="price-lbl cost-price-data">HOME COST PRICE</div>
+           <div class="price-val cost-price-data" style="font-size: 15px; color: var(--text-muted); margin-bottom: 8px;">₹${item.evaluation.homeCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>`
         : '';
 
       const badgeStatusHtml = `<span class="badge-status product-card-badge-status ${statusClass}">${statusLabel}</span>`;
@@ -1010,13 +1010,13 @@ const Catalog = {
       const isSelected = this.selectedItemIds && this.selectedItemIds.has(item.id);
       if (isSelected) card.classList.add('is-selected');
 
-      const checkboxHtml = `<label class="catalog-select-label" title="Select piece">
+      const checkboxHtml = `<label class="catalog-select-label" data-client-hide title="Select piece">
         <input type="checkbox" class="catalog-item-select" data-item-id="${item.id}" ${isSelected ? 'checked' : ''}>
         <span class="catalog-custom-checkbox"></span>
       </label>`;
 
       const commVal = typeof item.commission === 'object' ? Number(item.commission.value || 0) : Number(item.commission || 0);
-      const commHtml = commVal > 0 ? `<div class="specs-line"><strong>Commission:</strong> ₹${commVal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>` : '';
+      const commHtml = commVal > 0 ? `<div class="specs-line broker-comm-data cost-price-data"><strong>Commission:</strong> ₹${commVal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>` : '';
 
       card.innerHTML = `
         ${checkboxHtml}
@@ -1045,11 +1045,11 @@ const Catalog = {
             <div class="product-price-specs">
               ${commHtml}
               <div class="specs-line specs-market-cost cost-price-data"><strong>Market Cost:</strong> ₹${item.evaluation.marketCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
-              ${item.evaluation.hasEmerald ? `<div class="specs-line specs-home-cost cost-price-data"><strong>Home Cost:</strong> ₹${item.evaluation.homeCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>` : ''}
+              ${homeCostHtml ? `<div class="specs-line specs-home-cost cost-price-data"><strong>Home Cost:</strong> ₹${item.evaluation.homeCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>` : ''}
               <div class="specs-line specs-selling-price price-selling-highlight"><strong>Selling Price:</strong> ₹${item.evaluation.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
               <div class="specs-line specs-pl margin-data" style="margin-bottom:0;"><strong>P/L:</strong> ${plFormatted}</div>
             </div>
-            <div class="product-actions">
+            <div class="product-actions" data-client-hide>
               <button type="button" class="btn btn-secondary btn-small btn-edit" title="Edit details">Edit</button>
               <button type="button" class="btn btn-danger btn-small btn-delete" title="Delete piece">Delete</button>
             </div>
@@ -1636,11 +1636,17 @@ const Catalog = {
       row.innerHTML = `
         <div class="jewelry-print-item-left">
           <input type="checkbox" class="jewelry-print-item-checkbox" value="${item.id}" ${isChecked ? 'checked' : ''}>
-          <span class="jewelry-print-sno-badge">S.No: ${serialNumber}</span>
-          <span class="jewelry-print-sku-tag">${UI.escapeHtml(item.sku || '')}</span>
-          <span class="jewelry-print-item-name" title="${UI.escapeHtml(item.name || 'Unnamed Piece')}">${UI.escapeHtml(item.name || 'Unnamed Piece')}</span>
-          <span class="jewelry-print-cat-badge">${UI.escapeHtml(item.category || '—')}</span>
-          <span class="jewelry-print-status-badge ${statusClass}">${statusLabel}</span>
+          <div class="jewelry-print-item-info">
+            <div class="jewelry-print-item-meta-row">
+              <span class="jewelry-print-sno-badge">S.No: ${serialNumber}</span>
+              <span class="jewelry-print-sku-tag">${UI.escapeHtml(item.sku || '')}</span>
+              <span class="jewelry-print-cat-badge">${UI.escapeHtml(item.category || '—')}</span>
+              <span class="jewelry-print-status-badge ${statusClass}">${statusLabel}</span>
+            </div>
+            <div class="jewelry-print-item-title-row">
+              <span class="jewelry-print-item-name" title="${UI.escapeHtml(item.name || 'Unnamed Piece')}">${UI.escapeHtml(item.name || 'Unnamed Piece')}</span>
+            </div>
+          </div>
         </div>
         <div class="jewelry-print-item-right">
           <span class="jewelry-print-val-tag" title="Selling Price">₹${Math.round(evaluation.sellingPrice).toLocaleString('en-IN')}${multBadge}</span>

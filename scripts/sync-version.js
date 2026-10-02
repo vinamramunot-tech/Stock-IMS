@@ -69,4 +69,12 @@ if (fs.existsSync(pbxPath)) {
   fs.writeFileSync(pbxPath, pbxContent);
 }
 
+// 8. Sync index.html app-version-display
+const indexPath = path.join(__dirname, '../renderer/index.html');
+if (fs.existsSync(indexPath)) {
+  let indexContent = fs.readFileSync(indexPath, 'utf8');
+  indexContent = indexContent.replace(/(id="app-version-display"[^>]*>)[^<]*(<\/span>)/g, `$1${version}$2`);
+  fs.writeFileSync(indexPath, indexContent);
+}
+
 console.log('Version sync completed!');

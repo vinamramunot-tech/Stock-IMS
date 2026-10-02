@@ -479,18 +479,59 @@ const App = {
     // Showroom Privacy Mode Toggles
     const btnShowroomMobile = document.getElementById('btn-client-showroom-mode');
     const btnShowroomDesktop = document.getElementById('btn-toggle-showroom');
+    const btnExitShowroomBar = document.getElementById('btn-exit-showroom-bar');
     const handleShowroomToggle = () => this.toggleShowroomMode();
     if (btnShowroomMobile) btnShowroomMobile.addEventListener('click', handleShowroomToggle);
     if (btnShowroomDesktop) btnShowroomDesktop.addEventListener('click', handleShowroomToggle);
+    if (btnExitShowroomBar) btnExitShowroomBar.addEventListener('click', handleShowroomToggle);
+
+    // Restore showroom mode if persisted
+    try {
+      if (localStorage.getItem('mava-showroom-mode') === 'true') {
+        document.body.classList.add('showroom-client-mode');
+        this.updateShowroomUI(true);
+      }
+    } catch (e) {}
   },
 
   toggleShowroomMode() {
     this.triggerHaptic('medium');
     const isShowroom = document.body.classList.toggle('showroom-client-mode');
+    try {
+      localStorage.setItem('mava-showroom-mode', isShowroom ? 'true' : 'false');
+    } catch (e) {}
+
+    this.updateShowroomUI(isShowroom);
+
+    // If client mode enabled and currently on an admin/financial tab, switch to Catalog presentation tab
+    if (isShowroom) {
+      const adminTabs = ['tab-jewelry-analyzer', 'tab-jewelry-sales', 'tab-jewelry-memos', 'tab-memos', 'tab-emerald-sales', 'tab-emerald-analysis', 'tab-jewel-stone-memos', 'tab-logs', 'tab-settings'];
+      const activeTabEl = document.querySelector('.tab-content:not(.hidden)');
+      if (activeTabEl && adminTabs.includes(activeTabEl.id)) {
+        const fallbackTab = this.activeApp === 'emerald' ? 'tab-emerald-catalog' : (this.activeApp === 'stone' ? 'tab-stone-catalog' : 'tab-catalog');
+        this.switchTab(fallbackTab);
+      }
+    }
+
     const msg = isShowroom 
-      ? "Client Showroom Mode ON: Trade costs and margins hidden." 
+      ? "✨ Client Showroom Mode ON: Trade costs, margins & admin tools hidden." 
       : "Client Showroom Mode OFF: Full financial data visible.";
     UI.showToast(msg);
+  },
+
+  updateShowroomUI(isShowroom) {
+    const textEl = document.getElementById('showroom-mode-text');
+    if (textEl) {
+      textEl.textContent = isShowroom ? 'Exit View' : 'Showroom';
+    }
+    const mobileBtn = document.getElementById('btn-client-showroom-mode');
+    if (mobileBtn) {
+      mobileBtn.title = isShowroom ? 'Exit Client Showroom View' : 'Toggle Client Showroom View (Hides cost prices & margins)';
+    }
+    const desktopBtn = document.getElementById('btn-toggle-showroom');
+    if (desktopBtn) {
+      desktopBtn.title = isShowroom ? 'Exit Client Showroom View' : 'Toggle Client Showroom View (Hides trade margins & costs)';
+    }
   },
 
   initLogs() {
@@ -1011,9 +1052,10 @@ const App = {
       if (netMetals.length === 0) {
         metalsList.innerHTML = '<div style="color: var(--text-muted);">No metal components recorded.</div>';
       } else {
+        const isShowroomMode = document.body.classList.contains('showroom-client-mode');
         netMetals.forEach(m => {
           const div = document.createElement('div');
-          const valTag = (m.directValue || m.totalValue) ? ` · <span style="color: var(--text-gold-light); font-weight: 600;">₹${Number(m.directValue || m.totalValue).toLocaleString('en-IN')} (Direct Value)</span>` : '';
+          const valTag = (!isShowroomMode && (m.directValue || m.totalValue)) ? ` · <span style="color: var(--text-gold-light); font-weight: 600;">₹${Number(m.directValue || m.totalValue).toLocaleString('en-IN')} (Direct Value)</span>` : '';
           div.innerHTML = `<strong>${m.name || 'Metal'} (${m.karat}KT Gold):</strong> Gross: ${Number(m.grossWeight || 0).toFixed(3)}g (Net: ${Number(m.netWeight || 0).toFixed(3)}g, Wastage: ${Number(m.wastage || 0).toFixed(2)}%)${valTag}`;
           metalsList.appendChild(div);
         });
@@ -1045,6 +1087,8 @@ const App = {
       metaCommEl.textContent = `₹${commVal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
     }
 
+    const isShowroom = document.body.classList.contains('showroom-client-mode');
+
     // 6. Gemstones Breakdown
     const gemCard = document.getElementById('detail-jewelry-gemstones-card');
     const gemList = document.getElementById('detail-jewelry-gemstones-list');
@@ -1055,7 +1099,11 @@ const App = {
         gemCard.style.display = 'block';
         stones.forEach(s => {
           const div = document.createElement('div');
-          div.innerHTML = `• <strong>${s.type || 'Stone'} (${s.shape || 'Any'}):</strong> ${Number(s.weight || 0).toFixed(2)} cts @ ₹${Number(s.ratePerCarat || 0).toLocaleString()}/ct (Total: ₹${Number(s.totalValue || 0).toLocaleString()})`;
+          if (isShowroom) {
+            div.innerHTML = `• <strong>${UI.escapeHtml(s.type || 'Stone')} (${UI.escapeHtml(s.shape || 'Any')}):</strong> ${Number(s.weight || 0).toFixed(2)} cts total (${s.pieces || 1} ${Number(s.pieces) === 1 ? 'pc' : 'pcs'})`;
+          } else {
+            div.innerHTML = `• <strong>${UI.escapeHtml(s.type || 'Stone')} (${UI.escapeHtml(s.shape || 'Any')}):</strong> ${Number(s.weight || 0).toFixed(2)} cts @ ₹${Number(s.ratePerCarat || 0).toLocaleString()}/ct (Total: ₹${Number(s.totalValue || 0).toLocaleString()})`;
+          }
           gemList.appendChild(div);
         });
       } else {
@@ -1073,7 +1121,11 @@ const App = {
         diaCard.style.display = 'block';
         diamonds.forEach(d => {
           const div = document.createElement('div');
-          div.innerHTML = `• <strong>${d.type || 'Diamond'} (${d.shape || 'Any'}):</strong> ${Number(d.weight || 0).toFixed(2)} cts @ ₹${Number(d.ratePerCarat || 0).toLocaleString()}/ct (Total: ₹${Number(d.totalValue || 0).toLocaleString()})`;
+          if (isShowroom) {
+            div.innerHTML = `• <strong>${UI.escapeHtml(d.type || 'Diamond')} (${UI.escapeHtml(d.shape || 'Any')}):</strong> ${Number(d.weight || 0).toFixed(2)} cts total (${d.pieces || 1} ${Number(d.pieces) === 1 ? 'pc' : 'pcs'})`;
+          } else {
+            div.innerHTML = `• <strong>${UI.escapeHtml(d.type || 'Diamond')} (${UI.escapeHtml(d.shape || 'Any')}):</strong> ${Number(d.weight || 0).toFixed(2)} cts @ ₹${Number(d.ratePerCarat || 0).toLocaleString()}/ct (Total: ₹${Number(d.totalValue || 0).toLocaleString()})`;
+          }
           diaList.appendChild(div);
         });
       } else {

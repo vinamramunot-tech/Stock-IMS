@@ -872,11 +872,11 @@ const StoneController = {
             </div>
             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-left: 22px;">
               <span style="background-color: var(--bg-base); padding: 2px 8px; border-radius: 10px; font-size: 11px; color: var(--text-muted);">Weight: <strong style="color: var(--text-main);">${group.totalWeight.toFixed(3)} cts</strong></span>
-              <span style="background-color: var(--bg-base); padding: 2px 8px; border-radius: 10px; font-size: 11px; color: var(--text-muted);">Value: <strong style="color: var(--text-gold-dark);">₹${group.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
+              <span class="cost-price-data" style="background-color: var(--bg-base); padding: 2px 8px; border-radius: 10px; font-size: 11px; color: var(--text-muted);">Value: <strong style="color: var(--text-gold-dark);">₹${group.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
               <span style="background-color: var(--bg-base); padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; color: var(--text-main);">${group.itemCount} Packets</span>
             </div>
           </div>
-          <button type="button" class="btn btn-danger btn-small btn-delete-group" style="font-size: 11px; padding: 4px 10px; margin-right: 5px;">Delete Group</button>
+          <button type="button" class="btn btn-danger btn-small btn-delete-group" data-client-hide style="font-size: 11px; padding: 4px 10px; margin-right: 5px;">Delete Group</button>
         </div>
       `;
 
@@ -906,7 +906,7 @@ const StoneController = {
           </div>
           <div style="font-size: 11px; color: var(--text-muted); display: flex; gap: 10px;">
             <span>Wt: <strong>${type.totalWeight.toFixed(3)} cts</strong></span>
-            <span>Value: <strong>₹${type.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
+            <span class="cost-price-data">Value: <strong>₹${type.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
           </div>
         `;
         typeBlock.appendChild(typeHeader);
@@ -929,7 +929,7 @@ const StoneController = {
             </div>
             <div style="font-size: 11px; color: var(--text-muted); display: flex; gap: 10px;">
               <span>Wt: <strong>${grade.totalWeight.toFixed(3)} cts</strong></span>
-              <span>Value: <strong>₹${grade.totalValue.toLocaleString()}</strong></span>
+              <span class="cost-price-data">Value: <strong>₹${grade.totalValue.toLocaleString()}</strong></span>
             </div>
           `;
           gradeBlock.appendChild(gradeHeader);
@@ -958,8 +958,8 @@ const StoneController = {
               <div style="font-size: 11px; color: var(--text-muted); display: flex; gap: 10px; flex-wrap: wrap;">
                 <span>Wt: <strong>${totalW.toFixed(3)} cts</strong></span>
                 <span>Pcs: <strong>${totalP}</strong></span>
-                <span>Rate: <strong>₹${(item.pricePerCarat || 0).toLocaleString()}/ct</strong></span>
-                <span>Value: <strong style="color: var(--text-gold-dark);">₹${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
+                <span class="cost-price-data">Rate: <strong>₹${(item.pricePerCarat || 0).toLocaleString()}/ct</strong></span>
+                <span class="cost-price-data">Value: <strong style="color: var(--text-gold-dark);">₹${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
               </div>
             `;
             packBlock.appendChild(packHeader);
@@ -996,8 +996,8 @@ const StoneController = {
                 </div>
               </div>
               <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; border-top: 1px solid var(--border-light); padding-top: 8px;">
-                <button type="button" class="btn btn-secondary btn-small btn-edit" style="font-size:11px; padding:3px 8px;">Edit</button>
-                <button type="button" class="btn btn-danger btn-small btn-delete" style="font-size:11px; padding:3px 8px;">Delete</button>
+                <button type="button" class="btn btn-secondary btn-small btn-edit" data-client-hide style="font-size:11px; padding:3px 8px;">Edit</button>
+                <button type="button" class="btn btn-danger btn-small btn-delete" data-client-hide style="font-size:11px; padding:3px 8px;">Delete</button>
               </div>
             `;
 
@@ -1212,13 +1212,14 @@ const StoneController = {
       const val = w * (st.pricePerCarat || 0);
 
       const tr = document.createElement('tr');
+      tr.className = 'print-stone-row';
       tr.innerHTML = `
-        <td style="padding:6px 12px;text-align:center;"><input type="checkbox" class="print-stone-check" value="${st.id}" checked></td>
-        <td style="padding:6px 12px;"><strong>${st.type}</strong></td>
-        <td style="padding:6px 12px;">#${st.color || 'N/A'}</td>
-        <td style="padding:6px 12px;">${st.group || '—'} / ${st.lustreGrade || '—'}</td>
-        <td style="padding:6px 12px;text-align:right;">${w.toFixed(3)} cts</td>
-        <td style="padding:6px 12px;text-align:right;">₹${val.toLocaleString()}</td>
+        <td style="padding:8px 10px;text-align:center;width:40px;"><input type="checkbox" class="print-stone-check" value="${st.id}" checked></td>
+        <td style="padding:8px 10px;white-space:nowrap;"><strong>${UI.escapeHtml(st.type || 'Stone')}</strong></td>
+        <td style="padding:8px 10px;white-space:nowrap;">#${UI.escapeHtml(st.color || 'N/A')}</td>
+        <td style="padding:8px 10px;white-space:nowrap;">${UI.escapeHtml(st.group || '—')} / ${UI.escapeHtml(st.lustreGrade || '—')}</td>
+        <td style="padding:8px 10px;text-align:right;white-space:nowrap;">${w.toFixed(3)} cts</td>
+        <td class="cost-price-data" style="padding:8px 10px;text-align:right;white-space:nowrap;color:var(--text-gold-dark);font-weight:600;">₹${val.toLocaleString()}</td>
       `;
       tbody.appendChild(tr);
     });

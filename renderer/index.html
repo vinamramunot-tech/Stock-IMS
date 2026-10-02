@@ -3,12 +3,13 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Mava Gems | Stock Management System</title>
 
   <meta name="color-scheme" content="light dark">
   <script>
-    (function() {
+    (function () {
       // 1. Theme initializer
       try {
         const theme = localStorage.getItem("color-scheme");
@@ -17,21 +18,35 @@
           if (meta) meta.content = theme;
           document.documentElement.setAttribute('data-theme', theme);
         }
-      } catch (e) {}
+      } catch (e) { }
 
       // 2. Prevent accidental pinch-zoom and double-tap zoom on iOS WKWebView
-      document.addEventListener('gesturestart', function(e) { e.preventDefault(); }, { passive: false });
-      document.addEventListener('gesturechange', function(e) { e.preventDefault(); }, { passive: false });
-      document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { passive: false });
-      document.addEventListener('dblclick', function(e) { e.preventDefault(); }, { passive: false });
+      let lastTouchTime = 0;
+      document.addEventListener('touchend', function (e) {
+        const currentTime = Date.now();
+        const timeDiff = currentTime - lastTouchTime;
+        if (timeDiff > 0 && timeDiff <= 320) {
+          const target = e.target;
+          const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+          if (!isInput) {
+            e.preventDefault();
+            if (target && typeof target.click === 'function') {
+              target.click();
+            }
+          }
+        }
+        lastTouchTime = currentTime;
+      }, { passive: false });
+      document.addEventListener('gesturestart', function (e) { e.preventDefault(); }, { passive: false });
+      document.addEventListener('dblclick', function (e) { e.preventDefault(); }, { passive: false });
 
       // 3. Global WebKit Error Boundary to guarantee screen is never blank
-      window.addEventListener('error', function(e) {
+      window.addEventListener('error', function (e) {
         console.error("[MavaGems WebKit Error]", e.message, e.filename, e.lineno);
         var startup = document.getElementById('startup-screen');
         if (startup) startup.classList.remove('hidden');
       });
-      window.addEventListener('unhandledrejection', function(e) {
+      window.addEventListener('unhandledrejection', function (e) {
         console.error("[MavaGems WebKit Promise Rejection]", e.reason);
         var startup = document.getElementById('startup-screen');
         if (startup) startup.classList.remove('hidden');
@@ -154,7 +169,8 @@
       </div>
 
       <p class="startup-desc" style="margin-bottom: 25px;">
-        Database Connected: <strong id="launcher-db-path-text" style="color: var(--text-main);">mava_gems_stock.db</strong><br>
+        Database Connected: <strong id="launcher-db-path-text"
+          style="color: var(--text-main);">mava_gems_stock.db</strong><br>
         Select a dedicated catalog application suite to launch below.
       </p>
 
@@ -191,6 +207,13 @@
   <!-- ==================== MAIN WORKSPACE CONTAINER ==================== -->
   <div id="app-workspace" class="workspace-container hidden">
 
+    <!-- SHOWROOM PRESENTATION BANNER (Visible only in Showroom Mode) -->
+    <div class="showroom-indicator-bar" id="showroom-indicator-bar">
+      <span class="showroom-indicator-dot"></span>
+      <span>Showroom Presentation Mode &bull; Confidential Trade Data Hidden</span>
+      <button type="button" id="btn-exit-showroom-bar" class="btn-showroom-exit">Exit Showroom</button>
+    </div>
+
     <!-- HEADER BAR -->
     <header class="app-header">
       <div class="header-left">
@@ -216,9 +239,11 @@
           <span id="mobile-db-label">Database</span>
         </button>
         <div class="mobile-action-divider"></div>
-        <button type="button" id="btn-client-showroom-mode" class="mobile-action-btn" title="Toggle Client Showroom View (Hides cost prices & margins)">
+        <button type="button" id="btn-client-showroom-mode" class="mobile-action-btn"
+          title="Toggle Client Showroom View (Hides cost prices & margins)">
           <svg viewBox="0 0 24 24" width="16" height="16">
-            <path fill="currentColor" d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+            <path fill="currentColor"
+              d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" />
           </svg>
           <span id="showroom-mode-text">Showroom</span>
         </button>
@@ -266,9 +291,11 @@
       </div>
 
       <div class="header-right">
-        <button type="button" id="btn-toggle-showroom" class="btn-icon header-showroom-btn" title="Toggle Client Showroom View (Hides trade margins & costs)" style="margin-right: 8px;">
+        <button type="button" id="btn-toggle-showroom" class="btn-icon header-showroom-btn"
+          title="Toggle Client Showroom View (Hides trade margins & costs)" style="margin-right: 8px;">
           <svg viewBox="0 0 24 24" width="18" height="18">
-            <path fill="currentColor" d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+            <path fill="currentColor"
+              d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" />
           </svg>
         </button>
         <button type="button" id="btn-toggle-theme" class="btn-icon theme-toggle-btn" title="Toggle Dark/Light Mode"
@@ -310,9 +337,10 @@
             <div
               style="font-size:20px; font-weight:800; text-transform:uppercase; color:var(--text-main); margin-bottom:10px; padding-left:12px; letter-spacing:0.05em;">
               Jewelry Suite</div>
-            <button type="button" class="nav-item active" data-target="tab-jewelry-analyzer">
+            <button type="button" class="nav-item active admin-tab-item" data-target="tab-jewelry-analyzer">
               <svg viewBox="0 0 24 24" width="18" height="18">
-                <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
+                <path fill="currentColor"
+                  d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
               </svg>
               Analyzer
             </button>
@@ -330,14 +358,14 @@
               </svg>
               Photos
             </button>
-            <button type="button" class="nav-item" data-target="tab-jewelry-memos">
+            <button type="button" class="nav-item admin-tab-item" data-target="tab-jewelry-memos">
               <svg viewBox="0 0 24 24" width="18" height="18">
                 <path fill="currentColor"
                   d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zm0 5h-2V5h2v3zM4 19h16v2H4z" />
               </svg>
               Memos
             </button>
-            <button type="button" class="nav-item" data-target="tab-jewelry-sales">
+            <button type="button" class="nav-item admin-tab-item" data-target="tab-jewelry-sales">
               <svg viewBox="0 0 24 24" width="18" height="18">
                 <path fill="currentColor"
                   d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z" />
@@ -358,7 +386,7 @@
               </svg>
               Emerald Catalog
             </button>
-            <button type="button" class="nav-item" data-target="tab-emerald-analysis">
+            <button type="button" class="nav-item admin-tab-item" data-target="tab-emerald-analysis">
               <svg viewBox="0 0 24 24" width="18" height="18">
                 <path fill="currentColor"
                   d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
@@ -372,14 +400,14 @@
               </svg>
               Emerald Photos
             </button>
-            <button type="button" class="nav-item" data-target="tab-memos">
+            <button type="button" class="nav-item admin-tab-item" data-target="tab-memos">
               <svg viewBox="0 0 24 24" width="18" height="18">
                 <path fill="currentColor"
                   d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zm0 5h-2V5h2v3zM4 19h16v2H4z" />
               </svg>
               Emerald Memos
             </button>
-            <button type="button" class="nav-item" data-target="tab-emerald-sales">
+            <button type="button" class="nav-item admin-tab-item" data-target="tab-emerald-sales">
               <svg viewBox="0 0 24 24" width="18" height="18">
                 <path fill="currentColor"
                   d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z" />
@@ -399,7 +427,7 @@
               </svg>
               Stone Catalog
             </button>
-            <button type="button" class="nav-item" data-target="tab-jewel-stone-memos">
+            <button type="button" class="nav-item admin-tab-item" data-target="tab-jewel-stone-memos">
               <svg viewBox="0 0 24 24" width="18" height="18">
                 <path fill="currentColor"
                   d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
@@ -409,18 +437,18 @@
           </div>
 
           <!-- System Nav -->
-          <div class="sidebar-app-group" data-app-group="system">
+          <div class="sidebar-app-group admin-tab-item" data-app-group="system">
             <div
               style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin:15px 0 8px 0; padding-left:12px; letter-spacing:0.05em;">
               System</div>
-            <button type="button" class="nav-item" data-target="tab-logs">
+            <button type="button" class="nav-item admin-tab-item" data-target="tab-logs">
               <svg viewBox="0 0 24 24" width="18" height="18">
                 <path fill="currentColor"
                   d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z" />
               </svg>
               Logs
             </button>
-            <button type="button" class="nav-item" data-target="tab-settings">
+            <button type="button" class="nav-item admin-tab-item" data-target="tab-settings">
               <svg viewBox="0 0 24 24" width="18" height="18">
                 <path fill="currentColor"
                   d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h-3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
@@ -729,22 +757,28 @@
               <div class="metric-card">
                 <span class="metric-label">TOTAL SALES REVENUE</span>
                 <span class="metric-value text-gold" id="sales-page-metric-revenue">₹0.00</span>
-                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Cumulative realized sales</span>
+                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Cumulative realized
+                  sales</span>
               </div>
               <div class="metric-card">
                 <span class="metric-label">MANUFACTURING PROFIT</span>
                 <span class="metric-value" style="color: #22c55e;" id="sales-page-metric-mfg-profit">+₹0.00</span>
-                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Historical margin (Gold at Mfg Date)</span>
+                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Historical margin (Gold at Mfg
+                  Date)</span>
               </div>
               <div class="metric-card gold-border">
                 <span class="metric-label">REPLACEMENT PROFIT</span>
-                <span class="metric-value" style="color: var(--info-color, #38bdf8);" id="sales-page-metric-rep-profit">+₹0.00</span>
-                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Economic margin (Gold on Sale Date)</span>
+                <span class="metric-value" style="color: var(--info-color, #38bdf8);"
+                  id="sales-page-metric-rep-profit">+₹0.00</span>
+                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Economic margin (Gold on Sale
+                  Date)</span>
               </div>
               <div class="metric-card">
                 <span class="metric-label">GOLD COMMODITY GAIN</span>
-                <span class="metric-value" style="color: var(--text-gold-dark);" id="sales-page-metric-gold-gain">+₹0.00</span>
-                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Bullion inflation upside</span>
+                <span class="metric-value" style="color: var(--text-gold-dark);"
+                  id="sales-page-metric-gold-gain">+₹0.00</span>
+                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Bullion inflation
+                  upside</span>
               </div>
             </div>
           </section>
@@ -760,8 +794,10 @@
             </div>
 
             <div class="filters-group" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-              <input type="date" id="jewelry-sales-filter-date-from" class="filter-select" style="height: 42px; padding: 0 10px;" title="From Date">
-              <input type="date" id="jewelry-sales-filter-date-to" class="filter-select" style="height: 42px; padding: 0 10px;" title="To Date">
+              <input type="date" id="jewelry-sales-filter-date-from" class="filter-select"
+                style="height: 42px; padding: 0 10px;" title="From Date">
+              <input type="date" id="jewelry-sales-filter-date-to" class="filter-select"
+                style="height: 42px; padding: 0 10px;" title="To Date">
 
               <button type="button" id="jewelry-sales-filter-clear" class="btn btn-secondary" style="height: 42px;">
                 Clear
@@ -810,7 +846,8 @@
 
             <div id="jewelry-sales-empty-state" class="empty-state-card hidden">
               <h2 class="empty-title">No Jewelry Sales Recorded Yet</h2>
-              <p class="empty-description">When you process an issued memo item as "Sold", the transaction ledger will appear here.</p>
+              <p class="empty-description">When you process an issued memo item as "Sold", the transaction ledger will
+                appear here.</p>
             </div>
           </div>
         </div>
@@ -824,7 +861,7 @@
                 <span class="metric-label">EMERALD STOCK</span>
                 <span class="metric-value" id="metric-emerald-weight">0.00 cts</span>
               </div>
-              <div class="metric-card gold-border">
+              <div class="metric-card gold-border cost-price-data">
                 <span class="metric-label">EMERALD STOCK VALUATION</span>
                 <div class="metric-valuation-container">
                   <span class="metric-value text-gold" id="metric-emerald-valuation-inr">₹0.00</span>
@@ -937,7 +974,7 @@
                 </svg>
                 Bulk Share
               </button>
-              <button type="button" id="btn-create-emerald-main" class="btn btn-primary"
+              <button type="button" id="btn-create-emerald-main" class="btn btn-primary" data-client-hide
                 style="height: 42px; margin-left: 8px;">
                 + Add Stock
               </button>
@@ -1135,7 +1172,7 @@
                 <span class="metric-label">TOTAL LOOSE STONE WEIGHT</span>
                 <span class="metric-value" id="metric-loose-stone-weight">0.000 cts</span>
               </div>
-              <div class="metric-card gold-border">
+              <div class="metric-card gold-border cost-price-data">
                 <span class="metric-label">LOOSE STONE VALUATION</span>
                 <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
                   <span class="metric-value text-gold" id="metric-loose-stone-valuation"
@@ -1203,7 +1240,7 @@
                 </svg>
                 Print
               </button>
-              <button type="button" id="btn-create-stone-main" class="btn btn-primary"
+              <button type="button" id="btn-create-stone-main" class="btn btn-primary" data-client-hide
                 style="height: 42px; margin-left: 8px;">
                 + Add Stock
               </button>
@@ -1232,17 +1269,20 @@
               <div class="metric-card">
                 <span class="metric-label">TOTAL STOCK COST (MFG RATE)</span>
                 <span class="metric-value" id="metric-total-mfg-cost">₹0.00</span>
-                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.3;">Actual historical production & acquisition cost of inventory</span>
+                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.3;">Actual
+                  historical production & acquisition cost of inventory</span>
               </div>
               <div class="metric-card">
                 <span class="metric-label">TOTAL STOCK COST (MARKET RATE)</span>
                 <span class="metric-value" id="metric-total-valuation">₹0.00</span>
-                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.3;">Current replacement & remaking cost at live gold rate</span>
+                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.3;">Current
+                  replacement & remaking cost at live gold rate</span>
               </div>
               <div class="metric-card gold-border">
                 <span class="metric-label">TOTAL STOCK SALE VALUE (LIVE)</span>
                 <span class="metric-value text-gold" id="metric-total-selling-value">₹0.00</span>
-                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.3;">Estimated total retail revenue with current profit margins</span>
+                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.3;">Estimated
+                  total retail revenue with current profit margins</span>
               </div>
             </div>
 
@@ -1251,17 +1291,20 @@
               <div class="metric-card">
                 <span class="metric-label">TOTAL INVENTORY GAIN / LOSS (P/L)</span>
                 <span class="metric-value" id="metric-total-inventory-pl" style="font-size: 20px;">0.00%</span>
-                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.3;">Net inventory value shift from date of manufacture</span>
+                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.3;">Net
+                  inventory value shift from date of manufacture</span>
               </div>
               <div class="metric-card">
                 <span class="metric-label">TOTAL PIECES</span>
                 <span class="metric-value" id="metric-total-pieces">0</span>
-                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.3;">Total active pieces in stock inventory</span>
+                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.3;">Total active
+                  pieces in stock inventory</span>
               </div>
               <div class="metric-card">
                 <span class="metric-label">TOTAL GOLD WEIGHT</span>
                 <span class="metric-value" id="metric-gold-weight">0.00 g</span>
-                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.3;">Net metal weight across all stock</span>
+                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.3;">Net metal
+                  weight across all stock</span>
               </div>
             </div>
 
@@ -1281,14 +1324,20 @@
             <!-- Line 4: Price Range Distribution Analysis -->
             <div class="metrics-line-2" style="margin-top: 15px;">
               <div class="metric-card" style="grid-column: span 3; padding: 20px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                <div
+                  style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
                   <div>
-                    <span class="metric-label" style="font-size: 11px; letter-spacing: 0.1em;">CURRENT STOCK: PRICE RANGE & VALUATION DISTRIBUTION</span>
-                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Active inventory concentration by retail price bracket (ranges with 0 items are hidden)</div>
+                    <span class="metric-label" style="font-size: 11px; letter-spacing: 0.1em;">CURRENT STOCK: PRICE
+                      RANGE & VALUATION DISTRIBUTION</span>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Active inventory
+                      concentration by retail price bracket (ranges with 0 items are hidden)</div>
                   </div>
-                  <span id="price-distribution-active-count" style="font-size: 11px; font-weight: 700; color: var(--text-gold-dark); background: var(--bg-gold-subtle, rgba(212, 175, 55, 0.12)); border: 1px solid var(--border-gold-subtle, rgba(212, 175, 55, 0.25)); padding: 3px 10px; border-radius: 4px;">0 Active Brackets</span>
+                  <span id="price-distribution-active-count"
+                    style="font-size: 11px; font-weight: 700; color: var(--text-gold-dark); background: var(--bg-gold-subtle, rgba(212, 175, 55, 0.12)); border: 1px solid var(--border-gold-subtle, rgba(212, 175, 55, 0.25)); padding: 3px 10px; border-radius: 4px;">0
+                    Active Brackets</span>
                 </div>
-                <div id="price-range-distribution-container" style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+                <div id="price-range-distribution-container"
+                  style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
                   <!-- Dynamic active price range status bars render here -->
                 </div>
               </div>
@@ -1297,76 +1346,120 @@
             <!-- Line 5: Realized Sales, Holding Time & Velocity Analytics -->
             <div class="metrics-line-2" style="margin-top: 20px;">
               <div class="metric-card gold-border" style="grid-column: span 3; padding: 20px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                <div
+                  style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
                   <div>
-                    <span class="metric-label" style="font-size: 12px; letter-spacing: 0.1em; color: var(--text-gold-dark);">REALIZED SALES, HOLDING PERIOD & PROFIT VELOCITY</span>
-                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Portfolio performance metrics from manufacturing date to date of sale</div>
+                    <span class="metric-label"
+                      style="font-size: 12px; letter-spacing: 0.1em; color: var(--text-gold-dark);">REALIZED SALES,
+                      HOLDING PERIOD & PROFIT VELOCITY</span>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Portfolio performance
+                      metrics from manufacturing date to date of sale</div>
                   </div>
-                  <span id="analyzer-sales-active-ranges-badge" style="font-size: 11px; font-weight: 700; color: var(--text-gold-dark); background: var(--bg-gold-subtle, rgba(212, 175, 55, 0.12)); border: 1px solid var(--border-gold-subtle, rgba(212, 175, 55, 0.25)); padding: 3px 10px; border-radius: 4px;">0 Sold Brackets</span>
+                  <span id="analyzer-sales-active-ranges-badge"
+                    style="font-size: 11px; font-weight: 700; color: var(--text-gold-dark); background: var(--bg-gold-subtle, rgba(212, 175, 55, 0.12)); border: 1px solid var(--border-gold-subtle, rgba(212, 175, 55, 0.25)); padding: 3px 10px; border-radius: 4px;">0
+                    Sold Brackets</span>
                 </div>
 
                 <!-- 5-Metric Cards Row -->
                 <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 16px;">
-                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
-                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Total Sales Revenue</div>
-                    <div style="font-size: 18px; font-weight: 800; color: var(--text-gold-dark); margin-top: 4px;" id="analyzer-sales-metric-revenue">₹0.00</div>
-                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Cumulative realized revenue</div>
+                  <div
+                    style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div
+                      style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">
+                      Total Sales Revenue</div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--text-gold-dark); margin-top: 4px;"
+                      id="analyzer-sales-metric-revenue">₹0.00</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Cumulative realized revenue
+                    </div>
                   </div>
 
-                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
-                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Manufacturing Profit</div>
-                    <div style="font-size: 18px; font-weight: 800; color: #22c55e; margin-top: 4px;" id="analyzer-sales-metric-profit">+₹0.00</div>
-                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Historical (Gold at Mfg Date)</div>
+                  <div
+                    style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div
+                      style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">
+                      Manufacturing Profit</div>
+                    <div style="font-size: 18px; font-weight: 800; color: #22c55e; margin-top: 4px;"
+                      id="analyzer-sales-metric-profit">+₹0.00</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Historical (Gold at Mfg
+                      Date)</div>
                   </div>
 
-                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
-                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Replacement Profit</div>
-                    <div style="font-size: 18px; font-weight: 800; color: var(--info-color, #38bdf8); margin-top: 4px;" id="analyzer-sales-metric-replacement-profit">+₹0.00</div>
-                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Economic (Gold on Sale Date)</div>
+                  <div
+                    style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div
+                      style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">
+                      Replacement Profit</div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--info-color, #38bdf8); margin-top: 4px;"
+                      id="analyzer-sales-metric-replacement-profit">+₹0.00</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Economic (Gold on Sale
+                      Date)</div>
                   </div>
 
-                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
-                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Gold Inflation Gain</div>
-                    <div style="font-size: 18px; font-weight: 800; color: var(--text-gold-dark); margin-top: 4px;" id="analyzer-sales-metric-gold-gain">+₹0.00</div>
-                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Bullion appreciation upside</div>
+                  <div
+                    style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div
+                      style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">
+                      Gold Inflation Gain</div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--text-gold-dark); margin-top: 4px;"
+                      id="analyzer-sales-metric-gold-gain">+₹0.00</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Bullion appreciation upside
+                    </div>
                   </div>
 
-                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
-                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Avg Holding Period</div>
-                    <div style="font-size: 18px; font-weight: 800; color: var(--text-main); margin-top: 4px;" id="analyzer-sales-metric-time-elapsed">0 Days</div>
-                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;"><span id="analyzer-sales-metric-count">0</span> pcs sold</div>
+                  <div
+                    style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div
+                      style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">
+                      Avg Holding Period</div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--text-main); margin-top: 4px;"
+                      id="analyzer-sales-metric-time-elapsed">0 Days</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;"><span
+                        id="analyzer-sales-metric-count">0</span> pcs sold</div>
                   </div>
                 </div>
 
                 <!-- 3 Performance Highlights Grid -->
                 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px;">
-                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
-                    <div style="display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-gold-dark); margin-bottom: 4px;">
+                  <div
+                    style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div
+                      style="display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-gold-dark); margin-bottom: 4px;">
                       <span>🏆</span> MOST SOLD PRICE RANGE
                     </div>
-                    <div style="font-size: 14px; font-weight: 700; color: var(--text-main);" id="analyzer-sales-insight-most-sold">—</div>
-                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;" id="analyzer-sales-insight-most-sold-sub">Highest transaction volume</div>
+                    <div style="font-size: 14px; font-weight: 700; color: var(--text-main);"
+                      id="analyzer-sales-insight-most-sold">—</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;"
+                      id="analyzer-sales-insight-most-sold-sub">Highest transaction volume</div>
                   </div>
 
-                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
-                    <div style="display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: #22c55e; margin-bottom: 4px;">
+                  <div
+                    style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div
+                      style="display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: #22c55e; margin-bottom: 4px;">
                       <span>🚀</span> HIGHEST PROFIT % / MONTH
                     </div>
-                    <div style="font-size: 14px; font-weight: 700; color: #22c55e;" id="analyzer-sales-insight-highest-monthly-roi">—</div>
-                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;" id="analyzer-sales-insight-highest-monthly-roi-sub">Fastest monthly ROI velocity</div>
+                    <div style="font-size: 14px; font-weight: 700; color: #22c55e;"
+                      id="analyzer-sales-insight-highest-monthly-roi">—</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;"
+                      id="analyzer-sales-insight-highest-monthly-roi-sub">Fastest monthly ROI velocity</div>
                   </div>
 
-                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
-                    <div style="display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--info-color, #38bdf8); margin-bottom: 4px;">
+                  <div
+                    style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div
+                      style="display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--info-color, #38bdf8); margin-bottom: 4px;">
                       <span>💎</span> HIGHEST TOTAL PROFIT RANGE
                     </div>
-                    <div style="font-size: 14px; font-weight: 700; color: var(--text-main);" id="analyzer-sales-insight-most-profitable">—</div>
-                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;" id="analyzer-sales-insight-most-profitable-sub">Highest cumulative realized profit</div>
+                    <div style="font-size: 14px; font-weight: 700; color: var(--text-main);"
+                      id="analyzer-sales-insight-most-profitable">—</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;"
+                      id="analyzer-sales-insight-most-profitable-sub">Highest cumulative realized profit</div>
                   </div>
                 </div>
 
                 <!-- Price Range Sales Breakdown Bars Container -->
-                <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; letter-spacing: 0.05em;">
+                <div
+                  style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; letter-spacing: 0.05em;">
                   PRICE RANGE BREAKDOWN & TURNOVER
                 </div>
                 <div id="analyzer-sales-price-range-container" style="display: flex; flex-direction: column; gap: 8px;">
@@ -1378,38 +1471,64 @@
             <!-- Line 6: Customer-Wise Sales & Client Intelligence -->
             <div class="metrics-line-2" style="margin-top: 20px;">
               <div class="metric-card gold-border" style="grid-column: span 3; padding: 20px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                <div
+                  style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
                   <div>
-                    <span class="metric-label" style="font-size: 12px; letter-spacing: 0.1em; color: var(--text-gold-dark);">CLIENT & CUSTOMER SALES INTELLIGENCE</span>
-                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Customer revenue rankings, realized profit margins, piece volume, and purchasing profiles</div>
+                    <span class="metric-label"
+                      style="font-size: 12px; letter-spacing: 0.1em; color: var(--text-gold-dark);">CLIENT & CUSTOMER
+                      SALES INTELLIGENCE</span>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Customer revenue rankings,
+                      realized profit margins, piece volume, and purchasing profiles</div>
                   </div>
-                  <span id="analyzer-customer-count-badge" style="font-size: 11px; font-weight: 700; color: var(--text-gold-dark); background: var(--bg-gold-subtle, rgba(212, 175, 55, 0.12)); border: 1px solid var(--border-gold-subtle, rgba(212, 175, 55, 0.25)); padding: 3px 10px; border-radius: 4px;">0 Active Clients</span>
+                  <span id="analyzer-customer-count-badge"
+                    style="font-size: 11px; font-weight: 700; color: var(--text-gold-dark); background: var(--bg-gold-subtle, rgba(212, 175, 55, 0.12)); border: 1px solid var(--border-gold-subtle, rgba(212, 175, 55, 0.25)); padding: 3px 10px; border-radius: 4px;">0
+                    Active Clients</span>
                 </div>
 
                 <!-- 4-Client Highlights Row -->
                 <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px;">
-                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
-                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Unique Clients</div>
-                    <div style="font-size: 18px; font-weight: 800; color: var(--text-main); margin-top: 4px;" id="analyzer-customer-metric-total">0</div>
-                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Total buyers on ledger</div>
+                  <div
+                    style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div
+                      style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">
+                      Unique Clients</div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--text-main); margin-top: 4px;"
+                      id="analyzer-customer-metric-total">0</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Total buyers on ledger
+                    </div>
                   </div>
 
-                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
-                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Top Buyer by Spend</div>
-                    <div style="font-size: 16px; font-weight: 800; color: var(--text-gold-dark); margin-top: 4px;" id="analyzer-customer-metric-top-spend">—</div>
-                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;" id="analyzer-customer-metric-top-spend-sub">Highest cumulative revenue</div>
+                  <div
+                    style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div
+                      style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">
+                      Top Buyer by Spend</div>
+                    <div style="font-size: 16px; font-weight: 800; color: var(--text-gold-dark); margin-top: 4px;"
+                      id="analyzer-customer-metric-top-spend">—</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;"
+                      id="analyzer-customer-metric-top-spend-sub">Highest cumulative revenue</div>
                   </div>
 
-                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
-                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Top Profit Contributor</div>
-                    <div style="font-size: 16px; font-weight: 800; color: #22c55e; margin-top: 4px;" id="analyzer-customer-metric-top-profit">—</div>
-                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;" id="analyzer-customer-metric-top-profit-sub">Highest gross margin generated</div>
+                  <div
+                    style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div
+                      style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">
+                      Top Profit Contributor</div>
+                    <div style="font-size: 16px; font-weight: 800; color: #22c55e; margin-top: 4px;"
+                      id="analyzer-customer-metric-top-profit">—</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;"
+                      id="analyzer-customer-metric-top-profit-sub">Highest gross margin generated</div>
                   </div>
 
-                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
-                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Avg Client Lifetime Value</div>
-                    <div style="font-size: 18px; font-weight: 800; color: var(--info-color, #38bdf8); margin-top: 4px;" id="analyzer-customer-metric-avg-ltv">₹0.00</div>
-                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Average spend per customer</div>
+                  <div
+                    style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div
+                      style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">
+                      Avg Client Lifetime Value</div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--info-color, #38bdf8); margin-top: 4px;"
+                      id="analyzer-customer-metric-avg-ltv">₹0.00</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Average spend per customer
+                    </div>
                   </div>
                 </div>
 
@@ -1431,8 +1550,10 @@
                     </tbody>
                   </table>
                   <div id="analyzer-customer-empty-state" class="empty-state-card hidden" style="padding: 25px;">
-                    <h3 style="font-size: 15px; color: var(--text-main); margin-bottom: 4px;">No Customer Sales Recorded</h3>
-                    <p style="font-size: 12px; color: var(--text-muted);">Client purchasing rankings and analytics will automatically generate as sales are recorded.</p>
+                    <h3 style="font-size: 15px; color: var(--text-main); margin-bottom: 4px;">No Customer Sales Recorded
+                    </h3>
+                    <p style="font-size: 12px; color: var(--text-muted);">Client purchasing rankings and analytics will
+                      automatically generate as sales are recorded.</p>
                   </div>
                 </div>
               </div>
@@ -1441,63 +1562,97 @@
             <!-- Line 7: Inventory Aging & Capital Velocity Heatmap -->
             <div class="metrics-line-2" style="margin-top: 20px;">
               <div class="metric-card gold-border" style="grid-column: span 3; padding: 20px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                <div
+                  style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
                   <div>
-                    <span class="metric-label" style="font-size: 12px; letter-spacing: 0.1em; color: var(--text-gold-dark);">INVENTORY AGING & CAPITAL VELOCITY HEATMAP</span>
-                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Duration active pieces have been held in inventory from manufacturing date</div>
+                    <span class="metric-label"
+                      style="font-size: 12px; letter-spacing: 0.1em; color: var(--text-gold-dark);">INVENTORY AGING &
+                      CAPITAL VELOCITY HEATMAP</span>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Duration active pieces have
+                      been held in inventory from manufacturing date</div>
                   </div>
-                  <span id="analyzer-aging-alert-badge" style="font-size: 11px; font-weight: 700; color: #ef4444; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); padding: 3px 10px; border-radius: 4px;">0 Stagnant Pieces (>365d)</span>
+                  <span id="analyzer-aging-alert-badge"
+                    style="font-size: 11px; font-weight: 700; color: #ef4444; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); padding: 3px 10px; border-radius: 4px;">0
+                    Stagnant Pieces (>365d)</span>
                 </div>
 
                 <!-- 4-Tier Aging Buckets Row -->
                 <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px;">
-                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-left: 3px solid #22c55e; border-radius: 6px; padding: 12px;">
+                  <div
+                    style="background: var(--bg-base); border: 1px solid var(--border-light); border-left: 3px solid #22c55e; border-radius: 6px; padding: 12px;">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                      <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #22c55e;">Fresh Stock (0–90d)</span>
-                      <span id="analyzer-aging-tier1-pct" style="font-size: 10px; font-weight: 700; color: var(--text-muted);">0%</span>
+                      <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #22c55e;">Fresh
+                        Stock (0–90d)</span>
+                      <span id="analyzer-aging-tier1-pct"
+                        style="font-size: 10px; font-weight: 700; color: var(--text-muted);">0%</span>
                     </div>
-                    <div style="font-size: 18px; font-weight: 800; color: var(--text-main); margin-top: 4px;" id="analyzer-aging-tier1-count">0 Pieces</div>
-                    <div style="font-size: 11px; color: var(--text-gold-dark); margin-top: 2px;" id="analyzer-aging-tier1-val">₹0.00</div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--text-main); margin-top: 4px;"
+                      id="analyzer-aging-tier1-count">0 Pieces</div>
+                    <div style="font-size: 11px; color: var(--text-gold-dark); margin-top: 2px;"
+                      id="analyzer-aging-tier1-val">₹0.00</div>
                   </div>
 
-                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-left: 3px solid #38bdf8; border-radius: 6px; padding: 12px;">
+                  <div
+                    style="background: var(--bg-base); border: 1px solid var(--border-light); border-left: 3px solid #38bdf8; border-radius: 6px; padding: 12px;">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                      <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #38bdf8;">Maturing (91–180d)</span>
-                      <span id="analyzer-aging-tier2-pct" style="font-size: 10px; font-weight: 700; color: var(--text-muted);">0%</span>
+                      <span
+                        style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #38bdf8;">Maturing
+                        (91–180d)</span>
+                      <span id="analyzer-aging-tier2-pct"
+                        style="font-size: 10px; font-weight: 700; color: var(--text-muted);">0%</span>
                     </div>
-                    <div style="font-size: 18px; font-weight: 800; color: var(--text-main); margin-top: 4px;" id="analyzer-aging-tier2-count">0 Pieces</div>
-                    <div style="font-size: 11px; color: var(--text-gold-dark); margin-top: 2px;" id="analyzer-aging-tier2-val">₹0.00</div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--text-main); margin-top: 4px;"
+                      id="analyzer-aging-tier2-count">0 Pieces</div>
+                    <div style="font-size: 11px; color: var(--text-gold-dark); margin-top: 2px;"
+                      id="analyzer-aging-tier2-val">₹0.00</div>
                   </div>
 
-                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-left: 3px solid #f59e0b; border-radius: 6px; padding: 12px;">
+                  <div
+                    style="background: var(--bg-base); border: 1px solid var(--border-light); border-left: 3px solid #f59e0b; border-radius: 6px; padding: 12px;">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                      <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #f59e0b;">Aging Stock (181–365d)</span>
-                      <span id="analyzer-aging-tier3-pct" style="font-size: 10px; font-weight: 700; color: var(--text-muted);">0%</span>
+                      <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #f59e0b;">Aging
+                        Stock (181–365d)</span>
+                      <span id="analyzer-aging-tier3-pct"
+                        style="font-size: 10px; font-weight: 700; color: var(--text-muted);">0%</span>
                     </div>
-                    <div style="font-size: 18px; font-weight: 800; color: var(--text-main); margin-top: 4px;" id="analyzer-aging-tier3-count">0 Pieces</div>
-                    <div style="font-size: 11px; color: var(--text-gold-dark); margin-top: 2px;" id="analyzer-aging-tier3-val">₹0.00</div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--text-main); margin-top: 4px;"
+                      id="analyzer-aging-tier3-count">0 Pieces</div>
+                    <div style="font-size: 11px; color: var(--text-gold-dark); margin-top: 2px;"
+                      id="analyzer-aging-tier3-val">₹0.00</div>
                   </div>
 
-                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-left: 3px solid #ef4444; border-radius: 6px; padding: 12px;">
+                  <div
+                    style="background: var(--bg-base); border: 1px solid var(--border-light); border-left: 3px solid #ef4444; border-radius: 6px; padding: 12px;">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                      <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #ef4444;">Stagnant Capital (365d+)</span>
-                      <span id="analyzer-aging-tier4-pct" style="font-size: 10px; font-weight: 700; color: var(--text-muted);">0%</span>
+                      <span
+                        style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #ef4444;">Stagnant
+                        Capital (365d+)</span>
+                      <span id="analyzer-aging-tier4-pct"
+                        style="font-size: 10px; font-weight: 700; color: var(--text-muted);">0%</span>
                     </div>
-                    <div style="font-size: 18px; font-weight: 800; color: #ef4444; margin-top: 4px;" id="analyzer-aging-tier4-count">0 Pieces</div>
-                    <div style="font-size: 11px; color: var(--text-gold-dark); margin-top: 2px;" id="analyzer-aging-tier4-val">₹0.00</div>
+                    <div style="font-size: 18px; font-weight: 800; color: #ef4444; margin-top: 4px;"
+                      id="analyzer-aging-tier4-count">0 Pieces</div>
+                    <div style="font-size: 11px; color: var(--text-gold-dark); margin-top: 2px;"
+                      id="analyzer-aging-tier4-val">₹0.00</div>
                   </div>
                 </div>
 
                 <!-- Aging Distribution Segmented Bar -->
-                <div style="width: 100%; height: 8px; background: var(--bg-base); border-radius: 4px; overflow: hidden; display: flex; margin-bottom: 15px;">
-                  <div id="analyzer-aging-bar-1" style="width: 0%; height: 100%; background: #22c55e;" title="Fresh (0-90d)"></div>
-                  <div id="analyzer-aging-bar-2" style="width: 0%; height: 100%; background: #38bdf8;" title="Maturing (91-180d)"></div>
-                  <div id="analyzer-aging-bar-3" style="width: 0%; height: 100%; background: #f59e0b;" title="Aging (181-365d)"></div>
-                  <div id="analyzer-aging-bar-4" style="width: 0%; height: 100%; background: #ef4444;" title="Stagnant (365d+)"></div>
+                <div
+                  style="width: 100%; height: 8px; background: var(--bg-base); border-radius: 4px; overflow: hidden; display: flex; margin-bottom: 15px;">
+                  <div id="analyzer-aging-bar-1" style="width: 0%; height: 100%; background: #22c55e;"
+                    title="Fresh (0-90d)"></div>
+                  <div id="analyzer-aging-bar-2" style="width: 0%; height: 100%; background: #38bdf8;"
+                    title="Maturing (91-180d)"></div>
+                  <div id="analyzer-aging-bar-3" style="width: 0%; height: 100%; background: #f59e0b;"
+                    title="Aging (181-365d)"></div>
+                  <div id="analyzer-aging-bar-4" style="width: 0%; height: 100%; background: #ef4444;"
+                    title="Stagnant (365d+)"></div>
                 </div>
 
                 <!-- Stagnant Pieces Focus Table -->
-                <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px;">
+                <div
+                  style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px;">
                   PRIORITY ACTION PIECES: AGING OVER 180 DAYS
                 </div>
                 <div class="logs-container">
@@ -1518,7 +1673,8 @@
                   </table>
                   <div id="analyzer-aging-empty-state" class="empty-state-card hidden" style="padding: 20px;">
                     <h3 style="font-size: 14px; color: #22c55e; margin-bottom: 2px;">No Stagnant Inventory!</h3>
-                    <p style="font-size: 11px; color: var(--text-muted);">All active inventory pieces are currently within the healthy 0–180 day turnover cycle.</p>
+                    <p style="font-size: 11px; color: var(--text-muted);">All active inventory pieces are currently
+                      within the healthy 0–180 day turnover cycle.</p>
                   </div>
                 </div>
               </div>
@@ -1527,31 +1683,51 @@
             <!-- Line 8: Live Margin Shield (Commodity Appreciation vs Craft Value-Add) -->
             <div class="metrics-line-2" style="margin-top: 20px;">
               <div class="metric-card gold-border" style="grid-column: span 3; padding: 20px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                <div
+                  style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
                   <div>
-                    <span class="metric-label" style="font-size: 12px; letter-spacing: 0.1em; color: var(--text-gold-dark);">LIVE MARGIN SHIELD: COMMODITY GAIN VS CRAFT MARGIN</span>
-                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Separates bullion gold appreciation from true craftsmanship and gemstone value-add</div>
+                    <span class="metric-label"
+                      style="font-size: 12px; letter-spacing: 0.1em; color: var(--text-gold-dark);">LIVE MARGIN SHIELD:
+                      COMMODITY GAIN VS CRAFT MARGIN</span>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Separates bullion gold
+                      appreciation from true craftsmanship and gemstone value-add</div>
                   </div>
-                  <span id="analyzer-margin-shield-badge" style="font-size: 11px; font-weight: 700; color: #22c55e; background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.3); padding: 3px 10px; border-radius: 4px;">Protected Margin</span>
+                  <span id="analyzer-margin-shield-badge"
+                    style="font-size: 11px; font-weight: 700; color: #22c55e; background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.3); padding: 3px 10px; border-radius: 4px;">Protected
+                    Margin</span>
                 </div>
 
                 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px;">
-                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
-                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-gold-dark);">Bullion Gold Gain (In-Stock)</div>
-                    <div style="font-size: 18px; font-weight: 800; color: var(--text-gold-dark); margin-top: 4px;" id="analyzer-shield-gold-gain">₹0.00</div>
-                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Appreciation purely from rising live gold rate</div>
+                  <div
+                    style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div
+                      style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-gold-dark);">
+                      Bullion Gold Gain (In-Stock)</div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--text-gold-dark); margin-top: 4px;"
+                      id="analyzer-shield-gold-gain">₹0.00</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Appreciation purely from
+                      rising live gold rate</div>
                   </div>
 
-                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
-                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #22c55e;">Craftsmanship & Gem Margin</div>
-                    <div style="font-size: 18px; font-weight: 800; color: #22c55e; margin-top: 4px;" id="analyzer-shield-craft-margin">₹0.00</div>
-                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Real value-add from making, design & stones</div>
+                  <div
+                    style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #22c55e;">
+                      Craftsmanship & Gem Margin</div>
+                    <div style="font-size: 18px; font-weight: 800; color: #22c55e; margin-top: 4px;"
+                      id="analyzer-shield-craft-margin">₹0.00</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Real value-add from making,
+                      design & stones</div>
                   </div>
 
-                  <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
-                    <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--info-color, #38bdf8);">Commodity Gain on Realized Sales</div>
-                    <div style="font-size: 18px; font-weight: 800; color: var(--info-color, #38bdf8); margin-top: 4px;" id="analyzer-shield-sales-gold-gain">₹0.00</div>
-                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Gold price upside captured during sold deals</div>
+                  <div
+                    style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px;">
+                    <div
+                      style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--info-color, #38bdf8);">
+                      Commodity Gain on Realized Sales</div>
+                    <div style="font-size: 18px; font-weight: 800; color: var(--info-color, #38bdf8); margin-top: 4px;"
+                      id="analyzer-shield-sales-gold-gain">₹0.00</div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Gold price upside captured
+                      during sold deals</div>
                   </div>
                 </div>
               </div>
@@ -1560,12 +1736,18 @@
             <!-- Line 9: Broker Performance & Memo Conversion ROI Matrix -->
             <div class="metrics-line-2" style="margin-top: 20px;">
               <div class="metric-card gold-border" style="grid-column: span 3; padding: 20px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                <div
+                  style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
                   <div>
-                    <span class="metric-label" style="font-size: 12px; letter-spacing: 0.1em; color: var(--text-gold-dark);">BROKER PERFORMANCE & MEMO CONVERSION ROI</span>
-                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Track broker sales conversion efficiency, turnaround velocity, and net profit generation</div>
+                    <span class="metric-label"
+                      style="font-size: 12px; letter-spacing: 0.1em; color: var(--text-gold-dark);">BROKER PERFORMANCE &
+                      MEMO CONVERSION ROI</span>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Track broker sales
+                      conversion efficiency, turnaround velocity, and net profit generation</div>
                   </div>
-                  <span id="analyzer-broker-count-badge" style="font-size: 11px; font-weight: 700; color: var(--text-gold-dark); background: var(--bg-gold-subtle, rgba(212, 175, 55, 0.12)); border: 1px solid var(--border-gold-subtle, rgba(212, 175, 55, 0.25)); padding: 3px 10px; border-radius: 4px;">0 Active Brokers</span>
+                  <span id="analyzer-broker-count-badge"
+                    style="font-size: 11px; font-weight: 700; color: var(--text-gold-dark); background: var(--bg-gold-subtle, rgba(212, 175, 55, 0.12)); border: 1px solid var(--border-gold-subtle, rgba(212, 175, 55, 0.25)); padding: 3px 10px; border-radius: 4px;">0
+                    Active Brokers</span>
                 </div>
 
                 <!-- Broker Ranked Table -->
@@ -1587,7 +1769,8 @@
                   </table>
                   <div id="analyzer-broker-empty-state" class="empty-state-card hidden" style="padding: 20px;">
                     <h3 style="font-size: 14px; color: var(--text-main); margin-bottom: 2px;">No Broker History Yet</h3>
-                    <p style="font-size: 11px; color: var(--text-muted);">Broker conversion intelligence will populate automatically when memos and sales are linked to brokers.</p>
+                    <p style="font-size: 11px; color: var(--text-muted);">Broker conversion intelligence will populate
+                      automatically when memos and sales are linked to brokers.</p>
                   </div>
                 </div>
               </div>
@@ -1596,20 +1779,29 @@
             <!-- Line 10: VIP Client Target Matcher & Preferences -->
             <div class="metrics-line-2" style="margin-top: 20px;">
               <div class="metric-card gold-border" style="grid-column: span 3; padding: 20px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                <div
+                  style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
                   <div>
-                    <span class="metric-label" style="font-size: 12px; letter-spacing: 0.1em; color: var(--text-gold-dark);">VIP CLIENT TARGETING & FIRST-LOOK MATCH RECOMMENDATIONS</span>
-                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Matches current in-stock pieces to top clients based on their historical buying preferences</div>
+                    <span class="metric-label"
+                      style="font-size: 12px; letter-spacing: 0.1em; color: var(--text-gold-dark);">VIP CLIENT TARGETING
+                      & FIRST-LOOK MATCH RECOMMENDATIONS</span>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Matches current in-stock
+                      pieces to top clients based on their historical buying preferences</div>
                   </div>
-                  <span style="font-size: 11px; font-weight: 700; color: var(--info-color, #38bdf8); background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.25); padding: 3px 10px; border-radius: 4px;">Smart Targeting</span>
+                  <span
+                    style="font-size: 11px; font-weight: 700; color: var(--info-color, #38bdf8); background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.25); padding: 3px 10px; border-radius: 4px;">Smart
+                    Targeting</span>
                 </div>
 
-                <div id="analyzer-vip-matches-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px;">
+                <div id="analyzer-vip-matches-container"
+                  style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px;">
                   <!-- Dynamic VIP Match Cards -->
                 </div>
                 <div id="analyzer-vip-empty-state" class="empty-state-card hidden" style="padding: 20px;">
-                  <h3 style="font-size: 14px; color: var(--text-main); margin-bottom: 2px;">Client Matcher Standing By</h3>
-                  <p style="font-size: 11px; color: var(--text-muted);">Matches will appear as client sales history expands.</p>
+                  <h3 style="font-size: 14px; color: var(--text-main); margin-bottom: 2px;">Client Matcher Standing By
+                  </h3>
+                  <p style="font-size: 11px; color: var(--text-muted);">Matches will appear as client sales history
+                    expands.</p>
                 </div>
               </div>
             </div>
@@ -1631,8 +1823,10 @@
 
             <!-- Mobile Quick Category & Status Filter Chips -->
             <div class="mobile-filter-chips-scroller" id="mobile-catalog-chips">
-              <button type="button" class="mobile-chip active" data-chip-type="status" data-chip-val="active">Active</button>
-              <button type="button" class="mobile-chip" data-chip-type="status" data-chip-val="In Stock">In Stock</button>
+              <button type="button" class="mobile-chip active" data-chip-type="status"
+                data-chip-val="active">Active</button>
+              <button type="button" class="mobile-chip" data-chip-type="status" data-chip-val="In Stock">In
+                Stock</button>
               <button type="button" class="mobile-chip" data-chip-type="status" data-chip-val="Issued">On Memo</button>
               <button type="button" class="mobile-chip" data-chip-type="cat" data-chip-val="">All Types</button>
               <button type="button" class="mobile-chip" data-chip-type="cat" data-chip-val="Ring">Rings</button>
@@ -1645,7 +1839,8 @@
             <!-- Mobile Toggle Button for Advanced Filters -->
             <button type="button" id="btn-toggle-mobile-filters" class="mobile-filters-toggle-btn">
               <svg viewBox="0 0 24 24" width="14" height="14">
-                <path fill="currentColor" d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/>
+                <path fill="currentColor"
+                  d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z" />
               </svg>
               <span>More Filters & Sort</span>
               <span class="filter-toggle-arrow">▾</span>
@@ -1703,7 +1898,7 @@
                 </svg>
                 Print
               </button>
-              <button type="button" id="btn-export-excel-jewelry-catalog" class="btn btn-secondary"
+              <button type="button" id="btn-export-excel-jewelry-catalog" class="btn btn-secondary" data-client-hide
                 style="height: 42px; margin-left: 6px;">
                 <svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align: middle; margin-right: 6px;">
                   <path fill="currentColor"
@@ -1711,28 +1906,37 @@
                 </svg>
                 Export Excel
               </button>
-              <button type="button" id="btn-import-excel-jewelry-catalog" class="btn btn-secondary"
+              <button type="button" id="btn-import-excel-jewelry-catalog" class="btn btn-secondary" data-client-hide
                 style="height: 42px; margin-left: 6px;">
                 <svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align: middle; margin-right: 6px;">
-                  <path fill="currentColor"
-                    d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z" />
+                  <path fill="currentColor" d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z" />
                 </svg>
                 Import Excel
               </button>
               <input type="file" id="input-import-excel-file" accept=".xlsx, .xls" style="display: none;" />
-              <button type="button" id="btn-add-jewelry-piece-main" class="btn btn-primary"
+              <button type="button" id="btn-add-jewelry-piece-main" class="btn btn-primary" data-client-hide
                 style="height: 42px; margin-left: 8px;">
                 + Add Piece
               </button>
 
-              <label class="btn btn-secondary" style="height: 42px; display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 11px; text-transform: uppercase; cursor: pointer; padding: 0 14px; margin-left: 6px; box-sizing: border-box;">
-                <input type="checkbox" id="bulk-select-all" style="width: 15px; height: 15px; margin: 0; accent-color: var(--text-gold-dark);">
+              <label class="btn btn-secondary" data-client-hide
+                style="height: 42px; display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 11px; text-transform: uppercase; cursor: pointer; padding: 0 14px; margin-left: 6px; box-sizing: border-box;">
+                <input type="checkbox" id="bulk-select-all"
+                  style="width: 15px; height: 15px; margin: 0; accent-color: var(--text-gold-dark);">
                 Select All
               </label>
-              <button type="button" id="btn-bulk-unselect" class="btn btn-secondary" style="height: 42px; font-size: 11px; font-weight: 600; margin-left: 6px; box-sizing: border-box;" disabled>Unselect All</button>
-              <span id="bulk-select-count" class="btn btn-secondary" style="height: 42px; display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; color: var(--text-muted); cursor: default; padding: 0 14px; pointer-events: none; border-color: var(--border-light); margin-left: 6px; box-sizing: border-box;">0 Selected</span>
-              <button type="button" id="btn-bulk-delete" class="btn btn-danger" style="height: 42px; font-size: 11px; font-weight: 600; margin-left: 6px; box-sizing: border-box;" disabled>Delete Selected</button>
-              <button type="button" id="btn-share-presentation" class="btn btn-secondary" style="height: 42px; font-size: 11px; font-weight: 600; margin-left: 6px; box-sizing: border-box; display: inline-flex; align-items: center; gap: 6px; border-color: var(--text-gold-dark); color: var(--text-gold-dark);" disabled>
+              <button type="button" id="btn-bulk-unselect" class="btn btn-secondary" data-client-hide
+                style="height: 42px; font-size: 11px; font-weight: 600; margin-left: 6px; box-sizing: border-box;"
+                disabled>Unselect All</button>
+              <span id="bulk-select-count" class="btn btn-secondary" data-client-hide
+                style="height: 42px; display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; color: var(--text-muted); cursor: default; padding: 0 14px; pointer-events: none; border-color: var(--border-light); margin-left: 6px; box-sizing: border-box;">0
+                Selected</span>
+              <button type="button" id="btn-bulk-delete" class="btn btn-danger" data-client-hide
+                style="height: 42px; font-size: 11px; font-weight: 600; margin-left: 6px; box-sizing: border-box;"
+                disabled>Delete Selected</button>
+              <button type="button" id="btn-share-presentation" class="btn btn-secondary"
+                style="height: 42px; font-size: 11px; font-weight: 600; margin-left: 6px; box-sizing: border-box; display: inline-flex; align-items: center; gap: 6px; border-color: var(--text-gold-dark); color: var(--text-gold-dark);"
+                disabled>
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                   <polygon points="5 3 19 12 5 21 5 3"></polygon>
                 </svg>
@@ -1812,8 +2016,10 @@
         <div id="tab-logs" class="tab-content hidden">
           <div class="tab-header-row" style="margin-bottom: 12px;">
             <div>
-              <h2 class="section-title" id="logs-suite-title" style="margin-bottom: 2px;">Jewelry Suite Audit & Activity Logs</h2>
-              <div id="logs-suite-desc" style="font-size: 12px; color: var(--text-muted);">Change history and inventory audit trail for the Jewelry Suite.</div>
+              <h2 class="section-title" id="logs-suite-title" style="margin-bottom: 2px;">Jewelry Suite Audit & Activity
+                Logs</h2>
+              <div id="logs-suite-desc" style="font-size: 12px; color: var(--text-muted);">Change history and inventory
+                audit trail for the Jewelry Suite.</div>
             </div>
             <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
               <button type="button" id="btn-clear-logs" class="btn btn-secondary btn-small">
@@ -1825,7 +2031,8 @@
           <!-- SEARCH & FILTERS -->
           <div class="filter-bar" style="margin-bottom: 14px;">
             <div class="search-box">
-              <input type="text" id="logs-search-input" placeholder="Search logs by record name, SKU, details, changes...">
+              <input type="text" id="logs-search-input"
+                placeholder="Search logs by record name, SKU, details, changes...">
               <svg viewBox="0 0 24 24" width="18" height="18" class="search-icon">
                 <path fill="currentColor"
                   d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
@@ -1841,8 +2048,10 @@
                 <option value="GOLD_RATE_UPDATE">GOLD RATE UPDATE</option>
               </select>
 
-              <input type="date" id="logs-filter-date-from" class="filter-select" style="height: 42px; padding: 0 10px;" title="From Date">
-              <input type="date" id="logs-filter-date-to" class="filter-select" style="height: 42px; padding: 0 10px;" title="To Date">
+              <input type="date" id="logs-filter-date-from" class="filter-select" style="height: 42px; padding: 0 10px;"
+                title="From Date">
+              <input type="date" id="logs-filter-date-to" class="filter-select" style="height: 42px; padding: 0 10px;"
+                title="To Date">
 
               <button type="button" id="logs-filter-clear" class="btn btn-secondary" style="height: 42px;">
                 Clear
@@ -1919,13 +2128,15 @@
             <!-- Card: About & Privacy Policy -->
             <div class="settings-card">
               <h3>About & Privacy</h3>
-              <p class="settings-card-desc">Mava Gems operates with an offline-first architecture. All database vaults, records, and imagery remain strictly local on your device.</p>
+              <p class="settings-card-desc">Mava Gems operates with an offline-first architecture. All database vaults,
+                records, and imagery remain strictly local on your device.</p>
               <div class="settings-info-box" style="margin-bottom: 14px;">
                 <span class="label">APP VERSION:</span>
-                <span class="value code" id="app-version-display">14.0.4</span>
+                <span class="value code" id="app-version-display">14.0.22</span>
               </div>
               <div class="settings-actions-row">
-                <button type="button" id="btn-view-privacy-policy" class="btn btn-secondary">View Privacy Policy</button>
+                <button type="button" id="btn-view-privacy-policy" class="btn btn-secondary">View Privacy
+                  Policy</button>
               </div>
             </div>
 
@@ -1947,17 +2158,19 @@
     <nav id="mobile-bottom-nav" class="mobile-bottom-nav">
       <button type="button" class="mobile-nav-btn active" data-nav-target="catalog" id="mobile-nav-catalog">
         <svg viewBox="0 0 24 24" width="20" height="20">
-          <path fill="currentColor" d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z" />
+          <path fill="currentColor"
+            d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z" />
         </svg>
         <span id="mobile-nav-catalog-label">Catalog</span>
       </button>
-      <button type="button" class="mobile-nav-btn" data-nav-target="memos" id="mobile-nav-memos">
+      <button type="button" class="mobile-nav-btn admin-tab-item" data-nav-target="memos" id="mobile-nav-memos">
         <svg viewBox="0 0 24 24" width="20" height="20">
-          <path fill="currentColor" d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zm0 5h-2V5h2v3zM4 19h16v2H4z" />
+          <path fill="currentColor"
+            d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zm0 5h-2V5h2v3zM4 19h16v2H4z" />
         </svg>
         <span id="mobile-nav-memos-label">Memos</span>
       </button>
-      <button type="button" class="mobile-nav-btn" data-nav-target="add" id="mobile-nav-add">
+      <button type="button" class="mobile-nav-btn admin-tab-item" data-nav-target="add" id="mobile-nav-add">
         <div class="mobile-nav-add-icon">
           <svg viewBox="0 0 24 24" width="22" height="22">
             <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
@@ -1965,9 +2178,10 @@
         </div>
         <span id="mobile-nav-add-label">New Piece</span>
       </button>
-      <button type="button" class="mobile-nav-btn" data-nav-target="sales" id="mobile-nav-sales">
+      <button type="button" class="mobile-nav-btn admin-tab-item" data-nav-target="sales" id="mobile-nav-sales">
         <svg viewBox="0 0 24 24" width="20" height="20">
-          <path fill="currentColor" d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z" />
+          <path fill="currentColor"
+            d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z" />
         </svg>
         <span id="mobile-nav-sales-label">Sales</span>
       </button>
@@ -2044,22 +2258,33 @@
         <h3 style="margin: 0;">Privacy Policy &mdash; Mava Gems</h3>
         <button type="button" class="btn-close modal-close-trigger">&times;</button>
       </div>
-      <div class="modal-body" style="overflow-y: auto; max-height: 60vh; font-size: 13px; line-height: 1.6; color: var(--text-main); padding: 20px 24px;">
+      <div class="modal-body"
+        style="overflow-y: auto; max-height: 60vh; font-size: 13px; line-height: 1.6; color: var(--text-main); padding: 20px 24px;">
         <p style="margin-bottom: 12px; color: var(--text-gold); font-weight: 600;">Last updated: September 29, 2026</p>
-        <p style="margin-bottom: 12px;">This Privacy Policy describes how <strong>Mava Gems</strong> handles information when you use our mobile and desktop inventory application.</p>
-        <div style="background: rgba(212, 175, 55, 0.08); border-left: 3px solid var(--text-gold); padding: 10px 14px; margin-bottom: 16px; border-radius: 0 6px 6px 0;">
-          <strong>Privacy-First Architecture:</strong> We do <em>not</em> collect, track, transmit, or sell your personal data or inventory records. All data remains exclusively on your device.
+        <p style="margin-bottom: 12px;">This Privacy Policy describes how <strong>Mava Gems</strong> handles information
+          when you use our mobile and desktop inventory application.</p>
+        <div
+          style="background: rgba(212, 175, 55, 0.08); border-left: 3px solid var(--text-gold); padding: 10px 14px; margin-bottom: 16px; border-radius: 0 6px 6px 0;">
+          <strong>Privacy-First Architecture:</strong> We do <em>not</em> collect, track, transmit, or sell your
+          personal data or inventory records. All data remains exclusively on your device.
         </div>
-        <h4 style="color: var(--text-gold); margin-top: 14px; margin-bottom: 6px;">1. Information We Access and How It Is Used</h4>
+        <h4 style="color: var(--text-gold); margin-top: 14px; margin-bottom: 6px;">1. Information We Access and How It
+          Is Used</h4>
         <ul style="padding-left: 20px; margin-bottom: 12px;">
-          <li><strong>Camera Access:</strong> Used solely to allow you to take photos of your jewelry pieces and gemstones to attach to item records. Photos are processed locally and never transmitted externally.</li>
-          <li><strong>Photo Library Access:</strong> Used to select existing jewelry images from your gallery to include in inventory entries, or to save exported catalog cards to your photo library.</li>
-          <li><strong>Local Storage:</strong> Your jewelry database is stored locally on your device in an AES-256 encrypted file vault.</li>
+          <li><strong>Camera Access:</strong> Used solely to allow you to take photos of your jewelry pieces and
+            gemstones to attach to item records. Photos are processed locally and never transmitted externally.</li>
+          <li><strong>Photo Library Access:</strong> Used to select existing jewelry images from your gallery to include
+            in inventory entries, or to save exported catalog cards to your photo library.</li>
+          <li><strong>Local Storage:</strong> Your jewelry database is stored locally on your device in an AES-256
+            encrypted file vault.</li>
         </ul>
-        <h4 style="color: var(--text-gold); margin-top: 14px; margin-bottom: 6px;">2. Zero Data Collection & Tracking</h4>
-        <p style="margin-bottom: 12px;">We do not integrate third-party analytics SDKs, advertising frameworks, user profiling networks, or tracking cookies. No user account is required to use the application.</p>
+        <h4 style="color: var(--text-gold); margin-top: 14px; margin-bottom: 6px;">2. Zero Data Collection & Tracking
+        </h4>
+        <p style="margin-bottom: 12px;">We do not integrate third-party analytics SDKs, advertising frameworks, user
+          profiling networks, or tracking cookies. No user account is required to use the application.</p>
         <h4 style="color: var(--text-gold); margin-top: 14px; margin-bottom: 6px;">3. Data Security</h4>
-        <p style="margin-bottom: 12px;">Local database files are protected using industry-standard AES-256 encryption. Because your data is stored locally, you maintain complete ownership and control over your files.</p>
+        <p style="margin-bottom: 12px;">Local database files are protected using industry-standard AES-256 encryption.
+          Because your data is stored locally, you maintain complete ownership and control over your files.</p>
         <h4 style="color: var(--text-gold); margin-top: 14px; margin-bottom: 6px;">4. Developer & Support Contact</h4>
         <p style="margin-bottom: 6px;">Developer: Ayush Munot &bull; Support: support@mavagems.com</p>
       </div>
@@ -2130,9 +2355,10 @@
                   <div><strong>Gross Weight:</strong> <span id="detail-jewelry-gross-wt"></span> g</div>
                   <div><strong>Net Metal Weight:</strong> <span id="detail-jewelry-net-wt"></span> g</div>
                   <div><strong>Gemstones Weight:</strong> <span id="detail-jewelry-gem-wt"></span> cts</div>
-                  <div><strong>Date of Mfg:</strong> <span id="detail-jewelry-mfg-date"></span></div>
-                  <div><strong>Mfg 24KT Gold Rate:</strong> <span id="detail-jewelry-mfg-gold-rate"></span></div>
-                  <div><strong>Commission:</strong> <span id="detail-jewelry-meta-commission" style="color: var(--text-gold); font-weight: 600;">₹0.00</span></div>
+                  <div id="detail-jewelry-mfg-date-row" class="cost-price-data"><strong>Date of Mfg:</strong> <span id="detail-jewelry-mfg-date"></span></div>
+                  <div id="detail-jewelry-mfg-rate-row" class="cost-price-data"><strong>Mfg 24KT Gold Rate:</strong> <span id="detail-jewelry-mfg-gold-rate"></span></div>
+                  <div id="detail-jewelry-meta-commission-row" class="broker-comm-data cost-price-data"><strong>Commission:</strong> <span id="detail-jewelry-meta-commission"
+                      style="color: var(--text-gold); font-weight: 600;">₹0.00</span></div>
                 </div>
               </div>
             </div>
@@ -2158,36 +2384,36 @@
             </div>
 
             <!-- Valuations Section -->
-            <div
+            <div id="detail-jewelry-valuations-container"
               style="background-color: var(--bg-base); padding: 20px; border-radius: 8px; border: 1px solid var(--border-dark); display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px; align-items: center;">
-              <div>
+              <div id="detail-jewelry-market-price-wrapper" class="cost-price-data">
                 <span
                   style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Market
                   Cost Price</span>
                 <span id="detail-jewelry-market-price"
                   style="font-size: 18px; font-weight: 700; color: var(--text-main);"></span>
               </div>
-              <div id="detail-jewelry-mfg-cost-wrapper">
+              <div id="detail-jewelry-mfg-cost-wrapper" class="cost-price-data">
                 <span
                   style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-gold); letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Mfg
                   Cost Price</span>
                 <span id="detail-jewelry-mfg-price"
                   style="font-size: 18px; font-weight: 700; color: var(--text-gold);"></span>
               </div>
-              <div id="detail-jewelry-home-cost-wrapper">
+              <div id="detail-jewelry-home-cost-wrapper" class="cost-price-data">
                 <span
                   style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Home
                   Cost Price</span>
                 <span id="detail-jewelry-home-price"
                   style="font-size: 18px; font-weight: 700; color: var(--text-main);"></span>
               </div>
-              <div id="detail-jewelry-commission-wrapper">
+              <div id="detail-jewelry-commission-wrapper" class="broker-comm-data cost-price-data">
                 <span
                   style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Commission</span>
                 <span id="detail-jewelry-commission"
                   style="font-size: 18px; font-weight: 700; color: var(--text-gold-dark, #b8860b);">₹0.00</span>
               </div>
-              <div>
+              <div id="detail-jewelry-selling-price-wrapper" class="selling-price-wrapper">
                 <span
                   style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Selling
                   Price</span>
@@ -2202,8 +2428,9 @@
       </div>
       <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
         <button type="button" class="btn btn-secondary modal-close-trigger-detail">Close</button>
-        <button type="button" id="btn-detail-sell-item" class="btn btn-primary" style="background: #22c55e; border-color: #22c55e; color: #fff;">Record Sale</button>
-        <button type="button" id="btn-detail-edit-item" class="btn btn-primary">Edit Item</button>
+        <button type="button" id="btn-detail-sell-item" class="btn btn-primary" data-client-hide
+          style="background: #22c55e; border-color: #22c55e; color: #fff;">Record Sale</button>
+        <button type="button" id="btn-detail-edit-item" class="btn btn-primary" data-client-hide>Edit Item</button>
       </div>
     </div>
   </div>
@@ -2242,7 +2469,8 @@
                   <div class="form-col-6">
                     <div class="input-group">
                       <label for="item-sno">S.No (Serial #)</label>
-                      <input type="number" id="item-sno" min="1" step="1" inputmode="numeric" placeholder="Auto-assigned">
+                      <input type="number" id="item-sno" min="1" step="1" inputmode="numeric"
+                        placeholder="Auto-assigned">
                     </div>
                   </div>
                   <div class="form-col-6">
@@ -2271,20 +2499,23 @@
                 </div>
                 <div class="input-group">
                   <label for="item-labour">Labour Cost (₹)</label>
-                  <input type="number" id="item-labour" step="0.01" min="0" inputmode="decimal" placeholder="0.00" class="recalc-trigger">
+                  <input type="number" id="item-labour" step="0.01" min="0" inputmode="decimal" placeholder="0.00"
+                    class="recalc-trigger">
                 </div>
 
                 <div class="form-grid-row" style="margin-top: 5px;">
                   <div class="form-col-4">
                     <div class="input-group">
                       <label for="item-gross-weight">Gross Weight (g) <span class="required">*</span></label>
-                      <input type="number" id="item-gross-weight" step="0.001" min="0" inputmode="decimal" placeholder="0.000" class="recalc-trigger" required>
+                      <input type="number" id="item-gross-weight" step="0.001" min="0" inputmode="decimal"
+                        placeholder="0.000" class="recalc-trigger" required>
                     </div>
                   </div>
                   <div class="form-col-4">
                     <div class="input-group">
                       <label for="item-karat">Gold Karat (KT) <span class="required">*</span></label>
-                      <input type="number" id="item-karat" list="jewelry-karat-options" step="0.01" min="1" max="24" inputmode="decimal" placeholder="e.g. 18 or 22" class="recalc-trigger" required>
+                      <input type="number" id="item-karat" list="jewelry-karat-options" step="0.01" min="1" max="24"
+                        inputmode="decimal" placeholder="e.g. 18 or 22" class="recalc-trigger" required>
                       <datalist id="jewelry-karat-options">
                         <option value="24">24 KT</option>
                         <option value="22">22 KT</option>
@@ -2298,7 +2529,8 @@
                   <div class="form-col-4">
                     <div class="input-group">
                       <label for="item-wastage">Wastage (%)</label>
-                      <input type="number" id="item-wastage" step="0.01" min="0" inputmode="decimal" placeholder="15.00" value="15.00" class="recalc-trigger">
+                      <input type="number" id="item-wastage" step="0.01" min="0" inputmode="decimal" placeholder="15.00"
+                        value="15.00" class="recalc-trigger">
                     </div>
                   </div>
                 </div>
@@ -2344,7 +2576,8 @@
           <div id="form-tab-metals" class="modal-tab-content hidden">
             <div class="tab-section-intro">
               <h4>Additional Metal Components (Chains, Hooks, Clasps, etc.)</h4>
-              <p>Add any additional separate metal items attached to this jewelry piece (e.g. Chain, Clasp, Hook). Their metal value will be calculated based on their individual weight, karat, and component wastage %.</p>
+              <p>Add any additional separate metal items attached to this jewelry piece (e.g. Chain, Clasp, Hook). Their
+                metal value will be calculated based on their individual weight, karat, and component wastage %.</p>
             </div>
 
             <div id="metals-list-container">
@@ -2430,9 +2663,11 @@
                   <span class="subtotal-lbl font-bold">SUBTOTAL (M+S+D+L):</span>
                   <span class="subtotal-val font-bold" id="summary-subtotal">₹0.00</span>
                 </div>
-                <div class="subtotal-item" style="color: var(--text-gold); border-bottom: 1px dashed var(--border-gold-subtle, rgba(212, 175, 55, 0.3));">
+                <div class="subtotal-item"
+                  style="color: var(--text-gold); border-bottom: 1px dashed var(--border-gold-subtle, rgba(212, 175, 55, 0.3));">
                   <span class="subtotal-lbl font-bold" style="color: var(--text-gold);">+ Commission:</span>
-                  <span class="subtotal-val font-bold" id="summary-commission-subtotal" style="color: var(--text-gold);">₹0.00</span>
+                  <span class="subtotal-val font-bold" id="summary-commission-subtotal"
+                    style="color: var(--text-gold);">₹0.00</span>
                 </div>
               </div>
 
@@ -2442,13 +2677,16 @@
                 <div class="commission-calculator-box">
                   <div class="comm-header">
                     <label for="item-gold-rate-24kt">24KT Gold Rate on Date of Mfg (₹/g)</label>
-                    <button type="button" id="btn-reset-gold-rate" class="btn-text btn-small" title="Reset to current global rate">↺ Reset to Global</button>
+                    <button type="button" id="btn-reset-gold-rate" class="btn-text btn-small"
+                      title="Reset to current global rate">↺ Reset to Global</button>
                   </div>
                   <div class="commission-input-row">
-                    <input type="number" id="item-gold-rate-24kt" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 7500.00" class="recalc-trigger">
+                    <input type="number" id="item-gold-rate-24kt" step="0.01" min="0" inputmode="decimal"
+                      placeholder="e.g. 7500.00" class="recalc-trigger">
                     <span class="percentage-badge" style="white-space:nowrap; font-size:11px;">per gram</span>
                   </div>
-                  <span class="help-text block-help">Used for Home Cost calculation. Defaults to current global rate.</span>
+                  <span class="help-text block-help">Used for Home Cost calculation. Defaults to current global
+                    rate.</span>
                 </div>
 
                 <div class="commission-calculator-box" style="margin-top: 15px;">
@@ -2456,7 +2694,8 @@
                     <label for="item-commission">Commission (₹)</label>
                   </div>
                   <div class="commission-input-row">
-                    <input type="number" id="item-commission" step="0.01" min="0" inputmode="decimal" placeholder="0.00">
+                    <input type="number" id="item-commission" step="0.01" min="0" inputmode="decimal"
+                      placeholder="0.00">
                   </div>
                   <span class="help-text block-help">Manual commission amount in Rupees.</span>
                 </div>
@@ -2466,7 +2705,8 @@
                     <label for="item-profit-pct">Profit Percentage (%)</label>
                   </div>
                   <div class="commission-input-row">
-                    <input type="number" id="item-profit-pct" step="0.1" min="0" inputmode="decimal" placeholder="40.0" value="40.0">
+                    <input type="number" id="item-profit-pct" step="0.1" min="0" inputmode="decimal" placeholder="40.0"
+                      value="40.0">
                   </div>
                 </div>
 
@@ -2475,9 +2715,11 @@
                     <label for="item-emerald-discount-pct">Emerald Discount for Home Cost (%)</label>
                   </div>
                   <div class="commission-input-row">
-                    <input type="number" id="item-emerald-discount-pct" step="0.1" min="0" max="100" inputmode="decimal" placeholder="50.0" value="50.0">
+                    <input type="number" id="item-emerald-discount-pct" step="0.1" min="0" max="100" inputmode="decimal"
+                      placeholder="50.0" value="50.0">
                   </div>
-                  <span class="help-text block-help">Percentage discount on emerald components to compute Home Cost Price.</span>
+                  <span class="help-text block-help">Percentage discount on emerald components to compute Home Cost
+                    Price.</span>
                 </div>
 
                 <div class="grand-total-card" style="margin-top: 15px;">
@@ -2485,7 +2727,8 @@
                   <span class="grand-total-val" id="summary-grand-total">₹0.00</span>
                 </div>
 
-                <div class="grand-total-card" id="mfg-cost-card" style="margin-top: 15px; background: rgba(212, 175, 55, 0.08); border: 1px solid var(--border-gold);">
+                <div class="grand-total-card" id="mfg-cost-card"
+                  style="margin-top: 15px; background: rgba(212, 175, 55, 0.08); border: 1px solid var(--border-gold);">
                   <span class="grand-total-lbl" style="color: var(--text-gold);">MANUFACTURING COST (MFG COST)</span>
                   <span class="grand-total-val" id="summary-mfg-cost" style="color: var(--text-gold);">₹0.00</span>
                 </div>
@@ -2568,11 +2811,14 @@
       <div class="modal-body">
         <p class="modal-instructions font-bold" id="generic-prompt-msg">Enter a name for your new database file:</p>
         <div style="margin-top: 14px;">
-          <input type="text" id="generic-prompt-input" class="filter-input" style="width: 100%; height: 44px; font-size: 15px; border-radius: 8px; padding: 0 12px; box-sizing: border-box;" placeholder="mava_gems_stock.db" value="mava_gems_stock.db">
+          <input type="text" id="generic-prompt-input" class="filter-input"
+            style="width: 100%; height: 44px; font-size: 15px; border-radius: 8px; padding: 0 12px; box-sizing: border-box;"
+            placeholder="mava_gems_stock.db" value="mava_gems_stock.db">
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" id="btn-generic-prompt-cancel" class="btn btn-secondary modal-close-trigger">Cancel</button>
+        <button type="button" id="btn-generic-prompt-cancel"
+          class="btn btn-secondary modal-close-trigger">Cancel</button>
         <button type="button" id="btn-generic-prompt-confirm" class="btn btn-primary">Create Database</button>
       </div>
     </div>
@@ -2588,8 +2834,10 @@
       <div class="modal-body">
         <p class="modal-instructions font-bold">Select the scope of activity logs to permanently erase:</p>
         <div style="margin-top: 10px;">
-          <label style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Clear Scope:</label>
-          <select id="clear-logs-scope-select" class="filter-select" style="width: 100%; margin-top: 4px; height: 38px;">
+          <label style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Clear
+            Scope:</label>
+          <select id="clear-logs-scope-select" class="filter-select"
+            style="width: 100%; margin-top: 4px; height: 38px;">
             <option value="current">Active Selected Suite Only</option>
             <option value="all">All Suites (Entire Vault History)</option>
           </select>
@@ -3200,8 +3448,8 @@
               <button type="button" id="btn-print-select-none-stones" class="btn-text">Deselect All</button>
             </span>
           </label>
-          <div class="print-pudias-checklist-container">
-            <table style="width: 100%; border-collapse: collapse; font-size:12px;">
+          <div class="print-stone-table-container">
+            <table class="print-stone-table">
               <thead>
                 <tr style="border-bottom: 1px solid var(--border-light); text-align: left;">
                   <th style="width: 10%;"></th>
@@ -3528,9 +3776,9 @@
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:4px;">
           <div class="input-group">
             <label for="jewelry-memo-person-name">Issued To (Person / Client) <span class="required">*</span></label>
-            <input type="text" id="jewelry-memo-person-name"
-              placeholder="e.g. Anand Mehra" autocomplete="off"
-              style="width:100%;height:38px;padding:6px 12px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);" required>
+            <input type="text" id="jewelry-memo-person-name" placeholder="e.g. Anand Mehra" autocomplete="off"
+              style="width:100%;height:38px;padding:6px 12px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);"
+              required>
           </div>
           <div class="input-group">
             <label for="jewelry-memo-broker-name">Broker Name</label>
@@ -3586,7 +3834,8 @@
           </div>
 
           <!-- Selected Items Table -->
-          <div style="margin-top:16px;max-height:160px;overflow-y:auto;border:1px solid var(--border-light);border-radius:4px;">
+          <div
+            style="margin-top:16px;max-height:160px;overflow-y:auto;border:1px solid var(--border-light);border-radius:4px;">
             <table style="width:100%;border-collapse:collapse;font-size:12px;">
               <thead>
                 <tr style="background:var(--bg-base);">
@@ -3745,24 +3994,31 @@
         <input type="hidden" id="jewelry-sale-memo-id">
         <input type="hidden" id="jewelry-sale-item-index">
         <input type="hidden" id="jewelry-sale-item-id">
-        
-        <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px 16px; margin-bottom: 16px;">
-          <div style="font-size: 10px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em;">Piece Selected</div>
-          <div style="font-size: 16px; font-weight: 700; color: var(--text-main); margin-top: 2px;" id="jewelry-sale-piece-name">—</div>
+
+        <div
+          style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px 16px; margin-bottom: 16px;">
+          <div
+            style="font-size: 10px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em;">
+            Piece Selected</div>
+          <div style="font-size: 16px; font-weight: 700; color: var(--text-main); margin-top: 2px;"
+            id="jewelry-sale-piece-name">—</div>
           <div style="font-size: 12px; color: var(--text-muted);" id="jewelry-sale-piece-sku">—</div>
         </div>
 
         <div class="form-grid-row">
           <div class="form-col-6">
             <div class="input-group">
-              <label for="jewelry-sale-customer-name">Sold To (Customer / Client) <span class="required">*</span></label>
-              <input type="text" id="jewelry-sale-customer-name" placeholder="Client Name" required style="width:100%;height:38px;padding:6px 12px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);">
+              <label for="jewelry-sale-customer-name">Sold To (Customer / Client) <span
+                  class="required">*</span></label>
+              <input type="text" id="jewelry-sale-customer-name" placeholder="Client Name" required
+                style="width:100%;height:38px;padding:6px 12px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);">
             </div>
           </div>
           <div class="form-col-6">
             <div class="input-group">
               <label for="jewelry-sale-broker-name">Broker Name</label>
-              <input type="text" id="jewelry-sale-broker-name" placeholder="Broker (Optional)" style="width:100%;height:38px;padding:6px 12px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);">
+              <input type="text" id="jewelry-sale-broker-name" placeholder="Broker (Optional)"
+                style="width:100%;height:38px;padding:6px 12px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);">
             </div>
           </div>
         </div>
@@ -3771,41 +4027,56 @@
           <div class="form-col-4">
             <div class="input-group">
               <label for="jewelry-sale-mfg-cost">Mfg Cost (₹)</label>
-              <input type="text" id="jewelry-sale-mfg-cost" readonly style="width:100%;height:38px;padding:6px 10px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);opacity:0.85;font-weight:600;font-size:12px;" title="Historical cost based on gold price during manufacturing">
+              <input type="text" id="jewelry-sale-mfg-cost" readonly
+                style="width:100%;height:38px;padding:6px 10px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);opacity:0.85;font-weight:600;font-size:12px;"
+                title="Historical cost based on gold price during manufacturing">
             </div>
           </div>
           <div class="form-col-4">
             <div class="input-group">
               <label for="jewelry-sale-replacement-cost">Replace Cost (₹)</label>
-              <input type="text" id="jewelry-sale-replacement-cost" readonly style="width:100%;height:38px;padding:6px 10px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);opacity:0.85;font-weight:600;font-size:12px;" title="Replacement cost based on gold price on sale date">
+              <input type="text" id="jewelry-sale-replacement-cost" readonly
+                style="width:100%;height:38px;padding:6px 10px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);opacity:0.85;font-weight:600;font-size:12px;"
+                title="Replacement cost based on gold price on sale date">
             </div>
           </div>
           <div class="form-col-4">
             <div class="input-group">
               <label for="jewelry-sale-final-price">Sold Price (₹) <span class="required">*</span></label>
-              <input type="number" id="jewelry-sale-final-price" step="0.01" min="0" placeholder="0.00" required style="width:100%;height:38px;padding:6px 10px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-gold-dark);font-weight:700;font-size:14px;">
+              <input type="number" id="jewelry-sale-final-price" step="0.01" min="0" placeholder="0.00" required
+                style="width:100%;height:38px;padding:6px 10px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-gold-dark);font-weight:700;font-size:14px;">
             </div>
           </div>
         </div>
 
         <!-- Dual Live Profit Calculation Card -->
-        <div style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px 16px; margin-bottom: 16px; display: flex; flex-direction: column; gap: 10px;">
+        <div
+          style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px 16px; margin-bottom: 16px; display: flex; flex-direction: column; gap: 10px;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-gold-dark);">PROFIT CALCULATION BREAKDOWN</div>
+            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-gold-dark);">
+              PROFIT CALCULATION BREAKDOWN</div>
             <div style="display: flex; align-items: center; gap: 6px;">
               <span style="font-size: 11px; color: var(--text-muted);">Sale Date:</span>
-              <input type="date" id="jewelry-sale-date" style="height: 30px; font-size: 12px; padding: 2px 8px; border: 1px solid var(--border-light); border-radius: 4px; background: var(--bg-base); color: var(--text-main);">
+              <input type="date" id="jewelry-sale-date"
+                style="height: 30px; font-size: 12px; padding: 2px 8px; border: 1px solid var(--border-light); border-radius: 4px; background: var(--bg-base); color: var(--text-main);">
             </div>
           </div>
           <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
-            <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 4px; padding: 8px 12px;">
-              <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #22c55e;">Manufacturing Profit</div>
-              <div style="font-size: 15px; font-weight: 800; color: #22c55e; margin-top: 2px;" id="jewelry-sale-mfg-profit-display">₹0.00 (+0.00%)</div>
+            <div
+              style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 4px; padding: 8px 12px;">
+              <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #22c55e;">Manufacturing
+                Profit</div>
+              <div style="font-size: 15px; font-weight: 800; color: #22c55e; margin-top: 2px;"
+                id="jewelry-sale-mfg-profit-display">₹0.00 (+0.00%)</div>
               <div style="font-size: 10px; color: var(--text-muted);">Based on gold price at mfg</div>
             </div>
-            <div style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 4px; padding: 8px 12px;">
-              <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--info-color, #38bdf8);">Replacement Profit</div>
-              <div style="font-size: 15px; font-weight: 800; color: var(--info-color, #38bdf8); margin-top: 2px;" id="jewelry-sale-rep-profit-display">₹0.00 (+0.00%)</div>
+            <div
+              style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 4px; padding: 8px 12px;">
+              <div
+                style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--info-color, #38bdf8);">
+                Replacement Profit</div>
+              <div style="font-size: 15px; font-weight: 800; color: var(--info-color, #38bdf8); margin-top: 2px;"
+                id="jewelry-sale-rep-profit-display">₹0.00 (+0.00%)</div>
               <div style="font-size: 10px; color: var(--text-muted);">Based on gold price at sale</div>
             </div>
           </div>
@@ -3818,7 +4089,8 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary modal-close-trigger-jewelry-sale">Cancel</button>
-        <button type="button" id="btn-confirm-jewelry-sale" class="btn btn-primary" style="background: #22c55e; border-color: #22c55e; color: #fff;">Confirm & Finalize Sale</button>
+        <button type="button" id="btn-confirm-jewelry-sale" class="btn btn-primary"
+          style="background: #22c55e; border-color: #22c55e; color: #fff;">Confirm & Finalize Sale</button>
       </div>
     </div>
   </div>
@@ -3833,26 +4105,33 @@
       <div class="modal-body form-modal-body">
         <input type="hidden" id="jewelry-batch-sale-memo-id">
 
-        <div class="form-grid-row" style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="form-grid-row"
+          style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:12px;margin-bottom:12px;">
           <div class="input-group" style="margin-bottom:0;">
-            <label for="jewelry-batch-sale-customer-name">Sold To (Customer / Client) <span class="required">*</span></label>
-            <input type="text" id="jewelry-batch-sale-customer-name" placeholder="Client Name" required style="width:100%;height:38px;padding:6px 12px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);">
+            <label for="jewelry-batch-sale-customer-name">Sold To (Customer / Client) <span
+                class="required">*</span></label>
+            <input type="text" id="jewelry-batch-sale-customer-name" placeholder="Client Name" required
+              style="width:100%;height:38px;padding:6px 12px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);">
           </div>
           <div class="input-group" style="margin-bottom:0;">
             <label for="jewelry-batch-sale-broker-name">Broker Name</label>
-            <input type="text" id="jewelry-batch-sale-broker-name" placeholder="Broker (Optional)" style="width:100%;height:38px;padding:6px 12px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);">
+            <input type="text" id="jewelry-batch-sale-broker-name" placeholder="Broker (Optional)"
+              style="width:100%;height:38px;padding:6px 12px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);">
           </div>
           <div class="input-group" style="margin-bottom:0;">
             <label for="jewelry-batch-sale-date">Sale Date <span class="required">*</span></label>
-            <input type="date" id="jewelry-batch-sale-date" style="width:100%;height:38px;padding:6px 12px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);">
+            <input type="date" id="jewelry-batch-sale-date"
+              style="width:100%;height:38px;padding:6px 12px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-main);">
           </div>
         </div>
 
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin:16px 0 8px 0;">
+        <div
+          style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin:16px 0 8px 0;">
           CONFIRM / ADJUST SELLING PRICE PER PIECE
         </div>
 
-        <div style="border:1px solid var(--border-light);border-radius:4px;max-height:260px;overflow-y:auto;background:var(--bg-card);">
+        <div
+          style="border:1px solid var(--border-light);border-radius:4px;max-height:260px;overflow-y:auto;background:var(--bg-card);">
           <table style="width:100%;border-collapse:collapse;font-size:12px;">
             <thead>
               <tr style="background:var(--bg-base);position:sticky;top:0;z-index:2;">
@@ -3869,22 +4148,29 @@
         </div>
 
         <!-- Batch Totals Summary Card -->
-        <div style="background:var(--bg-base);border:1px solid var(--border-light);border-radius:6px;padding:10px 14px;margin-top:14px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;text-align:center;">
+        <div
+          style="background:var(--bg-base);border:1px solid var(--border-light);border-radius:6px;padding:10px 14px;margin-top:14px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;text-align:center;">
           <div>
             <div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);font-weight:700;">Pieces</div>
-            <div style="font-size:15px;font-weight:700;color:var(--text-main);margin-top:2px;" id="jewelry-batch-sale-total-count">0</div>
+            <div style="font-size:15px;font-weight:700;color:var(--text-main);margin-top:2px;"
+              id="jewelry-batch-sale-total-count">0</div>
           </div>
           <div>
-            <div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);font-weight:700;">Total Mfg Cost</div>
-            <div style="font-size:15px;font-weight:700;color:var(--text-main);margin-top:2px;" id="jewelry-batch-sale-total-mfg">₹0.00</div>
+            <div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);font-weight:700;">Total Mfg Cost
+            </div>
+            <div style="font-size:15px;font-weight:700;color:var(--text-main);margin-top:2px;"
+              id="jewelry-batch-sale-total-mfg">₹0.00</div>
           </div>
           <div>
-            <div style="font-size:10px;text-transform:uppercase;color:var(--text-gold-dark);font-weight:700;">Total Selling Price</div>
-            <div style="font-size:15px;font-weight:800;color:var(--text-gold-dark);margin-top:2px;" id="jewelry-batch-sale-total-price">₹0.00</div>
+            <div style="font-size:10px;text-transform:uppercase;color:var(--text-gold-dark);font-weight:700;">Total
+              Selling Price</div>
+            <div style="font-size:15px;font-weight:800;color:var(--text-gold-dark);margin-top:2px;"
+              id="jewelry-batch-sale-total-price">₹0.00</div>
           </div>
           <div>
             <div style="font-size:10px;text-transform:uppercase;color:#22c55e;font-weight:700;">Total Profit</div>
-            <div style="font-size:15px;font-weight:800;color:#22c55e;margin-top:2px;" id="jewelry-batch-sale-total-profit">₹0.00 (+0%)</div>
+            <div style="font-size:15px;font-weight:800;color:#22c55e;margin-top:2px;"
+              id="jewelry-batch-sale-total-profit">₹0.00 (+0%)</div>
           </div>
         </div>
 
@@ -3895,7 +4181,8 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary modal-close-trigger-jewelry-batch-sale">Cancel</button>
-        <button type="button" id="btn-confirm-jewelry-batch-sale" class="btn btn-primary" style="background:#22c55e;border-color:#22c55e;color:#fff;">Confirm & Finalize All Sales</button>
+        <button type="button" id="btn-confirm-jewelry-batch-sale" class="btn btn-primary"
+          style="background:#22c55e;border-color:#22c55e;color:#fff;">Confirm & Finalize All Sales</button>
       </div>
     </div>
   </div>
@@ -4041,15 +4328,16 @@
 
   <!-- ==================== MODAL: JEWELRY CATALOG PRINT SELECTION ==================== -->
   <div id="modal-print-jewelry-catalog" class="modal-overlay hidden">
-    <div class="modal-card" style="width: 740px; max-width: 95vw; border-radius: 8px;">
+    <div class="modal-card modal-card-print-jewelry">
       <div class="modal-header">
         <h3>Print Jewelry Catalog Report</h3>
         <button type="button" class="btn-close modal-close-trigger-print-jewelry-catalog">&times;</button>
       </div>
       <div class="modal-body">
-        <p class="modal-instructions">Filter and select the specific jewelry pieces you want to print or export. Active unsold stock is selected by default.</p>
+        <p class="modal-instructions">Filter and select the specific jewelry pieces you want to print or export. Active
+          unsold stock is selected by default.</p>
 
-        <div class="jewelry-print-filters-grid" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1.2fr; gap: 10px; margin-bottom: 12px;">
+        <div class="jewelry-print-filters-grid">
           <div>
             <div class="input-group" style="margin-bottom: 0;">
               <label for="jewelry-print-select-status">Filter by Status</label>
@@ -4092,18 +4380,23 @@
           </div>
         </div>
 
-        <div class="jewelry-export-multiplier-container" style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; gap: 12px; flex-wrap: wrap;">
+        <div class="jewelry-export-multiplier-container"
+          style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; gap: 12px; flex-wrap: wrap;">
           <div style="display: flex; align-items: center; gap: 8px;">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-gold);">
-              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+              style="color: var(--text-gold);">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
             </svg>
             <div>
-              <div style="font-weight: 600; font-size: 12px; color: var(--text-main);">Selling Price Multiplier (Print Report & Export)</div>
-              <div style="font-size: 11px; color: var(--text-muted);">Adjust selling prices in client catalog report (cost price remains unaffected)</div>
+              <div style="font-weight: 600; font-size: 12px; color: var(--text-main);">Selling Price Multiplier (Print
+                Report & Export)</div>
+              <div style="font-size: 11px; color: var(--text-muted);">Adjust selling prices in client catalog report
+                (cost price remains unaffected)</div>
             </div>
           </div>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <select id="jewelry-export-price-multiplier" class="filter-select" style="height: 34px; min-width: 155px; padding: 2px 8px; font-size: 12px;">
+            <select id="jewelry-export-price-multiplier" class="filter-select"
+              style="height: 34px; min-width: 155px; padding: 2px 8px; font-size: 12px;">
               <option value="1.0" selected>1.0x (Standard Selling Price)</option>
               <option value="1.05">1.05x (+5% markup)</option>
               <option value="1.1">1.10x (+10% markup)</option>
@@ -4121,7 +4414,8 @@
               <option value="0.75">0.75x (-25% discount)</option>
               <option value="custom">Custom Multiplier...</option>
             </select>
-            <input type="number" id="jewelry-export-price-multiplier-custom" step="0.01" min="0.01" value="1.0" placeholder="e.g. 1.25"
+            <input type="number" id="jewelry-export-price-multiplier-custom" step="0.01" min="0.01" value="1.0"
+              placeholder="e.g. 1.25"
               style="display: none; width: 80px; height: 34px; padding: 4px 8px; font-size: 12px; border: 1px solid var(--border-light); border-radius: 4px; background: var(--bg-base); color: var(--text-main);">
           </div>
         </div>
@@ -4130,16 +4424,22 @@
           <label style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
             <span style="display: flex; align-items: center; gap: 8px;">
               <span>Select Jewelry Pieces</span>
-              <span id="jewelry-print-selected-badge" style="font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 12px; background: rgba(212, 175, 55, 0.15); color: var(--text-gold); border: 1px solid rgba(212, 175, 55, 0.3);">
+              <span id="jewelry-print-selected-badge"
+                style="font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 12px; background: rgba(212, 175, 55, 0.15); color: var(--text-gold); border: 1px solid rgba(212, 175, 55, 0.3);">
                 0 selected
               </span>
             </span>
-            <span style="font-size: 11px; text-transform: none; letter-spacing: normal; display: flex; align-items: center; gap: 8px;">
-              <button type="button" id="btn-jewelry-print-select-all" class="btn-text" title="Select all items visible under current filter">Select Filtered</button>
-              <button type="button" id="btn-jewelry-print-select-none" class="btn-text" title="Deselect all items visible under current filter">Deselect Filtered</button>
+            <span
+              style="font-size: 11px; text-transform: none; letter-spacing: normal; display: flex; align-items: center; gap: 8px;">
+              <button type="button" id="btn-jewelry-print-select-all" class="btn-text"
+                title="Select all items visible under current filter">Select Filtered</button>
+              <button type="button" id="btn-jewelry-print-select-none" class="btn-text"
+                title="Deselect all items visible under current filter">Deselect Filtered</button>
               <span style="color: var(--border-light); user-select: none;">|</span>
-              <button type="button" id="btn-jewelry-print-select-all-global" class="btn-text" style="color: var(--text-gold);" title="Select all inventory items">Select All</button>
-              <button type="button" id="btn-jewelry-print-clear-all" class="btn-text" style="color: var(--text-muted);" title="Clear all selections">Clear All</button>
+              <button type="button" id="btn-jewelry-print-select-all-global" class="btn-text"
+                style="color: var(--text-gold);" title="Select all inventory items">Select All</button>
+              <button type="button" id="btn-jewelry-print-clear-all" class="btn-text" style="color: var(--text-muted);"
+                title="Clear all selections">Clear All</button>
             </span>
           </label>
           <div id="jewelry-print-items-container" class="jewelry-print-checklist-container">
@@ -4164,11 +4464,13 @@
 
   <!-- ==================== MODAL: EXCEL IMPORT PREVIEW & VERIFICATION ==================== -->
   <div id="modal-import-excel-preview" class="modal-overlay hidden" style="z-index: 1100;">
-    <div class="modal-card" style="max-width: 960px; width: 95vw; max-height: 90vh; display: flex; flex-direction: column;">
+    <div class="modal-card"
+      style="max-width: 960px; width: 95vw; max-height: 90vh; display: flex; flex-direction: column;">
       <div class="modal-header" style="flex-shrink: 0;">
         <h3 style="display: flex; align-items: center; gap: 8px;">
           <svg viewBox="0 0 24 24" width="20" height="20" style="vertical-align: middle;">
-            <path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM9 16h6v-6h4l-7-7-7 7h4z"/>
+            <path fill="currentColor"
+              d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM9 16h6v-6h4l-7-7-7 7h4z" />
           </svg>
           Import & Verify Jewelry Items from Excel
         </h3>
@@ -4176,20 +4478,28 @@
       </div>
       <div class="modal-body" style="overflow-y: auto; flex: 1; padding: 16px 24px;">
         <!-- STATS & DUPLICATE SUMMARY BANNER -->
-        <div id="excel-import-stats-banner" style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 8px; padding: 14px 18px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+        <div id="excel-import-stats-banner"
+          style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 8px; padding: 14px 18px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
           <!-- Populated dynamically -->
         </div>
 
         <!-- FILTER TABS & BULK CONTROLS -->
-        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; border-bottom: 1px solid var(--border-light); padding-bottom: 10px;">
+        <div
+          style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; border-bottom: 1px solid var(--border-light); padding-bottom: 10px;">
           <div style="display: flex; gap: 6px;">
-            <button type="button" id="tab-excel-import-all" class="btn btn-secondary active" style="padding: 6px 14px; font-size: 12px;">All Parsed (<span id="count-import-all">0</span>)</button>
-            <button type="button" id="tab-excel-import-new" class="btn btn-secondary" style="padding: 6px 14px; font-size: 12px;">Ready to Add (<span id="count-import-new">0</span>)</button>
-            <button type="button" id="tab-excel-import-duplicates" class="btn btn-secondary" style="padding: 6px 14px; font-size: 12px;">Duplicates Skipped (<span id="count-import-duplicates">0</span>)</button>
+            <button type="button" id="tab-excel-import-all" class="btn btn-secondary active"
+              style="padding: 6px 14px; font-size: 12px;">All Parsed (<span id="count-import-all">0</span>)</button>
+            <button type="button" id="tab-excel-import-new" class="btn btn-secondary"
+              style="padding: 6px 14px; font-size: 12px;">Ready to Add (<span id="count-import-new">0</span>)</button>
+            <button type="button" id="tab-excel-import-duplicates" class="btn btn-secondary"
+              style="padding: 6px 14px; font-size: 12px;">Duplicates Skipped (<span
+                id="count-import-duplicates">0</span>)</button>
           </div>
           <div style="display: flex; gap: 8px;">
-            <button type="button" id="btn-excel-import-select-all-new" class="btn-text" style="font-size: 12px; font-weight: 600;">Select All New</button>
-            <button type="button" id="btn-excel-import-deselect-all" class="btn-text" style="font-size: 12px; font-weight: 600;">Deselect All</button>
+            <button type="button" id="btn-excel-import-select-all-new" class="btn-text"
+              style="font-size: 12px; font-weight: 600;">Select All New</button>
+            <button type="button" id="btn-excel-import-deselect-all" class="btn-text"
+              style="font-size: 12px; font-weight: 600;">Deselect All</button>
           </div>
         </div>
 
@@ -4198,11 +4508,14 @@
           <!-- Dynamically populated cards/rows -->
         </div>
       </div>
-      <div class="modal-footer" style="flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;">
-        <span id="excel-import-selection-count" style="font-size: 13px; font-weight: 600; color: var(--text-muted);">0 items selected for import</span>
+      <div class="modal-footer"
+        style="flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;">
+        <span id="excel-import-selection-count" style="font-size: 13px; font-weight: 600; color: var(--text-muted);">0
+          items selected for import</span>
         <div style="display: flex; gap: 10px;">
           <button type="button" class="btn btn-secondary" id="btn-excel-import-cancel">Cancel</button>
-          <button type="button" class="btn btn-primary" id="btn-excel-import-confirm" style="height: 42px; min-width: 180px;">Confirm & Import Items</button>
+          <button type="button" class="btn btn-primary" id="btn-excel-import-confirm"
+            style="height: 42px; min-width: 180px;">Confirm & Import Items</button>
         </div>
       </div>
     </div>
@@ -4340,7 +4653,8 @@
     <div class="modal-card" style="max-width: 680px;">
       <div class="modal-header">
         <h3 style="display: flex; align-items: center; gap: 8px;">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-gold);">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"
+            style="color: var(--text-gold);">
             <polygon points="5 3 19 12 5 21 5 3"></polygon>
           </svg>
           Jewelry Client Presentation & Share
@@ -4348,11 +4662,13 @@
         <button type="button" class="btn-close modal-close-trigger-jewelry-presentation">&times;</button>
       </div>
       <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
-        <p class="modal-instructions">Create an interactive presentation or export a PDF catalog of selected jewelry items for your client.</p>
+        <p class="modal-instructions">Create an interactive presentation or export a PDF catalog of selected jewelry
+          items for your client.</p>
 
         <div class="input-group">
           <label for="presentation-title">Presentation Title / Client Name</label>
-          <input type="text" id="presentation-title" placeholder="e.g. Exclusive Showcase for Client Name" value="Jewelry Collection Showcase" />
+          <input type="text" id="presentation-title" placeholder="e.g. Exclusive Showcase for Client Name"
+            value="Jewelry Collection Showcase" />
         </div>
 
         <div class="form-grid-row">
@@ -4371,8 +4687,10 @@
               <label for="presentation-price-multiplier" id="presentation-multiplier-label">
                 Multiplier on Market Cost Price
               </label>
-              <input type="number" id="presentation-price-multiplier" step="0.01" value="1.25" placeholder="e.g. 1.25" />
-              <div id="presentation-multiplier-help" class="form-helper-text" style="font-size: 11px; color: var(--text-gold-dark); margin-top: 4px; font-weight: 600;">
+              <input type="number" id="presentation-price-multiplier" step="0.01" value="1.25"
+                placeholder="e.g. 1.25" />
+              <div id="presentation-multiplier-help" class="form-helper-text"
+                style="font-size: 11px; color: var(--text-gold-dark); margin-top: 4px; font-weight: 600;">
                 Multiplier 1.25x = +25% margin on Market Cost Price
               </div>
             </div>
@@ -4393,7 +4711,9 @@
           <div class="form-col-6">
             <div class="input-group">
               <label for="presentation-item-count">Selected Items</label>
-              <input type="text" id="presentation-item-count" readonly style="background: var(--bg-base); color: var(--text-gold-dark); font-weight: 700;" value="0 items selected" />
+              <input type="text" id="presentation-item-count" readonly
+                style="background: var(--bg-base); color: var(--text-gold-dark); font-weight: 700;"
+                value="0 items selected" />
             </div>
           </div>
         </div>
@@ -4401,22 +4721,26 @@
         <div class="input-group" style="margin-top: 5px;">
           <label style="display: flex; align-items: center; justify-content: space-between;">
             <span>Included Items</span>
-            <span style="font-size: 11px; color: var(--text-muted);" id="presentation-items-summary-count">0 items</span>
+            <span style="font-size: 11px; color: var(--text-muted);" id="presentation-items-summary-count">0
+              items</span>
           </label>
-          <div id="presentation-items-list-container" style="max-height: 180px; overflow-y: auto; border: 1px solid var(--border-light); background-color: var(--bg-base); padding: 8px 12px; border-radius: 4px; display: flex; flex-direction: column; gap: 6px;">
+          <div id="presentation-items-list-container"
+            style="max-height: 180px; overflow-y: auto; border: 1px solid var(--border-light); background-color: var(--bg-base); padding: 8px 12px; border-radius: 4px; display: flex; flex-direction: column; gap: 6px;">
             <!-- Dynamic item list -->
           </div>
         </div>
       </div>
       <div class="modal-footer" style="display: flex; gap: 10px; flex-wrap: wrap;">
         <button type="button" class="btn btn-secondary modal-close-trigger-jewelry-presentation">Cancel</button>
-        <button type="button" id="btn-export-presentation-pdf" class="btn btn-secondary" style="display: inline-flex; align-items: center; gap: 6px;">
+        <button type="button" id="btn-export-presentation-pdf" class="btn btn-secondary"
+          style="display: inline-flex; align-items: center; gap: 6px;">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"></path>
           </svg>
           Export Presentation PDF
         </button>
-        <button type="button" id="btn-start-slideshow" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 6px;">
+        <button type="button" id="btn-start-slideshow" class="btn btn-primary"
+          style="display: inline-flex; align-items: center; gap: 6px;">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
             <polygon points="5 3 19 12 5 21 5 3"></polygon>
           </svg>
@@ -4428,34 +4752,52 @@
 
   <!-- ==================== MODAL: FULLSCREEN SLIDESHOW PRESENTATION ==================== -->
   <div id="modal-jewelry-slideshow" class="modal-overlay hidden" style="z-index: 2000; background: #070707;">
-    <div style="width: 100vw; height: 100vh; display: flex; flex-direction: column; color: #f0f0f0; overflow: hidden; position: relative;" id="slideshow-container">
-      
+    <div
+      style="width: 100vw; height: 100vh; display: flex; flex-direction: column; color: #f0f0f0; overflow: hidden; position: relative;"
+      id="slideshow-container">
+
       <!-- Top Presentation Header -->
-      <div style="display: flex; align-items: center; justify-content: space-between; padding: 15px 30px; border-bottom: 1px solid rgba(212, 175, 55, 0.25); background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); z-index: 10;">
+      <div
+        style="display: flex; align-items: center; justify-content: space-between; padding: 15px 30px; border-bottom: 1px solid rgba(212, 175, 55, 0.25); background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); z-index: 10;">
         <div style="display: flex; align-items: center; gap: 12px;">
-          <span style="font-family: var(--font-serif); font-size: 20px; font-weight: 700; color: #d4af37; letter-spacing: 0.05em;" id="slideshow-header-title">Jewelry Presentation</span>
-          <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; background: rgba(212,175,55,0.15); border: 1px solid rgba(212,175,55,0.4); color: #d4af37; padding: 3px 10px; border-radius: 20px;" id="slideshow-counter">1 / 1</span>
+          <span
+            style="font-family: var(--font-serif); font-size: 20px; font-weight: 700; color: #d4af37; letter-spacing: 0.05em;"
+            id="slideshow-header-title">Jewelry Presentation</span>
+          <span
+            style="font-size: 11px; font-weight: 600; text-transform: uppercase; background: rgba(212,175,55,0.15); border: 1px solid rgba(212,175,55,0.4); color: #d4af37; padding: 3px 10px; border-radius: 20px;"
+            id="slideshow-counter">1 / 1</span>
         </div>
         <div style="display: flex; align-items: center; gap: 12px;">
-          <button type="button" id="btn-slideshow-prev" class="btn btn-secondary" style="font-size: 12px; padding: 6px 16px; border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); color: #fff;">← Previous</button>
-          <button type="button" id="btn-slideshow-next" class="btn btn-primary" style="font-size: 12px; padding: 6px 20px;">Next →</button>
-          <button type="button" id="btn-slideshow-export-pdf" class="btn btn-secondary" style="font-size: 12px; padding: 6px 14px; display: inline-flex; align-items: center; gap: 6px; border-color: rgba(212,175,55,0.5); background: rgba(212,175,55,0.15); color: #d4af37;" title="Export Presentation PDF">
+          <button type="button" id="btn-slideshow-prev" class="btn btn-secondary"
+            style="font-size: 12px; padding: 6px 16px; border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); color: #fff;">←
+            Previous</button>
+          <button type="button" id="btn-slideshow-next" class="btn btn-primary"
+            style="font-size: 12px; padding: 6px 20px;">Next →</button>
+          <button type="button" id="btn-slideshow-export-pdf" class="btn btn-secondary"
+            style="font-size: 12px; padding: 6px 14px; display: inline-flex; align-items: center; gap: 6px; border-color: rgba(212,175,55,0.5); background: rgba(212,175,55,0.15); color: #d4af37;"
+            title="Export Presentation PDF">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"></path>
             </svg>
             Export PDF
           </button>
-          <button type="button" id="btn-slideshow-close" class="btn btn-secondary" style="font-size: 14px; padding: 6px 14px; margin-left: 10px; border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: #fff;" title="Exit Presentation">&times; Close</button>
+          <button type="button" id="btn-slideshow-close" class="btn btn-secondary"
+            style="font-size: 14px; padding: 6px 14px; margin-left: 10px; border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: #fff;"
+            title="Exit Presentation">&times; Close</button>
         </div>
       </div>
 
       <!-- Slideshow Stage -->
-      <div style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 30px; overflow: hidden; position: relative;" id="slideshow-stage">
+      <div
+        style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 30px; overflow: hidden; position: relative;"
+        id="slideshow-stage">
         <!-- Dynamic Slide Content rendered here -->
       </div>
 
       <!-- Bottom Slide Thumbnails Bar -->
-      <div style="display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px; background: rgba(0,0,0,0.8); border-top: 1px solid rgba(255,255,255,0.1); overflow-x: auto; max-height: 80px;" id="slideshow-thumbs-bar">
+      <div
+        style="display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px; background: rgba(0,0,0,0.8); border-top: 1px solid rgba(255,255,255,0.1); overflow-x: auto; max-height: 80px;"
+        id="slideshow-thumbs-bar">
         <!-- Dynamic Slide Thumbnails -->
       </div>
     </div>
@@ -4494,7 +4836,7 @@
       </div>
       <div class="mobile-menu-body">
         <div class="mobile-menu-section-header">Catalogs & Analytics</div>
-        <button type="button" class="mobile-menu-item" data-action="tab-jewelry-analyzer">
+        <button type="button" class="mobile-menu-item admin-tab-item" data-action="tab-jewelry-analyzer">
           <svg viewBox="0 0 24 24" width="18" height="18">
             <path fill="currentColor"
               d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
@@ -4538,29 +4880,29 @@
           Emerald Photos
         </button>
 
-        <div class="mobile-menu-section-header">Memo Systems</div>
-        <button type="button" class="mobile-menu-item" data-action="tab-memos">
+        <div class="mobile-menu-section-header admin-tab-item">Memo Systems</div>
+        <button type="button" class="mobile-menu-item admin-tab-item" data-action="tab-memos">
           <svg viewBox="0 0 24 24" width="18" height="18">
             <path fill="currentColor"
               d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zm0 5h-2V5h2v3zM4 19h16v2H4z" />
           </svg>
           Emerald Memos
         </button>
-        <button type="button" class="mobile-menu-item" data-action="tab-jewel-stone-memos">
+        <button type="button" class="mobile-menu-item admin-tab-item" data-action="tab-jewel-stone-memos">
           <svg viewBox="0 0 24 24" width="18" height="18">
             <path fill="currentColor"
               d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
           </svg>
           Jewelry Stone Memos
         </button>
-        <button type="button" class="mobile-menu-item" data-action="tab-jewelry-memos">
+        <button type="button" class="mobile-menu-item admin-tab-item" data-action="tab-jewelry-memos">
           <svg viewBox="0 0 24 24" width="18" height="18">
             <path fill="currentColor"
               d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zm0 5h-2V5h2v3zM4 19h16v2H4z" />
           </svg>
           Jewelry Memos
         </button>
-        <button type="button" class="mobile-menu-item" data-action="tab-jewelry-sales">
+        <button type="button" class="mobile-menu-item admin-tab-item" data-action="tab-jewelry-sales">
           <svg viewBox="0 0 24 24" width="18" height="18">
             <path fill="currentColor"
               d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z" />
@@ -4568,15 +4910,15 @@
           Jewelry Sales
         </button>
 
-        <div class="mobile-menu-section-header">System</div>
-        <button type="button" class="mobile-menu-item" data-action="tab-logs">
+        <div class="mobile-menu-section-header admin-tab-item">System</div>
+        <button type="button" class="mobile-menu-item admin-tab-item" data-action="tab-logs">
           <svg viewBox="0 0 24 24" width="18" height="18">
             <path fill="currentColor"
               d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z" />
           </svg>
           Activity Logs
         </button>
-        <button type="button" class="mobile-menu-item" data-action="tab-settings">
+        <button type="button" class="mobile-menu-item admin-tab-item" data-action="tab-settings">
           <svg viewBox="0 0 24 24" width="18" height="18">
             <path fill="currentColor"
               d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h-3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
@@ -4686,8 +5028,10 @@
   <div id="print-section"></div>
 
   <!-- ==================== SCROLL TO TOP FLOATING BUTTON ==================== -->
-  <button type="button" id="btn-scroll-to-top" class="scroll-to-top-btn" aria-label="Scroll to top" title="Scroll to top">
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+  <button type="button" id="btn-scroll-to-top" class="scroll-to-top-btn" aria-label="Scroll to top"
+    title="Scroll to top">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5"
+      stroke-linecap="round" stroke-linejoin="round">
       <polyline points="18 15 12 9 6 15"></polyline>
     </svg>
   </button>
