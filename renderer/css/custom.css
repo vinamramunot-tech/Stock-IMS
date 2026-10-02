@@ -2288,14 +2288,21 @@ body.showroom-client-mode .showroom-indicator-bar {
   gap: 12px;
   background: linear-gradient(90deg, #134e19, #1b5e20, #2e7d32, #1b5e20, #134e19);
   color: #ffffff;
-  padding: 6px 16px;
+  padding: calc(env(safe-area-inset-top, 0px) + 8px) 16px 8px;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   position: relative;
-  z-index: 100;
+  z-index: 101;
+  flex-shrink: 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 768px) {
+  body.showroom-client-mode .app-header {
+    padding-top: 8px !important;
+  }
 }
 
 .showroom-indicator-dot {
@@ -2391,5 +2398,120 @@ body.showroom-client-mode #detail-jewelry-selling-price {
     border-top: 1px solid var(--border-light);
     padding: 12px 16px;
     z-index: 10;
+  }
+
+  /* Hide duplicate add button in catalog filter bar on mobile (handled by bottom nav) */
+  #btn-add-jewelry-piece-main {
+    display: none !important;
+  }
+}
+
+/* ==================== ADVANCED MOBILE SIMPLIFICATION & COMPACT STYLING ==================== */
+
+/* Hide mobile toggle buttons on desktop */
+@media (min-width: 769px) {
+  .mobile-filters-toggle-btn {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  /* 1. Mobile Filter Drawers */
+  #tab-catalog .filters-group,
+  #tab-emerald-catalog .filters-group {
+    display: none;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
+  #tab-catalog .filters-group.mobile-open,
+  #tab-emerald-catalog .filters-group.mobile-open {
+    display: grid !important;
+  }
+
+  /* Keep non-catalog operational filter groups accessible */
+  #section-stone .filter-bar .filters-group,
+  #section-memo .filter-bar .filters-group,
+  #section-jewelry-memo .filter-bar .filters-group,
+  #section-jewelry-sales .filter-bar .filters-group {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  /* 2. Compact Emerald Pudia Cards on Mobile */
+  .flat-pudia-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+    margin-top: 10px !important;
+  }
+
+  .flat-pudia-card {
+    padding: 10px 12px !important;
+    border-radius: 10px !important;
+  }
+
+  .flat-pudia-header {
+    padding-bottom: 6px !important;
+    margin-bottom: 6px !important;
+  }
+
+  .flat-pudia-num {
+    font-size: 14px !important;
+  }
+
+  .flat-pudia-body {
+    gap: 10px !important;
+    margin-bottom: 6px !important;
+  }
+
+  .flat-pudia-img-container {
+    width: 60px !important;
+    height: 60px !important;
+    border-radius: 6px !important;
+  }
+
+  .flat-pudia-details {
+    font-size: 11px !important;
+    gap: 3px !important;
+  }
+
+  .flat-pudia-footer {
+    padding-top: 6px !important;
+    margin-top: 4px !important;
+  }
+
+  /* 3. Compact Jewelry Detail Modal on Mobile */
+  #modal-jewelry-detail .modal-body {
+    padding: 12px 14px !important;
+  }
+
+  #modal-jewelry-detail .modal-body > div {
+    gap: 12px !important;
+  }
+
+  #modal-jewelry-detail .modal-body [style*="350px"] {
+    height: 200px !important;
+  }
+
+  #modal-jewelry-detail #detail-jewelry-valuations-container {
+    padding: 12px !important;
+    gap: 10px !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  #modal-jewelry-detail .settings-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  /* 4. Single Column Layout for Memo Input Grids on Mobile */
+  #modal-create-jewelry-memo [style*="grid-template-columns:1fr 1fr 1fr"],
+  #modal-create-memo [style*="grid-template-columns:1fr 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
   }
 }

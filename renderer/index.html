@@ -210,7 +210,7 @@
     <!-- SHOWROOM PRESENTATION BANNER (Visible only in Showroom Mode) -->
     <div class="showroom-indicator-bar" id="showroom-indicator-bar">
       <span class="showroom-indicator-dot"></span>
-      <span>Showroom Presentation Mode &bull; Confidential Trade Data Hidden</span>
+      <span>Showroom Mode</span>
       <button type="button" id="btn-exit-showroom-bar" class="btn-showroom-exit">Exit Showroom</button>
     </div>
 
@@ -880,6 +880,16 @@
                   d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
               </svg>
             </div>
+
+            <!-- Mobile Toggle Button for Emerald Filters & Sort -->
+            <button type="button" id="btn-toggle-emerald-filters" class="mobile-filters-toggle-btn">
+              <svg viewBox="0 0 24 24" width="14" height="14">
+                <path fill="currentColor"
+                  d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z" />
+              </svg>
+              <span>Filters & Sort</span>
+              <span class="filter-toggle-arrow" style="font-size: 10px; margin-left: 2px;">▾</span>
+            </button>
 
             <div class="filters-group">
               <select id="emerald-filter-group" class="filter-select">
@@ -1923,11 +1933,8 @@
                 style="height: 42px; display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 11px; text-transform: uppercase; cursor: pointer; padding: 0 14px; margin-left: 6px; box-sizing: border-box;">
                 <input type="checkbox" id="bulk-select-all"
                   style="width: 15px; height: 15px; margin: 0; accent-color: var(--text-gold-dark);">
-                Select All
+                <span id="bulk-select-all-label">Select All</span>
               </label>
-              <button type="button" id="btn-bulk-unselect" class="btn btn-secondary" data-client-hide
-                style="height: 42px; font-size: 11px; font-weight: 600; margin-left: 6px; box-sizing: border-box;"
-                disabled>Unselect All</button>
               <span id="bulk-select-count" class="btn btn-secondary" data-client-hide
                 style="height: 42px; display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; color: var(--text-muted); cursor: default; padding: 0 14px; pointer-events: none; border-color: var(--border-light); margin-left: 6px; box-sizing: border-box;">0
                 Selected</span>
@@ -3443,9 +3450,7 @@
           <label style="display: flex; align-items: center; justify-content: space-between;">
             <span>Select Stone Packets</span>
             <span style="font-size: 10px; text-transform: none; letter-spacing: normal;">
-              <button type="button" id="btn-print-select-all-stones" class="btn-text" style="margin-right: 8px;">Select
-                All</button>
-              <button type="button" id="btn-print-select-none-stones" class="btn-text">Deselect All</button>
+              <button type="button" id="btn-print-select-all-stones" class="btn-text">Select All</button>
             </span>
           </label>
           <div class="print-stone-table-container">
@@ -4430,16 +4435,12 @@
               </span>
             </span>
             <span
-              style="font-size: 11px; text-transform: none; letter-spacing: normal; display: flex; align-items: center; gap: 8px;">
+              style="font-size: 11px; text-transform: none; letter-spacing: normal; display: flex; align-items: center; gap: 10px;">
               <button type="button" id="btn-jewelry-print-select-all" class="btn-text"
-                title="Select all items visible under current filter">Select Filtered</button>
-              <button type="button" id="btn-jewelry-print-select-none" class="btn-text"
-                title="Deselect all items visible under current filter">Deselect Filtered</button>
+                title="Toggle selection of items visible under current filter">Toggle Filtered</button>
               <span style="color: var(--border-light); user-select: none;">|</span>
               <button type="button" id="btn-jewelry-print-select-all-global" class="btn-text"
-                style="color: var(--text-gold);" title="Select all inventory items">Select All</button>
-              <button type="button" id="btn-jewelry-print-clear-all" class="btn-text" style="color: var(--text-muted);"
-                title="Clear all selections">Clear All</button>
+                style="color: var(--text-gold);" title="Toggle all inventory items">Select All</button>
             </span>
           </label>
           <div id="jewelry-print-items-container" class="jewelry-print-checklist-container">
@@ -4498,8 +4499,6 @@
           <div style="display: flex; gap: 8px;">
             <button type="button" id="btn-excel-import-select-all-new" class="btn-text"
               style="font-size: 12px; font-weight: 600;">Select All New</button>
-            <button type="button" id="btn-excel-import-deselect-all" class="btn-text"
-              style="font-size: 12px; font-weight: 600;">Deselect All</button>
           </div>
         </div>
 
@@ -4554,9 +4553,7 @@
           <label style="display: flex; align-items: center; justify-content: space-between;">
             <span>Select Pudia Numbers</span>
             <span style="font-size: 10px; text-transform: none; letter-spacing: normal;">
-              <button type="button" id="btn-print-select-all-pudias" class="btn-text" style="margin-right: 8px;">Select
-                All</button>
-              <button type="button" id="btn-print-select-none-pudias" class="btn-text">Deselect All</button>
+              <button type="button" id="btn-print-select-all-pudias" class="btn-text">Select All</button>
             </span>
           </label>
           <div id="print-pudias-list-container" class="print-pudias-checklist-container">
@@ -4605,9 +4602,7 @@
           <label style="display: flex; align-items: center; justify-content: space-between;">
             <span>Select Pudia Numbers</span>
             <span style="font-size: 10px; text-transform: none; letter-spacing: normal;">
-              <button type="button" id="btn-bulk-share-select-all-pudias" class="btn-text"
-                style="margin-right: 8px;">Select All</button>
-              <button type="button" id="btn-bulk-share-select-none-pudias" class="btn-text">Deselect All</button>
+              <button type="button" id="btn-bulk-share-select-all-pudias" class="btn-text">Select All</button>
             </span>
           </label>
           <div id="bulk-share-pudias-list-container"

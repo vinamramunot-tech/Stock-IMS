@@ -101,12 +101,7 @@ const StoneController = {
 
     const btnSelectAll = document.getElementById('btn-print-select-all-stones');
     if (btnSelectAll) {
-      btnSelectAll.addEventListener('click', () => this.toggleAllPrintStones(true));
-    }
-
-    const btnSelectNone = document.getElementById('btn-print-select-none-stones');
-    if (btnSelectNone) {
-      btnSelectNone.addEventListener('click', () => this.toggleAllPrintStones(false));
+      btnSelectAll.addEventListener('click', () => this.toggleAllPrintStones());
     }
 
     const btnSubmitPrint = document.getElementById('btn-submit-print-stone');
@@ -1223,10 +1218,17 @@ const StoneController = {
       `;
       tbody.appendChild(tr);
     });
+
+    const btn = document.getElementById('btn-print-select-all-stones');
+    if (btn) btn.textContent = 'Deselect All';
   },
 
-  toggleAllPrintStones(check) {
-    document.querySelectorAll('.print-stone-check').forEach(cb => cb.checked = check);
+  toggleAllPrintStones() {
+    const checkboxes = Array.from(document.querySelectorAll('.print-stone-check'));
+    const allChecked = checkboxes.length > 0 && checkboxes.every(cb => cb.checked);
+    checkboxes.forEach(cb => cb.checked = !allChecked);
+    const btn = document.getElementById('btn-print-select-all-stones');
+    if (btn) btn.textContent = !allChecked ? 'Deselect All' : 'Select All';
   },
 
   printFromSelection() {

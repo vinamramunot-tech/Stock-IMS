@@ -30,9 +30,16 @@ const Calc = {
    * Helper to get total stone weight in grams (1 ct = 0.2 g)
    */
   getStoneWeightInGrams(itemData) {
+    if (!itemData) return 0;
     let stonesSum = 0;
-    (itemData.stones || []).forEach(s => stonesSum += Number(s.weight || 0));
-    (itemData.diamondsPolki || []).forEach(d => stonesSum += Number(d.weight || 0));
+    (itemData.stones || []).forEach(s => {
+      const w = Number(s?.weight);
+      if (!isNaN(w) && w > 0) stonesSum += w;
+    });
+    (itemData.diamondsPolki || []).forEach(d => {
+      const w = Number(d?.weight);
+      if (!isNaN(w) && w > 0) stonesSum += w;
+    });
     return Number((stonesSum * 0.2).toFixed(4));
   },
 
@@ -109,16 +116,39 @@ const Calc = {
    * Bidirectional Stone Calculations
    */
   calculateStoneTotal(weight, ratePerCarat) {
-    if (!weight || !ratePerCarat) return 0;
-    return Number((weight * ratePerCarat).toFixed(2));
+    const w = Number(weight);
+    const r = Number(ratePerCarat);
+    if (isNaN(w) || isNaN(r) || w <= 0 || r <= 0) return 0;
+    return Number((w * r).toFixed(2));
   },
 
   calculateStoneRate(weight, totalValue) {
-    if (!weight || !totalValue) return 0;
-    return Number((totalValue / weight).toFixed(2));
+    const w = Number(weight);
+    const tv = Number(totalValue);
+    if (isNaN(w) || isNaN(tv) || w <= 0 || tv <= 0) return 0;
+    return Number((tv / w).toFixed(2));
   },
 
   /**
+   * Calculate discounted price given a multiplier (e.g. 0.9x for 10% off)
+   */
+  calculateDiscountedRate(baseRate, multiplier) {
+    const rate = Number(baseRate);
+    if (isNaN(rate) || rate <= 0) return 0;
+    const mult = (multiplier !== undefined && multiplier !== null && !isNaN(Number(multiplier))) ? Number(multiplier) : 1.0;
+    return Number((rate * mult).toFixed(2));
+  },
+
+  /**
+   * Convert currency (e.g. USD to INR or INR to USD)
+   */
+  convertCurrency(amount, exchangeRate) {
+    const amt = Number(amount);
+    const rate = Number(exchangeRate);
+    if (isNaN(amt) || isNaN(rate) || amt <= 0 || rate <= 0) return 0;
+    return Number((amt * rate).toFixed(2));
+  },
+
   /**
    * Manual commission helper (purely manual input)
    */
@@ -129,6 +159,34 @@ const Calc = {
     }
     const pct = subtotal > 0 ? Number(((value / subtotal) * 100).toFixed(1)) : 0;
     return { value, percentage: pct };
+  },
+
+  /**
+   * Calculate dual manufacturing and replacement profit metrics for a sale
+   */
+  calculateSaleProfit(soldPrice, mfgCost, replacementCost) {
+    const sold = Number(soldPrice) || 0;
+    const mfg = Number(mfgCost) || 0;
+    const rep = (replacementCost !== undefined && replacementCost !== null) ? Number(replacementCost) : mfg;
+    
+    const mfgProfit = Number((sold - mfg).toFixed(2));
+    const mfgMarginPct = mfg > 0 ? Number(((mfgProfit / mfg) * 100).toFixed(2)) : 0;
+
+    const repProfit = Number((sold - rep).toFixed(2));
+    const repMarginPct = rep > 0 ? Number(((repProfit / rep) * 100).toFixed(2)) : 0;
+
+    const commodityGain = Number((rep - mfg).toFixed(2));
+
+    return {
+      soldPrice: sold,
+      mfgCost: mfg,
+      replacementCost: rep,
+      mfgProfit,
+      mfgMarginPct,
+      replacementProfit: repProfit,
+      replacementMarginPct: repMarginPct,
+      goldCommodityGain: commodityGain
+    };
   },
 
   /**
@@ -186,10 +244,15 @@ const Calc = {
     let emeraldTotal = 0;
     const stones = itemData?.stones || [];
     stones.forEach(stone => {
-      const val = Number(stone.totalValue || 0);
-      stoneTotal += val;
-      if (stone.type && stone.type.toLowerCase() === 'emerald') {
-        emeraldTotal += val;
+      let val = Number(stone.totalValue);
+      if (isNaN(val) || val === 0) {
+        val = Number((Number(stone.weight || 0) * Number(stone.ratePerCarat || 0)).toFixed(2));
+      }
+      if (!isNaN(val) && val > 0) {
+        stoneTotal += val;
+        if (stone.type && String(stone.type).toLowerCase() === 'emerald') {
+          emeraldTotal += val;
+        }
       }
     });
 
@@ -197,7 +260,13 @@ const Calc = {
     let diamondPolkiTotal = 0;
     const diamondsPolki = itemData?.diamondsPolki || [];
     diamondsPolki.forEach(dp => {
-      diamondPolkiTotal += Number(dp.totalValue || 0);
+      let val = Number(dp.totalValue);
+      if (isNaN(val) || val === 0) {
+        val = Number((Number(dp.weight || 0) * Number(dp.ratePerCarat || 0)).toFixed(2));
+      }
+      if (!isNaN(val) && val > 0) {
+        diamondPolkiTotal += val;
+      }
     });
 
     // 4. Labour Cost
@@ -236,7 +305,7 @@ const Calc = {
     const profitPct = Number(itemData?.profitPercentage !== undefined ? itemData.profitPercentage : 40);
     const sellingPrice = Number((((marketCostPrice - emeraldTotal) * (1 + profitPct / 100)) + emeraldTotal).toFixed(2));
 
-    const totalGrossWeight = Number((itemData.grossWeight > 0 ? Number(itemData.grossWeight) : netMetals.reduce((sum, m) => sum + Number(m.grossWeight || 0), 0)).toFixed(3));
+    const totalGrossWeight = Number((itemData?.grossWeight > 0 ? Number(itemData.grossWeight) : netMetals.reduce((sum, m) => sum + Number(m.grossWeight || 0), 0)).toFixed(3));
     const totalNetMetalWeight = Number(netMetals.reduce((sum, m) => sum + Number(m.netWeight || 0), 0).toFixed(3));
     const mainNetWeight = Number((netMetals.find(m => m.isMain)?.netWeight || 0).toFixed(3));
 
@@ -265,4 +334,9 @@ const Calc = {
   }
 };
 
-window.Calc = Calc;
+if (typeof window !== 'undefined') {
+  window.Calc = Calc;
+}
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = Calc;
+}

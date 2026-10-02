@@ -1331,22 +1331,12 @@ const Catalog = {
 
     const btnAll = document.getElementById('btn-jewelry-print-select-all');
     if (btnAll) {
-      btnAll.addEventListener('click', () => this.toggleAllPrintItems(true));
-    }
-
-    const btnNone = document.getElementById('btn-jewelry-print-select-none');
-    if (btnNone) {
-      btnNone.addEventListener('click', () => this.toggleAllPrintItems(false));
+      btnAll.addEventListener('click', () => this.toggleAllPrintItems());
     }
 
     const btnAllGlobal = document.getElementById('btn-jewelry-print-select-all-global');
     if (btnAllGlobal) {
-      btnAllGlobal.addEventListener('click', () => this.selectAllPrintItemsGlobal());
-    }
-
-    const btnClearAll = document.getElementById('btn-jewelry-print-clear-all');
-    if (btnClearAll) {
-      btnClearAll.addEventListener('click', () => this.clearAllPrintItems());
+      btnAllGlobal.addEventListener('click', () => this.toggleAllPrintItemsGlobal());
     }
 
     const btnExcelMain = document.getElementById('btn-export-excel-jewelry-catalog');
@@ -1424,9 +1414,15 @@ const Catalog = {
 
   updatePrintSelectedCountBadge() {
     const badge = document.getElementById('jewelry-print-selected-badge');
+    const count = this.printSelectedItemIds ? this.printSelectedItemIds.size : 0;
     if (badge) {
-      const count = this.printSelectedItemIds ? this.printSelectedItemIds.size : 0;
       badge.textContent = `${count} selected`;
+    }
+    const allItems = this.getAllCatalogItems();
+    const btnAllGlobal = document.getElementById('btn-jewelry-print-select-all-global');
+    if (btnAllGlobal) {
+      const allSelected = allItems.length > 0 && count >= allItems.length;
+      btnAllGlobal.textContent = allSelected ? 'Clear All' : 'Select All';
     }
   },
 
@@ -1670,12 +1666,13 @@ const Catalog = {
     this.updatePrintSelectedCountBadge();
   },
 
-  toggleAllPrintItems(checked) {
+  toggleAllPrintItems() {
     if (!this.printSelectedItemIds) this.printSelectedItemIds = new Set();
-    const checkBoxes = document.querySelectorAll('.jewelry-print-item-checkbox');
+    const checkBoxes = Array.from(document.querySelectorAll('.jewelry-print-item-checkbox'));
+    const allChecked = checkBoxes.length > 0 && checkBoxes.every(cb => cb.checked);
     checkBoxes.forEach(cb => {
-      cb.checked = checked;
-      if (checked) {
+      cb.checked = !allChecked;
+      if (!allChecked) {
         this.printSelectedItemIds.add(cb.value);
       } else {
         this.printSelectedItemIds.delete(cb.value);
@@ -1684,30 +1681,28 @@ const Catalog = {
     this.updatePrintSelectedCountBadge();
   },
 
-  selectAllPrintItemsGlobal() {
+  toggleAllPrintItemsGlobal() {
     if (!this.printSelectedItemIds) this.printSelectedItemIds = new Set();
     const allItems = this.getAllCatalogItems();
-    const statusSel = document.getElementById('jewelry-print-select-status')?.value || 'active';
-    allItems.forEach(item => {
-      if (statusSel === 'Sold') {
-        if (item.status === 'Sold') this.printSelectedItemIds.add(item.id);
-      } else if (statusSel === 'In Stock') {
-        if (item.status === 'In Stock' || !item.status) this.printSelectedItemIds.add(item.id);
-      } else if (statusSel === 'Issued') {
-        if (item.status === 'Issued' || item.status === 'On Memo') this.printSelectedItemIds.add(item.id);
-      } else if (statusSel === 'all') {
-        this.printSelectedItemIds.add(item.id);
-      } else {
-        // active: exclude sold
-        if (item.status !== 'Sold') this.printSelectedItemIds.add(item.id);
-      }
-    });
-    this.populatePrintItemsChecklist();
-  },
-
-  clearAllPrintItems() {
-    if (this.printSelectedItemIds) {
+    const allSelected = allItems.length > 0 && this.printSelectedItemIds.size >= allItems.length;
+    if (allSelected) {
       this.printSelectedItemIds.clear();
+    } else {
+      const statusSel = document.getElementById('jewelry-print-select-status')?.value || 'active';
+      allItems.forEach(item => {
+        if (statusSel === 'Sold') {
+          if (item.status === 'Sold') this.printSelectedItemIds.add(item.id);
+        } else if (statusSel === 'In Stock') {
+          if (item.status === 'In Stock' || !item.status) this.printSelectedItemIds.add(item.id);
+        } else if (statusSel === 'Issued') {
+          if (item.status === 'Issued' || item.status === 'On Memo') this.printSelectedItemIds.add(item.id);
+        } else if (statusSel === 'all') {
+          this.printSelectedItemIds.add(item.id);
+        } else {
+          // active: exclude sold
+          if (item.status !== 'Sold') this.printSelectedItemIds.add(item.id);
+        }
+      });
     }
     this.populatePrintItemsChecklist();
   },
@@ -3267,7 +3262,7 @@ const Catalog = {
     const selectCountEl = document.getElementById('bulk-select-count');
     const selectAllCheckbox = document.getElementById('bulk-select-all');
     const bulkDeleteBtn = document.getElementById('btn-bulk-delete');
-    const bulkUnselectBtn = document.getElementById('btn-bulk-unselect');
+    const selectAllLabel = document.getElementById('bulk-select-all-label');
 
     // Clean up selectedItemIds to only include visible/filtered ones
     const filteredIds = new Set(filteredItems.map(i => i.id));
@@ -3287,13 +3282,12 @@ const Catalog = {
     if (selectAllCheckbox) {
       selectAllCheckbox.checked = allSelected;
     }
+    if (selectAllLabel) {
+      selectAllLabel.textContent = (allSelected && filteredItems.length > 0) ? 'Deselect All' : 'Select All';
+    }
 
     if (bulkDeleteBtn) {
       bulkDeleteBtn.disabled = (selectedCount === 0);
-    }
-
-    if (bulkUnselectBtn) {
-      bulkUnselectBtn.disabled = (selectedCount === 0);
     }
 
     const shareBtn = document.getElementById('btn-share-presentation');
@@ -3393,20 +3387,17 @@ const Catalog = {
       });
     }
 
-    // Bulk selection buttons inside import modal
+    // Bulk selection button inside import modal
     const btnSelectAllNew = document.getElementById('btn-excel-import-select-all-new');
-    const btnDeselectAll = document.getElementById('btn-excel-import-deselect-all');
     if (btnSelectAllNew) {
       btnSelectAllNew.addEventListener('click', () => {
-        this.importState.parsedItems.forEach(item => {
-          if (!item.isDuplicate) this.importState.selectedIds.add(item.tempId);
-        });
-        this.renderImportPreviewList();
-      });
-    }
-    if (btnDeselectAll) {
-      btnDeselectAll.addEventListener('click', () => {
-        this.importState.selectedIds.clear();
+        const newItems = (this.importState.parsedItems || []).filter(item => !item.isDuplicate);
+        const allNewSelected = newItems.length > 0 && newItems.every(item => this.importState.selectedIds.has(item.tempId));
+        if (allNewSelected) {
+          newItems.forEach(item => this.importState.selectedIds.delete(item.tempId));
+        } else {
+          newItems.forEach(item => this.importState.selectedIds.add(item.tempId));
+        }
         this.renderImportPreviewList();
       });
     }
@@ -4148,6 +4139,7 @@ const Catalog = {
     const count = this.importState.selectedIds.size;
     const countEl = document.getElementById('excel-import-selection-count');
     const btnConfirm = document.getElementById('btn-excel-import-confirm');
+    const btnSelectAllNew = document.getElementById('btn-excel-import-select-all-new');
 
     if (countEl) {
       countEl.textContent = `${count} item(s) selected for import`;
@@ -4155,6 +4147,11 @@ const Catalog = {
     if (btnConfirm) {
       btnConfirm.disabled = (count === 0);
       btnConfirm.textContent = `Confirm & Import (${count}) Items`;
+    }
+    if (btnSelectAllNew && this.importState && this.importState.parsedItems) {
+      const newItems = this.importState.parsedItems.filter(item => !item.isDuplicate);
+      const allNewSelected = newItems.length > 0 && newItems.every(item => this.importState.selectedIds.has(item.tempId));
+      btnSelectAllNew.textContent = allNewSelected ? 'Deselect All' : 'Select All New';
     }
   },
 

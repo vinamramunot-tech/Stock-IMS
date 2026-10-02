@@ -40,6 +40,20 @@ const EmeraldController = {
       sortItems.addEventListener('change', () => this.renderEmeraldGrid());
     }
 
+    // Mobile Advanced Filters Drawer Toggle for Emerald Catalog
+    const toggleEmeraldFiltersBtn = document.getElementById('btn-toggle-emerald-filters');
+    const emeraldFiltersGroup = document.querySelector('#tab-emerald-catalog .filters-group');
+    if (toggleEmeraldFiltersBtn && emeraldFiltersGroup) {
+      toggleEmeraldFiltersBtn.addEventListener('click', () => {
+        emeraldFiltersGroup.classList.toggle('mobile-open');
+        const arrow = toggleEmeraldFiltersBtn.querySelector('.filter-toggle-arrow');
+        if (arrow) arrow.textContent = emeraldFiltersGroup.classList.contains('mobile-open') ? '▴' : '▾';
+        if (window.App && typeof App.triggerHaptic === 'function') {
+          App.triggerHaptic('light');
+        }
+      });
+    }
+
     // Global Catalog price multiplier listeners
     const catalogApplyMultiplier = document.getElementById('catalog-apply-multiplier');
     const catalogMultiplierSelect = document.getElementById('catalog-multiplier-select');
@@ -143,12 +157,7 @@ const EmeraldController = {
 
     const btnSelectAllPudias = document.getElementById('btn-print-select-all-pudias');
     if (btnSelectAllPudias) {
-      btnSelectAllPudias.addEventListener('click', () => this.toggleAllPrintPudias(true));
-    }
-
-    const btnSelectNonePudias = document.getElementById('btn-print-select-none-pudias');
-    if (btnSelectNonePudias) {
-      btnSelectNonePudias.addEventListener('click', () => this.toggleAllPrintPudias(false));
+      btnSelectAllPudias.addEventListener('click', () => this.toggleAllPrintPudias());
     }
 
     const btnSubmitPrint = document.getElementById('btn-submit-print-emerald');
@@ -179,12 +188,7 @@ const EmeraldController = {
 
     const btnSelectAllBulkPudias = document.getElementById('btn-bulk-share-select-all-pudias');
     if (btnSelectAllBulkPudias) {
-      btnSelectAllBulkPudias.addEventListener('click', () => this.toggleAllBulkSharePudias(true));
-    }
-
-    const btnSelectNoneBulkPudias = document.getElementById('btn-bulk-share-select-none-pudias');
-    if (btnSelectNoneBulkPudias) {
-      btnSelectNoneBulkPudias.addEventListener('click', () => this.toggleAllBulkSharePudias(false));
+      btnSelectAllBulkPudias.addEventListener('click', () => this.toggleAllBulkSharePudias());
     }
 
     const btnSubmitBulkShare = document.getElementById('btn-submit-bulk-share-emerald');
@@ -2042,6 +2046,8 @@ const EmeraldController = {
       `;
       container.appendChild(label);
     });
+    const btn = document.getElementById('btn-print-select-all-pudias');
+    if (btn) btn.textContent = 'Deselect All';
   },
 
   handlePrintGroupChange() {
@@ -2079,9 +2085,12 @@ const EmeraldController = {
     this.populatePrintPudiasChecklist();
   },
 
-  toggleAllPrintPudias(checked) {
-    const checkBoxes = document.querySelectorAll('.print-pudia-checkbox');
-    checkBoxes.forEach(cb => cb.checked = checked);
+  toggleAllPrintPudias() {
+    const checkBoxes = Array.from(document.querySelectorAll('.print-pudia-checkbox'));
+    const allChecked = checkBoxes.length > 0 && checkBoxes.every(cb => cb.checked);
+    checkBoxes.forEach(cb => cb.checked = !allChecked);
+    const btn = document.getElementById('btn-print-select-all-pudias');
+    if (btn) btn.textContent = !allChecked ? 'Deselect All' : 'Select All';
   },
 
   printFromSelection() {
@@ -2769,6 +2778,8 @@ const EmeraldController = {
 
       container.appendChild(row);
     });
+    const btn = document.getElementById('btn-bulk-share-select-all-pudias');
+    if (btn) btn.textContent = 'Deselect All';
   },
 
   handleBulkShareGroupChange() {
@@ -2806,9 +2817,12 @@ const EmeraldController = {
     this.populateBulkSharePudiasChecklist();
   },
 
-  toggleAllBulkSharePudias(checked) {
-    const checkBoxes = document.querySelectorAll('.bulk-share-pudia-checkbox');
-    checkBoxes.forEach(cb => cb.checked = checked);
+  toggleAllBulkSharePudias() {
+    const checkBoxes = Array.from(document.querySelectorAll('.bulk-share-pudia-checkbox'));
+    const allChecked = checkBoxes.length > 0 && checkBoxes.every(cb => cb.checked);
+    checkBoxes.forEach(cb => cb.checked = !allChecked);
+    const btn = document.getElementById('btn-bulk-share-select-all-pudias');
+    if (btn) btn.textContent = !allChecked ? 'Deselect All' : 'Select All';
   },
 
   createShareCardCanvas(emerald, includePrice, includeBrand, theme, multiplier = 1.0) {
