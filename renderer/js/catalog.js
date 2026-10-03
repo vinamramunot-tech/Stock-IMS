@@ -938,169 +938,247 @@ const Catalog = {
     emptyState.classList.add('hidden');
     gridContainer.classList.remove('hidden');
 
-    const fragment = document.createDocumentFragment();
+    this.currentFilteredItems = filtered;
+    this.itemSnoMap = itemSnoMap;
+    this.currentRenderedIndex = 0;
 
-    filtered.forEach((item, index) => {
-      const serialNumber = item.sno || itemSnoMap.get(item.id) || (index + 1);
-      const card = document.createElement('div');
+    // Render first chunk (30 items) immediately for sub-16ms initial paint
+    this.renderNextCatalogBatch(30);
 
-      const status = item.status || 'In Stock';
-      let statusClass = 'stock';
-      let statusLabel = 'In Stock';
-      let cardStatusClass = '';
-      if (status === 'On Memo' || status === 'Issued') {
-        statusClass = 'issued';
-        statusLabel = 'Issued';
-        cardStatusClass = 'issued';
-      } else if (status === 'Sold') {
-        statusClass = 'sold';
-        statusLabel = 'Sold';
-        cardStatusClass = 'sold';
-      }
-
-      card.className = 'product-card' + (cardStatusClass ? ' ' + cardStatusClass : '');
-
-      // Build specs preview string
-      const netMetals = Calc.getNetMetals(item);
-      const uniqueKarats = [...new Set(netMetals.map(m => `${m.karat}KT`))];
-      const metalsStr = uniqueKarats.length > 0 ? `${uniqueKarats.join(', ')} Gold` : (item.karat ? `${item.karat}KT Gold` : 'None added');
-
-      let stonesSum = 0;
-      (item.stones || []).forEach(s => stonesSum += Number(s.weight || 0));
-      (item.diamondsPolki || []).forEach(d => stonesSum += Number(d.weight || 0));
-
-      const grossWeight = (item.evaluation && item.evaluation.totalGrossWeight !== undefined)
-        ? item.evaluation.totalGrossWeight
-        : (Number(item.grossWeight || 0) || netMetals.reduce((sum, m) => sum + Number(m.grossWeight || 0), 0));
-      const netMetalWeight = (item.evaluation && item.evaluation.totalNetMetalWeight !== undefined)
-        ? item.evaluation.totalNetMetalWeight
-        : netMetals.reduce((sum, m) => sum + Number(m.netWeight || 0), 0);
-
-      const mfgCost = item.evaluation.mfgGrandTotal || item.evaluation.marketCostPrice;
-      const marketCost = item.evaluation.marketCostPrice;
-      let plPct = 0;
-      if (mfgCost > 0) {
-        plPct = ((marketCost - mfgCost) / mfgCost) * 100;
-      }
-      const plSign = plPct > 0 ? '+' : (plPct < 0 ? '-' : '');
-      const plFormatted = plPct !== 0 ? `${plSign}${Math.abs(plPct).toFixed(2)}%` : '0.00%';
-
-      const homeCostHtml = item.evaluation.hasEmerald
-        ? `<div class="price-lbl cost-price-data">HOME COST PRICE</div>
-           <div class="price-val cost-price-data" style="font-size: 15px; color: var(--text-muted); margin-bottom: 8px;">₹${item.evaluation.homeCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>`
-        : '';
-
-      const badgeStatusHtml = `<span class="badge-status product-card-badge-status ${statusClass}">${statusLabel}</span>`;
-
-      const imgHtml = item.image
-        ? `<div class="product-img-box" style="cursor: pointer;" title="Click to view photo & details">
-             <img src="${item.image}" alt="${UI.escapeHtml(item.name || 'Jewelry Photo')}" class="product-img" loading="lazy" decoding="async">
-           </div>`
-        : `<div class="product-img-box product-img-box-placeholder" style="cursor: pointer;" title="Click to view details or add photo">
-             <div class="product-img-placeholder-content">
-               <svg class="product-img-placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                 <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
-                 <circle cx="8.5" cy="8.5" r="1.5"/>
-                 <path d="M21 15l-5-5L5 21"/>
-               </svg>
-               <span class="product-img-placeholder-text">NO PHOTO</span>
-             </div>
-           </div>`;
-
-      const isSelected = this.selectedItemIds && this.selectedItemIds.has(item.id);
-      if (isSelected) card.classList.add('is-selected');
-
-      const checkboxHtml = `<label class="catalog-select-label" data-client-hide title="Select piece">
-        <input type="checkbox" class="catalog-item-select" data-item-id="${item.id}" ${isSelected ? 'checked' : ''}>
-        <span class="catalog-custom-checkbox"></span>
-      </label>`;
-
-      const commVal = typeof item.commission === 'object' ? Number(item.commission.value || 0) : Number(item.commission || 0);
-      const commHtml = commVal > 0 ? `<div class="specs-line broker-comm-data cost-price-data"><strong>Commission:</strong> ₹${commVal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>` : '';
-
-      card.innerHTML = `
-        ${checkboxHtml}
-        ${badgeStatusHtml}
-        ${imgHtml}
-        <div class="product-body">
-          <div class="product-meta">
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap;">
-              <span class="product-sno-badge" style="font-family: var(--font-mono); font-weight: 800; font-size: 11px; background: var(--bg-gold-subtle, rgba(212, 175, 55, 0.15)); color: var(--text-gold-dark, #b8860b); border: 1px solid var(--border-gold-subtle, rgba(212, 175, 55, 0.3)); padding: 2px 7px; border-radius: 4px;" title="Serial Number #${serialNumber}">S.No: ${serialNumber}</span>
-              <div class="product-sku">${UI.escapeHtml(item.sku || 'SKU-NONE')}</div>
-              <span style="font-size: 9px; font-weight: 700; text-transform: uppercase; background-color: var(--bg-base); border: 1px solid var(--border-light); padding: 2px 6px; border-radius: 4px; letter-spacing: 0.05em; color: var(--text-muted);">${UI.escapeHtml(item.category || 'Jewelry')}</span>
-            </div>
-            <h3 class="product-title" style="margin-top: 4px;">${UI.escapeHtml(item.name || 'Unnamed Piece')}</h3>
-          </div>
-          
-          <div class="product-specs">
-            <div class="specs-line specs-metal-info" title="${UI.escapeHtml(metalsStr)}"><strong>Metal:</strong> ${UI.escapeHtml(metalsStr) || 'None added'}</div>
-            <div class="specs-line specs-gem-info"><strong>Gemstones:</strong> ${stonesSum > 0 ? stonesSum.toFixed(2) + ' cts total' : 'None added'}</div>
-            <div class="specs-line specs-gross-wt"><strong>Gross Wt:</strong> ${grossWeight.toFixed(3)} g</div>
-            <div class="specs-line specs-net-wt"><strong>Net Wt:</strong> ${netMetalWeight.toFixed(3)} g</div>
-            <div class="specs-line specs-notes-info" title="${UI.escapeHtml(item.description || '')}"><strong>Notes:</strong> ${UI.escapeHtml(item.description || 'No description')}</div>
-            <div class="specs-line specs-mfg-cost cost-price-data" style="margin-bottom:0;"><strong>Mfg Cost:</strong> ₹${(item.evaluation.mfgGrandTotal || item.evaluation.marketCostPrice).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
-          </div>
-          
-          <div class="product-price-row">
-            <div class="product-price-specs">
-              ${commHtml}
-              <div class="specs-line specs-market-cost cost-price-data"><strong>Market Cost:</strong> ₹${item.evaluation.marketCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
-              ${homeCostHtml ? `<div class="specs-line specs-home-cost cost-price-data"><strong>Home Cost:</strong> ₹${item.evaluation.homeCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>` : ''}
-              <div class="specs-line specs-selling-price price-selling-highlight"><strong>Selling Price:</strong> ₹${item.evaluation.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
-              <div class="specs-line specs-pl margin-data" style="margin-bottom:0;"><strong>P/L:</strong> ${plFormatted}</div>
-            </div>
-            <div class="product-actions" data-client-hide>
-              <button type="button" class="btn btn-secondary btn-small btn-edit" title="Edit details">Edit</button>
-              <button type="button" class="btn btn-danger btn-small btn-delete" title="Delete piece">Delete</button>
-            </div>
-          </div>
-        </div>
-      `;
-
-      // Event Wire up - tap card to view details
-      card.addEventListener('click', (e) => {
-        if (e.target.closest('button, input, label, a, .catalog-select-label')) return;
-        App.openJewelryDetailModal(item);
-      });
-
-      const imgBox = card.querySelector('.product-img-box');
-      if (imgBox) {
-        imgBox.addEventListener('click', () => {
-          App.openJewelryDetailModal(item);
-        });
-      }
-
-      card.querySelector('.btn-edit').addEventListener('click', () => {
-        document.getElementById('jewelry-modal-title').textContent = "Edit Jewelry Piece";
-        UI.loadItemIntoForm(item);
-        UI.openModal('modal-jewelry-item');
-      });
-
-      card.querySelector('.btn-delete').addEventListener('click', () => {
-        this.handleDeleteItem(item);
-      });
-
-      const checkbox = card.querySelector('.catalog-item-select');
-      if (checkbox) {
-        checkbox.addEventListener('change', (e) => {
-          if (e.target.checked) {
-            this.selectedItemIds.add(item.id);
-            card.classList.add('is-selected');
-          } else {
-            this.selectedItemIds.delete(item.id);
-            card.classList.remove('is-selected');
-          }
-          this.updateBulkSelectionUI(filtered);
-        });
-      }
-
-      fragment.appendChild(card);
-    });
-
-    gridContainer.appendChild(fragment);
+    // Setup intersection observer for progressive scroll loading
+    this.initCatalogLazyObserver();
 
     // Update Bulk action bar visibility and status
     this.updateBulkSelectionUI(filtered);
+  },
+
+  initCatalogLazyObserver() {
+    if (this.catalogObserver) {
+      this.catalogObserver.disconnect();
+      this.catalogObserver = null;
+    }
+    const gridContainer = document.getElementById('catalog-grid');
+    if (!gridContainer) return;
+
+    let sentinel = document.getElementById('catalog-scroll-sentinel');
+    if (!sentinel) {
+      sentinel = document.createElement('div');
+      sentinel.id = 'catalog-scroll-sentinel';
+      sentinel.className = 'catalog-scroll-sentinel';
+      sentinel.style.height = '12px';
+      sentinel.style.width = '100%';
+      sentinel.style.gridColumn = '1 / -1';
+    }
+    gridContainer.appendChild(sentinel);
+
+    if (this.currentRenderedIndex >= (this.currentFilteredItems || []).length) {
+      sentinel.style.display = 'none';
+      return;
+    }
+    sentinel.style.display = 'block';
+
+    if (window.IntersectionObserver) {
+      this.catalogObserver = new IntersectionObserver((entries) => {
+        if (entries[0] && entries[0].isIntersecting) {
+          if (this.currentRenderedIndex < (this.currentFilteredItems || []).length) {
+            this.renderNextCatalogBatch(30);
+          } else {
+            sentinel.style.display = 'none';
+          }
+        }
+      }, { rootMargin: '400px' });
+      this.catalogObserver.observe(sentinel);
+    }
+  },
+
+  renderNextCatalogBatch(batchSize = 30) {
+    const gridContainer = document.getElementById('catalog-grid');
+    if (!gridContainer || !this.currentFilteredItems) return;
+
+    const sentinel = document.getElementById('catalog-scroll-sentinel');
+    const start = this.currentRenderedIndex;
+    const end = Math.min(start + batchSize, this.currentFilteredItems.length);
+    if (start >= end) return;
+
+    const fragment = document.createDocumentFragment();
+    for (let i = start; i < end; i++) {
+      const item = this.currentFilteredItems[i];
+      const serialNumber = item.sno || this.itemSnoMap?.get(item.id) || (i + 1);
+      const card = this.createProductCard(item, serialNumber, this.currentFilteredItems);
+      fragment.appendChild(card);
+    }
+
+    if (sentinel && sentinel.parentNode === gridContainer) {
+      gridContainer.insertBefore(fragment, sentinel);
+    } else {
+      gridContainer.appendChild(fragment);
+    }
+
+    this.currentRenderedIndex = end;
+
+    if (sentinel) {
+      if (this.currentRenderedIndex >= this.currentFilteredItems.length) {
+        sentinel.style.display = 'none';
+      } else {
+        sentinel.style.display = 'block';
+      }
+    }
+  },
+
+  createProductCard(item, serialNumber, filtered) {
+    const card = document.createElement('div');
+
+    const status = item.status || 'In Stock';
+    let statusClass = 'stock';
+    let statusLabel = 'In Stock';
+    let cardStatusClass = '';
+    if (status === 'On Memo' || status === 'Issued') {
+      statusClass = 'issued';
+      statusLabel = 'Issued';
+      cardStatusClass = 'issued';
+    } else if (status === 'Sold') {
+      statusClass = 'sold';
+      statusLabel = 'Sold';
+      cardStatusClass = 'sold';
+    }
+
+    card.className = 'product-card' + (cardStatusClass ? ' ' + cardStatusClass : '');
+
+    // Build specs preview string
+    const netMetals = Calc.getNetMetals(item);
+    const uniqueKarats = [...new Set(netMetals.map(m => `${m.karat}KT`))];
+    const metalsStr = uniqueKarats.length > 0 ? `${uniqueKarats.join(', ')} Gold` : (item.karat ? `${item.karat}KT Gold` : 'None added');
+
+    let stonesSum = 0;
+    (item.stones || []).forEach(s => stonesSum += Number(s.weight || 0));
+    (item.diamondsPolki || []).forEach(d => stonesSum += Number(d.weight || 0));
+
+    const grossWeight = (item.evaluation && item.evaluation.totalGrossWeight !== undefined)
+      ? item.evaluation.totalGrossWeight
+      : (Number(item.grossWeight || 0) || netMetals.reduce((sum, m) => sum + Number(m.grossWeight || 0), 0));
+    const netMetalWeight = (item.evaluation && item.evaluation.totalNetMetalWeight !== undefined)
+      ? item.evaluation.totalNetMetalWeight
+      : netMetals.reduce((sum, m) => sum + Number(m.netWeight || 0), 0);
+
+    const mfgCost = item.evaluation.mfgGrandTotal || item.evaluation.marketCostPrice;
+    const marketCost = item.evaluation.marketCostPrice;
+    let plPct = 0;
+    if (mfgCost > 0) {
+      plPct = ((marketCost - mfgCost) / mfgCost) * 100;
+    }
+    const plSign = plPct > 0 ? '+' : (plPct < 0 ? '-' : '');
+    const plFormatted = plPct !== 0 ? `${plSign}${Math.abs(plPct).toFixed(2)}%` : '0.00%';
+
+    const homeCostHtml = item.evaluation.hasEmerald
+      ? `<div class="price-lbl cost-price-data">HOME COST PRICE</div>
+         <div class="price-val cost-price-data" style="font-size: 15px; color: var(--text-muted); margin-bottom: 8px;">₹${item.evaluation.homeCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>`
+      : '';
+
+    const badgeStatusHtml = `<span class="badge-status product-card-badge-status ${statusClass}">${statusLabel}</span>`;
+
+    const imgHtml = item.image
+      ? `<div class="product-img-box" style="cursor: pointer;" title="Click to view photo & details">
+           <img src="${item.image}" alt="${UI.escapeHtml(item.name || 'Jewelry Photo')}" class="product-img" loading="lazy" decoding="async">
+         </div>`
+      : `<div class="product-img-box product-img-box-placeholder" style="cursor: pointer;" title="Click to view details or add photo">
+           <div class="product-img-placeholder-content">
+             <svg class="product-img-placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+               <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
+               <circle cx="8.5" cy="8.5" r="1.5"/>
+               <path d="M21 15l-5-5L5 21"/>
+             </svg>
+             <span class="product-img-placeholder-text">NO PHOTO</span>
+           </div>
+         </div>`;
+
+    const isSelected = this.selectedItemIds && this.selectedItemIds.has(item.id);
+    if (isSelected) card.classList.add('is-selected');
+
+    const checkboxHtml = `<label class="catalog-select-label" data-client-hide title="Select piece">
+      <input type="checkbox" class="catalog-item-select" data-item-id="${item.id}" ${isSelected ? 'checked' : ''}>
+      <span class="catalog-custom-checkbox"></span>
+    </label>`;
+
+    const commVal = typeof item.commission === 'object' ? Number(item.commission.value || 0) : Number(item.commission || 0);
+    const commHtml = commVal > 0 ? `<div class="specs-line broker-comm-data cost-price-data"><strong>Commission:</strong> ₹${commVal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>` : '';
+
+    card.innerHTML = `
+      ${checkboxHtml}
+      ${badgeStatusHtml}
+      ${imgHtml}
+      <div class="product-body">
+        <div class="product-meta">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap;">
+            <span class="product-sno-badge" style="font-family: var(--font-mono); font-weight: 800; font-size: 11px; background: var(--bg-gold-subtle, rgba(212, 175, 55, 0.15)); color: var(--text-gold-dark, #b8860b); border: 1px solid var(--border-gold-subtle, rgba(212, 175, 55, 0.3)); padding: 2px 7px; border-radius: 4px;" title="Serial Number #${serialNumber}">S.No: ${serialNumber}</span>
+            <div class="product-sku">${UI.escapeHtml(item.sku || 'SKU-NONE')}</div>
+            <span style="font-size: 9px; font-weight: 700; text-transform: uppercase; background-color: var(--bg-base); border: 1px solid var(--border-light); padding: 2px 6px; border-radius: 4px; letter-spacing: 0.05em; color: var(--text-muted);">${UI.escapeHtml(item.category || 'Jewelry')}</span>
+          </div>
+          <h3 class="product-title" style="margin-top: 4px;">${UI.escapeHtml(item.name || 'Unnamed Piece')}</h3>
+        </div>
+        
+        <div class="product-specs">
+          <div class="specs-line specs-metal-info" title="${UI.escapeHtml(metalsStr)}"><strong>Metal:</strong> ${UI.escapeHtml(metalsStr) || 'None added'}</div>
+          <div class="specs-line specs-gem-info"><strong>Gemstones:</strong> ${stonesSum > 0 ? stonesSum.toFixed(2) + ' cts total' : 'None added'}</div>
+          <div class="specs-line specs-gross-wt"><strong>Gross Wt:</strong> ${grossWeight.toFixed(3)} g</div>
+          <div class="specs-line specs-net-wt"><strong>Net Wt:</strong> ${netMetalWeight.toFixed(3)} g</div>
+          <div class="specs-line specs-notes-info" title="${UI.escapeHtml(item.description || '')}"><strong>Notes:</strong> ${UI.escapeHtml(item.description || 'No description')}</div>
+          <div class="specs-line specs-mfg-cost cost-price-data" style="margin-bottom:0;"><strong>Mfg Cost:</strong> ₹${(item.evaluation.mfgGrandTotal || item.evaluation.marketCostPrice).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+        </div>
+        
+        <div class="product-price-row">
+          <div class="product-price-specs">
+            ${commHtml}
+            <div class="specs-line specs-market-cost cost-price-data"><strong>Market Cost:</strong> ₹${item.evaluation.marketCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+            ${homeCostHtml ? `<div class="specs-line specs-home-cost cost-price-data"><strong>Home Cost:</strong> ₹${item.evaluation.homeCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>` : ''}
+            <div class="specs-line specs-selling-price price-selling-highlight"><strong>Selling Price:</strong> ₹${item.evaluation.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+            <div class="specs-line specs-pl margin-data" style="margin-bottom:0;"><strong>P/L:</strong> ${plFormatted}</div>
+          </div>
+          <div class="product-actions" data-client-hide>
+            <button type="button" class="btn btn-secondary btn-small btn-edit" title="Edit details">Edit</button>
+            <button type="button" class="btn btn-danger btn-small btn-delete" title="Delete piece">Delete</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Event Wire up - tap card to view details
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('button, input, label, a, .catalog-select-label')) return;
+      App.openJewelryDetailModal(item);
+    });
+
+    const imgBox = card.querySelector('.product-img-box');
+    if (imgBox) {
+      imgBox.addEventListener('click', () => {
+        App.openJewelryDetailModal(item);
+      });
+    }
+
+    card.querySelector('.btn-edit').addEventListener('click', () => {
+      document.getElementById('jewelry-modal-title').textContent = "Edit Jewelry Piece";
+      UI.loadItemIntoForm(item);
+      UI.openModal('modal-jewelry-item');
+    });
+
+    card.querySelector('.btn-delete').addEventListener('click', () => {
+      this.handleDeleteItem(item);
+    });
+
+    const checkbox = card.querySelector('.catalog-item-select');
+    if (checkbox) {
+      checkbox.addEventListener('change', (e) => {
+        if (e.target.checked) {
+          this.selectedItemIds.add(item.id);
+          card.classList.add('is-selected');
+        } else {
+          this.selectedItemIds.delete(item.id);
+          card.classList.remove('is-selected');
+        }
+        this.updateBulkSelectionUI(filtered);
+      });
+    }
+
+    return card;
   },
 
   async handleSaveJewelryPiece() {

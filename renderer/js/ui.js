@@ -215,6 +215,54 @@ const UI = {
   },
 
   /**
+   * Native iOS Swipe-Down to Dismiss for bottom sheets on mobile
+   */
+  initBottomSheetSwipeGestures() {
+    const modalCards = document.querySelectorAll('.modal-card');
+    modalCards.forEach(card => {
+      const header = card.querySelector('.modal-header') || card;
+      let startY = 0;
+      let currentTranslateY = 0;
+      let isDragging = false;
+
+      header.addEventListener('touchstart', (e) => {
+        if (window.innerWidth > 768) return;
+        if (e.target.closest('button, select, input, a, .btn-close')) return;
+        startY = e.touches[0].clientY;
+        currentTranslateY = 0;
+        isDragging = true;
+        card.style.transition = 'none';
+      }, { passive: true });
+
+      header.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        const deltaY = e.touches[0].clientY - startY;
+        if (deltaY > 0) {
+          currentTranslateY = deltaY;
+          card.style.transform = `translateY(${deltaY}px)`;
+        }
+      }, { passive: true });
+
+      const finishDrag = () => {
+        if (!isDragging) return;
+        isDragging = false;
+        card.style.transition = 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)';
+        if (currentTranslateY > 80) {
+          const modalOverlay = card.closest('.modal-overlay');
+          if (modalOverlay) {
+            modalOverlay.classList.add('hidden');
+            if (window.App && App.triggerHaptic) App.triggerHaptic('light');
+          }
+        }
+        card.style.transform = '';
+      };
+
+      header.addEventListener('touchend', finishDrag);
+      header.addEventListener('touchcancel', finishDrag);
+    });
+  },
+
+  /**
    * Reads an uploaded image and compresses it using Canvas (max 1200px, 82% quality) to optimize memory and disk I/O.
    */
   processImageUpload(file) {
@@ -381,6 +429,63 @@ const UI = {
       UI.activeItemState.image = null;
     });
 
+    const btnCamera = document.getElementById('btn-camera-capture');
+    if (btnCamera) {
+      btnCamera.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (window.Capacitor?.isPluginAvailable('Camera')) {
+          try {
+            const photo = await window.Capacitor.Plugins.Camera.getPhoto({
+              quality: 85,
+              allowEditing: true,
+              resultType: 'base64',
+              source: 'CAMERA'
+            });
+            if (photo && photo.base64String) {
+              const base64Data = `data:image/${photo.format || 'jpeg'};base64,${photo.base64String}`;
+              previewImg.src = base64Data;
+              promptContainer.classList.add('hidden');
+              previewContainer.classList.remove('hidden');
+              UI.activeItemState.image = base64Data;
+
+              if (window.ImageEditor) {
+                ImageEditor.open(base64Data, (croppedBase64) => {
+                  previewImg.src = croppedBase64;
+                  UI.activeItemState.image = croppedBase64;
+                });
+              }
+            }
+          } catch (err) {
+            console.log("Capacitor camera error / user cancel:", err);
+          }
+        } else {
+          // Desktop / Web fallback
+          fileInput.click();
+        }
+      });
+    }
+
+    // Direct Clipboard Image Paste (Cmd+V / Ctrl+V)
+    window.addEventListener('paste', async (e) => {
+      const modal = document.getElementById('modal-jewelry-item');
+      if (!modal || modal.classList.contains('hidden')) return;
+
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const file = items[i].getAsFile();
+          if (file) {
+            e.preventDefault();
+            await handleImageFile(file);
+            UI.showToast("📷 Image pasted from clipboard!");
+            break;
+          }
+        }
+      }
+    });
+
     async function handleImageFile(file) {
       const filename = (file.name || '').toLowerCase();
       const isHeic = filename.endsWith('.heic') || filename.endsWith('.heif') || file.type === 'image/heic' || file.type === 'image/heif';
@@ -434,19 +539,19 @@ const UI = {
       </div>
       <div class="input-group" style="margin-bottom:0;">
         <label>Karat (KT)</label>
-        <input type="number" class="metal-part-karat recalc-trigger" step="0.01" min="0" max="24" placeholder="e.g. 18" value="${partData.karat || ''}">
+        <input type="number" class="metal-part-karat recalc-trigger" step="0.01" min="0" max="24" inputmode="decimal" placeholder="e.g. 18" value="${partData.karat || ''}">
       </div>
       <div class="input-group" style="margin-bottom:0;">
         <label>Weight (g)</label>
-        <input type="number" class="metal-part-weight recalc-trigger" step="0.01" min="0" placeholder="0.00" value="${partData.weight || ''}">
+        <input type="number" class="metal-part-weight recalc-trigger" step="0.01" min="0" inputmode="decimal" placeholder="0.00" value="${partData.weight || ''}">
       </div>
       <div class="input-group" style="margin-bottom:0;">
         <label>Wastage (%)</label>
-        <input type="number" class="metal-part-wastage recalc-trigger" step="0.01" min="0" placeholder="15.00" value="${displayWastage}">
+        <input type="number" class="metal-part-wastage recalc-trigger" step="0.01" min="0" inputmode="decimal" placeholder="15.00" value="${displayWastage}">
       </div>
       <div class="input-group" style="margin-bottom:0;">
         <label>Direct Value (₹) <span style="font-size:10px; font-weight:normal; color:var(--text-muted);">(Optional)</span></label>
-        <input type="number" class="metal-part-direct-value recalc-trigger" step="0.01" min="0" placeholder="e.g. 5000" value="${directVal}">
+        <input type="number" class="metal-part-direct-value recalc-trigger" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 5000" value="${directVal}">
       </div>
       <div class="entry-card-btn-col">
         <button type="button" class="btn btn-danger btn-small btn-remove-part">&times;</button>
@@ -536,19 +641,19 @@ const UI = {
       ${firstColHtml}
       <div class="input-group" style="margin-bottom:0;">
         <label>Pieces</label>
-        <input type="number" class="stone-pieces recalc-trigger" min="1" step="1" placeholder="1" value="${safeStonePieces}">
+        <input type="number" class="stone-pieces recalc-trigger" min="1" step="1" inputmode="numeric" placeholder="1" value="${safeStonePieces}">
       </div>
       <div class="input-group" style="margin-bottom:0;">
         <label>Weight (cts)</label>
-        <input type="number" class="stone-weight recalc-trigger" step="0.01" min="0" placeholder="0.00" value="${safeStoneWeight}">
+        <input type="number" class="stone-weight recalc-trigger" step="0.01" min="0" inputmode="decimal" placeholder="0.00" value="${safeStoneWeight}">
       </div>
       <div class="input-group" style="margin-bottom:0;">
         <label>Rate / Carat (@/ct)</label>
-        <input type="number" class="stone-rate recalc-trigger" step="0.01" min="0" placeholder="0.00" value="${stoneData.ratePerCarat || ''}">
+        <input type="number" class="stone-rate recalc-trigger" step="0.01" min="0" inputmode="decimal" placeholder="0.00" value="${stoneData.ratePerCarat || ''}">
       </div>
       <div class="input-group" style="margin-bottom:0;">
         <label>Total Stone Value (₹)</label>
-        <input type="number" class="stone-total-val" step="0.01" min="0" placeholder="0.00" value="${stoneData.totalValue || ''}">
+        <input type="number" class="stone-total-val" step="0.01" min="0" inputmode="decimal" placeholder="0.00" value="${stoneData.totalValue || ''}">
       </div>
       <div class="entry-card-btn-col" style="padding-bottom:0;">
         <span style="font-size:11px; color:var(--text-muted); cursor:pointer;" class="btn-remove-stone-card">&times; Erase</span>

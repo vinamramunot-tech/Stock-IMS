@@ -20,9 +20,11 @@ const App = {
     if (window.JewelryMemoController) { try { JewelryMemoController.init(); } catch (e) { console.error(e); } }
     if (window.JewelrySalesController) { try { JewelrySalesController.init(); } catch (e) { console.error(e); } }
     if (window.SalesController) { try { SalesController.init(); } catch (e) { console.error(e); } }
-    try { this.initLogs(); } catch (e) { console.error("initLogs error:", e); }
     try { UI.initScrollToTop(); } catch (e) { console.error("initScrollToTop error:", e); }
     try { this.initMobileBottomNav(); } catch (e) { console.error("initMobileBottomNav error:", e); }
+    try { this.initCommandPalette(); } catch (e) { console.error("initCommandPalette error:", e); }
+    try { this.initGlobalPowerShortcuts(); } catch (e) { console.error("initGlobalPowerShortcuts error:", e); }
+    try { this.initFullscreenLightbox(); } catch (e) { console.error("initFullscreenLightbox error:", e); }
 
     // 2. Tab switching navigation listeners
     const navItems = document.querySelectorAll('.nav-item[data-target]');
@@ -65,6 +67,7 @@ const App = {
     UI.initModalTabs();
     UI.initImageUploader();
     UI.initStoneSelectors();
+    try { UI.initBottomSheetSwipeGestures(); } catch (e) { console.error(e); }
 
     // SKU helper updates on category change
     const itemCatEl = document.getElementById('item-category');
@@ -1017,6 +1020,9 @@ const App = {
       if (item.image) {
         imgEl.src = item.image;
         imgEl.style.display = 'block';
+        imgEl.style.cursor = 'zoom-in';
+        imgEl.title = 'Click to view high-res photo (Pinch to zoom / fullscreen)';
+        imgEl.onclick = () => this.openFullscreenLightbox(item);
       } else {
         imgEl.src = '';
         imgEl.style.display = 'none';
@@ -1582,6 +1588,519 @@ const App = {
     // Default highlighter to first suite (Jewelry Suite) on launcher open
     this.launcherFocusIndex = 0;
     this.updateLauncherFocus();
+  },
+
+  initCommandPalette() {
+    const paletteModal = document.getElementById('modal-command-palette');
+    const input = document.getElementById('command-palette-input');
+    const resultsContainer = document.getElementById('command-palette-results');
+    if (!paletteModal || !input) return;
+
+    // Toggle on Cmd+K / Ctrl+K
+    window.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        this.toggleCommandPalette();
+      }
+    });
+
+    // Close on backdrop click
+    paletteModal.addEventListener('click', (e) => {
+      if (e.target === paletteModal) {
+        this.toggleCommandPalette(false);
+      }
+    });
+
+    // Close on badge click
+    const badge = paletteModal.querySelector('.command-palette-badge');
+    if (badge) {
+      badge.addEventListener('click', () => this.toggleCommandPalette(false));
+    }
+
+    // Input search typing
+    input.addEventListener('input', () => {
+      this.renderCommandPaletteResults(input.value.trim());
+    });
+
+    // Arrow keys & Enter inside palette
+    input.addEventListener('keydown', (e) => {
+      const items = resultsContainer.querySelectorAll('.command-palette-item');
+      if (!items.length) return;
+
+      let activeIndex = -1;
+      items.forEach((it, idx) => {
+        if (it.classList.contains('active')) activeIndex = idx;
+      });
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const nextIdx = (activeIndex + 1) % items.length;
+        items.forEach((it, idx) => it.classList.toggle('active', idx === nextIdx));
+        items[nextIdx].scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const prevIdx = (activeIndex - 1 + items.length) % items.length;
+        items.forEach((it, idx) => it.classList.toggle('active', idx === prevIdx));
+        items[prevIdx].scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        const activeItem = items[activeIndex >= 0 ? activeIndex : 0];
+        if (activeItem) activeItem.click();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        this.toggleCommandPalette(false);
+      }
+    });
+  },
+
+  toggleCommandPalette(forceOpen = null) {
+    const paletteModal = document.getElementById('modal-command-palette');
+    const input = document.getElementById('command-palette-input');
+    if (!paletteModal || !input) return;
+
+    const isCurrentlyOpen = !paletteModal.classList.contains('hidden');
+    const shouldOpen = forceOpen !== null ? forceOpen : !isCurrentlyOpen;
+
+    if (shouldOpen) {
+      paletteModal.classList.remove('hidden');
+      input.value = '';
+      this.renderCommandPaletteResults('');
+      setTimeout(() => input.focus(), 50);
+    } else {
+      paletteModal.classList.add('hidden');
+      input.blur();
+    }
+  },
+
+  getCommandPaletteActions() {
+    return [
+      { id: 'nav-catalog', title: 'Jewelry Catalog', desc: 'Browse stock inventory', group: 'Navigation', shortcut: 'Cmd+1', icon: '💎', action: () => this.switchTab('tab-catalog') },
+      { id: 'nav-analyzer', title: 'Jewelry Analyzer', desc: 'Portfolio dashboard & metrics', group: 'Navigation', shortcut: '', icon: '📊', action: () => this.switchTab('tab-jewelry-analyzer') },
+      { id: 'nav-memos', title: 'Jewelry Memos', desc: 'Active consignments & approvals', group: 'Navigation', shortcut: 'Cmd+2', icon: '📝', action: () => this.switchTab('tab-jewelry-memos') },
+      { id: 'nav-sales', title: 'Jewelry Sales', desc: 'Closed sales & profit analysis', group: 'Navigation', shortcut: 'Cmd+3', icon: '💰', action: () => this.switchTab('tab-jewelry-sales') },
+      { id: 'nav-photos', title: 'Jewelry Photos', desc: 'Visual media gallery', group: 'Navigation', shortcut: '', icon: '🖼️', action: () => this.switchTab('tab-jewelry-photos') },
+      { id: 'nav-emerald', title: 'Emerald Suite', desc: 'Switch to Emerald Pudias catalog', group: 'Navigation', shortcut: 'Cmd+4', icon: '🟢', action: () => { this.switchAppSuite('emerald'); this.switchTab('tab-emerald-catalog'); } },
+      { id: 'nav-stone', title: 'Loose Stones Suite', desc: 'Switch to Loose Stones catalog', group: 'Navigation', shortcut: 'Cmd+5', icon: '✨', action: () => { this.switchAppSuite('stone'); this.switchTab('tab-stone-catalog'); } },
+      { id: 'nav-logs', title: 'Activity Logs', desc: 'System audit trail and changes', group: 'Navigation', shortcut: '', icon: '📜', action: () => this.switchTab('tab-logs') },
+
+      { id: 'act-add-piece', title: 'Add New Jewelry Piece', desc: 'Create a new inventory piece', group: 'Quick Actions', shortcut: 'Cmd+N', icon: '➕', action: () => {
+        document.getElementById('jewelry-modal-title').textContent = "Add New Jewelry Piece";
+        UI.resetForm();
+        UI.openModal('modal-jewelry-item');
+      } },
+      { id: 'act-new-memo', title: 'Issue New Memo', desc: 'Create a memo consignment challan', group: 'Quick Actions', shortcut: '', icon: '📑', action: () => {
+        if (window.JewelryMemoController) JewelryMemoController.openCreateMemoModal();
+      } },
+      { id: 'act-toggle-showroom', title: 'Toggle Showroom Mode', desc: 'Hide costs & margins for clients', group: 'Quick Actions', shortcut: 'Cmd+Shift+S', icon: '👁️', action: () => this.toggleShowroomMode() },
+      { id: 'act-gold-rate', title: 'Update 24KT Gold Rate', desc: 'Set live bullion gold price / gram', group: 'Quick Actions', shortcut: '', icon: '🪙', action: () => UI.openModal('modal-gold-rate') },
+      { id: 'act-usd-rate', title: 'Update USD/INR Rate', desc: 'Set currency exchange multiplier', group: 'Quick Actions', shortcut: '', icon: '💵', action: () => UI.openModal('modal-usd-rate') },
+      { id: 'act-toggle-theme', title: 'Toggle Dark / Light Theme', desc: 'Switch color scheme', group: 'Quick Actions', shortcut: '', icon: '🌓', action: () => this.toggleTheme() },
+      { id: 'act-export-excel', title: 'Export Inventory to Excel', desc: 'Download comprehensive .xlsx spreadsheet', group: 'Quick Actions', shortcut: '', icon: '📥', action: () => {
+        if (window.Catalog && Catalog.openExportModal) Catalog.openExportModal();
+      } }
+    ];
+  },
+
+  renderCommandPaletteResults(query = '') {
+    const container = document.getElementById('command-palette-results');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const q = query.toLowerCase().trim();
+    const actions = this.getCommandPaletteActions();
+    const matchedActions = actions.filter(a => !q || a.title.toLowerCase().includes(q) || a.desc.toLowerCase().includes(q) || a.group.toLowerCase().includes(q));
+
+    // Also search active inventory pieces if query is provided
+    let matchedPieces = [];
+    if (q.length >= 1 && window.DBManager) {
+      const items = DBManager.getItems() || [];
+      matchedPieces = items.filter(it => {
+        const skuMatch = (it.sku || '').toLowerCase().includes(q);
+        const nameMatch = (it.name || '').toLowerCase().includes(q);
+        const snoMatch = String(it.sno || '').includes(q);
+        return skuMatch || nameMatch || snoMatch;
+      }).slice(0, 8);
+    }
+
+    if (!matchedActions.length && !matchedPieces.length) {
+      container.innerHTML = `
+        <div style="padding: 24px; text-align: center; color: var(--text-muted); font-size: 13px;">
+          No commands or inventory pieces found matching "<strong style="color: var(--text-main);">${UI.escapeHtml(query)}</strong>"
+        </div>
+      `;
+      return;
+    }
+
+    let isFirst = true;
+
+    // Render Actions Grouped
+    const groups = ['Quick Actions', 'Navigation'];
+    groups.forEach(groupName => {
+      const groupItems = matchedActions.filter(a => a.group === groupName);
+      if (groupItems.length > 0) {
+        const titleEl = document.createElement('div');
+        titleEl.className = 'command-palette-group-title';
+        titleEl.textContent = groupName;
+        container.appendChild(titleEl);
+
+        groupItems.forEach(item => {
+          const row = document.createElement('div');
+          row.className = 'command-palette-item' + (isFirst ? ' active' : '');
+          if (isFirst) isFirst = false;
+
+          row.innerHTML = `
+            <div class="command-palette-item-left">
+              <span class="command-palette-item-icon">${item.icon}</span>
+              <div>
+                <strong>${UI.escapeHtml(item.title)}</strong>
+                <span class="command-palette-item-desc">${UI.escapeHtml(item.desc)}</span>
+              </div>
+            </div>
+            ${item.shortcut ? `<span class="command-palette-shortcut">${item.shortcut}</span>` : ''}
+          `;
+
+          row.addEventListener('click', () => {
+            this.toggleCommandPalette(false);
+            try { item.action(); } catch (e) { console.error(e); }
+          });
+          container.appendChild(row);
+        });
+      }
+    });
+
+    // Render Matched Inventory Pieces
+    if (matchedPieces.length > 0) {
+      const pieceTitleEl = document.createElement('div');
+      pieceTitleEl.className = 'command-palette-group-title';
+      pieceTitleEl.textContent = 'Inventory Pieces';
+      container.appendChild(pieceTitleEl);
+
+      matchedPieces.forEach(piece => {
+        const row = document.createElement('div');
+        row.className = 'command-palette-item' + (isFirst ? ' active' : '');
+        if (isFirst) isFirst = false;
+
+        const sno = piece.sno ? `S.No: ${piece.sno} • ` : '';
+        const cat = piece.category || 'Jewelry';
+        row.innerHTML = `
+          <div class="command-palette-item-left">
+            <span class="command-palette-item-icon">💎</span>
+            <div>
+              <strong>${UI.escapeHtml(piece.name || 'Piece')}</strong>
+              <span class="command-palette-item-desc">${sno}${UI.escapeHtml(piece.sku || '')} (${cat})</span>
+            </div>
+          </div>
+          <span class="command-palette-shortcut">Jump to Piece &rarr;</span>
+        `;
+
+        row.addEventListener('click', () => {
+          this.toggleCommandPalette(false);
+          this.openJewelryDetailModal(piece);
+        });
+        container.appendChild(row);
+      });
+    }
+  },
+
+  initGlobalPowerShortcuts() {
+    window.addEventListener('keydown', (e) => {
+      const activeEl = document.activeElement;
+      const isInput = activeEl && ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeEl.tagName);
+
+      // 1. Esc closes modal, lightbox, or palette
+      if (e.key === 'Escape') {
+        const palette = document.getElementById('modal-command-palette');
+        if (palette && !palette.classList.contains('hidden')) {
+          this.toggleCommandPalette(false);
+          return;
+        }
+        const lightbox = document.getElementById('modal-image-lightbox');
+        if (lightbox && !lightbox.classList.contains('hidden')) {
+          lightbox.classList.add('hidden');
+          return;
+        }
+      }
+
+      // If user is actively typing in a form input, skip single-key accelerators
+      if (isInput) return;
+
+      // 2. '/' focuses active tab search
+      if (e.key === '/') {
+        e.preventDefault();
+        const activeSearch = document.querySelector('.tab-content:not(.hidden) input[type="search"], .tab-content:not(.hidden) .search-box input');
+        if (activeSearch) {
+          activeSearch.focus();
+          activeSearch.select();
+        }
+        return;
+      }
+
+      // 3. Cmd+Shift+S: Toggle Showroom Mode
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        this.toggleShowroomMode();
+        return;
+      }
+
+      // 4. Cmd+N: New Item / New Memo
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        const activeTabEl = document.querySelector('.tab-content:not(.hidden)');
+        const currentTab = activeTabEl ? activeTabEl.id : 'tab-catalog';
+        if (['tab-jewelry-memos', 'tab-memos', 'tab-jewel-stone-memos'].includes(currentTab)) {
+          if (window.JewelryMemoController) JewelryMemoController.openCreateMemoModal();
+        } else {
+          document.getElementById('jewelry-modal-title').textContent = "Add New Jewelry Piece";
+          UI.resetForm();
+          UI.openModal('modal-jewelry-item');
+        }
+        return;
+      }
+
+      // 5. Cmd+1 to Cmd+5: Quick Tab Switching
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && ['1', '2', '3', '4', '5'].includes(e.key)) {
+        e.preventDefault();
+        if (e.key === '1') this.switchTab('tab-catalog');
+        else if (e.key === '2') this.switchTab('tab-jewelry-memos');
+        else if (e.key === '3') this.switchTab('tab-jewelry-sales');
+        else if (e.key === '4') { this.switchAppSuite('emerald'); this.switchTab('tab-emerald-catalog'); }
+        else if (e.key === '5') { this.switchAppSuite('stone'); this.switchTab('tab-stone-catalog'); }
+        return;
+      }
+    });
+  },
+
+  initFullscreenLightbox() {
+    const lightboxModal = document.getElementById('modal-image-lightbox');
+    const closeBtn = document.getElementById('btn-lightbox-close');
+    const zoomInBtn = document.getElementById('btn-lightbox-zoom-in');
+    const zoomResetBtn = document.getElementById('btn-lightbox-zoom-reset');
+    const shareBtn = document.getElementById('btn-lightbox-share');
+    const stage = document.getElementById('lightbox-stage');
+    const img = document.getElementById('lightbox-image');
+    if (!lightboxModal || !img) return;
+
+    let currentScale = 1;
+    let translateX = 0;
+    let translateY = 0;
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+
+    const updateTransform = () => {
+      img.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentScale})`;
+    };
+
+    const resetZoom = () => {
+      currentScale = 1;
+      translateX = 0;
+      translateY = 0;
+      updateTransform();
+    };
+
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        lightboxModal.classList.add('hidden');
+        resetZoom();
+      });
+    }
+
+    if (zoomInBtn) {
+      zoomInBtn.addEventListener('click', () => {
+        currentScale = Math.min(currentScale + 0.5, 3.5);
+        updateTransform();
+      });
+    }
+
+    if (zoomResetBtn) {
+      zoomResetBtn.addEventListener('click', resetZoom);
+    }
+
+    // Double tap/click to zoom toggle
+    stage.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      if (currentScale > 1) {
+        resetZoom();
+      } else {
+        currentScale = 2.0;
+        updateTransform();
+      }
+    });
+
+    // Mouse wheel zoom
+    stage.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const delta = e.deltaY < 0 ? 0.2 : -0.2;
+      currentScale = Math.max(1, Math.min(currentScale + delta, 4));
+      if (currentScale === 1) {
+        translateX = 0;
+        translateY = 0;
+      }
+      updateTransform();
+    }, { passive: false });
+
+    // Drag to pan when zoomed
+    stage.addEventListener('mousedown', (e) => {
+      if (currentScale > 1) {
+        isDragging = true;
+        startX = e.clientX - translateX;
+        startY = e.clientY - translateY;
+        stage.classList.add('dragging');
+      }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (isDragging) {
+        translateX = e.clientX - startX;
+        translateY = e.clientY - startY;
+        updateTransform();
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isDragging) {
+        isDragging = false;
+        stage.classList.remove('dragging');
+      }
+    });
+
+    // Touch pinch-to-zoom on iOS
+    let initialDistance = 0;
+    let initialScale = 1;
+
+    stage.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        initialDistance = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        initialScale = currentScale;
+      } else if (e.touches.length === 1 && currentScale > 1) {
+        isDragging = true;
+        startX = e.touches[0].clientX - translateX;
+        startY = e.touches[0].clientY - translateY;
+      }
+    }, { passive: true });
+
+    stage.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 2 && initialDistance > 0) {
+        const currentDistance = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        currentScale = Math.max(1, Math.min(initialScale * (currentDistance / initialDistance), 4));
+        updateTransform();
+      } else if (e.touches.length === 1 && isDragging) {
+        translateX = e.touches[0].clientX - startX;
+        translateY = e.touches[0].clientY - startY;
+        updateTransform();
+      }
+    }, { passive: true });
+
+    stage.addEventListener('touchend', (e) => {
+      if (e.touches.length < 2) initialDistance = 0;
+      if (e.touches.length === 0) isDragging = false;
+    });
+
+    // Native share handler
+    if (shareBtn) {
+      shareBtn.addEventListener('click', async () => {
+        const item = this.activeLightboxItem;
+        if (!item) return;
+
+        const shareText = `*${item.name || 'Jewelry Piece'}* (${item.sku || ''})\n` +
+          `• Composition: ${item.karat || 18}KT Gold\n` +
+          `• Gross Weight: ${Number(item.grossWeight || 0).toFixed(3)}g\n` +
+          `• Net Metal Weight: ${Number(item.netMetalWeight || item.grossWeight || 0).toFixed(3)}g\n` +
+          `• Price: ₹${(item.evaluation?.sellingPrice || 0).toLocaleString()}`;
+
+        if (window.Capacitor?.isPluginAvailable('Share')) {
+          try {
+            await window.Capacitor.Plugins.Share.share({
+              title: item.name || 'Jewelry Piece',
+              text: shareText,
+              dialogTitle: 'Share with Client'
+            });
+            return;
+          } catch (e) {
+            console.log("Capacitor share canceled / error:", e);
+          }
+        }
+
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: item.name || 'Jewelry Piece',
+              text: shareText
+            });
+            return;
+          } catch (e) {
+            console.log("Web share canceled / error:", e);
+          }
+        }
+
+        // Fallback: Copy summary to clipboard
+        try {
+          await navigator.clipboard.writeText(shareText);
+          UI.showToast("📋 Client details copied to clipboard!");
+        } catch (e) {
+          UI.showToast("Unable to share automatically.", true);
+        }
+      });
+    }
+  },
+
+  openFullscreenLightbox(item) {
+    if (!item) return;
+    this.activeLightboxItem = item;
+
+    const lightboxModal = document.getElementById('modal-image-lightbox');
+    const img = document.getElementById('lightbox-image');
+    if (!lightboxModal || !img) return;
+
+    img.src = item.image || '';
+    document.getElementById('lightbox-item-title').textContent = item.name || 'Jewelry Piece';
+    document.getElementById('lightbox-item-sku').textContent = item.sku || '';
+
+    const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
+    const evaluation = Calc.evaluateItem(item, goldRate);
+    item.evaluation = evaluation;
+
+    const netMetals = Calc.getNetMetals(item);
+    const uniqueKarats = [...new Set(netMetals.map(m => `${m.karat}KT`))];
+    const metalsStr = uniqueKarats.length > 0 ? `${uniqueKarats.join(', ')} Gold` : (item.karat ? `${item.karat}KT Gold` : '18KT Gold');
+
+    let stonesSum = 0;
+    (item.stones || []).forEach(s => stonesSum += Number(s.weight || 0));
+    (item.diamondsPolki || []).forEach(d => stonesSum += Number(d.weight || 0));
+
+    const grossWt = (evaluation.totalGrossWeight !== undefined)
+      ? evaluation.totalGrossWeight
+      : (Number(item.grossWeight || 0) || netMetals.reduce((sum, m) => sum + Number(m.grossWeight || 0), 0));
+    const netWt = (evaluation.totalNetMetalWeight !== undefined)
+      ? evaluation.totalNetMetalWeight
+      : netMetals.reduce((sum, m) => sum + Number(m.netWeight || 0), 0);
+
+    document.getElementById('lightbox-specs-gold').textContent = metalsStr;
+    document.getElementById('lightbox-specs-gross').textContent = `Gross: ${grossWt.toFixed(3)}g`;
+    document.getElementById('lightbox-specs-net').textContent = `Net: ${netWt.toFixed(3)}g`;
+    document.getElementById('lightbox-specs-stones').textContent = stonesSum > 0 ? `Stones: ${stonesSum.toFixed(2)} cts` : 'Solitaire';
+    document.getElementById('lightbox-specs-price').textContent = `₹${evaluation.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+
+    lightboxModal.classList.remove('hidden');
+  },
+
+  switchAppSuite(suite) {
+    if (suite === 'emerald') {
+      const btn = document.getElementById('btn-launch-emerald');
+      if (btn) btn.click();
+    } else if (suite === 'stone') {
+      const btn = document.getElementById('btn-launch-stone');
+      if (btn) btn.click();
+    } else {
+      const btn = document.getElementById('btn-launch-jewelry');
+      if (btn) btn.click();
+    }
   }
 };
 

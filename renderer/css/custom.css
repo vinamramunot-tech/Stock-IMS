@@ -2519,3 +2519,277 @@ body.showroom-client-mode #detail-jewelry-selling-price {
     gap: 8px !important;
   }
 }
+
+/* ==================== COMMAND PALETTE (Cmd+K) ==================== */
+.command-palette-card {
+  width: 90%;
+  max-width: 620px;
+  background: var(--bg-card, #1c1c22);
+  border: 1px solid var(--border-gold-subtle, rgba(212, 175, 55, 0.35));
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(212, 175, 55, 0.15);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: paletteFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes paletteFadeIn {
+  from { opacity: 0; transform: translateY(-12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.command-palette-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-light);
+  background: var(--bg-base, #131317);
+}
+
+.command-palette-search-icon {
+  color: var(--text-gold, #d4af37);
+  flex-shrink: 0;
+}
+
+#command-palette-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 16px;
+  color: var(--text-main);
+  font-family: var(--font-sans);
+}
+
+.command-palette-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  color: var(--text-muted);
+}
+
+.command-palette-results {
+  max-height: 380px;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.command-palette-group-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-gold, #d4af37);
+  padding: 10px 12px 4px 12px;
+}
+
+.command-palette-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  color: var(--text-main);
+  font-size: 14px;
+  transition: all 0.12s ease;
+  user-select: none;
+}
+
+.command-palette-item:hover,
+.command-palette-item.active {
+  background: rgba(212, 175, 55, 0.14);
+  color: #fff;
+}
+
+.command-palette-item-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.command-palette-item-icon {
+  color: var(--text-gold, #d4af37);
+  display: flex;
+  align-items: center;
+  width: 18px;
+  height: 18px;
+}
+
+.command-palette-item-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: 6px;
+}
+
+.command-palette-shortcut {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--border-light);
+  padding: 2px 7px;
+  border-radius: 5px;
+  color: var(--text-muted);
+}
+
+.command-palette-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 18px;
+  background: var(--bg-base);
+  border-top: 1px solid var(--border-light);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.command-palette-footer kbd {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  border: 1px solid var(--border-light);
+}
+
+/* ==================== FULLSCREEN CLIENT LIGHTBOX ==================== */
+.lightbox-container {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  user-select: none;
+}
+
+.lightbox-header {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 14px) + 8px);
+  left: 20px;
+  right: 20px;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lightbox-item-title-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  background: rgba(18, 18, 22, 0.82);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  backdrop-filter: blur(16px);
+  border-radius: 30px;
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.lightbox-sku-tag {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-gold, #d4af37);
+  background: rgba(212, 175, 55, 0.15);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.lightbox-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lightbox-btn {
+  background: rgba(18, 18, 22, 0.82) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  backdrop-filter: blur(16px);
+  color: #fff !important;
+  width: 40px;
+  height: 40px;
+  border-radius: 50% !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.lightbox-btn:hover {
+  background: rgba(212, 175, 55, 0.3) !important;
+  border-color: rgba(212, 175, 55, 0.6) !important;
+  transform: scale(1.05);
+}
+
+.lightbox-close-btn {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.lightbox-stage {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+
+.lightbox-stage.dragging {
+  cursor: grabbing;
+}
+
+.lightbox-img {
+  max-width: 90vw;
+  max-height: 80vh;
+  object-fit: contain;
+  transition: transform 0.1s ease-out;
+  transform-origin: center center;
+  filter: drop-shadow(0 12px 36px rgba(0,0,0,0.7));
+}
+
+.lightbox-specs-pill {
+  position: absolute;
+  bottom: calc(env(safe-area-inset-bottom, 20px) + 20px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 22px;
+  background: rgba(18, 18, 22, 0.88);
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  backdrop-filter: blur(20px);
+  border-radius: 30px;
+  color: #e0e0e0;
+  font-size: 13px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+  white-space: nowrap;
+  max-width: 92vw;
+  overflow-x: auto;
+}
+
+.lightbox-spec-divider {
+  color: rgba(212, 175, 55, 0.5);
+}
+
+.lightbox-spec-price {
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--text-gold, #d4af37);
+  font-family: var(--font-mono);
+}
