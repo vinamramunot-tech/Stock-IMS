@@ -920,7 +920,11 @@ const Catalog = {
     } else if (sortVal === 'sno-desc') {
       filtered.sort((a, b) => (itemSnoMap.get(b.id) || b.sno || 0) - (itemSnoMap.get(a.id) || a.sno || 0));
     } else if (sortVal === 'newest') {
-      filtered.sort((a, b) => Number(b.id.split('_')[1] || 0) - Number(a.id.split('_')[1] || 0));
+      filtered.sort((a, b) => {
+        const tA = a.createdAt ? new Date(a.createdAt).getTime() : Number(a.id?.split('_')[1] || 0);
+        const tB = b.createdAt ? new Date(b.createdAt).getTime() : Number(b.id?.split('_')[1] || 0);
+        return tB - tA;
+      });
     } else if (sortVal === 'val-high') {
       filtered.sort((a, b) => b.calculatedTotal - a.calculatedTotal);
     } else if (sortVal === 'val-low') {

@@ -1272,6 +1272,8 @@ const EmeraldController = {
         sizesStr.includes(query) ||
         (e.lustreGrade || '').toLowerCase().includes(query) ||
         (e.group || '').toLowerCase().includes(query) ||
+        (e.color || '').toString().toLowerCase().includes(query) ||
+        (e.comments || '').toLowerCase().includes(query) ||
         this.getEmeraldWeight(e).toString().includes(query) ||
         (e.pricePerCarat || '').toString().includes(query) ||
         (e.origins || []).some(o => o.toLowerCase().includes(query));
@@ -1374,6 +1376,12 @@ const EmeraldController = {
         filtered.sort((a, b) => Number(b.color || 0) - Number(a.color || 0));
       } else if (sortVal === 'color-low') {
         filtered.sort((a, b) => Number(a.color || 0) - Number(b.color || 0));
+      } else if (sortVal === 'newest') {
+        filtered.sort((a, b) => {
+          const tA = a.createdAt ? new Date(a.createdAt).getTime() : Number(a.id?.split('_')[1] || 0);
+          const tB = b.createdAt ? new Date(b.createdAt).getTime() : Number(b.id?.split('_')[1] || 0);
+          return tB - tA;
+        });
       } else {
         filtered.sort((a, b) => (a.group || '').localeCompare(b.group || '') || Number(a.color || 0) - Number(b.color || 0));
       }
@@ -1436,9 +1444,29 @@ const EmeraldController = {
         grades[gradeName].totalValue += val;
       });
 
-      // Sort items by Pudia number (color field)
+      // Sort items inside grade categories respecting active sortVal
       Object.values(grades).forEach(grade => {
-        grade.items.sort((a, b) => Number(a.color || 0) - Number(b.color || 0));
+        if (sortVal === 'color-high') {
+          grade.items.sort((a, b) => Number(b.color || 0) - Number(a.color || 0));
+        } else if (sortVal === 'color-low') {
+          grade.items.sort((a, b) => Number(a.color || 0) - Number(b.color || 0));
+        } else if (sortVal === 'weight-high' || sortVal === 'size-high') {
+          grade.items.sort((a, b) => this.getEmeraldWeight(b) - this.getEmeraldWeight(a));
+        } else if (sortVal === 'weight-low' || sortVal === 'size-low') {
+          grade.items.sort((a, b) => this.getEmeraldWeight(a) - this.getEmeraldWeight(b));
+        } else if (sortVal === 'price-high') {
+          grade.items.sort((a, b) => (b.pricePerCarat || 0) - (a.pricePerCarat || 0));
+        } else if (sortVal === 'price-low') {
+          grade.items.sort((a, b) => (a.pricePerCarat || 0) - (b.pricePerCarat || 0));
+        } else if (sortVal === 'newest') {
+          grade.items.sort((a, b) => {
+            const tA = a.createdAt ? new Date(a.createdAt).getTime() : Number(a.id?.split('_')[1] || 0);
+            const tB = b.createdAt ? new Date(b.createdAt).getTime() : Number(b.id?.split('_')[1] || 0);
+            return tB - tA;
+          });
+        } else {
+          grade.items.sort((a, b) => Number(a.color || 0) - Number(b.color || 0));
+        }
       });
 
       g.grades = grades;
@@ -1454,8 +1482,26 @@ const EmeraldController = {
       groupsArray.sort((a, b) => b.totalValue - a.totalValue);
     } else if (sortVal === 'price-low') {
       groupsArray.sort((a, b) => a.totalValue - b.totalValue);
+    } else if (sortVal === 'color-high') {
+      groupsArray.sort((a, b) => {
+        const maxA = Math.max(...a.items.map(it => Number(it.color || 0)), 0);
+        const maxB = Math.max(...b.items.map(it => Number(it.color || 0)), 0);
+        return maxB - maxA;
+      });
+    } else if (sortVal === 'color-low') {
+      groupsArray.sort((a, b) => {
+        const minA = Math.min(...a.items.map(it => Number(it.color || 0)), Infinity);
+        const minB = Math.min(...b.items.map(it => Number(it.color || 0)), Infinity);
+        return minA - minB;
+      });
+    } else if (sortVal === 'newest') {
+      groupsArray.sort((a, b) => {
+        const tA = Math.max(...a.items.map(it => it.createdAt ? new Date(it.createdAt).getTime() : Number(it.id?.split('_')[1] || 0)), 0);
+        const tB = Math.max(...b.items.map(it => it.createdAt ? new Date(it.createdAt).getTime() : Number(it.id?.split('_')[1] || 0)), 0);
+        return tB - tA;
+      });
     } else {
-      // Default / newest: sort by group name
+      // Default: sort by group name
       groupsArray.sort((a, b) => a.name.localeCompare(b.name));
     }
 

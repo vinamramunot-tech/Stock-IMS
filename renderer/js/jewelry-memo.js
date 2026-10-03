@@ -623,7 +623,12 @@ const JewelryMemoController = {
       const matchSearch = !query ||
         (m.personName || m.customerName || m.issuedTo || '').toLowerCase().includes(query) ||
         (m.brokerName || '').toLowerCase().includes(query) ||
-        (m.memoNumber || '').toLowerCase().includes(query);
+        (m.memoNumber || '').toLowerCase().includes(query) ||
+        (m.items || []).some(it =>
+          (it.name || '').toLowerCase().includes(query) ||
+          (it.sku || '').toLowerCase().includes(query) ||
+          (it.category || '').toLowerCase().includes(query)
+        );
       return matchStatus && matchSearch;
     });
 

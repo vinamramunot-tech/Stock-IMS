@@ -663,6 +663,9 @@ const App = {
       return true;
     });
 
+    // Ensure logs are strictly sorted newest first
+    filtered.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+
     tbody.innerHTML = '';
 
     if (filtered.length === 0) {
@@ -952,12 +955,15 @@ const App = {
     // Retrieve all emeralds
     const allEmeralds = DBManager.getEmeralds();
 
-    // Filter items: must have an image, and must match query (Group or Shape)
+    // Filter items: must have an image, and must match query (Group, Shape, Pudia #, or Lustre)
     let filtered = allEmeralds.filter(item => {
       if (!item.image) return false;
+      if (!query) return true;
       const matchGroup = (item.group || '').toLowerCase().includes(query);
       const matchShape = (item.shape || '').toLowerCase().includes(query);
-      return matchGroup || matchShape;
+      const matchColor = String(item.color || '').toLowerCase().includes(query);
+      const matchLustre = (item.lustreGrade || '').toLowerCase().includes(query);
+      return matchGroup || matchShape || matchColor || matchLustre;
     });
 
     // Sort by Pudia/Color number

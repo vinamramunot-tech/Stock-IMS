@@ -714,6 +714,7 @@ const StoneController = {
         (st.type || '').toLowerCase().includes(query) ||
         (st.lustreGrade || '').toLowerCase().includes(query) ||
         (st.group || '').toLowerCase().includes(query) ||
+        (st.comments || '').toLowerCase().includes(query) ||
         this.getStoneWeight(st).toString().includes(query) ||
         (st.color || '').toString().toLowerCase().includes(query) ||
         (st.origins || []).some(o => o.toLowerCase().includes(query));
@@ -782,6 +783,7 @@ const StoneController = {
         groups[groupName] = {
           name: groupName,
           types: {},
+          items: [],
           totalWeight: 0,
           totalValue: 0,
           itemCount: 0
@@ -791,6 +793,7 @@ const StoneController = {
       const w = this.getStoneWeight(st);
       const val = w * (st.pricePerCarat || 0);
 
+      groups[groupName].items.push(st);
       groups[groupName].totalWeight += w;
       groups[groupName].totalValue += val;
       groups[groupName].itemCount++;
@@ -821,15 +824,31 @@ const StoneController = {
       groups[groupName].types[typeName].grades[gradeName].totalValue += val;
     });
 
-    // Sort items inside grade categories
+    // Sort items inside grade categories respecting active sortVal
     Object.values(groups).forEach(g => {
       Object.values(g.types).forEach(t => {
         Object.values(t.grades).forEach(gr => {
-          gr.items.sort((a, b) => {
-            const packA = Number(a.color) || 0;
-            const packB = Number(b.color) || 0;
-            return packA - packB;
-          });
+          if (sortVal === 'weight-high') {
+            gr.items.sort((a, b) => this.getStoneWeight(b) - this.getStoneWeight(a));
+          } else if (sortVal === 'weight-low') {
+            gr.items.sort((a, b) => this.getStoneWeight(a) - this.getStoneWeight(b));
+          } else if (sortVal === 'price-high') {
+            gr.items.sort((a, b) => (b.pricePerCarat || 0) - (a.pricePerCarat || 0));
+          } else if (sortVal === 'price-low') {
+            gr.items.sort((a, b) => (a.pricePerCarat || 0) - (b.pricePerCarat || 0));
+          } else if (sortVal === 'newest') {
+            gr.items.sort((a, b) => {
+              const tA = a.createdAt ? new Date(a.createdAt).getTime() : Number(a.id?.split('_')[1] || 0);
+              const tB = b.createdAt ? new Date(b.createdAt).getTime() : Number(b.id?.split('_')[1] || 0);
+              return tB - tA;
+            });
+          } else {
+            gr.items.sort((a, b) => {
+              const packA = Number(a.color) || 0;
+              const packB = Number(b.color) || 0;
+              return packA - packB;
+            });
+          }
         });
       });
     });
@@ -844,6 +863,12 @@ const StoneController = {
       groupsArray.sort((a, b) => b.totalValue - a.totalValue);
     } else if (sortVal === 'price-low') {
       groupsArray.sort((a, b) => a.totalValue - b.totalValue);
+    } else if (sortVal === 'newest') {
+      groupsArray.sort((a, b) => {
+        const tA = Math.max(...a.items.map(it => it.createdAt ? new Date(it.createdAt).getTime() : Number(it.id?.split('_')[1] || 0)), 0);
+        const tB = Math.max(...b.items.map(it => it.createdAt ? new Date(it.createdAt).getTime() : Number(it.id?.split('_')[1] || 0)), 0);
+        return tB - tA;
+      });
     } else {
       groupsArray.sort((a, b) => a.name.localeCompare(b.name));
     }

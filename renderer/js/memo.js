@@ -789,7 +789,14 @@ const MemoController = {
       const matchStatus = !filterVal || m.status === filterVal;
       const matchSearch = !query ||
         (m.brokerName  || '').toLowerCase().includes(query) ||
-        (m.memoNumber  || '').toLowerCase().includes(query);
+        (m.memoNumber  || '').toLowerCase().includes(query) ||
+        (m.clientName  || '').toLowerCase().includes(query) ||
+        (m.notes       || '').toLowerCase().includes(query) ||
+        (m.items || []).some(it =>
+          (it.group || '').toLowerCase().includes(query) ||
+          (it.color || '').toString().toLowerCase().includes(query) ||
+          (it.lustreGrade || '').toLowerCase().includes(query)
+        );
       return matchStatus && matchSearch;
     });
 

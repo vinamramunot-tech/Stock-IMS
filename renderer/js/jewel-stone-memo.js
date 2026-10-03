@@ -479,7 +479,13 @@ const JewelStoneMemoController = {
       const matchStatus = !filterVal || m.status === filterVal;
       const matchSearch = !query ||
         (m.manufacturerName || '').toLowerCase().includes(query) ||
-        (m.memoNumber || '').toLowerCase().includes(query);
+        (m.memoNumber || '').toLowerCase().includes(query) ||
+        (m.notes || '').toLowerCase().includes(query) ||
+        (m.items || []).some(it =>
+          (it.stoneType || it.type || '').toLowerCase().includes(query) ||
+          (it.group || '').toLowerCase().includes(query) ||
+          (it.lotNumber || it.color || '').toString().toLowerCase().includes(query)
+        );
       return matchStatus && matchSearch;
     });
 
