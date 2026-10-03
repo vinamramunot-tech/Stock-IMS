@@ -27,6 +27,10 @@ const MemoController = {
     if (btnCreateMemo) {
       btnCreateMemo.addEventListener('click', () => this.openCreateMemoModal());
     }
+    const btnEmptyMemo = document.getElementById('btn-empty-create-memo');
+    if (btnEmptyMemo) {
+      btnEmptyMemo.addEventListener('click', () => this.openCreateMemoModal());
+    }
 
     // Save memo button (inside create modal)
     const btnSaveMemo = document.getElementById('btn-save-memo');
@@ -714,6 +718,10 @@ const MemoController = {
     }
 
     // ── CREATE MODE ───────────────────────────────────────────────────────────
+    if (this.selectedItems.length === 0 && this.activeCreateSelectedId) {
+      this.handleAddItemToSelected();
+    }
+
     if (this.selectedItems.length === 0) {
       UI.showToast('Please add at least one Pudia to the memo.', true);
       return;

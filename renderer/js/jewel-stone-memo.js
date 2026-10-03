@@ -19,6 +19,10 @@ const JewelStoneMemoController = {
     if (btnCreate) {
       btnCreate.addEventListener('click', () => this.openCreateMemoModal());
     }
+    const btnEmpty = document.getElementById('btn-empty-create-jewel-stone-memo');
+    if (btnEmpty) {
+      btnEmpty.addEventListener('click', () => this.openCreateMemoModal());
+    }
 
     const btnSave = document.getElementById('btn-save-jewel-stone-memo');
     if (btnSave) {
@@ -405,6 +409,11 @@ const JewelStoneMemoController = {
 
     if (!manufacturerName) { UI.showToast('Please enter a manufacturer name.', true); return; }
     if (!date) { UI.showToast('Please select a memo date.', true); return; }
+
+    if (this.selectedItems.length === 0 && this.activeCreateSelectedId) {
+      this.handleAddItemToSelected();
+    }
+
     if (this.selectedItems.length === 0) {
       UI.showToast('Please add at least one Stone Packet to the memo.', true);
       return;

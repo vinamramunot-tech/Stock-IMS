@@ -21,6 +21,10 @@ const JewelryMemoController = {
     if (btnCreate) {
       btnCreate.addEventListener('click', () => this.openCreateMemoModal());
     }
+    const btnEmpty = document.getElementById('btn-empty-create-jewelry-memo');
+    if (btnEmpty) {
+      btnEmpty.addEventListener('click', () => this.openCreateMemoModal());
+    }
 
     const btnSave = document.getElementById('btn-save-jewelry-memo');
     if (btnSave) {
@@ -521,7 +525,14 @@ const JewelryMemoController = {
 
     // ── CREATE MODE ────────────────────────────────────────────────────────────
     if (this.selectedItems.length === 0) {
-      UI.showToast('Please add at least one jewelry piece to issue on memo.', true);
+      const selectEl = document.getElementById('jewelry-memo-create-select');
+      if (selectEl && selectEl.value) {
+        this.handleAddItemToSelected();
+      }
+    }
+
+    if (this.selectedItems.length === 0) {
+      UI.showToast('Please select and add at least one jewelry piece to issue on memo.', true);
       return;
     }
 

@@ -419,6 +419,21 @@ const App = {
         btn.classList.remove('active');
       }
     });
+
+    const addLabel = document.getElementById('mobile-nav-add-label');
+    if (addLabel) {
+      if (['tab-jewelry-memos', 'tab-memos', 'tab-jewel-stone-memos'].includes(tabId)) {
+        addLabel.textContent = 'New Memo';
+      } else if (['tab-jewelry-sales', 'tab-emerald-sales'].includes(tabId)) {
+        addLabel.textContent = 'New Sale';
+      } else if (['tab-emerald-catalog', 'tab-emerald-analysis', 'tab-emerald-photos'].includes(tabId)) {
+        addLabel.textContent = 'New Pudia';
+      } else if (['tab-stone-catalog'].includes(tabId)) {
+        addLabel.textContent = 'New Stone';
+      } else {
+        addLabel.textContent = 'New Piece';
+      }
+    }
   },
 
   triggerHaptic(type = 'light') {
@@ -454,6 +469,24 @@ const App = {
           else if (suite === 'emerald') this.switchTab('tab-emerald-sales');
           else if (suite === 'stone') this.switchTab('tab-jewel-stone-memos');
         } else if (target === 'add') {
+          const currentTab = this.activeTab || 'tab-catalog';
+          if (currentTab === 'tab-jewelry-memos') {
+            if (window.JewelryMemoController) window.JewelryMemoController.openCreateMemoModal();
+            return;
+          }
+          if (currentTab === 'tab-memos') {
+            if (window.MemoController) window.MemoController.openCreateMemoModal();
+            return;
+          }
+          if (currentTab === 'tab-jewel-stone-memos') {
+            if (window.JewelStoneMemoController) window.JewelStoneMemoController.openCreateMemoModal();
+            return;
+          }
+          if (currentTab === 'tab-jewelry-sales' || currentTab === 'tab-emerald-sales') {
+            UI.showToast("Select a piece or memo to finalize a sale.", false);
+            return;
+          }
+
           if (suite === 'jewelry') {
             const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
             if (!goldRate || goldRate <= 0) {

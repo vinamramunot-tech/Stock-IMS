@@ -1882,7 +1882,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  z-index: 9995;
+  z-index: 800; /* Placed below modals (z-index: 1000+) */
   opacity: 0;
   visibility: hidden;
   transform: translateY(14px) scale(0.88);
@@ -1943,10 +1943,12 @@
 /* Mobile Responsive */
 @media (max-width: 768px) {
   .scroll-to-top-btn {
-    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
-    right: calc(20px + env(safe-area-inset-right, 0px));
-    width: 42px;
-    height: 42px;
+    /* Positioned 15px comfortably ABOVE the 60px mobile bottom navigation bar */
+    bottom: calc(75px + env(safe-area-inset-bottom, 0px)) !important;
+    right: calc(16px + env(safe-area-inset-right, 0px)) !important;
+    width: 40px !important;
+    height: 40px !important;
+    z-index: 800 !important; /* Stays below navbar (z-index: 990) and modals (z-index: 1000+) */
   }
 
   /* Form & Modal Layouts Mobile Optimization */
@@ -2432,10 +2434,12 @@ body.showroom-client-mode #detail-jewelry-selling-price {
   }
 
   /* Keep non-catalog operational filter groups accessible */
-  #section-stone .filter-bar .filters-group,
-  #section-memo .filter-bar .filters-group,
-  #section-jewelry-memo .filter-bar .filters-group,
-  #section-jewelry-sales .filter-bar .filters-group {
+  #tab-stone-catalog .filter-bar .filters-group,
+  #tab-memos .filter-bar .filters-group,
+  #tab-jewel-stone-memos .filter-bar .filters-group,
+  #tab-jewelry-memos .filter-bar .filters-group,
+  #tab-jewelry-sales .filter-bar .filters-group,
+  #tab-emerald-sales .filter-bar .filters-group {
     display: flex !important;
     flex-wrap: wrap !important;
     gap: 8px !important;
