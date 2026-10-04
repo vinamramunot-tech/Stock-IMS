@@ -107,6 +107,21 @@ const MemoController = {
 
     const searchInput = document.getElementById('memo-search-input');
     if (searchInput) searchInput.addEventListener('input', UI.debounce(() => this.renderMemoList(), 200));
+
+    const resetMemoBtn = document.getElementById('btn-reset-memo-filters');
+    if (resetMemoBtn) resetMemoBtn.addEventListener('click', () => this.clearFilters());
+  },
+
+  /**
+   * Resets all Emerald Memo list filters and re-renders.
+   */
+  clearFilters() {
+    const searchEl = document.getElementById('memo-search-input');
+    if (searchEl) searchEl.value = '';
+    const statusEl = document.getElementById('memo-filter-status');
+    if (statusEl) statusEl.value = '';
+    if (window.App && typeof App.triggerHaptic === 'function') App.triggerHaptic('light');
+    this.renderMemoList();
   },
 
   // ── Helpers ─────────────────────────────────────────────────────────────────

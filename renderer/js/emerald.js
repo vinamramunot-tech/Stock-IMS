@@ -54,6 +54,12 @@ const EmeraldController = {
       });
     }
 
+    // One-tap Reset Filters button
+    const resetEmeraldBtn = document.getElementById('btn-reset-emerald-filters');
+    if (resetEmeraldBtn) {
+      resetEmeraldBtn.addEventListener('click', () => this.clearFilters());
+    }
+
     // Global Catalog price multiplier listeners
     const catalogApplyMultiplier = document.getElementById('catalog-apply-multiplier');
     const catalogMultiplierSelect = document.getElementById('catalog-multiplier-select');
@@ -1315,7 +1321,34 @@ const EmeraldController = {
     });
   },
 
+  /**
+   * Resets all Emerald Catalog filters and search to defaults, then re-renders.
+   */
+  clearFilters() {
+    const searchEl = document.getElementById('emerald-search-input');
+    if (searchEl) searchEl.value = '';
+
+    const groupEl = document.getElementById('emerald-filter-group');
+    if (groupEl) groupEl.value = '';
+
+    const shapeEl = document.getElementById('emerald-filter-shape');
+    if (shapeEl) shapeEl.value = '';
+
+    const lustreEl = document.getElementById('emerald-filter-lustre');
+    if (lustreEl) lustreEl.value = '';
+
+    const originEl = document.getElementById('emerald-filter-origin');
+    if (originEl) originEl.value = '';
+
+    if (window.App && typeof App.triggerHaptic === 'function') {
+      App.triggerHaptic('light');
+    }
+
+    this.renderEmeraldGrid();
+  },
+
   renderEmeraldMetrics() {
+
     const emeralds = DBManager.getEmeralds();
     const usdRate = DBManager.getSettings().usdToInr ? DBManager.getSettings().usdToInr.rate : 0;
 

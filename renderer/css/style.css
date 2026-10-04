@@ -968,6 +968,27 @@ datalist option {
   padding-right: 30px;
 }
 
+/* One-tap "Reset Filters" button that lives inline in the filter bar */
+.filter-reset-btn {
+  height: 42px;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0.75;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.filter-reset-btn:hover {
+  opacity: 1;
+}
+
+
 /* CATALOG GRID */
 .catalog-grid-container {
   display: grid;
@@ -3290,6 +3311,18 @@ datalist option {
     font-size: 12px !important;
     background-color: var(--bg-card);
   }
+
+  /* Reset button spans full width on mobile for easy one-thumb reach */
+  .filter-reset-btn {
+    grid-column: span 2;
+    width: 100%;
+    height: 40px;
+    justify-content: center;
+    border-radius: 10px;
+    font-size: 13px;
+    opacity: 1;
+  }
+
 
   #btn-add-jewelry-piece-main {
     grid-column: span 2;

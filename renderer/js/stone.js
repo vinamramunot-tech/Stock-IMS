@@ -43,6 +43,12 @@ const StoneController = {
       sortItems.addEventListener('change', () => this.renderStoneGrid());
     }
 
+    // One-tap Reset Filters button
+    const resetStoneBtn = document.getElementById('btn-reset-stone-filters');
+    if (resetStoneBtn) {
+      resetStoneBtn.addEventListener('click', () => this.clearFilters());
+    }
+
     // Modal triggers
     const btnNavAddStone = document.getElementById('btn-nav-add-stone');
     if (btnNavAddStone) {
@@ -746,7 +752,34 @@ const StoneController = {
     });
   },
 
+  /**
+   * Resets all Loose Stone Catalog filters and search to defaults, then re-renders.
+   */
+  clearFilters() {
+    const searchEl = document.getElementById('stone-search-input');
+    if (searchEl) searchEl.value = '';
+
+    const typeEl = document.getElementById('stone-filter-type');
+    if (typeEl) typeEl.value = '';
+
+    const groupEl = document.getElementById('stone-filter-group');
+    if (groupEl) groupEl.value = '';
+
+    const shapeEl = document.getElementById('stone-filter-shape');
+    if (shapeEl) shapeEl.value = '';
+
+    const gradeEl = document.getElementById('stone-filter-grade');
+    if (gradeEl) gradeEl.value = '';
+
+    if (window.App && typeof App.triggerHaptic === 'function') {
+      App.triggerHaptic('light');
+    }
+
+    this.renderStoneGrid();
+  },
+
   renderStoneMetrics() {
+
     const looseStones = DBManager.getStones();
     let totalLooseStoneWeight = 0;
     let totalLooseStoneValuationINR = 0;

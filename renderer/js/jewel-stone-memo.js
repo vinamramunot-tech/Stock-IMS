@@ -73,6 +73,21 @@ const JewelStoneMemoController = {
     if (searchInput) {
       searchInput.addEventListener('input', UI.debounce(() => this.renderMemoList(), 200));
     }
+
+    const resetBtn = document.getElementById('btn-reset-jewel-stone-memo-filters');
+    if (resetBtn) resetBtn.addEventListener('click', () => this.clearFilters());
+  },
+
+  /**
+   * Resets all Jewel Stone Memo list filters and re-renders.
+   */
+  clearFilters() {
+    const searchEl = document.getElementById('jewel-stone-memo-search-input');
+    if (searchEl) searchEl.value = '';
+    const statusEl = document.getElementById('jewel-stone-memo-filter-status');
+    if (statusEl) statusEl.value = '';
+    if (window.App && typeof App.triggerHaptic === 'function') App.triggerHaptic('light');
+    this.renderMemoList();
   },
 
   getNextMemoNumber() {

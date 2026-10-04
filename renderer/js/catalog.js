@@ -169,7 +169,46 @@ const Catalog = {
         }
       });
     }
+
+    // One-tap Reset Filters button
+    const resetBtn = document.getElementById('btn-reset-catalog-filters');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', () => this.clearFilters());
+    }
   },
+
+  /**
+   * Resets all Jewelry Catalog filters and search to defaults, then re-renders.
+   */
+  clearFilters() {
+    const searchEl = document.getElementById('search-input');
+    if (searchEl) searchEl.value = '';
+
+    const statusEl = document.getElementById('filter-jewelry-status');
+    if (statusEl) statusEl.value = 'active';
+
+    const catEl = document.getElementById('filter-category');
+    if (catEl) catEl.value = '';
+
+    const karatEl = document.getElementById('filter-karat');
+    if (karatEl) karatEl.value = '';
+
+    const sortEl = document.getElementById('sort-items');
+    if (sortEl) sortEl.value = 'sno-asc';
+
+    // Reset mobile chips: reactivate the "Active" status chip, deactivate others
+    const chips = document.querySelectorAll('#mobile-catalog-chips .mobile-chip');
+    chips.forEach(c => c.classList.remove('active'));
+    const activeChip = document.querySelector('#mobile-catalog-chips [data-chip-type="status"][data-chip-val="active"]');
+    if (activeChip) activeChip.classList.add('active');
+
+    if (window.App && typeof App.triggerHaptic === 'function') {
+      App.triggerHaptic('light');
+    }
+
+    this.renderCatalogGrid();
+  },
+
 
   setViewType(type) {
     this.viewType = type;

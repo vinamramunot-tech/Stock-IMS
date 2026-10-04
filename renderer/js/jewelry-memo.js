@@ -75,6 +75,9 @@ const JewelryMemoController = {
       searchInput.addEventListener('input', UI.debounce(() => this.renderMemoList(), 200));
     }
 
+    const resetJewelryMemoBtn = document.getElementById('btn-reset-jewelry-memo-filters');
+    if (resetJewelryMemoBtn) resetJewelryMemoBtn.addEventListener('click', () => this.clearFilters());
+
     // Wire up Confirm Sale Modal inputs
     const finalPriceInp = document.getElementById('jewelry-sale-final-price');
     if (finalPriceInp) {
@@ -92,7 +95,20 @@ const JewelryMemoController = {
     }
   },
 
+  /**
+   * Resets all Jewelry Memo list filters and re-renders.
+   */
+  clearFilters() {
+    const searchEl = document.getElementById('jewelry-memo-search-input');
+    if (searchEl) searchEl.value = '';
+    const statusEl = document.getElementById('jewelry-memo-filter-status');
+    if (statusEl) statusEl.value = '';
+    if (window.App && typeof App.triggerHaptic === 'function') App.triggerHaptic('light');
+    this.renderMemoList();
+  },
+
   getNextMemoNumber() {
+
     const memos = DBManager.getJewelryMemos();
     if (memos.length === 0) return 'JM-001';
     const nums = memos.map(m => {

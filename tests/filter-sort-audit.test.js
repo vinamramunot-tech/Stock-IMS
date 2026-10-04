@@ -344,4 +344,41 @@ test('Comprehensive Filter & Sorting Engine Audit Across All Screens', async (su
     assert.match(appJs, /matchGroup\s*\|\|\s*matchShape\s*\|\|\s*matchColor\s*\|\|\s*matchLustre/, 'Emerald photos must match group, shape, pudia #, and lustre');
   });
 
+  // ==========================================
+  // 11. RESET FILTERS BUTTONS – HTML & JS WIRING
+  // ==========================================
+  await suite.test('11. Reset Filters: All screens have one-tap reset buttons', async () => {
+    const indexHtml = fs.readFileSync(path.resolve(__dirname, '../renderer/index.html'), 'utf8');
+
+    // Verify all Reset button IDs are present in index.html
+    assert.ok(indexHtml.includes('id="btn-reset-catalog-filters"'), 'Jewelry Catalog must have a Reset Filters button');
+    assert.ok(indexHtml.includes('id="btn-reset-emerald-filters"'), 'Emerald Catalog must have a Reset Filters button');
+    assert.ok(indexHtml.includes('id="btn-reset-stone-filters"'), 'Loose Stones must have a Reset Filters button');
+    assert.ok(indexHtml.includes('id="btn-reset-memo-filters"'), 'Emerald Memos must have a Reset Filters button');
+    assert.ok(indexHtml.includes('id="btn-reset-jewel-stone-memo-filters"'), 'Jewel Stone Memos must have a Reset Filters button');
+    assert.ok(indexHtml.includes('id="btn-reset-jewelry-memo-filters"'), 'Jewelry Memos must have a Reset Filters button');
+
+    // Verify JS controllers have clearFilters() method implemented
+    assert.match(catalogJs, /clearFilters\s*\(\s*\)\s*\{/, 'Catalog JS must have clearFilters()');
+    assert.match(emeraldJs, /clearFilters\s*\(\s*\)\s*\{/, 'Emerald JS must have clearFilters()');
+    assert.match(stoneJs, /clearFilters\s*\(\s*\)\s*\{/, 'Stone JS must have clearFilters()');
+    assert.match(memoJs, /clearFilters\s*\(\s*\)\s*\{/, 'Memo JS must have clearFilters()');
+    assert.match(jewelStoneMemoJs, /clearFilters\s*\(\s*\)\s*\{/, 'Jewel Stone Memo JS must have clearFilters()');
+    assert.match(jewelryMemoJs, /clearFilters\s*\(\s*\)\s*\{/, 'Jewelry Memo JS must have clearFilters()');
+  });
+
+  await suite.test('11b. Reset Filters: clearFilters() resets search + status + re-renders', async () => {
+    // Catalog clearFilters sets filter-jewelry-status to "active"
+    assert.match(catalogJs, /statusEl\.value\s*=\s*'active'/, 'Catalog clearFilters must restore status default to "active"');
+    // Catalog clearFilters resets mobile chips
+    assert.match(catalogJs, /mobile-catalog-chips.*\.mobile-chip/s, 'Catalog clearFilters must reset mobile filter chips');
+    // Each controller calls its own render after clearing
+    assert.match(emeraldJs, /clearFilters[\s\S]*?renderEmeraldGrid\(\)/, 'Emerald clearFilters must call renderEmeraldGrid()');
+    assert.match(stoneJs, /clearFilters[\s\S]*?renderStoneGrid\(\)/, 'Stone clearFilters must call renderStoneGrid()');
+    assert.match(memoJs, /clearFilters[\s\S]*?renderMemoList\(\)/, 'Memo clearFilters must call renderMemoList()');
+    assert.match(jewelStoneMemoJs, /clearFilters[\s\S]*?renderMemoList\(\)/, 'JewelStoneMemo clearFilters must call renderMemoList()');
+    assert.match(jewelryMemoJs, /clearFilters[\s\S]*?renderMemoList\(\)/, 'JewelryMemo clearFilters must call renderMemoList()');
+  });
+
 });
+
