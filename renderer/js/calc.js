@@ -33,11 +33,11 @@ const Calc = {
     if (!itemData) return 0;
     let stonesSum = 0;
     (itemData.stones || []).forEach(s => {
-      const w = Number(s?.weight);
+      const w = Number(s?.weight || s?.carats || s?.cts || s?.totalWeight);
       if (!isNaN(w) && w > 0) stonesSum += w;
     });
     (itemData.diamondsPolki || []).forEach(d => {
-      const w = Number(d?.weight);
+      const w = Number(d?.weight || d?.carats || d?.cts || d?.totalWeight);
       if (!isNaN(w) && w > 0) stonesSum += w;
     });
     return Number((stonesSum * 0.2).toFixed(4));
@@ -50,10 +50,25 @@ const Calc = {
   getNetMetals(itemData) {
     if (!itemData) return [];
     const stoneWeightGrams = this.getStoneWeightInGrams(itemData);
-    const totalGrossWeight = Number(itemData.grossWeight || 0);
-    const mainKarat = Number(itemData.karat || 18);
-    const mainWastage = Number(itemData.wastage !== undefined && itemData.wastage !== null && itemData.wastage !== '' ? itemData.wastage : 15);
-    const additionalMetals = itemData.metals || [];
+    let additionalMetals = itemData.metals || [];
+
+    // Fallback detection for older records or Excel imports with alternate property names
+    let totalGrossWeight = Number(itemData.grossWeight || itemData.grossWt || itemData.weight || 0);
+    const mainKarat = Number(itemData.karat || (itemData.metals?.[0]?.karat) || 18);
+    const mainWastage = Number(itemData.wastage !== undefined && itemData.wastage !== null && itemData.wastage !== ''
+      ? itemData.wastage
+      : (itemData.metals?.[0]?.wastage !== undefined ? itemData.metals[0].wastage : 15));
+
+    // If item has a single Body Component metal (from Excel imports), it represents the Main Piece itself
+    if (additionalMetals.length === 1 && (additionalMetals[0].name === 'Body Component' || additionalMetals[0].name === 'Main Piece')) {
+      if (totalGrossWeight <= 0) {
+        totalGrossWeight = Number(additionalMetals[0].weight || 0);
+      }
+      additionalMetals = []; // Promote it to the Main Piece so it is not double counted
+    } else if (totalGrossWeight <= 0 && additionalMetals.length > 0) {
+      totalGrossWeight = Number(additionalMetals[0].weight || 0);
+      additionalMetals = additionalMetals.slice(1);
+    }
 
     const result = [];
 

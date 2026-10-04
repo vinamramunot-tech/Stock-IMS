@@ -2768,7 +2768,7 @@ datalist option {
     background-color: rgba(0, 0, 0, 0.68);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
-    z-index: 2000;
+    z-index: 1000;
     display: flex;
     flex-direction: column;
     justify-content: flex-end; /* Anchors sheet to bottom of iPhone */

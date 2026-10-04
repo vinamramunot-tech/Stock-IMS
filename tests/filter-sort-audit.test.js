@@ -57,6 +57,47 @@ test('Comprehensive Filter & Sorting Engine Audit Across All Screens', async (su
       assert.equal(karat14[0].sku, 'NK-DIA-02');
     });
 
+    await t.test('Multi-Source Metal Purity & Karat Filter Detection (14.5KT, 18KT, 22KT, 14KT, 24KT)', () => {
+      const itemsWithDiverseMetals = [
+        { id: 'it_1', sku: 'SKU-18', karat: 18, metals: [] }, // Standard UI created item (metals array empty)
+        { id: 'it_2', sku: 'SKU-22', karat: 22, metals: [] }, // Standard 22KT gold
+        { id: 'it_3', sku: 'SKU-145-IMP', metals: [{ name: 'Body Component', karat: 14.5, weight: 8.5 }] }, // Excel block import
+        { id: 'it_4', sku: 'SKU-14', karat: '14KT', metals: [] }, // String karat representation
+        { id: 'it_5', sku: 'SKU-750', karat: '750', metals: [] }, // International hallmark (750 = 18KT)
+        { id: 'it_6', sku: 'SKU-MULTI', karat: 18, metals: [{ name: 'Clasp', karat: 14, weight: 1.5 }] } // Multi-metal
+      ];
+
+      const vm = require('node:vm');
+      const sandbox = {
+        document: { getElementById: () => ({ addEventListener: () => {} }) },
+        window: {},
+        DBManager: { getSettings: () => ({}) },
+        UI: {},
+        Calc: {}
+      };
+      vm.createContext(sandbox);
+      vm.runInContext(catalogJs + '\nglobalThis.Catalog = Catalog;', sandbox);
+      const Catalog = sandbox.Catalog;
+
+      // Verify extractItemKarats handles all formats
+      assert.equal(JSON.stringify(Catalog.extractItemKarats(itemsWithDiverseMetals[0])), JSON.stringify([18]));
+      assert.equal(JSON.stringify(Catalog.extractItemKarats(itemsWithDiverseMetals[1])), JSON.stringify([22]));
+      assert.equal(JSON.stringify(Catalog.extractItemKarats(itemsWithDiverseMetals[2])), JSON.stringify([14.5]));
+      assert.equal(JSON.stringify(Catalog.extractItemKarats(itemsWithDiverseMetals[3])), JSON.stringify([14]));
+      assert.equal(JSON.stringify(Catalog.extractItemKarats(itemsWithDiverseMetals[4])), JSON.stringify([18]));
+      assert.equal(JSON.stringify(Catalog.extractItemKarats(itemsWithDiverseMetals[5])), JSON.stringify([18, 14]));
+
+      // Verify itemMatchesKarat matches correctly
+      assert.ok(Catalog.itemMatchesKarat(itemsWithDiverseMetals[0], '18'));
+      assert.ok(!Catalog.itemMatchesKarat(itemsWithDiverseMetals[0], '22'));
+      assert.ok(Catalog.itemMatchesKarat(itemsWithDiverseMetals[1], '22'));
+      assert.ok(Catalog.itemMatchesKarat(itemsWithDiverseMetals[2], '14.5'));
+      assert.ok(Catalog.itemMatchesKarat(itemsWithDiverseMetals[3], '14'));
+      assert.ok(Catalog.itemMatchesKarat(itemsWithDiverseMetals[5], '14')); // Clasp matches
+      assert.ok(Catalog.itemMatchesKarat(itemsWithDiverseMetals[5], '18')); // Main piece matches
+      assert.ok(Catalog.itemMatchesKarat(itemsWithDiverseMetals[0], '')); // All karats matches all
+    });
+
     await t.test('Search Query: matches SKU, name, category, and metal name', () => {
       const query = 'white gold';
       const results = mockItems.filter(item => {

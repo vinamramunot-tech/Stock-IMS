@@ -674,13 +674,29 @@ const StoneController = {
   },
 
   getStoneShapes(st) {
+    if (!st) return [];
     if (st.sizes && st.sizes.length > 0) {
       return this.getShapesFromSizes(st.sizes);
     }
-    return st.shape ? [st.shape] : [];
+    if (Array.isArray(st.shapes) && st.shapes.length > 0) {
+      return st.shapes.map(s => String(s).trim()).filter(Boolean);
+    }
+    if (typeof st.shapes === 'string' && st.shapes.trim()) {
+      return st.shapes.split(',').map(s => s.trim()).filter(Boolean);
+    }
+    return st.shape ? [st.shape.trim()] : [];
+  },
+
+  /**
+   * Helper: get grade/clarity property across varying attribute names
+   */
+  getStoneGrade(st) {
+    if (!st) return '';
+    return String(st.lustreGrade || st.grade || st.clarity || '').trim();
   },
 
   getStoneWeight(st) {
+    if (!st) return 0;
     if (st.sizes && st.sizes.length > 0) {
       return st.sizes.reduce((sum, s) => sum + Number(s.weight || 0), 0);
     }
@@ -688,10 +704,11 @@ const StoneController = {
   },
 
   getStonePieces(st) {
+    if (!st) return 0;
     if (st.sizes && st.sizes.length > 0) {
       return st.sizes.reduce((sum, s) => sum + Number(s.pieces || 0), 0);
     }
-    return 0;
+    return Number(st.pieces || st.quantity || st.count || 0);
   },
 
   getFilteredStones() {
@@ -707,22 +724,23 @@ const StoneController = {
       const shapes = this.getStoneShapes(st);
       const shapesStr = shapes.join(' ').toLowerCase();
       const sizesStr = (st.sizes || []).map(s => `${s.shape} ${s.mm}`).join(' ').toLowerCase();
+      const grade = this.getStoneGrade(st);
 
       const matchesSearch = !query ||
         shapesStr.includes(query) ||
         sizesStr.includes(query) ||
         (st.type || '').toLowerCase().includes(query) ||
-        (st.lustreGrade || '').toLowerCase().includes(query) ||
+        grade.toLowerCase().includes(query) ||
         (st.group || '').toLowerCase().includes(query) ||
         (st.comments || '').toLowerCase().includes(query) ||
         this.getStoneWeight(st).toString().includes(query) ||
         (st.color || '').toString().toLowerCase().includes(query) ||
         (st.origins || []).some(o => o.toLowerCase().includes(query));
 
-      const matchesType = !filterType || st.type === filterType;
-      const matchesGroup = !filterGroup || st.group === filterGroup;
-      const matchesShape = !filterShape || shapes.includes(filterShape);
-      const matchesGrade = !filterGrade || st.lustreGrade === filterGrade;
+      const matchesType = !filterType || (st.type || '').toLowerCase() === filterType.toLowerCase();
+      const matchesGroup = !filterGroup || (st.group || '').toLowerCase() === filterGroup.toLowerCase();
+      const matchesShape = !filterShape || shapes.some(s => s.toLowerCase() === filterShape.toLowerCase());
+      const matchesGrade = !filterGrade || grade.toLowerCase() === filterGrade.toLowerCase();
 
       return matchesSearch && matchesType && matchesGroup && matchesShape && matchesGrade;
     });

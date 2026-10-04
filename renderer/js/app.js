@@ -40,12 +40,30 @@ const App = {
     const closeTriggers = document.querySelectorAll('.modal-close-trigger');
     closeTriggers.forEach(btn => {
       btn.addEventListener('click', () => {
+        const parentModal = btn.closest('.modal-overlay');
+        if (parentModal && parentModal.id) {
+          UI.closeModal(parentModal.id);
+        }
         UI.closeModal('modal-jewelry-item');
         UI.resetForm();
         UI.closeModal('modal-gold-rate');
         UI.closeModal('modal-usd-rate');
         UI.closeModal('modal-erase-confirm');
         UI.closeModal('modal-clear-logs-confirm');
+        UI.closeModal('modal-generic-confirm');
+        UI.closeModal('modal-generic-prompt');
+      });
+    });
+
+    // Allow clicking the backdrop (.modal-overlay) to dismiss non-critical modals
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          const isDangerous = overlay.querySelector('.dangerous-card');
+          if (!isDangerous && overlay.id) {
+            UI.closeModal(overlay.id);
+          }
+        }
       });
     });
 
@@ -162,17 +180,20 @@ const App = {
     if (btnMobileMenu && mobileMenuOverlay) {
       btnMobileMenu.addEventListener('click', () => {
         mobileMenuOverlay.classList.remove('hidden');
+        document.body.classList.add('modal-open');
       });
     }
 
     if (btnCloseMobileMenu && mobileMenuOverlay) {
       btnCloseMobileMenu.addEventListener('click', () => {
         mobileMenuOverlay.classList.add('hidden');
+        document.body.classList.remove('modal-open');
       });
       // Click outside content to close
       mobileMenuOverlay.addEventListener('click', (e) => {
         if (e.target === mobileMenuOverlay) {
           mobileMenuOverlay.classList.add('hidden');
+          document.body.classList.remove('modal-open');
         }
       });
     }
@@ -1078,12 +1099,13 @@ const App = {
       statusBadge.className = 'badge-status';
       let statusClass = 'stock';
       let statusLabel = 'In Stock';
-      if (item.memoId) {
-        statusClass = 'memo';
-        statusLabel = 'On Memo';
-      } else if (item.sold) {
+      const normStatus = (item.status || '').toLowerCase();
+      if (item.sold || normStatus === 'sold') {
         statusClass = 'sold';
         statusLabel = 'Sold';
+      } else if (item.memoId || normStatus === 'issued' || normStatus === 'on memo') {
+        statusClass = 'memo';
+        statusLabel = 'On Memo';
       }
       statusBadge.classList.add(statusClass);
       statusBadge.textContent = statusLabel;
@@ -1109,8 +1131,8 @@ const App = {
 
     // 5. Weight summary
     let totalGemWeight = 0;
-    (item.stones || []).forEach(s => totalGemWeight += Number(s.weight || 0));
-    (item.diamondsPolki || []).forEach(d => totalGemWeight += Number(d.weight || 0));
+    (item.stones || []).forEach(s => totalGemWeight += Number(s.weight || s.carats || s.cts || s.totalWeight || 0));
+    (item.diamondsPolki || []).forEach(d => totalGemWeight += Number(d.weight || d.carats || d.cts || d.totalWeight || 0));
 
     const totalGrossWeight = netMetals.reduce((sum, m) => sum + Number(m.grossWeight || 0), 0);
     const netMetalWeight = netMetals.reduce((sum, m) => sum + Number(m.netWeight || 0), 0);
@@ -1668,12 +1690,12 @@ const App = {
     const shouldOpen = forceOpen !== null ? forceOpen : !isCurrentlyOpen;
 
     if (shouldOpen) {
-      paletteModal.classList.remove('hidden');
+      UI.openModal('modal-command-palette');
       input.value = '';
       this.renderCommandPaletteResults('');
       setTimeout(() => input.focus(), 50);
     } else {
-      paletteModal.classList.add('hidden');
+      UI.closeModal('modal-command-palette');
       input.blur();
     }
   },
@@ -1813,7 +1835,7 @@ const App = {
       const activeEl = document.activeElement;
       const isInput = activeEl && ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeEl.tagName);
 
-      // 1. Esc closes modal, lightbox, or palette
+      // 1. Esc closes modal, lightbox, palette, or mobile menu
       if (e.key === 'Escape') {
         const palette = document.getElementById('modal-command-palette');
         if (palette && !palette.classList.contains('hidden')) {
@@ -1822,8 +1844,23 @@ const App = {
         }
         const lightbox = document.getElementById('modal-image-lightbox');
         if (lightbox && !lightbox.classList.contains('hidden')) {
-          lightbox.classList.add('hidden');
+          UI.closeModal('modal-image-lightbox');
           return;
+        }
+        const mobileMenu = document.getElementById('mobile-menu-overlay');
+        if (mobileMenu && !mobileMenu.classList.contains('hidden')) {
+          mobileMenu.classList.add('hidden');
+          document.body.classList.remove('modal-open');
+          return;
+        }
+        // Dismiss top-most active modal
+        const openModals = Array.from(document.querySelectorAll('.modal-overlay:not(.hidden)'));
+        if (openModals.length > 0) {
+          const topModal = openModals[openModals.length - 1];
+          if (topModal && topModal.id) {
+            UI.closeModal(topModal.id);
+            return;
+          }
         }
       }
 
@@ -1906,7 +1943,7 @@ const App = {
 
     if (closeBtn) {
       closeBtn.addEventListener('click', () => {
-        lightboxModal.classList.add('hidden');
+        UI.closeModal('modal-image-lightbox');
         resetZoom();
       });
     }
@@ -2093,7 +2130,7 @@ const App = {
     document.getElementById('lightbox-specs-stones').textContent = stonesSum > 0 ? `Stones: ${stonesSum.toFixed(2)} cts` : 'Solitaire';
     document.getElementById('lightbox-specs-price').textContent = `₹${evaluation.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
 
-    lightboxModal.classList.remove('hidden');
+    UI.openModal('modal-image-lightbox');
   },
 
   switchAppSuite(suite) {

@@ -154,6 +154,7 @@ const UI = {
     const modal = document.getElementById(modalId);
     if (modal) {
       modal.classList.remove('hidden');
+      document.body.classList.add('modal-open');
       if (this.updateScrollToTop) {
         this.updateScrollToTop();
       }
@@ -164,6 +165,10 @@ const UI = {
     const modal = document.getElementById(modalId);
     if (modal) {
       modal.classList.add('hidden');
+      const anyModalOpen = document.querySelector('.modal-overlay:not(.hidden), .mobile-menu-overlay:not(.hidden)');
+      if (!anyModalOpen) {
+        document.body.classList.remove('modal-open');
+      }
       if (this.updateScrollToTop) {
         this.updateScrollToTop();
       }

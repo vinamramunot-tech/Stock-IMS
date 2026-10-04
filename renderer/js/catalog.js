@@ -31,18 +31,19 @@ const Catalog = {
         const allItems = this.getAllCatalogItems();
 
         const visibleItems = allItems.filter(item => {
-          if (statusFilter === 'active' && item.status === 'Sold') return false;
-          if (statusFilter === 'In Stock' && item.status && item.status !== 'In Stock') return false;
-          if (statusFilter === 'Issued' && item.status !== 'On Memo' && item.status !== 'Issued') return false;
-          if (statusFilter === 'Sold' && item.status !== 'Sold') return false;
+          const normStatus = this.normalizeItemStatus(item.status);
+          if (statusFilter === 'active' && normStatus === 'Sold') return false;
+          if (statusFilter === 'In Stock' && normStatus !== 'In Stock') return false;
+          if (statusFilter === 'Issued' && normStatus !== 'Issued') return false;
+          if (statusFilter === 'Sold' && normStatus !== 'Sold') return false;
 
           const matchesSearch = !query ||
             (item.name || '').toLowerCase().includes(query) ||
             (item.sku || '').toLowerCase().includes(query) ||
             (item.description || '').toLowerCase().includes(query) ||
             (item.metals || []).some(m => (m.name || '').toLowerCase().includes(query));
-          const matchesCat = !filterCat || item.category === filterCat;
-          const matchesKarat = !filterKarat || (item.metals || []).some(m => m.karat == filterKarat);
+          const matchesCat = this.itemMatchesCategory(item.category, filterCat);
+          const matchesKarat = this.itemMatchesKarat(item, filterKarat);
           return matchesSearch && matchesCat && matchesKarat;
         });
 
@@ -244,6 +245,90 @@ const Catalog = {
     return items;
   },
 
+  /**
+   * Robustly extracts all unique metal karat numbers from a jewelry item,
+   * inspecting item.karat, item.purity, item.metalPurity, item.metals array,
+   * metal part names, and hallmark numbers (750 -> 18, 916 -> 22, 585 -> 14, 999 -> 24).
+   */
+  extractItemKarats(item) {
+    if (!item) return [];
+    const karats = new Set();
+
+    const parseKarat = (val) => {
+      if (val === undefined || val === null || val === '') return null;
+      if (typeof val === 'number') {
+        if (!isNaN(val) && val > 0) return val;
+        return null;
+      }
+      const str = String(val).trim();
+      if (!str) return null;
+
+      // Standard international hallmark conversion
+      if (str === '750') return 18;
+      if (str === '916') return 22;
+      if (str === '585') return 14;
+      if (str === '999') return 24;
+      if (str === '417') return 10;
+      if (str === '375') return 9;
+
+      const m = str.match(/(\d+(?:\.\d+)?)/);
+      if (m) {
+        const num = parseFloat(m[1]);
+        if (!isNaN(num) && num > 0) return num;
+      }
+      return null;
+    };
+
+    // 1. Primary item.karat (standard jewelry stock items)
+    const primaryKarat = parseKarat(item.karat);
+    if (primaryKarat !== null) {
+      karats.add(primaryKarat);
+    }
+
+    // 2. Purity properties if defined
+    const purityKarat = parseKarat(item.purity || item.metalPurity);
+    if (purityKarat !== null) {
+      karats.add(purityKarat);
+    }
+
+    // 3. Components in item.metals array (additional parts or Excel block imports)
+    if (Array.isArray(item.metals)) {
+      item.metals.forEach(m => {
+        if (!m) return;
+        const mk = parseKarat(m.karat);
+        if (mk !== null) karats.add(mk);
+        const mp = parseKarat(m.purity);
+        if (mp !== null) karats.add(mp);
+        if (m.name) {
+          const matchName = String(m.name).match(/(\d+(?:\.\d+)?)\s*[kK][tT]/);
+          if (matchName) {
+            const parsed = parseFloat(matchName[1]);
+            if (!isNaN(parsed) && parsed > 0) karats.add(parsed);
+          }
+        }
+      });
+    }
+
+    // 4. Default fallback: if item has gross weight or metal value but no explicit karat, standard is 18KT
+    if (karats.size === 0 && Number(item.grossWeight || 0) > 0) {
+      karats.add(18);
+    }
+
+    return Array.from(karats);
+  },
+
+  /**
+   * Checks if an item matches the requested karat filter
+   */
+  itemMatchesKarat(item, filterKarat) {
+    if (!filterKarat || filterKarat === '' || filterKarat === 'all') return true;
+    const targetKarat = Number(filterKarat);
+    if (isNaN(targetKarat) || targetKarat <= 0) return true;
+
+    const itemKarats = this.extractItemKarats(item);
+    return itemKarats.some(kt => Math.abs(kt - targetKarat) < 0.001 || kt == targetKarat);
+  },
+
   populateKaratFilterOptions() {
     const filterSelect = document.getElementById('filter-karat');
     if (!filterSelect) return;
@@ -251,19 +336,16 @@ const Catalog = {
     // Remember currently selected karat
     const currentSelected = filterSelect.value;
 
-    // Gather all unique karats from catalog items
+    // Gather all unique karats from catalog items (both active items and sales snapshots)
     const allItems = this.getAllCatalogItems();
     const uniqueKarats = new Set();
 
     allItems.forEach(item => {
-      (item.metals || []).forEach(m => {
-        if (m.karat !== undefined && m.karat !== null && !isNaN(m.karat)) {
-          uniqueKarats.add(Number(m.karat));
-        }
-      });
+      const karats = this.extractItemKarats(item);
+      karats.forEach(kt => uniqueKarats.add(kt));
     });
 
-    // Sort karats descending
+    // Sort karats descending (e.g. 24, 22, 18, 14.5, 14, 10, 9)
     const sortedKarats = Array.from(uniqueKarats).sort((a, b) => b - a);
 
     // Build options HTML
@@ -279,12 +361,105 @@ const Catalog = {
     if (currentOptionsString !== newOptionsString) {
       filterSelect.innerHTML = optionsHtml;
       // Restore selected value if still valid
-      if (uniqueKarats.has(Number(currentSelected))) {
+      if (currentSelected && sortedKarats.some(kt => Math.abs(kt - Number(currentSelected)) < 0.001 || String(kt) === String(currentSelected))) {
         filterSelect.value = currentSelected;
       } else {
         filterSelect.value = "";
       }
     }
+  },
+
+  /**
+   * Normalizes category names to standard singular forms (e.g. 'Rings' -> 'Ring', 'Necklaces' -> 'Necklace')
+   */
+  normalizeCategory(cat) {
+    if (!cat || typeof cat !== 'string') return 'Other';
+    const c = cat.trim();
+    const lower = c.toLowerCase();
+    if (lower === 'ring' || lower === 'rings') return 'Ring';
+    if (lower === 'necklace' || lower === 'necklaces') return 'Necklace';
+    if (lower === 'earring' || lower === 'earrings') return 'Earrings';
+    if (lower === 'bracelet' || lower === 'bracelets') return 'Bracelet';
+    if (lower === 'pendant' || lower === 'pendants') return 'Pendant';
+    if (lower === 'bangle' || lower === 'bangles') return 'Bracelet';
+    if (lower === 'other' || lower === 'others') return 'Other';
+    return c;
+  },
+
+  /**
+   * Checks if an item matches the requested category filter, handling plural/singular mismatches
+   */
+  itemMatchesCategory(itemCategory, filterCategory) {
+    if (!filterCategory || filterCategory === '' || filterCategory === 'all') return true;
+    const itemNorm = this.normalizeCategory(itemCategory).toLowerCase();
+    const filterNorm = this.normalizeCategory(filterCategory).toLowerCase();
+    if (itemNorm === filterNorm) return true;
+    return itemNorm.replace(/s$/, '') === filterNorm.replace(/s$/, '');
+  },
+
+  /**
+   * Dynamically populates the Category filter dropdown based on all actual categories present in DB
+   */
+  populateCategoryFilterOptions() {
+    const catSelect = document.getElementById('filter-category');
+    if (!catSelect) return;
+
+    const currentSelected = catSelect.value;
+    const allItems = this.getAllCatalogItems();
+
+    // Standard baseline categories
+    const standardCategories = ['Ring', 'Necklace', 'Earrings', 'Bracelet', 'Pendant', 'Other'];
+    const categoriesSet = new Set(standardCategories);
+
+    allItems.forEach(item => {
+      if (item.category && typeof item.category === 'string' && item.category.trim()) {
+        categoriesSet.add(this.normalizeCategory(item.category));
+      }
+    });
+
+    const sortedCategories = Array.from(categoriesSet).sort((a, b) => {
+      const idxA = standardCategories.indexOf(a);
+      const idxB = standardCategories.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.localeCompare(b);
+    });
+
+    let optionsHtml = `<option value="">All Categories</option>`;
+    sortedCategories.forEach(cat => {
+      const label = cat === 'Ring' ? 'Rings' :
+                    cat === 'Necklace' ? 'Necklaces' :
+                    cat === 'Earrings' ? 'Earrings' :
+                    cat === 'Bracelet' ? 'Bracelets' :
+                    cat === 'Pendant' ? 'Pendants' :
+                    cat === 'Other' ? 'Others' : cat;
+      optionsHtml += `<option value="${UI.escapeHtml(cat)}">${UI.escapeHtml(label)}</option>`;
+    });
+
+    const currentOptionsString = Array.from(catSelect.options).map(o => o.value).join(',');
+    const newOptionsString = ["", ...sortedCategories].join(',');
+
+    if (currentOptionsString !== newOptionsString) {
+      catSelect.innerHTML = optionsHtml;
+      if (currentSelected && sortedCategories.some(c => this.itemMatchesCategory(c, currentSelected))) {
+        catSelect.value = currentSelected;
+      } else {
+        catSelect.value = "";
+      }
+    }
+  },
+
+  /**
+   * Normalizes item status across various representations ('sold' -> 'Sold', 'issued'/'on memo' -> 'Issued', etc.)
+   */
+  normalizeItemStatus(status) {
+    if (!status || typeof status !== 'string') return 'In Stock';
+    const s = status.trim().toLowerCase();
+    if (s === 'sold') return 'Sold';
+    if (s === 'issued' || s === 'on memo' || s === 'on-memo' || s === 'memo') return 'Issued';
+    if (s === 'in stock' || s === 'in-stock' || s === 'available' || s === 'instock') return 'In Stock';
+    return status;
   },
 
   renderDashboard() {
@@ -845,11 +1020,11 @@ const Catalog = {
     }
 
     const query = document.getElementById('search-input').value.toLowerCase().trim();
-    const filterCat = document.getElementById('filter-category').value;
-
-    // Dynamically populate the karat dropdown filter based on actual catalog items
+    // Dynamically populate the category and karat dropdown filters based on actual catalog items
+    this.populateCategoryFilterOptions();
     this.populateKaratFilterOptions();
 
+    const filterCat = document.getElementById('filter-category').value;
     const statusFilter = document.getElementById('filter-jewelry-status')?.value || 'active';
     const filterKarat = document.getElementById('filter-karat').value;
     const sortVal = document.getElementById('sort-items').value;
@@ -877,16 +1052,12 @@ const Catalog = {
 
     // Filter Items
     let filtered = allItems.filter(item => {
-      // Status Filter:
-      // 'active': exclude sold pieces (default catalog inventory)
-      // 'all': include all pieces including sold
-      // 'In Stock': only in stock pieces
-      // 'Issued': only issued / on memo pieces
-      // 'Sold': only sold pieces
-      if (statusFilter === 'active' && item.status === 'Sold') return false;
-      if (statusFilter === 'In Stock' && item.status && item.status !== 'In Stock') return false;
-      if (statusFilter === 'Issued' && item.status !== 'On Memo' && item.status !== 'Issued') return false;
-      if (statusFilter === 'Sold' && item.status !== 'Sold') return false;
+      // Status Filter (normalized across various casing and representations):
+      const normStatus = this.normalizeItemStatus(item.status);
+      if (statusFilter === 'active' && normStatus === 'Sold') return false;
+      if (statusFilter === 'In Stock' && normStatus !== 'In Stock') return false;
+      if (statusFilter === 'Issued' && normStatus !== 'Issued') return false;
+      if (statusFilter === 'Sold' && normStatus !== 'Sold') return false;
 
       // 1. Text Search
       const matchesSearch = !query ||
@@ -895,11 +1066,11 @@ const Catalog = {
         (item.description || '').toLowerCase().includes(query) ||
         (item.metals || []).some(m => (m.name || '').toLowerCase().includes(query));
 
-      // 2. Category Filter
-      const matchesCat = !filterCat || item.category === filterCat;
+      // 2. Category Filter (plural/singular insensitive and normalized)
+      const matchesCat = this.itemMatchesCategory(item.category, filterCat);
 
       // 3. Karat Filter
-      const matchesKarat = !filterKarat || (item.metals || []).some(m => m.karat == filterKarat);
+      const matchesKarat = this.itemMatchesKarat(item, filterKarat);
 
       return matchesSearch && matchesCat && matchesKarat;
     });
@@ -1617,14 +1788,8 @@ const Catalog = {
     const allItems = this.getAllCatalogItems();
     const karats = new Set();
     allItems.forEach(item => {
-      if (item.karat !== undefined && item.karat !== null && !isNaN(item.karat) && Number(item.karat) > 0) {
-        karats.add(Number(item.karat));
-      }
-      (item.metals || []).forEach(m => {
-        if (m.karat !== undefined && m.karat !== null && !isNaN(m.karat) && Number(m.karat) > 0) {
-          karats.add(Number(m.karat));
-        }
-      });
+      const itemKarats = this.extractItemKarats(item);
+      itemKarats.forEach(kt => karats.add(kt));
     });
 
     const sorted = Array.from(karats).sort((a, b) => b - a);
@@ -1661,9 +1826,7 @@ const Catalog = {
       // if selectedStatus === 'all', include both active and sold items
 
       const matchesCat = !selectedCategory || item.category === selectedCategory;
-      const matchesKarat = !selectedKarat ||
-        (Number(item.karat) === Number(selectedKarat)) ||
-        (item.metals || []).some(m => Number(m.karat) === Number(selectedKarat));
+      const matchesKarat = this.itemMatchesKarat(item, selectedKarat);
       const matchesSearch = !searchText || (
         (item.name || '').toLowerCase().includes(searchText) ||
         (item.sku || '').toLowerCase().includes(searchText) ||
@@ -4296,14 +4459,21 @@ const Catalog = {
       // Always generate a fresh category-based SKU for imported items
       const finalSku = nextSkuForCategory(item.category || 'Other');
 
+      const itemGrossWeight = Number(item.grossWeight || item.grossWt || item.metals?.[0]?.weight || 0);
+      const itemKarat = Number(item.karat || item.metals?.[0]?.karat || 18);
+      const normalizedCategory = this.normalizeCategory(item.category || 'Other');
+
       const finalItem = {
         id: newItemId,
         name: item.name,
         sku: finalSku,
-        category: item.category || 'Earrings',
+        category: normalizedCategory,
         description: item.description || item.name,
         image: null,
-        metals: item.metals || [{ name: 'Body Component', karat: 18, weight: item.grossWt || 0 }],
+        grossWeight: itemGrossWeight,
+        karat: itemKarat,
+        status: 'In Stock',
+        metals: item.metals && item.metals.length > 0 ? item.metals : [{ name: 'Body Component', karat: itemKarat, weight: itemGrossWeight }],
         stones: item.stones || [],
         diamondsPolki: item.diamondsPolki || [],
         labourCost: Number(item.labourCost || 0),

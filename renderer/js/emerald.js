@@ -1224,19 +1224,45 @@ const EmeraldController = {
   },
 
   /**
-   * Helper: get all shapes from an emerald (handles both old and new format)
+   * Helper: get all shapes from an emerald (handles shapes array, shapes string, shape string, and sizes array)
    */
   getEmeraldShapes(e) {
+    if (!e) return [];
     if (e.sizes && e.sizes.length > 0) {
       return this.getShapesFromSizes(e.sizes);
     }
-    return e.shape ? [e.shape] : [];
+    if (Array.isArray(e.shapes) && e.shapes.length > 0) {
+      return e.shapes.map(s => String(s).trim()).filter(Boolean);
+    }
+    if (typeof e.shapes === 'string' && e.shapes.trim()) {
+      return e.shapes.split(',').map(s => s.trim()).filter(Boolean);
+    }
+    if (e.shape && typeof e.shape === 'string' && e.shape.trim()) {
+      return [e.shape.trim()];
+    }
+    return [];
+  },
+
+  /**
+   * Helper: get all origins from an emerald (handles origins array, origins string, and origin string)
+   */
+  getEmeraldOrigins(e) {
+    if (!e) return [];
+    if (Array.isArray(e.origins)) {
+      return e.origins.map(o => String(o).trim()).filter(Boolean);
+    }
+    const raw = e.origins || e.origin || '';
+    if (typeof raw === 'string' && raw.trim()) {
+      return raw.split(',').map(o => o.trim()).filter(Boolean);
+    }
+    return [];
   },
 
   /**
    * Helper: get total weight from an emerald (handles both old and new format)
    */
   getEmeraldWeight(e) {
+    if (!e) return 0;
     if (e.sizes && e.sizes.length > 0) {
       return e.sizes.reduce((sum, s) => sum + Number(s.weight || 0), 0);
     }
@@ -1247,6 +1273,7 @@ const EmeraldController = {
    * Helper: get total pieces from an emerald
    */
   getEmeraldPieces(e) {
+    if (!e) return 0;
     if (e.sizes && e.sizes.length > 0) {
       return e.sizes.reduce((sum, s) => sum + Number(s.pieces || 0), 0);
     }
@@ -1266,6 +1293,7 @@ const EmeraldController = {
       const shapes = this.getEmeraldShapes(e);
       const shapesStr = shapes.join(' ').toLowerCase();
       const sizesStr = (e.sizes || []).map(s => `${s.shape} ${s.mm}`).join(' ').toLowerCase();
+      const origins = this.getEmeraldOrigins(e);
 
       const matchesSearch = !query ||
         shapesStr.includes(query) ||
@@ -1276,12 +1304,12 @@ const EmeraldController = {
         (e.comments || '').toLowerCase().includes(query) ||
         this.getEmeraldWeight(e).toString().includes(query) ||
         (e.pricePerCarat || '').toString().includes(query) ||
-        (e.origins || []).some(o => o.toLowerCase().includes(query));
+        origins.some(o => o.toLowerCase().includes(query));
 
-      const matchesGroup = !filterGroup || e.group === filterGroup;
-      const matchesShape = !filterShape || shapes.includes(filterShape);
-      const matchesLustre = !filterLustre || e.lustreGrade === filterLustre;
-      const matchesOrigin = !filterOrigin || (e.origins || []).includes(filterOrigin);
+      const matchesGroup = !filterGroup || (e.group || '').toLowerCase() === filterGroup.toLowerCase();
+      const matchesShape = !filterShape || shapes.some(s => s.toLowerCase() === filterShape.toLowerCase());
+      const matchesLustre = !filterLustre || (e.lustreGrade || '').toLowerCase() === filterLustre.toLowerCase();
+      const matchesOrigin = !filterOrigin || origins.some(o => o.toLowerCase() === filterOrigin.toLowerCase());
 
       return matchesSearch && matchesGroup && matchesShape && matchesLustre && matchesOrigin;
     });
