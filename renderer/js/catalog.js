@@ -4,6 +4,14 @@
  */
 
 const Catalog = {
+  getDOM(prop, id) {
+    if (!this._dom) this._dom = {};
+    if (!this._dom[prop] || !this._dom[prop].isConnected) {
+      this._dom[prop] = document.getElementById(id);
+    }
+    return this._dom[prop];
+  },
+
   init() {
     this.selectedItemIds = new Set();
 
@@ -369,7 +377,7 @@ const Catalog = {
   },
 
   populateKaratFilterOptions() {
-    const filterSelect = document.getElementById('filter-karat');
+    const filterSelect = this.getDOM('filterKarat', 'filter-karat');
     if (!filterSelect) return;
 
     // Remember currently selected karat
@@ -440,7 +448,7 @@ const Catalog = {
    * Dynamically populates the Category filter dropdown based on all actual categories present in DB
    */
   populateCategoryFilterOptions() {
-    const catSelect = document.getElementById('filter-category');
+    const catSelect = this.getDOM('filterCat', 'filter-category');
     if (!catSelect) return;
 
     const currentSelected = catSelect.value;
@@ -1048,8 +1056,8 @@ const Catalog = {
   },
 
   renderCatalogGrid() {
-    const gridContainer = document.getElementById('catalog-grid');
-    const emptyState = document.getElementById('catalog-empty-state');
+    const gridContainer = this.getDOM('gridContainer', 'catalog-grid');
+    const emptyState = this.getDOM('emptyState', 'catalog-empty-state');
     if (!gridContainer || !emptyState) return;
 
     if (this.viewType === 'list') {
@@ -1058,15 +1066,16 @@ const Catalog = {
       gridContainer.classList.remove('list-view');
     }
 
-    const query = document.getElementById('search-input').value.toLowerCase().trim();
+    const searchInput = this.getDOM('searchInput', 'search-input');
+    const query = (searchInput?.value || '').toLowerCase().trim();
     // Dynamically populate the category and karat dropdown filters based on actual catalog items
     this.populateCategoryFilterOptions();
     this.populateKaratFilterOptions();
 
-    const filterCat = document.getElementById('filter-category').value;
-    const statusFilter = document.getElementById('filter-jewelry-status')?.value || 'active';
-    const filterKarat = document.getElementById('filter-karat').value;
-    const sortVal = document.getElementById('sort-items').value;
+    const filterCat = this.getDOM('filterCat', 'filter-category')?.value || '';
+    const statusFilter = this.getDOM('statusFilter', 'filter-jewelry-status')?.value || 'active';
+    const filterKarat = this.getDOM('filterKarat', 'filter-karat')?.value || '';
+    const sortVal = this.getDOM('sortVal', 'sort-items')?.value || 'sno-asc';
 
     const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
     const allItems = this.getAllCatalogItems();

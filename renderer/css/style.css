@@ -638,7 +638,7 @@ datalist option {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 30px;
+  padding: 6px calc(30px + env(safe-area-inset-right, 0px)) 6px calc(30px + env(safe-area-inset-left, 0px));
   flex-shrink: 0;
   gap: 12px;
 }
@@ -2755,7 +2755,7 @@ datalist option {
     margin: 0;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    padding: env(safe-area-inset-top, 30px) 20px calc(env(safe-area-inset-bottom, 20px) + 30px);
+    padding: env(safe-area-inset-top, 30px) calc(20px + env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 20px) + 30px) calc(20px + env(safe-area-inset-left, 0px));
     box-sizing: border-box;
     border: none;
     box-shadow: none;
@@ -2792,7 +2792,8 @@ datalist option {
     z-index: 1000;
     display: flex;
     flex-direction: column;
-    justify-content: flex-end; /* Anchors sheet to bottom of iPhone */
+    justify-content: flex-end;
+    /* Anchors sheet to bottom of iPhone */
     align-items: center;
     padding: 0;
     box-sizing: border-box;
@@ -2826,6 +2827,7 @@ datalist option {
     from {
       transform: translateY(100%);
     }
+
     to {
       transform: translateY(0);
     }
@@ -2942,7 +2944,7 @@ datalist option {
   .app-header {
     flex-shrink: 0;
     height: auto;
-    padding: calc(env(safe-area-inset-top, 14px) + 6px) 14px 10px;
+    padding: calc(env(safe-area-inset-top, 14px) + 6px) calc(14px + env(safe-area-inset-right, 0px)) 10px calc(14px + env(safe-area-inset-left, 0px));
     flex-direction: column;
     align-items: stretch;
     gap: 8px;
@@ -3169,8 +3171,7 @@ datalist option {
     min-height: 0;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    padding: 12px;
-    padding-bottom: calc(75px + env(safe-area-inset-bottom, 20px)) !important;
+    padding: 12px calc(12px + env(safe-area-inset-right, 0px)) calc(75px + env(safe-area-inset-bottom, 20px)) calc(12px + env(safe-area-inset-left, 0px)) !important;
   }
 
   .tab-content {
@@ -3217,7 +3218,8 @@ datalist option {
   .search-box input {
     width: 100% !important;
     height: 100% !important;
-    padding-left: 44px !important; /* CRITICAL: clears the search icon overlay completely */
+    padding-left: 44px !important;
+    /* CRITICAL: clears the search icon overlay completely */
     padding-right: 14px !important;
     border: none !important;
     background: transparent !important;
@@ -3293,7 +3295,8 @@ datalist option {
 
   /* Collapsible Filters 2-Column Grid (Keeps main screen clean for staff) */
   .filters-group {
-    display: none; /* Collapsed by default on mobile */
+    display: none;
+    /* Collapsed by default on mobile */
     grid-template-columns: 1fr 1fr;
     gap: 8px;
     width: 100%;
@@ -3417,7 +3420,7 @@ datalist option {
     min-width: 0;
   }
 
-  .catalog-grid-container .product-meta > div:first-child {
+  .catalog-grid-container .product-meta>div:first-child {
     display: flex !important;
     align-items: center !important;
     gap: 5px !important;
@@ -3434,7 +3437,8 @@ datalist option {
   }
 
   .catalog-grid-container .product-sku {
-    display: none !important; /* Hide redundant SKU on mobile cards to prevent text wrapping */
+    display: none !important;
+    /* Hide redundant SKU on mobile cards to prevent text wrapping */
   }
 
   .catalog-grid-container .product-title {
@@ -3469,7 +3473,8 @@ datalist option {
   .catalog-grid-container .product-specs .specs-gem-info,
   .catalog-grid-container .product-specs .specs-mfg-cost,
   .catalog-grid-container .product-specs .specs-metal-info {
-    display: none !important; /* Hide dense clutter from 2-col card preview */
+    display: none !important;
+    /* Hide dense clutter from 2-col card preview */
   }
 
   /* Clean price display: Bold Selling Price */
@@ -3485,7 +3490,8 @@ datalist option {
   .catalog-grid-container .product-price-specs .specs-pl,
   .catalog-grid-container .product-price-specs .specs-home-cost,
   .catalog-grid-container .product-price-specs .specs-market-cost {
-    display: none !important; /* Hide complex formulas & duplicate lines from mobile card */
+    display: none !important;
+    /* Hide complex formulas & duplicate lines from mobile card */
   }
 
   .catalog-grid-container .price-selling-highlight {
@@ -3897,16 +3903,20 @@ datalist option {
   padding: 14px 16px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
+
 .import-item-card:hover {
   border-color: var(--border-gold);
 }
+
 .import-item-card.is-duplicate {
   background: rgba(255, 193, 7, 0.05);
   border-color: rgba(255, 193, 7, 0.4);
 }
+
 .import-item-card.is-selected {
   border-color: var(--gold-accent);
 }
+
 .badge-import-status {
   display: inline-flex;
   align-items: center;
@@ -3918,16 +3928,19 @@ datalist option {
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
+
 .badge-import-new {
   background: rgba(46, 125, 50, 0.15);
   color: #2e7d32;
   border: 1px solid rgba(46, 125, 50, 0.3);
 }
+
 .badge-import-duplicate {
   background: rgba(230, 81, 0, 0.15);
   color: #e65100;
   border: 1px solid rgba(230, 81, 0, 0.3);
 }
+
 .badge-import-invalid {
   background: rgba(198, 40, 40, 0.15);
   color: #c62828;

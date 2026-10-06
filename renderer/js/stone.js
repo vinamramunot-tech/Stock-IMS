@@ -6,6 +6,13 @@
  */
 
 const StoneController = {
+  getDOM(prop, id) {
+    if (!this._dom) this._dom = {};
+    if (!this._dom[prop] || !this._dom[prop].isConnected) {
+      this._dom[prop] = document.getElementById(id);
+    }
+    return this._dom[prop];
+  },
   activeStoneState: null,
   activePdfDocument: null,
 
@@ -718,11 +725,11 @@ const StoneController = {
   },
 
   getFilteredStones() {
-    const query = document.getElementById('stone-search-input').value.toLowerCase().trim();
-    const filterType = document.getElementById('stone-filter-type').value;
-    const filterGroup = document.getElementById('stone-filter-group').value;
-    const filterShape = document.getElementById('stone-filter-shape').value;
-    const filterGrade = document.getElementById('stone-filter-grade').value;
+    const query = (this.getDOM('search', 'stone-search-input')?.value || '').toLowerCase().trim();
+    const filterType = this.getDOM('type', 'stone-filter-type')?.value || '';
+    const filterGroup = this.getDOM('group', 'stone-filter-group')?.value || '';
+    const filterShape = this.getDOM('shape', 'stone-filter-shape')?.value || '';
+    const filterGrade = this.getDOM('grade', 'stone-filter-grade')?.value || '';
 
     const all = DBManager.getStones();
 
@@ -778,7 +785,30 @@ const StoneController = {
     this.renderStoneGrid();
   },
 
+  /**
+   * Sorts an array of stone items in-place according to sortVal.
+   * Extracted to eliminate two identical sort if/else blocks inside renderStoneGrid().
+   * @param {Array} arr
+   * @param {string} sortVal
+   */
+  _sortStoneItems(arr, sortVal) {
+    if (sortVal === 'weight-high') {
+      arr.sort((a, b) => this.getStoneWeight(b) - this.getStoneWeight(a));
+    } else if (sortVal === 'weight-low') {
+      arr.sort((a, b) => this.getStoneWeight(a) - this.getStoneWeight(b));
+    } else if (sortVal === 'price-high') {
+      arr.sort((a, b) => (b.pricePerCarat || 0) - (a.pricePerCarat || 0));
+    } else if (sortVal === 'price-low') {
+      arr.sort((a, b) => (a.pricePerCarat || 0) - (b.pricePerCarat || 0));
+    } else if (sortVal === 'newest') {
+      arr.sort((a, b) => UI.itemTimestamp(b) - UI.itemTimestamp(a));
+    } else {
+      arr.sort((a, b) => Number(a.color || 0) - Number(b.color || 0));
+    }
+  },
+
   renderStoneMetrics() {
+
 
     const looseStones = DBManager.getStones();
     let totalLooseStoneWeight = 0;
@@ -804,8 +834,8 @@ const StoneController = {
 
   renderStoneGrid() {
     this.renderStoneMetrics();
-    const gridContainer = document.getElementById('stone-catalog-grid');
-    const emptyState = document.getElementById('stone-empty-state');
+    const gridContainer = this.getDOM('gridContainer', 'stone-catalog-grid');
+    const emptyState = this.getDOM('emptyState', 'stone-empty-state');
     if (!gridContainer || !emptyState) return;
 
     this.populateGroupFilterOptions();
@@ -875,32 +905,10 @@ const StoneController = {
       groups[groupName].types[typeName].grades[gradeName].totalValue += val;
     });
 
-    // Sort items inside grade categories respecting active sortVal
+    // Sort items inside grade categories using shared helper
     Object.values(groups).forEach(g => {
       Object.values(g.types).forEach(t => {
-        Object.values(t.grades).forEach(gr => {
-          if (sortVal === 'weight-high') {
-            gr.items.sort((a, b) => this.getStoneWeight(b) - this.getStoneWeight(a));
-          } else if (sortVal === 'weight-low') {
-            gr.items.sort((a, b) => this.getStoneWeight(a) - this.getStoneWeight(b));
-          } else if (sortVal === 'price-high') {
-            gr.items.sort((a, b) => (b.pricePerCarat || 0) - (a.pricePerCarat || 0));
-          } else if (sortVal === 'price-low') {
-            gr.items.sort((a, b) => (a.pricePerCarat || 0) - (b.pricePerCarat || 0));
-          } else if (sortVal === 'newest') {
-            gr.items.sort((a, b) => {
-              const tA = a.createdAt ? new Date(a.createdAt).getTime() : Number(a.id?.split('_')[1] || 0);
-              const tB = b.createdAt ? new Date(b.createdAt).getTime() : Number(b.id?.split('_')[1] || 0);
-              return tB - tA;
-            });
-          } else {
-            gr.items.sort((a, b) => {
-              const packA = Number(a.color) || 0;
-              const packB = Number(b.color) || 0;
-              return packA - packB;
-            });
-          }
-        });
+        Object.values(t.grades).forEach(gr => this._sortStoneItems(gr.items, sortVal));
       });
     });
 
@@ -915,11 +923,7 @@ const StoneController = {
     } else if (sortVal === 'price-low') {
       groupsArray.sort((a, b) => a.totalValue - b.totalValue);
     } else if (sortVal === 'newest') {
-      groupsArray.sort((a, b) => {
-        const tA = Math.max(...a.items.map(it => it.createdAt ? new Date(it.createdAt).getTime() : Number(it.id?.split('_')[1] || 0)), 0);
-        const tB = Math.max(...b.items.map(it => it.createdAt ? new Date(it.createdAt).getTime() : Number(it.id?.split('_')[1] || 0)), 0);
-        return tB - tA;
-      });
+      groupsArray.sort((a, b) => Math.max(...b.items.map(it => UI.itemTimestamp(it)), 0) - Math.max(...a.items.map(it => UI.itemTimestamp(it)), 0));
     } else {
       groupsArray.sort((a, b) => a.name.localeCompare(b.name));
     }
@@ -943,7 +947,7 @@ const StoneController = {
             </div>
             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-left: 22px;">
               <span style="background-color: var(--bg-base); padding: 2px 8px; border-radius: 10px; font-size: 11px; color: var(--text-muted);">Weight: <strong style="color: var(--text-main);">${group.totalWeight.toFixed(3)} cts</strong></span>
-              <span class="cost-price-data" style="background-color: var(--bg-base); padding: 2px 8px; border-radius: 10px; font-size: 11px; color: var(--text-muted);">Value: <strong style="color: var(--text-gold-dark);">₹${group.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
+              <span style="background-color: var(--bg-base); padding: 2px 8px; border-radius: 10px; font-size: 11px; color: var(--text-muted);">Value: <strong style="color: var(--text-gold-dark);">${UI.fmtINR(group.totalValue)}</strong></span>
               <span style="background-color: var(--bg-base); padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; color: var(--text-main);">${group.itemCount} Packets</span>
             </div>
           </div>

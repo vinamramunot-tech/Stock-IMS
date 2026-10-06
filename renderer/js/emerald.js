@@ -5,6 +5,13 @@
  */
 
 const EmeraldController = {
+  getDOM(prop, id) {
+    if (!this._dom) this._dom = {};
+    if (!this._dom[prop] || !this._dom[prop].isConnected) {
+      this._dom[prop] = document.getElementById(id);
+    }
+    return this._dom[prop];
+  },
   activeEmeraldState: null,
   currentViewMode: 'accordion',
 
@@ -1287,11 +1294,11 @@ const EmeraldController = {
   },
 
   getFilteredEmeralds() {
-    const query = document.getElementById('emerald-search-input').value.toLowerCase().trim();
-    const filterGroup = document.getElementById('emerald-filter-group').value;
-    const filterShape = document.getElementById('emerald-filter-shape').value;
-    const filterLustre = document.getElementById('emerald-filter-lustre').value;
-    const filterOrigin = document.getElementById('emerald-filter-origin').value;
+    const query = (this.getDOM('search', 'emerald-search-input')?.value || '').toLowerCase().trim();
+    const filterGroup = this.getDOM('group', 'emerald-filter-group')?.value || '';
+    const filterShape = this.getDOM('shape', 'emerald-filter-shape')?.value || '';
+    const filterLustre = this.getDOM('lustre', 'emerald-filter-lustre')?.value || '';
+    const filterOrigin = this.getDOM('origin', 'emerald-filter-origin')?.value || '';
 
     const allEmeralds = DBManager.getEmeralds();
 
@@ -1347,7 +1354,35 @@ const EmeraldController = {
     this.renderEmeraldGrid();
   },
 
+  /**
+   * Sorts an array of emerald items in-place according to sortVal.
+   * Extracted to eliminate the three identical sort if/else blocks that
+   * previously existed in renderEmeraldGrid() for flat-view, grade-level, and group-level sorts.
+   * @param {Array} arr  - array of emerald objects
+   * @param {string} sortVal
+   */
+  _sortEmeraldItems(arr, sortVal) {
+    if (sortVal === 'weight-high' || sortVal === 'size-high') {
+      arr.sort((a, b) => this.getEmeraldWeight(b) - this.getEmeraldWeight(a));
+    } else if (sortVal === 'weight-low' || sortVal === 'size-low') {
+      arr.sort((a, b) => this.getEmeraldWeight(a) - this.getEmeraldWeight(b));
+    } else if (sortVal === 'price-high') {
+      arr.sort((a, b) => (b.pricePerCarat || 0) - (a.pricePerCarat || 0));
+    } else if (sortVal === 'price-low') {
+      arr.sort((a, b) => (a.pricePerCarat || 0) - (b.pricePerCarat || 0));
+    } else if (sortVal === 'color-high') {
+      arr.sort((a, b) => Number(b.color || 0) - Number(a.color || 0));
+    } else if (sortVal === 'color-low') {
+      arr.sort((a, b) => Number(a.color || 0) - Number(b.color || 0));
+    } else if (sortVal === 'newest') {
+      arr.sort((a, b) => UI.itemTimestamp(b) - UI.itemTimestamp(a));
+    } else {
+      arr.sort((a, b) => (a.group || '').localeCompare(b.group || '') || Number(a.color || 0) - Number(b.color || 0));
+    }
+  },
+
   renderEmeraldMetrics() {
+
 
     const emeralds = DBManager.getEmeralds();
     const usdRate = DBManager.getSettings().usdToInr ? DBManager.getSettings().usdToInr.rate : 0;
@@ -1379,9 +1414,9 @@ const EmeraldController = {
 
   renderEmeraldGrid() {
     this.renderEmeraldMetrics();
-    const gridContainer = document.getElementById('emerald-catalog-grid');
-    const flatContainer = document.getElementById('emerald-flat-grid');
-    const emptyState = document.getElementById('emerald-empty-state');
+    const gridContainer = this.getDOM('gridContainer', 'emerald-catalog-grid');
+    const flatContainer = this.getDOM('flatContainer', 'emerald-flat-grid');
+    const emptyState = this.getDOM('emptyState', 'emerald-empty-state');
     if (!gridContainer || !flatContainer || !emptyState) return;
 
     const catalogApplyMultiplier = document.getElementById('catalog-apply-multiplier');
@@ -1424,34 +1459,16 @@ const EmeraldController = {
       gridContainer.classList.add('hidden');
       flatContainer.classList.remove('hidden');
 
-      // Sort flat array
-      if (sortVal === 'weight-high' || sortVal === 'size-high') {
-        filtered.sort((a, b) => this.getEmeraldWeight(b) - this.getEmeraldWeight(a));
-      } else if (sortVal === 'weight-low' || sortVal === 'size-low') {
-        filtered.sort((a, b) => this.getEmeraldWeight(a) - this.getEmeraldWeight(b));
-      } else if (sortVal === 'price-high') {
-        filtered.sort((a, b) => (b.pricePerCarat || 0) - (a.pricePerCarat || 0));
-      } else if (sortVal === 'price-low') {
-        filtered.sort((a, b) => (a.pricePerCarat || 0) - (b.pricePerCarat || 0));
-      } else if (sortVal === 'color-high') {
-        filtered.sort((a, b) => Number(b.color || 0) - Number(a.color || 0));
-      } else if (sortVal === 'color-low') {
-        filtered.sort((a, b) => Number(a.color || 0) - Number(b.color || 0));
-      } else if (sortVal === 'newest') {
-        filtered.sort((a, b) => {
-          const tA = a.createdAt ? new Date(a.createdAt).getTime() : Number(a.id?.split('_')[1] || 0);
-          const tB = b.createdAt ? new Date(b.createdAt).getTime() : Number(b.id?.split('_')[1] || 0);
-          return tB - tA;
-        });
-      } else {
-        filtered.sort((a, b) => (a.group || '').localeCompare(b.group || '') || Number(a.color || 0) - Number(b.color || 0));
-      }
+      // Sort flat array using shared helper
+      this._sortEmeraldItems(filtered, sortVal);
 
-      // Render flat cards
+      // Render flat cards — use DocumentFragment to batch DOM writes
+      const flatFrag = document.createDocumentFragment();
       filtered.forEach(item => {
         const card = this.createFlatPudiaCard(item, isMultiplierEnabled, globalMultiplier);
-        flatContainer.appendChild(card);
+        flatFrag.appendChild(card);
       });
+      flatContainer.appendChild(flatFrag);
       return;
     }
 
@@ -1505,30 +1522,8 @@ const EmeraldController = {
         grades[gradeName].totalValue += val;
       });
 
-      // Sort items inside grade categories respecting active sortVal
-      Object.values(grades).forEach(grade => {
-        if (sortVal === 'color-high') {
-          grade.items.sort((a, b) => Number(b.color || 0) - Number(a.color || 0));
-        } else if (sortVal === 'color-low') {
-          grade.items.sort((a, b) => Number(a.color || 0) - Number(b.color || 0));
-        } else if (sortVal === 'weight-high' || sortVal === 'size-high') {
-          grade.items.sort((a, b) => this.getEmeraldWeight(b) - this.getEmeraldWeight(a));
-        } else if (sortVal === 'weight-low' || sortVal === 'size-low') {
-          grade.items.sort((a, b) => this.getEmeraldWeight(a) - this.getEmeraldWeight(b));
-        } else if (sortVal === 'price-high') {
-          grade.items.sort((a, b) => (b.pricePerCarat || 0) - (a.pricePerCarat || 0));
-        } else if (sortVal === 'price-low') {
-          grade.items.sort((a, b) => (a.pricePerCarat || 0) - (b.pricePerCarat || 0));
-        } else if (sortVal === 'newest') {
-          grade.items.sort((a, b) => {
-            const tA = a.createdAt ? new Date(a.createdAt).getTime() : Number(a.id?.split('_')[1] || 0);
-            const tB = b.createdAt ? new Date(b.createdAt).getTime() : Number(b.id?.split('_')[1] || 0);
-            return tB - tA;
-          });
-        } else {
-          grade.items.sort((a, b) => Number(a.color || 0) - Number(b.color || 0));
-        }
-      });
+      // Sort items inside grade categories using shared helper
+      Object.values(grades).forEach(grade => this._sortEmeraldItems(grade.items, sortVal));
 
       g.grades = grades;
     });
@@ -1544,25 +1539,12 @@ const EmeraldController = {
     } else if (sortVal === 'price-low') {
       groupsArray.sort((a, b) => a.totalValue - b.totalValue);
     } else if (sortVal === 'color-high') {
-      groupsArray.sort((a, b) => {
-        const maxA = Math.max(...a.items.map(it => Number(it.color || 0)), 0);
-        const maxB = Math.max(...b.items.map(it => Number(it.color || 0)), 0);
-        return maxB - maxA;
-      });
+      groupsArray.sort((a, b) => Math.max(...b.items.map(it => Number(it.color || 0)), 0) - Math.max(...a.items.map(it => Number(it.color || 0)), 0));
     } else if (sortVal === 'color-low') {
-      groupsArray.sort((a, b) => {
-        const minA = Math.min(...a.items.map(it => Number(it.color || 0)), Infinity);
-        const minB = Math.min(...b.items.map(it => Number(it.color || 0)), Infinity);
-        return minA - minB;
-      });
+      groupsArray.sort((a, b) => Math.min(...a.items.map(it => Number(it.color || 0)), Infinity) - Math.min(...b.items.map(it => Number(it.color || 0)), Infinity));
     } else if (sortVal === 'newest') {
-      groupsArray.sort((a, b) => {
-        const tA = Math.max(...a.items.map(it => it.createdAt ? new Date(it.createdAt).getTime() : Number(it.id?.split('_')[1] || 0)), 0);
-        const tB = Math.max(...b.items.map(it => it.createdAt ? new Date(it.createdAt).getTime() : Number(it.id?.split('_')[1] || 0)), 0);
-        return tB - tA;
-      });
+      groupsArray.sort((a, b) => Math.max(...b.items.map(it => UI.itemTimestamp(it)), 0) - Math.max(...a.items.map(it => UI.itemTimestamp(it)), 0));
     } else {
-      // Default: sort by group name
       groupsArray.sort((a, b) => a.name.localeCompare(b.name));
     }
 

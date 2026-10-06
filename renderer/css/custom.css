@@ -2200,6 +2200,8 @@ body.modal-open .scroll-to-top-btn {
     right: 0;
     height: calc(60px + env(safe-area-inset-bottom, 0px));
     padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
     background-color: rgba(16, 16, 20, 0.92);
     border-top: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.25);
@@ -2327,7 +2329,7 @@ body.showroom-client-mode .showroom-indicator-bar {
   gap: 12px;
   background: linear-gradient(90deg, #134e19, #1b5e20, #2e7d32, #1b5e20, #134e19);
   color: #ffffff;
-  padding: calc(env(safe-area-inset-top, 0px) + 8px) 16px 8px;
+  padding: calc(env(safe-area-inset-top, 0px) + 8px) calc(16px + env(safe-area-inset-right, 0px)) 8px calc(16px + env(safe-area-inset-left, 0px));
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -2871,5 +2873,255 @@ body.showroom-client-mode #detail-jewelry-selling-price {
 
   .toast.hidden {
     transform: translateX(-50%) translateY(16px) !important;
+  }
+}
+
+/* ==================== COMPREHENSIVE LANDSCAPE ORIENTATION ADAPTATION ==================== */
+/* Targets phones & handheld devices rotated horizontally (height <= 600px), plus orientation-landscape class */
+
+@media screen and (orientation: landscape) and (max-height: 600px),
+       screen and (max-width: 950px) and (orientation: landscape) {
+
+  /* 1. Header Bar: Sleek Horizontal Strip (frees up vertical real estate) */
+  .app-header {
+    height: 48px !important;
+    min-height: 48px !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 0 calc(14px + env(safe-area-inset-right, 0px)) 0 calc(14px + env(safe-area-inset-left, 0px)) !important;
+    gap: 10px !important;
+  }
+
+  .header-left {
+    width: auto !important;
+    flex: 0 0 auto !important;
+    gap: 8px !important;
+  }
+
+  .logo-serif {
+    font-size: 16px !important;
+  }
+
+  .app-mode {
+    font-size: 9px !important;
+    padding: 2px 6px !important;
+  }
+
+  .mobile-action-bar {
+    width: auto !important;
+    flex: 0 1 auto !important;
+    padding: 2px !important;
+    gap: 2px !important;
+  }
+
+  .mobile-action-btn {
+    padding: 3px 6px !important;
+    font-size: 9px !important;
+    gap: 3px !important;
+  }
+
+  .mobile-action-btn svg {
+    width: 13px !important;
+    height: 13px !important;
+  }
+
+  .header-middle {
+    width: auto !important;
+    flex: 0 1 auto !important;
+    gap: 6px !important;
+  }
+
+  .gold-rate-display {
+    padding: 2px 8px !important;
+    font-size: 11px !important;
+    border-radius: 8px !important;
+  }
+
+  .gold-rate-display .rate-label {
+    display: none !important;
+  }
+
+  .rate-value {
+    font-size: 11px !important;
+  }
+
+  /* 2. Navigation & Workspace Split: Keep content wide, nav compact */
+  .workspace-sidebar {
+    display: none !important; /* Hide full desktop sidebar on short landscape phones */
+  }
+
+  .mobile-bottom-nav {
+    display: flex !important;
+    height: calc(44px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+    padding-left: calc(16px + env(safe-area-inset-left, 0px)) !important;
+    padding-right: calc(16px + env(safe-area-inset-right, 0px)) !important;
+    background-color: rgba(16, 16, 20, 0.94) !important;
+  }
+
+  .mobile-nav-btn {
+    padding: 2px 0 1px 0 !important;
+    font-size: 8.5px !important;
+    gap: 1px !important;
+  }
+
+  .mobile-nav-btn svg {
+    width: 15px !important;
+    height: 15px !important;
+  }
+
+  .mobile-nav-add-icon {
+    width: 32px !important;
+    height: 32px !important;
+    margin-top: -8px !important;
+  }
+
+  .mobile-nav-add-icon svg {
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  .workspace-main {
+    padding: 10px calc(12px + env(safe-area-inset-right, 0px)) calc(50px + env(safe-area-inset-bottom, 12px)) calc(12px + env(safe-area-inset-left, 0px)) !important;
+  }
+
+  /* 3. Startup Launcher in Landscape */
+  .startup-overlay-container {
+    padding: 8px calc(16px + env(safe-area-inset-right, 0px)) 8px calc(16px + env(safe-area-inset-left, 0px)) !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .startup-card {
+    max-height: 94vh !important;
+    height: auto !important;
+    max-width: min(860px, 96vw) !important;
+    border-radius: 16px !important;
+    border: 1px solid var(--border-dark) !important;
+    padding: 14px 22px !important;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5) !important;
+  }
+
+  .startup-brand-row {
+    margin-bottom: 6px !important;
+  }
+
+  .startup-logo {
+    font-size: 20px !important;
+  }
+
+  .startup-desc {
+    font-size: 11.5px !important;
+    margin-bottom: 12px !important;
+    line-height: 1.3 !important;
+  }
+
+  .launcher-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  .startup-option-box {
+    min-height: 95px !important;
+    padding: 12px 14px !important;
+    border-radius: 12px !important;
+  }
+
+  .startup-option-box h3 {
+    font-size: 13px !important;
+    margin-bottom: 3px !important;
+  }
+
+  .startup-option-box p {
+    font-size: 10.5px !important;
+    line-height: 1.25 !important;
+    margin-bottom: 6px !important;
+  }
+
+  .option-action-indicator {
+    font-size: 9.5px !important;
+    margin-top: 4px !important;
+  }
+
+  /* 4. Modals in Landscape: Compact, Centered & Highly Usable */
+  .modal-overlay {
+    justify-content: center !important;
+    align-items: center !important;
+    padding: 8px calc(14px + env(safe-area-inset-right, 0px)) 8px calc(14px + env(safe-area-inset-left, 0px)) !important;
+  }
+
+  .modal-card {
+    max-height: 95vh !important;
+    height: auto !important;
+    max-width: min(720px, calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 24px)) !important;
+    border-radius: 14px !important;
+    border: 1px solid var(--border-gold-subtle, rgba(212, 175, 55, 0.35)) !important;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6) !important;
+    animation: none !important;
+  }
+
+  .modal-card::before {
+    display: none !important;
+  }
+
+  .modal-header {
+    padding: 8px 16px !important;
+  }
+
+  .modal-header h3 {
+    font-size: 15px !important;
+  }
+
+  .modal-body {
+    padding: 10px 16px !important;
+    gap: 8px !important;
+    max-height: calc(95vh - 96px) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .modal-footer {
+    padding: 6px 16px calc(6px + env(safe-area-inset-bottom, 0px)) 16px !important;
+  }
+
+  .modal-footer .btn {
+    height: 38px !important;
+    font-size: 12px !important;
+  }
+
+  /* Form layouts in landscape modals */
+  .modal-body .form-row {
+    margin-bottom: 8px !important;
+  }
+
+  .modal-tabs {
+    margin-bottom: 8px !important;
+    padding: 2px !important;
+  }
+
+  .modal-tab-btn {
+    padding: 5px 8px !important;
+    font-size: 10px !important;
+  }
+
+  /* 5. Grids, Lists, & Catalogs in Landscape */
+  .catalog-grid-container:not(.list-view) {
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  .filter-bar {
+    margin-bottom: 10px !important;
+  }
+
+  .search-box {
+    height: 40px !important;
+  }
+
+  .toast {
+    bottom: calc(52px + env(safe-area-inset-bottom, 0px)) !important;
+    padding: 8px 16px !important;
+    font-size: 11.5px !important;
   }
 }

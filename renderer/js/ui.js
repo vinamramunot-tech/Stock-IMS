@@ -25,6 +25,40 @@ const UI = {
     };
   },
 
+  /**
+   * Returns a numeric timestamp for an item, using createdAt ISO string first,
+   * then falling back to the epoch suffix in the ID (e.g. "item_1720000000000").
+   * Used by every sort-by-newest block across catalog, emerald, and stone.
+   * @param {Object} item
+   * @returns {number}
+   */
+  itemTimestamp(item) {
+    if (item.createdAt) return new Date(item.createdAt).getTime();
+    return Number(item.id?.split('_')[1] || 0);
+  },
+
+  /**
+   * Formats a number as an Indian-locale rupee string.
+   * e.g.  fmtINR(123456.7) → "₹1,23,456.70"
+   * Replaces all repeated: .toLocaleString(undefined, { minimumFractionDigits: 2 })
+   * @param {number} n
+   * @returns {string}
+   */
+  fmtINR(n) {
+    return '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  },
+
+  /**
+   * Formats a weight number with the given decimal places (defaults to 2).
+   * e.g.  fmtWt(3.5) → "3.50"
+   * @param {number} n
+   * @param {number} [decimals=2]
+   * @returns {string}
+   */
+  fmtWt(n, decimals = 2) {
+    return Number(n || 0).toFixed(decimals);
+  },
+
   // Toast Notification
   showToast(message, isError = false) {
     const toast = document.getElementById('toast-alert');

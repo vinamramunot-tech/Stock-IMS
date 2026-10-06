@@ -22,6 +22,7 @@ const App = {
     if (window.SalesController) { try { SalesController.init(); } catch (e) { console.error(e); } }
     try { UI.initScrollToTop(); } catch (e) { console.error("initScrollToTop error:", e); }
     try { this.initMobileBottomNav(); } catch (e) { console.error("initMobileBottomNav error:", e); }
+    try { this.initOrientationHandler(); } catch (e) { console.error("initOrientationHandler error:", e); }
     try { this.initCommandPalette(); } catch (e) { console.error("initCommandPalette error:", e); }
     try { this.initGlobalPowerShortcuts(); } catch (e) { console.error("initGlobalPowerShortcuts error:", e); }
     try { this.initFullscreenLightbox(); } catch (e) { console.error("initFullscreenLightbox error:", e); }
@@ -469,6 +470,24 @@ const App = {
       }
     } catch (e) {
       // ignore if unsupported
+    }
+  },
+
+  initOrientationHandler() {
+    const handleOrientation = () => {
+      const isLandscape = window.innerWidth > window.innerHeight;
+      const isMobile = window.isMobilePlatform ? window.isMobilePlatform() : false;
+      document.body.classList.toggle('orientation-landscape', isLandscape);
+      document.body.classList.toggle('orientation-portrait', !isLandscape);
+      if (isMobile) {
+        document.body.classList.add('platform-mobile');
+      }
+    };
+    handleOrientation();
+    window.addEventListener('resize', handleOrientation);
+    window.addEventListener('orientationchange', handleOrientation);
+    if (window.screen && window.screen.orientation) {
+      window.screen.orientation.addEventListener('change', handleOrientation);
     }
   },
 
