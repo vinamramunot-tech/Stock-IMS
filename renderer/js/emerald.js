@@ -14,6 +14,8 @@ const EmeraldController = {
   },
   activeEmeraldState: null,
   currentViewMode: 'accordion',
+  activeSplitItem: null,
+  activeMergeSelectedIds: new Set(),
 
   init() {
     this._replaceWithComboWidget('emerald-lustre', 'form-lustre', () => this._getKnownLustres(), 'Select or type lustre grade...');
@@ -300,6 +302,49 @@ const EmeraldController = {
       });
     }
 
+    // Merge Lots toolbar button
+    const btnMerge = document.getElementById('btn-merge-emerald-main');
+    if (btnMerge) {
+      btnMerge.addEventListener('click', () => this.openMergeModal());
+    }
+
+    // Split & Merge modal close triggers
+    document.querySelectorAll('.modal-close-trigger-split-pudia').forEach(btn => {
+      btn.addEventListener('click', () => UI.closeModal('modal-split-pudia'));
+    });
+    document.querySelectorAll('.modal-close-trigger-merge-pudias').forEach(btn => {
+      btn.addEventListener('click', () => UI.closeModal('modal-merge-pudias'));
+    });
+
+    // Split modal controls
+    const splitCaratsInp = document.getElementById('split-carats-input');
+    const splitPiecesInp = document.getElementById('split-pieces-input');
+    if (splitCaratsInp) splitCaratsInp.addEventListener('input', () => this.updateSplitPreview());
+    if (splitPiecesInp) splitPiecesInp.addEventListener('input', () => this.updateSplitPreview());
+
+    const splitStockType = document.getElementById('split-child-stock-type');
+    if (splitStockType) {
+      splitStockType.addEventListener('change', () => {
+        const layoutGroup = document.getElementById('split-child-layout-group');
+        if (layoutGroup) layoutGroup.classList.toggle('hidden', splitStockType.value !== 'Layout / Matched Suite');
+      });
+    }
+
+    const btnConfirmSplit = document.getElementById('btn-confirm-split-pudia');
+    if (btnConfirmSplit) {
+      btnConfirmSplit.addEventListener('click', () => this.handleConfirmSplit());
+    }
+
+    const btnConfirmMerge = document.getElementById('btn-confirm-merge-pudias');
+    if (btnConfirmMerge) {
+      btnConfirmMerge.addEventListener('click', () => this.handleConfirmMerge());
+    }
+
+    const mergeSearch = document.getElementById('merge-pudias-search');
+    if (mergeSearch) {
+      mergeSearch.addEventListener('input', () => this.renderMergeChecklist(mergeSearch.value));
+    }
+
     this.initImageUploader();
   },
 
@@ -385,6 +430,15 @@ const EmeraldController = {
     const stockType = document.getElementById('emerald-stock-type').value;
     const lustreGroup = document.getElementById('emerald-lustre-group');
     const lustreInput = document.getElementById('emerald-lustre');
+    const layoutSection = document.getElementById('emerald-layout-config-section');
+
+    if (layoutSection) {
+      if (stockType === 'Layout / Matched Suite') {
+        layoutSection.classList.remove('hidden');
+      } else {
+        layoutSection.classList.add('hidden');
+      }
+    }
 
     if (stockType === 'Single Pieces') {
       if (lustreGroup) lustreGroup.classList.add('hidden');
@@ -1090,6 +1144,13 @@ const EmeraldController = {
       stockTypeSelect.value = emerald.stockType || (emerald.lustreGrade ? 'Calibrated Series' : 'Single Pieces');
     }
 
+    const layoutCat = document.getElementById('emerald-layout-category');
+    const layoutProg = document.getElementById('emerald-layout-progression');
+    if (layoutCat) layoutCat.value = emerald.layoutCategory || 'Graduated Necklace Line';
+    if (layoutProg) layoutProg.value = emerald.layoutProgression || '';
+
+    this.handleStockTypeChange();
+
     // Load origin
     document.getElementById('emerald-origin').value = (emerald.origins || []).join(', ');
 
@@ -1733,7 +1794,8 @@ const EmeraldController = {
               <div>
                 <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Specifications</div>
                 <div style="font-size: 13px; line-height: 1.6;">
-                  <div><strong>Stock Type:</strong> ${item.stockType || 'Calibrated Series'}</div>
+                  <div><strong>Stock Type:</strong> ${item.stockType === 'Layout / Matched Suite' ? `<span style="color:var(--text-gold-dark);font-weight:700;">✨ ${UI.escapeHtml(item.layoutCategory || 'Layout Suite')}</span>` : (item.stockType || 'Calibrated Series')}</div>
+                  ${item.layoutProgression ? `<div><strong>Progression:</strong> ${UI.escapeHtml(item.layoutProgression)}</div>` : ''}
                   <div><strong>Pair:</strong> ${item.pair || 'No'}</div>
                   <div><strong>Origin:</strong> ${originsStr || 'None'}</div>
                   <div><strong>Shape:</strong> ${shapesDisplay}</div>
@@ -1754,13 +1816,22 @@ const EmeraldController = {
                 ${imageColHtml}
               </div>
             </div>
-            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px; border-top: 1px solid var(--border-light); padding-top: 12px;">
+            <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 15px; border-top: 1px solid var(--border-light); padding-top: 12px; align-items:center;">
+              <button type="button" class="btn btn-secondary btn-small btn-split" title="Split parcel into child lot or layout">✂️ Split Pudia</button>
               <button type="button" class="btn btn-secondary btn-small btn-edit" title="Edit details">Edit Details</button>
               <button type="button" class="btn btn-danger btn-small btn-delete" title="Delete emerald">Delete</button>
             </div>
           `;
 
           // Wire up pudia actions
+          const btnSplit = pudiaBody.querySelector('.btn-split');
+          if (btnSplit) {
+            btnSplit.addEventListener('click', (ev) => {
+              ev.stopPropagation();
+              this.openSplitModal(item);
+            });
+          }
+
           pudiaBody.querySelector('.btn-edit').addEventListener('click', (ev) => {
             ev.stopPropagation();
             this.loadItemIntoForm(item);
@@ -1942,10 +2013,14 @@ const EmeraldController = {
       }
 
       const shapes = Array.from(new Set(sizes.map(s => s.shape).filter(Boolean)));
+      const layoutCategory = stockType === 'Layout / Matched Suite' ? (document.getElementById('emerald-layout-category')?.value || 'Graduated Necklace Line') : null;
+      const layoutProgression = stockType === 'Layout / Matched Suite' ? (document.getElementById('emerald-layout-progression')?.value.trim() || '') : null;
 
       const parsedPudia = {
         id: isEdit ? document.getElementById('emerald-item-id').value : 'emerald_' + (Date.now() + idx),
         stockType,
+        layoutCategory,
+        layoutProgression,
         sizes,
         weight: Number(totalWeight.toFixed(3)),
         shape: shapes.join(', '),
@@ -3647,6 +3722,7 @@ const EmeraldController = {
           <span class="flat-pudia-num">Pudia #${item.color || 'N/A'}</span>
           <span class="flat-pudia-group">${UI.escapeHtml(item.group || 'Unassigned')}</span>
           ${memoCarats > 0 ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(212,175,55,0.15);color:var(--text-gold-dark);border:1px solid rgba(212,175,55,0.35);">🏷️ ON MEMO (${memoCarats.toFixed(2)} cts)</span>` : ''}
+          ${item.stockType === 'Layout / Matched Suite' ? `<span class="badge-layout-suite" style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(155,89,182,0.15);color:#8e44ad;border:1px solid rgba(155,89,182,0.35);">✨ ${UI.escapeHtml(item.layoutCategory || 'Layout Suite')}</span>` : ''}
         </div>
         <span class="flat-pudia-grade-badge" title="${UI.escapeHtml(item.lustreGrade || 'N/A')}">
           ${UI.escapeHtml(item.lustreGrade || 'Calibrated')}
@@ -3692,7 +3768,8 @@ const EmeraldController = {
         <div style="font-size: 11px; display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--border-light); padding-top: 8px;">
           <div><strong>Origin:</strong> ${originsStr || 'None'}</div>
           <div><strong>Pair:</strong> ${item.pair || 'No'}</div>
-          <div><strong>Stock Type:</strong> ${item.stockType || 'Calibrated Series'}</div>
+          <div><strong>Stock Type:</strong> ${item.stockType === 'Layout / Matched Suite' ? `<span style="color:var(--text-gold-dark);font-weight:700;">✨ ${UI.escapeHtml(item.layoutCategory || 'Layout Suite')}</span>` : (item.stockType || 'Calibrated Series')}</div>
+          ${item.layoutProgression ? `<div><strong>Progression:</strong> ${UI.escapeHtml(item.layoutProgression)}</div>` : ''}
         </div>
         ${sizesHtml}
       </div>
@@ -3702,6 +3779,9 @@ const EmeraldController = {
           Expand Sizes
         </button>
         <div style="display: flex; gap: 6px;">
+          <button type="button" class="btn btn-secondary btn-small btn-split-flat" data-client-hide style="padding: 4px 8px;" title="Split parcel into child lot or layout">
+            ✂️ Split
+          </button>
           <button type="button" class="btn btn-secondary btn-small btn-share-flat" style="padding: 4px 8px;" title="Share Card">
             Share
           </button>
@@ -3734,6 +3814,15 @@ const EmeraldController = {
       });
     }
 
+    // Split button
+    const btnSplit = card.querySelector('.btn-split-flat');
+    if (btnSplit) {
+      btnSplit.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        this.openSplitModal(item);
+      });
+    }
+
     // Edit button
     card.querySelector('.btn-edit-flat').addEventListener('click', (ev) => {
       ev.stopPropagation();
@@ -3754,6 +3843,523 @@ const EmeraldController = {
     });
 
     return card;
+  },
+
+  // ── Pudia Splitting Workflow ───────────────────────────────────────────────
+
+  openSplitModal(item) {
+    if (!item) return;
+    this.activeSplitItem = item;
+
+    const totalWeight = this.getEmeraldWeight(item);
+    const totalPieces = this.getEmeraldPieces(item);
+    const memoCarats = window.MemoController ? MemoController.getOpenMemoCaratsForEmerald(item.id) : 0;
+    const inCompanyWeight = Math.max(0, Number((totalWeight - memoCarats).toFixed(3)));
+
+    const summaryEl = document.getElementById('split-source-summary');
+    if (summaryEl) {
+      summaryEl.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Parent Parcel</div>
+            <div style="font-size: 16px; font-weight: 700; color: var(--text-main);">Pudia #${item.color || 'N/A'} <span style="font-size: 13px; font-weight: normal; color: var(--text-muted);">(${UI.escapeHtml(item.group || 'Unassigned')})</span></div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Current Weight</div>
+            <div style="font-size: 16px; font-weight: 700; color: var(--text-gold-dark);">${totalWeight.toFixed(2)} cts <span style="font-size: 12px; color: var(--text-muted);">(${totalPieces} pcs)</span></div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 15px; margin-top: 10px; font-size: 12px; color: var(--text-muted); flex-wrap: wrap; border-top: 1px dashed var(--border-light); padding-top: 8px;">
+          <div>Rate: <strong style="color: var(--text-main);">₹${(item.pricePerCarat || 0).toLocaleString()}/ct</strong></div>
+          <div>In Company: <strong style="color: #30D158;">${inCompanyWeight.toFixed(2)} cts</strong></div>
+          ${memoCarats > 0 ? `<div>Out on Memo: <strong style="color: var(--text-gold-dark);">${memoCarats.toFixed(2)} cts</strong></div>` : ''}
+          <div>Stock Type: <strong style="color: var(--text-main);">${UI.escapeHtml(item.stockType || 'Calibrated Series')}</strong></div>
+        </div>
+      `;
+    }
+
+    // Populate child default fields
+    const childColorInp = document.getElementById('split-child-color');
+    const childGroupInp = document.getElementById('split-child-group');
+    const childStockTypeInp = document.getElementById('split-child-stock-type');
+    const childPriceInp = document.getElementById('split-child-price');
+    const splitCaratsInp = document.getElementById('split-carats-input');
+    const splitPiecesInp = document.getElementById('split-pieces-input');
+    const layoutGroup = document.getElementById('split-child-layout-group');
+
+    if (childColorInp) childColorInp.value = `${item.color || ''}A`;
+    if (childGroupInp) childGroupInp.value = item.group || '';
+    if (childStockTypeInp) {
+      childStockTypeInp.value = 'Calibrated Series';
+      if (layoutGroup) layoutGroup.classList.add('hidden');
+    }
+    if (childPriceInp) childPriceInp.value = item.pricePerCarat || '';
+    if (splitCaratsInp) splitCaratsInp.value = '';
+    if (splitPiecesInp) splitPiecesInp.value = '';
+
+    this.updateSplitPreview();
+    UI.openModal('modal-split-pudia');
+  },
+
+  updateSplitPreview() {
+    if (!this.activeSplitItem) return;
+    const totalWeight = this.getEmeraldWeight(this.activeSplitItem);
+    const memoCarats = window.MemoController ? MemoController.getOpenMemoCaratsForEmerald(this.activeSplitItem.id) : 0;
+    const inCompanyWeight = Math.max(0, Number((totalWeight - memoCarats).toFixed(3)));
+
+    const splitCaratsInp = document.getElementById('split-carats-input');
+    const splitCarats = splitCaratsInp ? parseFloat(splitCaratsInp.value) || 0 : 0;
+
+    const parentRemEl = document.getElementById('split-rem-parent-cts');
+    const childCtsEl = document.getElementById('split-child-cts');
+
+    const remWeight = Math.max(0, Number((totalWeight - splitCarats).toFixed(3)));
+
+    if (childCtsEl) {
+      childCtsEl.textContent = splitCarats > 0 ? `${splitCarats.toFixed(2)} cts` : '—';
+    }
+
+    if (parentRemEl) {
+      if (splitCarats <= 0) {
+        parentRemEl.innerHTML = `${totalWeight.toFixed(2)} cts`;
+        parentRemEl.style.color = 'var(--text-main)';
+      } else if (splitCarats >= totalWeight) {
+        parentRemEl.innerHTML = `<span style="color:var(--danger-red);">0.00 cts (Split exceeds parcel!)</span>`;
+      } else if (remWeight < memoCarats) {
+        parentRemEl.innerHTML = `<span style="color:var(--danger-red);">${remWeight.toFixed(2)} cts (Violates open memo: ${memoCarats.toFixed(2)} cts out!)</span>`;
+      } else {
+        parentRemEl.innerHTML = `${remWeight.toFixed(2)} cts`;
+        parentRemEl.style.color = 'var(--text-main)';
+      }
+    }
+  },
+
+  async handleConfirmSplit() {
+    if (!this.activeSplitItem) return;
+    const parent = this.activeSplitItem;
+    const totalWeight = this.getEmeraldWeight(parent);
+    const totalPieces = this.getEmeraldPieces(parent);
+    const memoCarats = window.MemoController ? MemoController.getOpenMemoCaratsForEmerald(parent.id) : 0;
+    const inCompanyWeight = Math.max(0, Number((totalWeight - memoCarats).toFixed(3)));
+
+    const childColorInp = document.getElementById('split-child-color');
+    const childGroupInp = document.getElementById('split-child-group');
+    const childStockTypeInp = document.getElementById('split-child-stock-type');
+    const childPriceInp = document.getElementById('split-child-price');
+    const splitCaratsInp = document.getElementById('split-carats-input');
+    const splitPiecesInp = document.getElementById('split-pieces-input');
+    const layoutCategoryInp = document.getElementById('split-child-layout-category');
+    const layoutProgressionInp = document.getElementById('split-child-layout-progression');
+
+    const childColor = childColorInp ? childColorInp.value.trim() : '';
+    const childGroup = childGroupInp ? childGroupInp.value.trim() : '';
+    const childStockType = childStockTypeInp ? childStockTypeInp.value : 'Calibrated Series';
+    const childPrice = childPriceInp ? parseFloat(childPriceInp.value) || 0 : 0;
+    const splitCarats = splitCaratsInp ? parseFloat(splitCaratsInp.value) || 0 : 0;
+    const splitPieces = splitPiecesInp && splitPiecesInp.value !== '' ? parseInt(splitPiecesInp.value, 10) : null;
+
+    if (!childColor) {
+      UI.showToast("Please enter a valid Child Pudia Number.", true);
+      return;
+    }
+    if (!childGroup) {
+      UI.showToast("Please enter a Group / Lot Name for the child pudia.", true);
+      return;
+    }
+    if (childPrice <= 0) {
+      UI.showToast("Price per carat must be greater than 0.", true);
+      return;
+    }
+    if (splitCarats <= 0) {
+      UI.showToast("Please specify the carats to split (> 0).", true);
+      return;
+    }
+    if (splitCarats >= totalWeight) {
+      UI.showToast(`Cannot split entire weight (${totalWeight.toFixed(2)} cts). Use Edit Details instead or split a lesser amount.`, true);
+      return;
+    }
+    const remParentWeight = Number((totalWeight - splitCarats).toFixed(3));
+    if (remParentWeight < memoCarats) {
+      UI.showToast(`Cannot split ${splitCarats.toFixed(2)} cts: ${memoCarats.toFixed(2)} cts are currently out on open memo, leaving only ${inCompanyWeight.toFixed(2)} cts in company.`, true);
+      return;
+    }
+
+    // Check duplicate color in same group
+    const exists = DBManager.getEmeralds().some(e => 
+      (e.group || '').toLowerCase() === childGroup.toLowerCase() &&
+      String(e.color || '').toLowerCase() === childColor.toLowerCase()
+    );
+    if (exists) {
+      UI.showToast(`Pudia #${childColor} already exists in Group "${childGroup}". Please choose a distinct identifier.`, true);
+      return;
+    }
+
+    // Calculate proportions
+    const ratioChild = splitCarats / totalWeight;
+    const ratioParent = remParentWeight / totalWeight;
+
+    // Distribute sizes
+    let parentSizes = [];
+    let childSizes = [];
+
+    if (parent.sizes && parent.sizes.length > 0) {
+      let allocatedParentWeight = 0;
+      let allocatedChildWeight = 0;
+
+      parentSizes = parent.sizes.map((s, idx) => {
+        const isLast = idx === parent.sizes.length - 1;
+        const w = isLast ? Number((remParentWeight - allocatedParentWeight).toFixed(3)) : Number((s.weight * ratioParent).toFixed(3));
+        allocatedParentWeight += w;
+        const p = Math.max(0, Math.round(s.pieces * ratioParent));
+        return { shape: s.shape, mm: s.mm, pieces: p, weight: w };
+      });
+
+      childSizes = parent.sizes.map((s, idx) => {
+        const isLast = idx === parent.sizes.length - 1;
+        const w = isLast ? Number((splitCarats - allocatedChildWeight).toFixed(3)) : Number((s.weight * ratioChild).toFixed(3));
+        allocatedChildWeight += w;
+        const p = splitPieces !== null ? Math.max(0, Math.round(splitPieces * (s.weight / totalWeight))) : Math.max(0, Math.round(s.pieces * ratioChild));
+        return { shape: s.shape, mm: s.mm, pieces: p, weight: w };
+      });
+    } else {
+      const childPcs = splitPieces !== null ? splitPieces : Math.max(1, Math.round(totalPieces * ratioChild));
+      const parentPcs = Math.max(1, totalPieces - childPcs);
+      parentSizes = [{ shape: parent.shape || 'Emerald', mm: 'Mixed', pieces: parentPcs, weight: remParentWeight }];
+      childSizes = [{ shape: parent.shape || 'Emerald', mm: 'Mixed', pieces: childPcs, weight: splitCarats }];
+    }
+
+    // Construct child emerald
+    const childId = 'emerald_' + Date.now();
+    const childItem = {
+      id: childId,
+      stockType: childStockType,
+      layoutCategory: childStockType === 'Layout / Matched Suite' ? (layoutCategoryInp ? layoutCategoryInp.value : 'Graduated Necklace Line') : null,
+      layoutProgression: childStockType === 'Layout / Matched Suite' ? (layoutProgressionInp ? layoutProgressionInp.value.trim() : '') : null,
+      sizes: childSizes,
+      weight: Number(splitCarats.toFixed(3)),
+      shape: parent.shape || '',
+      lustreGrade: parent.lustreGrade || 'Calibrated',
+      color: childColor,
+      pricePerCarat: childPrice,
+      pair: parent.pair || 'No',
+      group: childGroup,
+      origins: [...(parent.origins || [])],
+      image: parent.image || null,
+      parentLotId: parent.id,
+      splitHistory: {
+        splitDate: new Date().toISOString(),
+        fromParentPudia: parent.color,
+        originalParentWeight: totalWeight
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    // Update parent in database
+    const parentIndex = DBManager.database.emeralds.findIndex(e => String(e.id) === String(parent.id));
+    if (parentIndex !== -1) {
+      DBManager.database.emeralds[parentIndex].sizes = parentSizes;
+      DBManager.database.emeralds[parentIndex].weight = remParentWeight;
+      DBManager.database.emeralds[parentIndex].updatedAt = new Date().toISOString();
+    }
+
+    // Add child to database
+    DBManager.database.emeralds.push(childItem);
+
+    // Audit logs
+    DBManager.addLog("SPLIT", parent.id, `Emerald Pudia #${parent.color}`, `Split ${splitCarats.toFixed(2)} cts into child Pudia #${childColor} (${childStockType})`, []);
+    DBManager.addLog("ADD", childItem.id, `Emerald Pudia #${childColor}`, `Created from Pudia #${parent.color} split (${splitCarats.toFixed(2)} cts)`, []);
+
+    await DBManager.saveVault();
+    UI.closeModal('modal-split-pudia');
+    this.renderEmeraldGrid();
+    UI.showToast(`Successfully split ${splitCarats.toFixed(2)} cts from Pudia #${parent.color} into Pudia #${childColor}!`);
+  },
+
+  // ── Pudia Merging Workflow ─────────────────────────────────────────────────
+
+  openMergeModal() {
+    this.activeMergeSelectedIds = new Set();
+    const searchInp = document.getElementById('merge-pudias-search');
+    if (searchInp) searchInp.value = '';
+
+    const destColor = document.getElementById('merge-dest-color');
+    const destGroup = document.getElementById('merge-dest-group');
+    const destOrigin = document.getElementById('merge-dest-origin');
+    const destPrice = document.getElementById('merge-dest-price');
+    if (destColor) destColor.value = '';
+    if (destGroup) destGroup.value = '';
+    if (destOrigin) destOrigin.value = '';
+    if (destPrice) destPrice.value = '';
+
+    this.renderMergeChecklist();
+    this.updateMergeCalc();
+    UI.openModal('modal-merge-pudias');
+  },
+
+  renderMergeChecklist(query = '') {
+    const container = document.getElementById('merge-pudias-checklist-container');
+    if (!container) return;
+
+    const q = (query || '').toLowerCase().trim();
+    const emeralds = DBManager.getEmeralds();
+
+    const filtered = emeralds.filter(e => {
+      if (!q) return true;
+      const colorStr = String(e.color || '').toLowerCase();
+      const groupStr = (e.group || '').toLowerCase();
+      const shapeStr = (e.shape || '').toLowerCase();
+      const originStr = (e.origins || []).join(' ').toLowerCase();
+      return colorStr.includes(q) || groupStr.includes(q) || shapeStr.includes(q) || originStr.includes(q);
+    });
+
+    if (filtered.length === 0) {
+      container.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 12px;">No pudia parcels match "${UI.escapeHtml(q)}"</div>`;
+      return;
+    }
+
+    container.innerHTML = '';
+    filtered.forEach(item => {
+      const isChecked = this.activeMergeSelectedIds.has(item.id);
+      const w = this.getEmeraldWeight(item);
+      const memoCarats = window.MemoController ? MemoController.getOpenMemoCaratsForEmerald(item.id) : 0;
+      const rate = item.pricePerCarat || 0;
+      const val = w * rate;
+
+      const row = document.createElement('label');
+      row.style.cssText = `
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--border-light);
+        cursor: pointer;
+        user-select: none;
+        transition: background 0.15s ease;
+        background: ${isChecked ? 'rgba(212, 175, 55, 0.08)' : 'transparent'};
+      `;
+
+      row.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <input type="checkbox" style="width: 16px; height: 16px; margin: 0; cursor: pointer;" ${isChecked ? 'checked' : ''}>
+          <div>
+            <div style="font-size: 13px; font-weight: 700; color: var(--text-main);">
+              Pudia #${item.color || 'N/A'}
+              <span style="font-size: 11px; font-weight: normal; color: var(--text-muted); margin-left: 4px;">(${UI.escapeHtml(item.group || 'Unassigned')})</span>
+              ${memoCarats > 0 ? `<span style="font-size: 10px; color: var(--text-gold-dark); margin-left: 6px; font-weight: 700;">🏷️ Memo: ${memoCarats.toFixed(2)} cts</span>` : ''}
+            </div>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+              ${UI.escapeHtml(item.shape || 'Emerald')} • ${UI.escapeHtml((item.origins || []).join(', ') || 'No Origin')} • ₹${rate.toLocaleString()}/ct
+            </div>
+          </div>
+        </div>
+        <div style="text-align: right;">
+          <div style="font-size: 13px; font-weight: 700; color: var(--text-gold-dark);">${w.toFixed(2)} cts</div>
+          <div style="font-size: 11px; color: var(--text-muted);">₹${Math.round(val).toLocaleString()}</div>
+        </div>
+      `;
+
+      const chk = row.querySelector('input[type="checkbox"]');
+      chk.addEventListener('change', () => {
+        if (chk.checked) {
+          this.activeMergeSelectedIds.add(item.id);
+          row.style.background = 'rgba(212, 175, 55, 0.08)';
+        } else {
+          this.activeMergeSelectedIds.delete(item.id);
+          row.style.background = 'transparent';
+        }
+        this.updateMergeCalc();
+      });
+
+      container.appendChild(row);
+    });
+  },
+
+  updateMergeCalc() {
+    const emeralds = DBManager.getEmeralds();
+    const selected = emeralds.filter(e => this.activeMergeSelectedIds.has(e.id));
+
+    let totalCarats = 0;
+    let totalValuation = 0;
+    const origins = new Set();
+    const groups = new Set();
+
+    selected.forEach(e => {
+      const w = this.getEmeraldWeight(e);
+      const r = e.pricePerCarat || 0;
+      totalCarats += w;
+      totalValuation += (w * r);
+      (e.origins || []).forEach(o => origins.add(o));
+      if (e.group) groups.add(e.group);
+    });
+
+    const weightedAvgRate = totalCarats > 0 ? (totalValuation / totalCarats) : 0;
+
+    const countEl = document.getElementById('merge-selected-count');
+    const caratsEl = document.getElementById('merge-combined-carats');
+    const rateEl = document.getElementById('merge-weighted-rate');
+
+    if (countEl) countEl.textContent = `${selected.length} Lot${selected.length === 1 ? '' : 's'}`;
+    if (caratsEl) caratsEl.textContent = `${totalCarats.toFixed(2)} cts`;
+    if (rateEl) rateEl.textContent = `₹${Math.round(weightedAvgRate).toLocaleString()}/ct`;
+
+    const destPriceInp = document.getElementById('merge-dest-price');
+    if (destPriceInp && !destPriceInp.value && weightedAvgRate > 0) {
+      destPriceInp.value = Math.round(weightedAvgRate);
+    }
+
+    const destOriginInp = document.getElementById('merge-dest-origin');
+    if (destOriginInp && !destOriginInp.value && origins.size > 0) {
+      destOriginInp.value = Array.from(origins).join(', ');
+    }
+
+    const destGroupInp = document.getElementById('merge-dest-group');
+    if (destGroupInp && !destGroupInp.value && groups.size > 0) {
+      destGroupInp.value = Array.from(groups)[0];
+    }
+  },
+
+  async handleConfirmMerge() {
+    const emeralds = DBManager.getEmeralds();
+    const selected = emeralds.filter(e => this.activeMergeSelectedIds.has(e.id));
+
+    if (selected.length < 2) {
+      UI.showToast("Please select at least 2 pudia parcels to merge.", true);
+      return;
+    }
+
+    // Check for open memos on any selected parcel
+    const itemsOnMemo = selected.filter(e => {
+      const memoCarats = window.MemoController ? MemoController.getOpenMemoCaratsForEmerald(e.id) : 0;
+      return memoCarats > 0;
+    });
+
+    if (itemsOnMemo.length > 0) {
+      const names = itemsOnMemo.map(e => `#${e.color}`).join(', ');
+      UI.showToast(`Cannot merge: Pudia ${names} has open approval memo(s) outstanding. Settle or return memo goods before merging.`, true);
+      return;
+    }
+
+    const destColorInp = document.getElementById('merge-dest-color');
+    const destGroupInp = document.getElementById('merge-dest-group');
+    const destOriginInp = document.getElementById('merge-dest-origin');
+    const destPriceInp = document.getElementById('merge-dest-price');
+    const removeSourcesChk = document.getElementById('merge-remove-sources-chk');
+
+    const destColor = destColorInp ? destColorInp.value.trim() : '';
+    const destGroup = destGroupInp ? destGroupInp.value.trim() : '';
+    const destOriginVal = destOriginInp ? destOriginInp.value.trim() : '';
+    const destPrice = destPriceInp ? parseFloat(destPriceInp.value) || 0 : 0;
+    const shouldRemoveSources = removeSourcesChk ? removeSourcesChk.checked : true;
+
+    if (!destColor) {
+      UI.showToast("Please specify a Merged Pudia Number.", true);
+      return;
+    }
+    if (!destGroup) {
+      UI.showToast("Please specify a Group / Lot Name for the merged lot.", true);
+      return;
+    }
+    if (destPrice <= 0) {
+      UI.showToast("Please enter a valid Selling Price per Carat (> 0).", true);
+      return;
+    }
+
+    // Check duplicate dest color in dest group (unless it's one of the source lots being removed!)
+    const duplicate = DBManager.getEmeralds().find(e => 
+      (e.group || '').toLowerCase() === destGroup.toLowerCase() &&
+      String(e.color || '').toLowerCase() === destColor.toLowerCase() &&
+      (!shouldRemoveSources || !this.activeMergeSelectedIds.has(e.id))
+    );
+    if (duplicate) {
+      UI.showToast(`Pudia #${destColor} already exists in Group "${destGroup}". Please choose a distinct Pudia Number.`, true);
+      return;
+    }
+
+    // Combine weights, valuations, shapes, sizes
+    let totalCarats = 0;
+    const shapesSet = new Set();
+    const originsSet = new Set();
+    if (destOriginVal) {
+      destOriginVal.split(',').forEach(o => { const t = o.trim(); if (t) originsSet.add(t); });
+    }
+
+    // Aggregate sizes by shape + mm key
+    const sizeMap = new Map();
+
+    selected.forEach(item => {
+      const w = this.getEmeraldWeight(item);
+      totalCarats += w;
+      if (item.shape) {
+        item.shape.split(',').forEach(s => { const t = s.trim(); if (t) shapesSet.add(t); });
+      }
+      (item.origins || []).forEach(o => originsSet.add(o));
+
+      if (item.sizes && item.sizes.length > 0) {
+        item.sizes.forEach(sz => {
+          const key = `${(sz.shape || '').trim().toLowerCase()}_${(sz.mm || '').trim().toLowerCase()}`;
+          if (!sizeMap.has(key)) {
+            sizeMap.set(key, { shape: sz.shape || 'Emerald', mm: sz.mm || 'Mixed', pieces: 0, weight: 0 });
+          }
+          const existing = sizeMap.get(key);
+          existing.pieces += (sz.pieces || 0);
+          existing.weight = Number((existing.weight + (sz.weight || 0)).toFixed(3));
+        });
+      }
+    });
+
+    let mergedSizes = [];
+    if (sizeMap.size > 0) {
+      mergedSizes = Array.from(sizeMap.values());
+    } else {
+      const totalPieces = selected.reduce((sum, e) => sum + this.getEmeraldPieces(e), 0);
+      mergedSizes = [{
+        shape: Array.from(shapesSet)[0] || 'Emerald',
+        mm: 'Mixed',
+        pieces: totalPieces,
+        weight: Number(totalCarats.toFixed(3))
+      }];
+    }
+
+    const mergedPudiaId = 'emerald_' + Date.now();
+    const mergedItem = {
+      id: mergedPudiaId,
+      stockType: 'Calibrated Series',
+      sizes: mergedSizes,
+      weight: Number(totalCarats.toFixed(3)),
+      shape: Array.from(shapesSet).join(', ') || 'Emerald',
+      lustreGrade: 'Calibrated',
+      color: destColor,
+      pricePerCarat: destPrice,
+      pair: 'No',
+      group: destGroup,
+      origins: Array.from(originsSet),
+      image: selected.find(e => !!e.image)?.image || null,
+      mergedFromLotIds: selected.map(e => e.id),
+      mergedFromPudias: selected.map(e => e.color),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    // Remove source lots if requested
+    if (shouldRemoveSources) {
+      const selectedIdSet = this.activeMergeSelectedIds;
+      selected.forEach(src => {
+        DBManager.addLog("MERGE_ARCHIVE", src.id, `Emerald Pudia #${src.color}`, `Merged into new Pudia #${destColor} (${destGroup})`, []);
+      });
+      DBManager.database.emeralds = DBManager.database.emeralds.filter(e => !selectedIdSet.has(e.id));
+    }
+
+    // Add merged item to database
+    DBManager.database.emeralds.push(mergedItem);
+
+    // Audit log
+    DBManager.addLog("MERGE", mergedItem.id, `Emerald Pudia #${destColor}`, `Merged ${selected.length} lots (${selected.map(e => '#' + e.color).join(', ')}) into Pudia #${destColor} (${totalCarats.toFixed(2)} cts @ ₹${destPrice}/ct)`, []);
+
+    await DBManager.saveVault();
+    UI.closeModal('modal-merge-pudias');
+    this.renderEmeraldGrid();
+    UI.showToast(`Successfully merged ${selected.length} lots into Pudia #${destColor} (${totalCarats.toFixed(2)} cts)!`);
   }
 };
 

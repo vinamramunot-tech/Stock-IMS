@@ -624,10 +624,22 @@ const JewelryMemoController = {
     const openMemos = memos.filter(m => m.status === 'open');
     const totalValOnMemo = openMemos.reduce((s, m) => s + (Number(m.totalValue) || 0), 0);
 
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const overdueCount = openMemos.filter(m => {
+      const d = new Date((m.date || m.createdAt?.split('T')[0] || '') + 'T00:00:00');
+      if (isNaN(d.getTime())) return false;
+      const days = Math.floor((today - d) / (1000 * 60 * 60 * 24));
+      return days > 7;
+    }).length;
+
     const elCount = document.getElementById('metric-jewelry-memo-open-count');
     const elVal = document.getElementById('metric-jewelry-memo-value');
+    const elOverdue = document.getElementById('metric-jewelry-memo-overdue-count');
     if (elCount) elCount.textContent = openMemos.length;
     if (elVal) elVal.textContent = '₹' + totalValOnMemo.toLocaleString(undefined, { minimumFractionDigits: 2 });
+    if (elOverdue) elOverdue.textContent = overdueCount;
 
     const statusFilter = document.getElementById('jewelry-memo-filter-status');
     const searchInput = document.getElementById('jewelry-memo-search-input');
@@ -635,7 +647,17 @@ const JewelryMemoController = {
     const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
 
     let filtered = memos.filter(m => {
-      const matchStatus = !filterVal || m.status === filterVal;
+      const d = new Date((m.date || m.createdAt?.split('T')[0] || '') + 'T00:00:00');
+      const days = !isNaN(d.getTime()) ? Math.floor((today - d) / (1000 * 60 * 60 * 24)) : 0;
+      const isOverdue = m.status === 'open' && days > 7;
+
+      let matchStatus = true;
+      if (filterVal === 'overdue') {
+        matchStatus = isOverdue;
+      } else if (filterVal) {
+        matchStatus = m.status === filterVal;
+      }
+
       const matchSearch = !query ||
         (m.personName || m.customerName || m.issuedTo || '').toLowerCase().includes(query) ||
         (m.brokerName || '').toLowerCase().includes(query) ||
@@ -676,15 +698,27 @@ const JewelryMemoController = {
 
     filtered.forEach(memo => {
       let dateFmt = '—';
-      if (memo.date) {
-        const d = new Date(memo.date.includes('T') ? memo.date : memo.date + 'T00:00:00');
-        if (!isNaN(d.getTime())) {
-          dateFmt = d.toLocaleDateString('en-IN', {
-            day: '2-digit', month: 'short', year: 'numeric'
-          });
-        }
+      const d = memo.date ? new Date(memo.date.includes('T') ? memo.date : memo.date + 'T00:00:00') : new Date(memo.createdAt || 0);
+      const daysOpen = !isNaN(d.getTime()) ? Math.max(0, Math.floor((today - d) / (1000 * 60 * 60 * 24))) : 0;
+      if (!isNaN(d.getTime())) {
+        dateFmt = d.toLocaleDateString('en-IN', {
+          day: '2-digit', month: 'short', year: 'numeric'
+        });
       }
-      const st = statusStyle[memo.status] || statusStyle.closed;
+
+      let badgeHtml = '';
+      if (memo.status === 'open') {
+        if (daysOpen > 7) {
+          badgeHtml = `<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);" title="${daysOpen} days open (Overdue)">🚨 Overdue (${daysOpen}d)</span>`;
+        } else if (daysOpen >= 4) {
+          badgeHtml = `<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;background:rgba(245,158,11,0.15);color:#f59e0b;border:1px solid rgba(245,158,11,0.3);" title="${daysOpen} days open">⚠️ ${daysOpen}d open</span>`;
+        } else {
+          badgeHtml = `<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;background:rgba(80,200,120,0.15);color:#50c878;border:1px solid rgba(80,200,120,0.3);" title="${daysOpen} days open">Active (${daysOpen}d)</span>`;
+        }
+      } else {
+        const st = statusStyle[memo.status] || statusStyle.closed;
+        badgeHtml = `<span style="display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;background:${st.bg};color:${st.color};border:1px solid ${st.border};">${memo.status === 'open' ? 'ISSUED' : 'CLOSED'}</span>`;
+      }
 
       const person = memo.personName || memo.customerName || memo.issuedTo;
       const broker = memo.brokerName && memo.brokerName !== '—' ? memo.brokerName : '';
@@ -703,17 +737,17 @@ const JewelryMemoController = {
         <td>${recipientDisplay}</td>
         <td style="text-align:right;font-weight:700;color:var(--text-gold-dark);">₹${totalVal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
         <td style="text-align:center;">${itemCount}</td>
+        <td>${badgeHtml}</td>
         <td>
-          <span style="display:inline-block;padding:2px 10px;border-radius:20px;
-            font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;
-            background:${st.bg};color:${st.color};border:1px solid ${st.border};">
-            ${memo.status === 'open' ? 'ISSUED' : 'CLOSED'}
-          </span>
-        </td>
-        <td>
-          <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;">
+          <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;align-items:center;">
             <button type="button" class="btn btn-secondary btn-small btn-view-memo">View</button>
             ${memo.status === 'open' ? `
+              <button type="button" class="btn btn-secondary btn-small btn-whatsapp-memo" style="font-size:11px;color:#25D366;border-color:rgba(37,211,102,0.4);" title="Send WhatsApp Reminder">
+                <svg viewBox="0 0 24 24" width="12" height="12" style="vertical-align:-1px;fill:#25D366;">
+                  <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2zm.01 1.67c4.54 0 8.24 3.7 8.24 8.24 0 2.2-.86 4.28-2.42 5.83a8.213 8.213 0 0 1-5.82 2.41c-1.47 0-2.92-.39-4.2-1.14l-.3-.18-3.12.82.83-3.04-.2-.31a8.188 8.188 0 0 1-1.25-4.39c0-4.54 3.7-8.24 8.24-8.24zm4.51 11.66c-.25-.12-1.47-.72-1.7-.81-.23-.08-.39-.12-.56.12-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.24-1.47-1.39-1.72-.14-.25-.02-.38.11-.5.11-.11.25-.29.37-.43.12-.14.17-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.35-.77-1.85-.2-.49-.41-.42-.56-.43h-.48c-.17 0-.43.06-.66.31-.22.25-.86.84-.86 2.05 0 1.21.88 2.38 1 2.54.12.17 1.74 2.65 4.21 3.72.59.25 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.15-1.18-.06-.1-.23-.17-.48-.29z"/>
+                </svg>
+                WA
+              </button>
               <button type="button" class="btn btn-secondary btn-small btn-return-memo" style="font-size:11px;">Return All</button>
               <button type="button" class="btn btn-primary btn-small btn-sell-memo" style="font-size:11px;background:#22c55e;border-color:#22c55e;color:#fff;">Sell All</button>
             ` : ''}
@@ -723,6 +757,8 @@ const JewelryMemoController = {
       `;
 
       tr.querySelector('.btn-view-memo').addEventListener('click', () => this.openMemoDetail(memo.id));
+      const waBtn = tr.querySelector('.btn-whatsapp-memo');
+      if (waBtn) waBtn.addEventListener('click', () => this.openWhatsAppReminder(memo.id));
       const retBtn = tr.querySelector('.btn-return-memo');
       const sellBtn = tr.querySelector('.btn-sell-memo');
       const delBtn = tr.querySelector('.btn-delete-memo');
@@ -839,12 +875,20 @@ const JewelryMemoController = {
     if (actionsFooter) {
       actionsFooter.innerHTML = `
         ${memo.status === 'open' ? `
+          <button type="button" class="btn btn-secondary" id="btn-jewelry-memo-detail-whatsapp" style="font-size:12px;color:#25D366;border-color:rgba(37,211,102,0.4);" title="Send WhatsApp Reminder">
+            <svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align:-2px;margin-right:4px;fill:#25D366;">
+              <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2zm.01 1.67c4.54 0 8.24 3.7 8.24 8.24 0 2.2-.86 4.28-2.42 5.83a8.213 8.213 0 0 1-5.82 2.41c-1.47 0-2.92-.39-4.2-1.14l-.3-.18-3.12.82.83-3.04-.2-.31a8.188 8.188 0 0 1-1.25-4.39c0-4.54 3.7-8.24 8.24-8.24zm4.51 11.66c-.25-.12-1.47-.72-1.7-.81-.23-.08-.39-.12-.56.12-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.24-1.47-1.39-1.72-.14-.25-.02-.38.11-.5.11-.11.25-.29.37-.43.12-.14.17-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.35-.77-1.85-.2-.49-.41-.42-.56-.43h-.48c-.17 0-.43.06-.66.31-.22.25-.86.84-.86 2.05 0 1.21.88 2.38 1 2.54.12.17 1.74 2.65 4.21 3.72.59.25 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.15-1.18-.06-.1-.23-.17-.48-.29z"/>
+            </svg>
+            WhatsApp Reminder
+          </button>
           <button type="button" class="btn btn-secondary" id="btn-memo-detail-edit-memo" style="font-size:12px;">✏️ Edit Memo</button>
           <button type="button" class="btn btn-secondary" id="btn-memo-detail-return-all">Return All to Stock</button>
           <button type="button" class="btn btn-primary" id="btn-memo-detail-sell-all" style="background:#22c55e;border-color:#22c55e;color:#fff;">Sell All Pieces</button>
         ` : ''}
         <button type="button" class="btn btn-secondary" id="btn-memo-detail-delete-memo" style="color:var(--danger-red, #ef4444);border-color:rgba(239,68,68,0.3);">Delete Memo</button>
       `;
+      const waBtn = document.getElementById('btn-jewelry-memo-detail-whatsapp');
+      if (waBtn) waBtn.onclick = () => this.openWhatsAppReminder(memo.id);
       const editBtn = document.getElementById('btn-memo-detail-edit-memo');
       if (editBtn) editBtn.onclick = () => this.openEditMemoModal(memo.id);
       const retAllBtn = document.getElementById('btn-memo-detail-return-all');
@@ -862,6 +906,59 @@ const JewelryMemoController = {
     }
 
     UI.openModal('modal-jewelry-memo-detail');
+  },
+
+  /**
+   * Generates and previews a 1-tap WhatsApp reminder message for a Finished Jewelry Memo
+   */
+  openWhatsAppReminder(memoId) {
+    const memo = DBManager.getJewelryMemos().find(m => m.id === memoId);
+    if (!memo) return;
+
+    const d = memo.date ? new Date(memo.date.includes('T') ? memo.date : memo.date + 'T00:00:00') : new Date(memo.createdAt || 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const daysOpen = !isNaN(d.getTime()) ? Math.max(0, Math.floor((today - d) / (1000 * 60 * 60 * 24))) : 0;
+    const dateFmt = !isNaN(d.getTime()) ? d.toLocaleDateString('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric'
+    }) : (memo.date || '—');
+
+    const lines = (memo.items || []).filter(it => it.status === 'open').map(it => {
+      const priceStr = it.sellingPrice ? ` (₹${Number(it.sellingPrice).toLocaleString('en-IN')})` : '';
+      return `• *${it.sku || 'SKU'}* - ${it.name || 'Jewelry Piece'}${priceStr}`;
+    });
+
+    const openItems = (memo.items || []).filter(it => it.status === 'open');
+    const openValue = openItems.reduce((sum, it) => sum + (Number(it.sellingPrice) || 0), 0);
+
+    const party = memo.personName || memo.customerName || memo.brokerName || 'Sir/Madam';
+
+    const message = 
+`*MAVA GEMS — JEWELRY MEMO RETURN REMINDER*
+
+Namaste ${party},
+This is a gentle reminder regarding Finished Jewelry Approval Memo *#${memo.memoNumber}* dated *${dateFmt}* (${daysOpen} day${daysOpen === 1 ? '' : 's'} open).
+
+*Pieces currently on Approval:*
+${lines.join('\n')}
+*Pending Pieces:* *${openItems.length}* | *Value:* *₹${openValue.toLocaleString('en-IN')}*
+
+Kindly provide a client update or arrange for the return of the pieces.
+
+Thank you,
+*Mava Gems*`;
+
+    UI.openWhatsAppReminderModal({
+      partyName: party,
+      phone: memo.brokerPhone || memo.phone || '',
+      reference: `Jewelry Memo #${memo.memoNumber}`,
+      daysOpen,
+      message,
+      onSavePhone: (phone) => {
+        memo.brokerPhone = phone;
+        DBManager.saveVault();
+      }
+    });
   },
 
   async handleDeleteMemo(memoId) {

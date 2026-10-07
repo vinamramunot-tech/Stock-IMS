@@ -788,11 +788,24 @@ const MemoController = {
     const openMemos = memos.filter(m => m.status === 'open');
     const totalOnMemo = openMemos.reduce((s, m) => s + (m.totalCarats || 0), 0);
 
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Overdue count (> 7 days)
+    const overdueCount = openMemos.filter(m => {
+      const d = new Date((m.date || m.createdAt?.split('T')[0] || '') + 'T00:00:00');
+      if (isNaN(d.getTime())) return false;
+      const days = Math.floor((today - d) / (1000 * 60 * 60 * 24));
+      return days > 7;
+    }).length;
+
     // Update summary metrics
     const elCount = document.getElementById('metric-memo-open-count');
     const elCts   = document.getElementById('metric-memo-carats');
+    const elOverdue = document.getElementById('metric-memo-overdue-count');
     if (elCount) elCount.textContent = openMemos.length;
     if (elCts)   elCts.textContent   = totalOnMemo.toFixed(2) + ' cts';
+    if (elOverdue) elOverdue.textContent = overdueCount;
 
     // Read filters
     const statusFilter = document.getElementById('memo-filter-status');
@@ -801,7 +814,15 @@ const MemoController = {
     const query        = searchInput  ? searchInput.value.toLowerCase().trim() : '';
 
     let filtered = memos.filter(m => {
-      const matchStatus = !filterVal || m.status === filterVal;
+      const d = new Date((m.date || m.createdAt?.split('T')[0] || '') + 'T00:00:00');
+      const days = !isNaN(d.getTime()) ? Math.floor((today - d) / (1000 * 60 * 60 * 24)) : 0;
+      const isOverdue = m.status === 'open' && days > 7;
+
+      let matchStatus = !filterVal || m.status === filterVal;
+      if (filterVal === 'overdue') {
+        matchStatus = isOverdue;
+      }
+
       const matchSearch = !query ||
         (m.brokerName  || '').toLowerCase().includes(query) ||
         (m.memoNumber  || '').toLowerCase().includes(query) ||
@@ -840,10 +861,25 @@ const MemoController = {
     };
 
     filtered.forEach(memo => {
-      const dateFmt = new Date(memo.date + 'T00:00:00').toLocaleDateString('en-IN', {
+      const d = new Date((memo.date || memo.createdAt?.split('T')[0] || '') + 'T00:00:00');
+      const daysOpen = !isNaN(d.getTime()) ? Math.max(0, Math.floor((today - d) / (1000 * 60 * 60 * 24))) : 0;
+      const dateFmt = !isNaN(d.getTime()) ? d.toLocaleDateString('en-IN', {
         day: '2-digit', month: 'short', year: 'numeric'
-      });
-      const st = statusStyle[memo.status] || statusStyle.returned;
+      }) : (memo.date || '—');
+
+      let badgeHtml = '';
+      if (memo.status === 'open') {
+        if (daysOpen > 7) {
+          badgeHtml = `<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);" title="${daysOpen} days open (Overdue)">🚨 Overdue (${daysOpen}d)</span>`;
+        } else if (daysOpen >= 4) {
+          badgeHtml = `<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;background:rgba(245,158,11,0.15);color:#f59e0b;border:1px solid rgba(245,158,11,0.3);" title="${daysOpen} days open">⚠️ ${daysOpen}d open</span>`;
+        } else {
+          badgeHtml = `<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;background:rgba(80,200,120,0.15);color:#50c878;border:1px solid rgba(80,200,120,0.3);" title="${daysOpen} days open">Active (${daysOpen}d)</span>`;
+        }
+      } else {
+        const st = statusStyle[memo.status] || statusStyle.returned;
+        badgeHtml = `<span style="display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;background:${st.bg};color:${st.color};">${memo.status}</span>`;
+      }
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
@@ -852,21 +888,21 @@ const MemoController = {
         <td style="font-weight:600;">${UI.escapeHtml(memo.brokerName)}${memo.clientName ? `<br><span style="font-size:11px;font-weight:400;color:var(--text-muted);">Client: ${UI.escapeHtml(memo.clientName)}</span>` : ''}</td>
         <td style="text-align:right;font-weight:700;">${(memo.totalCarats || 0).toFixed(2)} cts</td>
         <td style="text-align:center;">${(memo.items || []).length}</td>
+        <td>${badgeHtml}</td>
         <td>
-          <span style="display:inline-block;padding:2px 10px;border-radius:20px;
-            font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;
-            background:${st.bg};color:${st.color};">
-            ${memo.status}
-          </span>
-        </td>
-        <td>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;">
             <button type="button" class="btn btn-secondary btn-small btn-view-memo">View</button>
             ${memo.status === 'open' ? `
-              <button type="button" class="btn btn-primary btn-small btn-outcome-memo" style="font-size:11px; white-space:nowrap;">Record Outcome</button>
+              <button type="button" class="btn btn-secondary btn-small btn-whatsapp-memo" style="font-size:11px; white-space:nowrap; color:#25D366; border-color:rgba(37,211,102,0.4);" title="Send WhatsApp Reminder to Broker">
+                <svg viewBox="0 0 24 24" width="12" height="12" style="vertical-align:-1px; fill:#25D366; margin-right:2px;">
+                  <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2zm.01 1.67c4.54 0 8.24 3.7 8.24 8.24 0 2.2-.86 4.28-2.42 5.83a8.213 8.213 0 0 1-5.82 2.41c-1.47 0-2.92-.39-4.2-1.14l-.3-.18-3.12.82.83-3.04-.2-.31a8.188 8.188 0 0 1-1.25-4.39c0-4.54 3.7-8.24 8.24-8.24zm4.51 11.66c-.25-.12-1.47-.72-1.7-.81-.23-.08-.39-.12-.56.12-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.24-1.47-1.39-1.72-.14-.25-.02-.38.11-.5.11-.11.25-.29.37-.43.12-.14.17-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.35-.77-1.85-.2-.49-.41-.42-.56-.43h-.48c-.17 0-.43.06-.66.31-.22.25-.86.84-.86 2.05 0 1.21.88 2.38 1 2.54.12.17 1.74 2.65 4.21 3.72.59.25 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.15-1.18-.06-.1-.23-.17-.48-.29z"/>
+                </svg>
+                WA
+              </button>
+              <button type="button" class="btn btn-primary btn-small btn-outcome-memo" style="font-size:11px; white-space:nowrap;">Outcome</button>
             ` : ''}
             ${(memo.items || []).some(it => (it.soldCarats || 0) > 0) ? `
-              <button type="button" class="btn btn-secondary btn-small btn-reverse-memo" style="font-size:11px; white-space:nowrap; color:var(--text-gold-dark);">Reverse Sale</button>
+              <button type="button" class="btn btn-secondary btn-small btn-reverse-memo" style="font-size:11px; white-space:nowrap; color:var(--text-gold-dark);">Reverse</button>
             ` : ''}
             <button type="button" class="btn btn-danger btn-small btn-delete-memo" style="font-size:11px;">Delete</button>
           </div>
@@ -876,6 +912,8 @@ const MemoController = {
       tr.querySelector('.btn-view-memo').addEventListener('click', () => this.openMemoDetail(memo.id));
       const outcomeBtn = tr.querySelector('.btn-outcome-memo');
       if (outcomeBtn) outcomeBtn.addEventListener('click', () => this.openMemoOutcomeModal(memo.id));
+      const waBtn = tr.querySelector('.btn-whatsapp-memo');
+      if (waBtn) waBtn.addEventListener('click', () => this.openWhatsAppReminder(memo.id));
       const reverseBtn = tr.querySelector('.btn-reverse-memo');
       if (reverseBtn) reverseBtn.addEventListener('click', () => this.reverseSale(memo.id));
       const deleteBtn = tr.querySelector('.btn-delete-memo');
@@ -962,6 +1000,12 @@ const MemoController = {
     if (actionsEl) {
       actionsEl.innerHTML = `
         ${memo.status === 'open' ? `
+          <button type="button" class="btn btn-secondary" id="btn-detail-whatsapp" style="font-size:12px;color:#25D366;border-color:rgba(37,211,102,0.4);" title="Send WhatsApp Reminder">
+            <svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align:-2px;margin-right:4px;fill:#25D366;">
+              <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2zm.01 1.67c4.54 0 8.24 3.7 8.24 8.24 0 2.2-.86 4.28-2.42 5.83a8.213 8.213 0 0 1-5.82 2.41c-1.47 0-2.92-.39-4.2-1.14l-.3-.18-3.12.82.83-3.04-.2-.31a8.188 8.188 0 0 1-1.25-4.39c0-4.54 3.7-8.24 8.24-8.24zm4.51 11.66c-.25-.12-1.47-.72-1.7-.81-.23-.08-.39-.12-.56.12-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.24-1.47-1.39-1.72-.14-.25-.02-.38.11-.5.11-.11.25-.29.37-.43.12-.14.17-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.35-.77-1.85-.2-.49-.41-.42-.56-.43h-.48c-.17 0-.43.06-.66.31-.22.25-.86.84-.86 2.05 0 1.21.88 2.38 1 2.54.12.17 1.74 2.65 4.21 3.72.59.25 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.15-1.18-.06-.1-.23-.17-.48-.29z"/>
+            </svg>
+            WhatsApp Reminder
+          </button>
           <button type="button" class="btn btn-secondary" id="btn-detail-edit" style="font-size:12px;">✏️ Edit Memo</button>
           <button type="button" class="btn btn-primary" id="btn-detail-outcome" style="min-width:140px;">
             Record Outcome
@@ -976,6 +1020,12 @@ const MemoController = {
           Delete Memo
         </button>
       `;
+      const btnWa = document.getElementById('btn-detail-whatsapp');
+      if (btnWa) {
+        btnWa.addEventListener('click', () => {
+          this.openWhatsAppReminder(memo.id);
+        });
+      }
       const btnEdit = document.getElementById('btn-detail-edit');
       if (btnEdit) {
         btnEdit.addEventListener('click', () => {
@@ -1005,6 +1055,61 @@ const MemoController = {
     }
 
     UI.openModal('modal-memo-detail');
+  },
+
+  /**
+   * Generates and previews a 1-tap WhatsApp reminder message for an Emerald Memo
+   */
+  openWhatsAppReminder(memoId) {
+    const memo = DBManager.getMemos().find(m => m.id === memoId);
+    if (!memo) return;
+
+    const d = new Date((memo.date || memo.createdAt?.split('T')[0] || '') + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const daysOpen = !isNaN(d.getTime()) ? Math.max(0, Math.floor((today - d) / (1000 * 60 * 60 * 24))) : 0;
+    const dateFmt = !isNaN(d.getTime()) ? d.toLocaleDateString('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric'
+    }) : (memo.date || '—');
+
+    // Build items bullet points
+    const lines = (memo.items || []).map(it => {
+      const rem = Math.max(0, Number(((it.carats || 0) - (it.returnedCarats || 0) - (it.soldCarats || 0)).toFixed(3)));
+      const snap = it.emeraldSnapshot || {};
+      const desc = `#${snap.color || it.color || 'N/A'} ${snap.group || it.group || ''} (${snap.shape || it.shape || 'Emerald'}${snap.lustreGrade ? ', ' + snap.lustreGrade : ''})`;
+      return `• ${desc}: *${rem.toFixed(2)} cts*`;
+    });
+
+    const totalRemaining = (memo.items || []).reduce((sum, it) => {
+      return sum + Math.max(0, (it.carats || 0) - (it.returnedCarats || 0) - (it.soldCarats || 0));
+    }, 0);
+
+    const message = 
+`*MAVA GEMS — EMERALD MEMO RETURN REMINDER*
+
+Namaste ${memo.brokerName || 'Sir'},
+This is a gentle reminder regarding Emerald Approval Memo *#${memo.memoNumber}* issued on *${dateFmt}* (${daysOpen} day${daysOpen === 1 ? '' : 's'} open).
+
+*Pending Goods on Memo:*
+${lines.join('\n')}
+*Total Outstanding:* *${totalRemaining.toFixed(2)} cts*
+
+Kindly provide a client update or arrange for the return of the emerald parcel today.
+
+Thank you,
+*Mava Gems*`;
+
+    UI.openWhatsAppReminderModal({
+      partyName: memo.brokerName || 'Broker',
+      phone: memo.brokerPhone || '',
+      reference: `Emerald Memo #${memo.memoNumber}`,
+      daysOpen,
+      message,
+      onSavePhone: (phone) => {
+        memo.brokerPhone = phone;
+        DBManager.saveVault();
+      }
+    });
   },
 
   // ── Single Item Action Form (Partial Return / Sale) ──────────────────────────

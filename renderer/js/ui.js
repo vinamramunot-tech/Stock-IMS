@@ -1260,6 +1260,102 @@ const UI = {
     });
 
     this.updateScrollToTop = updateVisibility;
+  },
+
+  /**
+   * Opens the WhatsApp Memo Reminder Modal with pre-formatted message
+   */
+  openWhatsAppReminderModal(data) {
+    if (!data) return;
+    const modal = document.getElementById('modal-whatsapp-reminder');
+    if (!modal) return;
+
+    const subEl = document.getElementById('whatsapp-reminder-subtitle');
+    const badgeEl = document.getElementById('whatsapp-reminder-aging-badge');
+    const phoneInp = document.getElementById('whatsapp-reminder-phone');
+    const msgArea = document.getElementById('whatsapp-reminder-message');
+    const btnSend = document.getElementById('btn-whatsapp-send-open');
+    const btnCopy = document.getElementById('btn-whatsapp-copy-text');
+
+    if (subEl) subEl.textContent = `${data.partyName || 'Broker'} • ${data.reference || 'Memo'}`;
+
+    if (badgeEl) {
+      const days = data.daysOpen || 0;
+      if (days > 7) {
+        badgeEl.textContent = `🚨 ${days} Days Open (Overdue)`;
+        badgeEl.style.background = 'rgba(239,68,68,0.15)';
+        badgeEl.style.color = '#ef4444';
+        badgeEl.style.border = '1px solid rgba(239,68,68,0.3)';
+      } else if (days >= 4) {
+        badgeEl.textContent = `⚠️ ${days} Days Open`;
+        badgeEl.style.background = 'rgba(245,158,11,0.15)';
+        badgeEl.style.color = '#f59e0b';
+        badgeEl.style.border = '1px solid rgba(245,158,11,0.3)';
+      } else {
+        badgeEl.textContent = `Active (${days}d)`;
+        badgeEl.style.background = 'rgba(80,200,120,0.15)';
+        badgeEl.style.color = '#50c878';
+        badgeEl.style.border = '1px solid rgba(80,200,120,0.3)';
+      }
+    }
+
+    if (phoneInp) phoneInp.value = data.phone || '';
+    if (msgArea) msgArea.value = data.message || '';
+
+    if (btnSend) {
+      const newBtnSend = btnSend.cloneNode(true);
+      btnSend.parentNode.replaceChild(newBtnSend, btnSend);
+      newBtnSend.addEventListener('click', () => {
+        const rawPhone = phoneInp ? phoneInp.value.trim() : '';
+        const msg = msgArea ? msgArea.value.trim() : '';
+        let cleanPhone = rawPhone.replace(/[^\d+]/g, '');
+        if (/^\d{10}$/.test(cleanPhone)) {
+          cleanPhone = '91' + cleanPhone;
+        } else if (cleanPhone.startsWith('+')) {
+          cleanPhone = cleanPhone.substring(1);
+        }
+
+        if (data.onSavePhone && rawPhone) {
+          try { data.onSavePhone(rawPhone); } catch (e) { console.error(e); }
+        }
+
+        let waUrl = '';
+        if (cleanPhone) {
+          waUrl = `https://api.whatsapp.com/send?phone=${encodeURIComponent(cleanPhone)}&text=${encodeURIComponent(msg)}`;
+        } else {
+          waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
+        }
+
+        window.open(waUrl, '_blank');
+        UI.closeModal('modal-whatsapp-reminder');
+        UI.showToast('Opening WhatsApp...');
+      });
+    }
+
+    if (btnCopy) {
+      const newBtnCopy = btnCopy.cloneNode(true);
+      btnCopy.parentNode.replaceChild(newBtnCopy, btnCopy);
+      newBtnCopy.addEventListener('click', async () => {
+        const msg = msgArea ? msgArea.value : '';
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(msg);
+          } else {
+            msgArea.select();
+            document.execCommand('copy');
+          }
+          UI.showToast('Message copied to clipboard!');
+        } catch (err) {
+          UI.showToast('Failed to copy text', true);
+        }
+      });
+    }
+
+    document.querySelectorAll('.modal-close-trigger-whatsapp-reminder').forEach(b => {
+      b.onclick = () => UI.closeModal('modal-whatsapp-reminder');
+    });
+
+    UI.openModal('modal-whatsapp-reminder');
   }
 };
 

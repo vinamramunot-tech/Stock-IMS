@@ -489,6 +489,10 @@
                 <span class="metric-label">TOTAL CARATS ON MEMO</span>
                 <span class="metric-value text-gold" id="metric-memo-carats">0.00 cts</span>
               </div>
+              <div class="metric-card" style="border-left: 3px solid #ef4444;">
+                <span class="metric-label">OVERDUE (>7 DAYS)</span>
+                <span class="metric-value" style="color: #ef4444;" id="metric-memo-overdue-count">0</span>
+              </div>
             </div>
           </section>
 
@@ -505,6 +509,7 @@
               <select id="memo-filter-status" class="filter-select">
                 <option value="">All Statuses</option>
                 <option value="open">Open</option>
+                <option value="overdue">🚨 Overdue (&gt;7 Days)</option>
                 <option value="returned">Returned</option>
                 <option value="sold">Sold</option>
                 <option value="closed">Closed</option>
@@ -713,6 +718,10 @@
                 <span class="metric-label">JEWELRY VALUE ON MEMO</span>
                 <span class="metric-value text-gold" id="metric-jewelry-memo-value">₹0.00</span>
               </div>
+              <div class="metric-card" style="border-left: 3px solid #ef4444;">
+                <span class="metric-label">OVERDUE (>7 DAYS)</span>
+                <span class="metric-value" style="color: #ef4444;" id="metric-jewelry-memo-overdue-count">0</span>
+              </div>
             </div>
           </section>
 
@@ -730,6 +739,7 @@
               <select id="jewelry-memo-filter-status" class="filter-select">
                 <option value="">All Statuses</option>
                 <option value="open">Open</option>
+                <option value="overdue">🚨 Overdue (&gt;7 Days)</option>
                 <option value="closed">Closed</option>
               </select>
               <button type="button" id="btn-reset-jewelry-memo-filters" class="btn btn-secondary filter-reset-btn" title="Reset filters">
@@ -1018,6 +1028,13 @@
                     d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92c0-1.61-1.31-2.92-2.92-2.92z" />
                 </svg>
                 Bulk Share
+              </button>
+              <button type="button" id="btn-merge-emerald-main" class="btn btn-secondary"
+                style="height: 42px; margin-left: 8px;" title="Merge multiple pudias into one parcel" data-client-hide>
+                <svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align: middle; margin-right: 6px;">
+                  <path fill="currentColor" d="M17 20.41L18.41 19 15 15.59 13.59 17 17 20.41zM7.5 8H11v5.59L5.59 19 7 20.41l6-6V8h3.5L12 3.5 7.5 8z"/>
+                </svg>
+                Merge Lots
               </button>
               <button type="button" id="btn-create-emerald-main" class="btn btn-primary" data-client-hide
                 style="height: 42px; margin-left: 8px;">
@@ -4263,6 +4280,7 @@
                 <select id="emerald-stock-type" required>
                   <option value="Single Pieces">Single Pieces</option>
                   <option value="Calibrated Series" selected>Calibrated Series (Assorted Mix)</option>
+                  <option value="Layout / Matched Suite">Layout / Matched Suite (Necklace/Earrings/Sets)</option>
                 </select>
               </div>
             </div>
@@ -4274,9 +4292,37 @@
             </div>
           </div>
 
-          <div class="input-group" style="margin-bottom: 20px;">
+          <div class="input-group" style="margin-bottom: 15px;">
             <label for="emerald-origin">Origin <span class="required">*</span></label>
             <input type="text" id="emerald-origin" placeholder="e.g. Zambian" required>
+          </div>
+
+          <!-- Dynamic Layout Details (Visible when Stock Type is Layout / Matched Suite) -->
+          <div id="emerald-layout-config-section" class="hidden" style="background: var(--bg-card); border: 1px solid var(--border-light); border-left: 3px solid var(--gold-accent); border-radius: 4px; padding: 12px; margin-bottom: 15px;">
+            <div style="font-size: 11px; font-weight: 700; color: var(--text-gold-dark); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px;">
+              ✨ Layout & Matched Suite Specifications
+            </div>
+            <div class="form-grid-row" style="display: flex; gap: 15px; flex-wrap: wrap;">
+              <div class="form-col-6" style="flex: 1; min-width: 180px;">
+                <div class="input-group" style="margin-bottom: 0;">
+                  <label for="emerald-layout-category">Layout Category</label>
+                  <select id="emerald-layout-category">
+                    <option value="Graduated Necklace Line">Graduated Necklace Line</option>
+                    <option value="Earring Pair">Earring Pair (Matched)</option>
+                    <option value="Tennis Bracelet Line">Tennis Bracelet Line</option>
+                    <option value="Choker Suite">Choker Suite</option>
+                    <option value="Ring & Earring Set">Ring & Earring Set</option>
+                    <option value="Custom Suite">Custom Suite</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-col-6" style="flex: 1; min-width: 220px;">
+                <div class="input-group" style="margin-bottom: 0;">
+                  <label for="emerald-layout-progression">MM Progression / Range</label>
+                  <input type="text" id="emerald-layout-progression" placeholder="e.g. 9x7 mm down to 5x3 mm (Center: 9x7)">
+                </div>
+              </div>
+            </div>
           </div>
 
           <div style="border-top: 1px solid var(--border-light); margin: 15px 0 20px 0; padding-top: 15px;">
@@ -5137,6 +5183,266 @@
         <span id="lightbox-specs-stones" class="lightbox-spec-item">Stones: 0.00 cts</span>
         <span class="lightbox-spec-divider">•</span>
         <span id="lightbox-specs-price" class="lightbox-spec-price">₹0.00</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: WHATSAPP MEMO REMINDER ==================== -->
+  <div id="modal-whatsapp-reminder" class="modal-overlay hidden">
+    <div class="modal-card normal" style="max-width: 560px;">
+      <div class="modal-header">
+        <h3 style="display: flex; align-items: center; gap: 8px;">
+          <svg viewBox="0 0 24 24" width="20" height="20" style="fill: #25D366;">
+            <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2zm.01 1.67c4.54 0 8.24 3.7 8.24 8.24 0 2.2-.86 4.28-2.42 5.83a8.213 8.213 0 0 1-5.82 2.41c-1.47 0-2.92-.39-4.2-1.14l-.3-.18-3.12.82.83-3.04-.2-.31a8.188 8.188 0 0 1-1.25-4.39c0-4.54 3.7-8.24 8.24-8.24zm4.51 11.66c-.25-.12-1.47-.72-1.7-.81-.23-.08-.39-.12-.56.12-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.24-1.47-1.39-1.72-.14-.25-.02-.38.11-.5.11-.11.25-.29.37-.43.12-.14.17-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.35-.77-1.85-.2-.49-.41-.42-.56-.43h-.48c-.17 0-.43.06-.66.31-.22.25-.86.84-.86 2.05 0 1.21.88 2.38 1 2.54.12.17 1.74 2.65 4.21 3.72.59.25 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.15-1.18-.06-.1-.23-.17-.48-.29z"/>
+          </svg>
+          <span id="whatsapp-reminder-title">WhatsApp Memo Reminder</span>
+        </h3>
+        <button type="button" class="btn-close modal-close-trigger-whatsapp-reminder">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 20px;">
+        <div id="whatsapp-reminder-badge-container" style="margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+          <span id="whatsapp-reminder-subtitle" style="font-size: 13px; font-weight: 600; color: var(--text-main);"></span>
+          <span id="whatsapp-reminder-aging-badge" style="font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px;"></span>
+        </div>
+
+        <div class="input-group" style="margin-bottom: 15px;">
+          <label for="whatsapp-reminder-phone" style="display: flex; justify-content: space-between; align-items: center;">
+            <span>Broker WhatsApp Number</span>
+            <span style="font-size: 11px; color: var(--text-muted); font-weight: normal;">(Include country code, e.g. +91)</span>
+          </label>
+          <input type="tel" id="whatsapp-reminder-phone" placeholder="e.g. +91 9876543210" style="font-size: 14px;">
+        </div>
+
+        <div class="input-group" style="margin-bottom: 10px;">
+          <label for="whatsapp-reminder-message">Reminder Message</label>
+          <textarea id="whatsapp-reminder-message" rows="8" style="font-family: inherit; font-size: 13px; line-height: 1.5; resize: vertical;"></textarea>
+        </div>
+        <div style="font-size: 11px; color: var(--text-muted);">
+          Tip: You can customize the text above before sending or copying. WhatsApp formatting (*bold*) is supported.
+        </div>
+      </div>
+
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <button type="button" class="btn btn-secondary modal-close-trigger-whatsapp-reminder">Cancel</button>
+        <div style="display: flex; gap: 10px;">
+          <button type="button" id="btn-whatsapp-copy-text" class="btn btn-secondary">
+            📋 Copy Message
+          </button>
+          <button type="button" id="btn-whatsapp-send-open" class="btn btn-primary" style="background: #25D366; border-color: #25D366; color: #fff;">
+            Open in WhatsApp →
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: SPLIT PUDIA ==================== -->
+  <div id="modal-split-pudia" class="modal-overlay hidden">
+    <div class="modal-card normal" style="max-width: 680px;">
+      <div class="modal-header">
+        <h3>Split Pudia Parcel</h3>
+        <button type="button" class="btn-close modal-close-trigger-split-pudia">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 20px;">
+        <!-- Source Pudia Summary Card -->
+        <div id="split-source-summary" style="background: var(--bg-card); border: 1px solid var(--border-light); border-left: 3px solid var(--gold-accent); border-radius: 4px; padding: 14px; margin-bottom: 20px;">
+          <!-- Dynamically populated source details -->
+        </div>
+
+        <!-- Split Inputs -->
+        <div style="border-top: 1px solid var(--border-light); padding-top: 15px; margin-bottom: 15px;">
+          <h4 style="font-family: var(--font-serif); font-size: 13px; text-transform: uppercase; color: var(--text-gold-dark); letter-spacing: 0.05em; margin: 0 0 12px 0;">
+            Child Pudia Specifications
+          </h4>
+
+          <div class="form-grid-row" style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px;">
+            <div class="form-col-6" style="flex: 1; min-width: 160px;">
+              <div class="input-group">
+                <label for="split-child-color">New Pudia Number <span class="required">*</span></label>
+                <input type="text" id="split-child-color" placeholder="e.g. 9A or 25" required>
+              </div>
+            </div>
+            <div class="form-col-6" style="flex: 1; min-width: 160px;">
+              <div class="input-group">
+                <label for="split-child-group">Group / Lot Name <span class="required">*</span></label>
+                <input type="text" id="split-child-group" placeholder="e.g. A-1 Lot" required>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-grid-row" style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px;">
+            <div class="form-col-6" style="flex: 1; min-width: 160px;">
+              <div class="input-group">
+                <label for="split-child-stock-type">Stock Type <span class="required">*</span></label>
+                <select id="split-child-stock-type">
+                  <option value="Calibrated Series" selected>Calibrated Series</option>
+                  <option value="Single Pieces">Single Pieces</option>
+                  <option value="Layout / Matched Suite">Layout / Matched Suite</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-col-6" style="flex: 1; min-width: 160px;">
+              <div class="input-group">
+                <label for="split-child-price">Price / Carat (₹/ct) <span class="required">*</span></label>
+                <input type="number" id="split-child-price" step="0.01" min="0" placeholder="e.g. 15000" required>
+              </div>
+            </div>
+          </div>
+
+          <!-- Layout options inside split if Layout is selected -->
+          <div id="split-child-layout-group" class="hidden" style="margin-bottom: 15px; background: rgba(212, 175, 55, 0.08); padding: 10px; border-radius: 4px; border: 1px solid rgba(212, 175, 55, 0.2);">
+            <div class="form-grid-row" style="display: flex; gap: 15px; flex-wrap: wrap;">
+              <div class="form-col-6" style="flex: 1; min-width: 160px;">
+                <div class="input-group" style="margin-bottom: 0;">
+                  <label for="split-child-layout-category">Layout Type</label>
+                  <select id="split-child-layout-category">
+                    <option value="Graduated Necklace Line">Graduated Necklace Line</option>
+                    <option value="Earring Pair">Earring Pair (Matched)</option>
+                    <option value="Tennis Bracelet Line">Tennis Bracelet Line</option>
+                    <option value="Choker Suite">Choker Suite</option>
+                    <option value="Ring & Earring Set">Ring & Earring Set</option>
+                    <option value="Custom Suite">Custom Suite</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-col-6" style="flex: 1; min-width: 160px;">
+                <div class="input-group" style="margin-bottom: 0;">
+                  <label for="split-child-layout-progression">MM Progression</label>
+                  <input type="text" id="split-child-layout-progression" placeholder="e.g. 8x6 to 5x3 mm">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Weight & Pieces to Split -->
+          <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">
+            Quantity to Transfer
+          </div>
+          <div class="form-grid-row" style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px;">
+            <div class="form-col-6" style="flex: 1; min-width: 160px;">
+              <div class="input-group">
+                <label for="split-carats-input">Carats to Split <span class="required">*</span></label>
+                <input type="number" id="split-carats-input" step="0.01" min="0.01" placeholder="e.g. 12.50" required>
+              </div>
+            </div>
+            <div class="form-col-6" style="flex: 1; min-width: 160px;">
+              <div class="input-group">
+                <label for="split-pieces-input">Pieces to Split</label>
+                <input type="number" id="split-pieces-input" min="0" placeholder="e.g. 18">
+              </div>
+            </div>
+          </div>
+
+          <!-- Live Balance Preview Box -->
+          <div id="split-balance-preview" style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 4px; padding: 12px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <span style="color: var(--text-muted);">Remaining in Parent Pudia:</span>
+              <strong id="split-rem-parent-cts" style="color: var(--text-main); margin-left: 4px;">—</strong>
+            </div>
+            <div style="border-left: 1px solid var(--border-light); padding-left: 12px;">
+              <span style="color: var(--text-muted);">Transferred to Child Pudia:</span>
+              <strong id="split-child-cts" style="color: var(--text-gold-dark); margin-left: 4px;">—</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button type="button" class="btn btn-secondary modal-close-trigger-split-pudia">Cancel</button>
+        <button type="button" id="btn-confirm-split-pudia" class="btn btn-primary">Confirm Split</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: MERGE PUDIAS ==================== -->
+  <div id="modal-merge-pudias" class="modal-overlay hidden">
+    <div class="modal-card normal" style="max-width: 750px;">
+      <div class="modal-header">
+        <h3>Merge Multiple Pudia Parcels</h3>
+        <button type="button" class="btn-close modal-close-trigger-merge-pudias">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 20px;">
+        <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">
+          Select 2 or more pudia parcels to combine. The system automatically calculates total weight, pieces, and weighted average price per carat.
+        </div>
+
+        <!-- Search / Filter in picker -->
+        <div style="margin-bottom: 12px;">
+          <input type="search" id="merge-pudias-search" placeholder="Search available pudias to merge..." style="width: 100%; height: 38px;">
+        </div>
+
+        <!-- Checklist of available emeralds -->
+        <div id="merge-pudias-checklist-container" style="max-height: 220px; overflow-y: auto; border: 1px solid var(--border-light); border-radius: 4px; background: var(--bg-card); margin-bottom: 15px;">
+          <!-- Dynamically populated pudia rows -->
+        </div>
+
+        <!-- Merged Calculation Summary Box -->
+        <div id="merge-calc-summary-box" style="background: var(--bg-base); border: 1px solid var(--border-light); border-left: 3px solid var(--gold-accent); border-radius: 4px; padding: 12px 16px; margin-bottom: 18px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+          <div>
+            <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Selected Pudias</div>
+            <div style="font-size: 16px; font-weight: 700; color: var(--text-main);" id="merge-selected-count">0 Lots</div>
+          </div>
+          <div>
+            <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Combined Weight</div>
+            <div style="font-size: 16px; font-weight: 700; color: var(--text-gold-dark);" id="merge-combined-carats">0.00 cts</div>
+          </div>
+          <div>
+            <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Weighted Avg Rate</div>
+            <div style="font-size: 16px; font-weight: 700; color: var(--text-main);" id="merge-weighted-rate">₹0/ct</div>
+          </div>
+        </div>
+
+        <!-- Destination Pudia Form -->
+        <div style="border-top: 1px solid var(--border-light); padding-top: 15px;">
+          <h4 style="font-family: var(--font-serif); font-size: 13px; text-transform: uppercase; color: var(--text-gold-dark); letter-spacing: 0.05em; margin: 0 0 12px 0;">
+            Destination Merged Parcel
+          </h4>
+
+          <div class="form-grid-row" style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px;">
+            <div class="form-col-6" style="flex: 1; min-width: 160px;">
+              <div class="input-group">
+                <label for="merge-dest-color">Merged Pudia Number <span class="required">*</span></label>
+                <input type="text" id="merge-dest-color" placeholder="e.g. 50" required>
+              </div>
+            </div>
+            <div class="form-col-6" style="flex: 1; min-width: 160px;">
+              <div class="input-group">
+                <label for="merge-dest-group">Group / Lot Name <span class="required">*</span></label>
+                <input type="text" id="merge-dest-group" placeholder="e.g. Mixed Lot" required>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-grid-row" style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px;">
+            <div class="form-col-6" style="flex: 1; min-width: 160px;">
+              <div class="input-group">
+                <label for="merge-dest-origin">Origin</label>
+                <input type="text" id="merge-dest-origin" placeholder="e.g. Zambian">
+              </div>
+            </div>
+            <div class="form-col-6" style="flex: 1; min-width: 160px;">
+              <div class="input-group">
+                <label for="merge-dest-price">Selling Price / Carat (₹/ct) <span class="required">*</span></label>
+                <input type="number" id="merge-dest-price" step="0.01" min="0" placeholder="e.g. 14000" required>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
+            <input type="checkbox" id="merge-remove-sources-chk" checked style="width: auto; margin: 0;">
+            <label for="merge-remove-sources-chk" style="font-size: 12px; font-weight: normal; margin: 0; cursor: pointer; text-transform: none;">
+              Archive / remove source parcels from active stock after merge
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button type="button" class="btn btn-secondary modal-close-trigger-merge-pudias">Cancel</button>
+        <button type="button" id="btn-confirm-merge-pudias" class="btn btn-primary">Confirm Merge</button>
       </div>
     </div>
   </div>

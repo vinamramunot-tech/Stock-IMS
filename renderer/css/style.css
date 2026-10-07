@@ -363,6 +363,7 @@ textarea:focus {
 
 input[type="number"] {
   -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 input[type="number"]::-webkit-outer-spin-button,
@@ -965,6 +966,7 @@ datalist option {
   background-position: right 10px center;
   background-size: 20px;
   -webkit-appearance: none;
+  appearance: none;
   padding-right: 30px;
 }
 
