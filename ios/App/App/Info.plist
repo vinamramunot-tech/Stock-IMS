@@ -32,6 +32,8 @@
 	<string>Mava Gems requires camera access to take photos of jewelry pieces for inventory records.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Mava Gems requires permission to save exported jewelry images and catalog photos to your photo library.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Mava Gems requires Face ID authentication to protect your confidential gemstone inventory and trade vault.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Mava Gems requires access to your photo library to attach photos to jewelry inventory pieces.</string>
 	<key>UIApplicationSceneManifest</key>

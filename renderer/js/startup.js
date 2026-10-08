@@ -146,6 +146,9 @@ const Startup = {
     if (window.App) {
       window.App.showLauncher();
     }
+    if (window.BiometricAuth && typeof window.BiometricAuth.checkAndShowOnboardingPrompt === 'function') {
+      setTimeout(() => window.BiometricAuth.checkAndShowOnboardingPrompt(), 500);
+    }
   },
 
   async handleStartupCreate() {

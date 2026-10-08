@@ -39,26 +39,26 @@ const SalesController = {
       if (totalSoldCts <= 0.001) return;
 
       const totalSoldPcs = (memo.items || []).reduce((s, it) => s + (it.soldPieces || 0), 0);
-      const totalRetCts  = (memo.items || []).reduce((s, it) => s + (it.returnedCarats || 0), 0);
+      const totalRetCts = (memo.items || []).reduce((s, it) => s + (it.returnedCarats || 0), 0);
 
       records.push({
-        memoId:      memo.id,
-        memoNumber:  memo.memoNumber,
-        brokerName:  memo.brokerName,
-        clientName:  memo.clientName || null,
-        issueDate:   memo.date,
-        closedAt:    memo.closedAt || memo.createdAt,
+        memoId: memo.id,
+        memoNumber: memo.memoNumber,
+        brokerName: memo.brokerName,
+        clientName: memo.clientName || null,
+        issueDate: memo.date,
+        closedAt: memo.closedAt || memo.createdAt,
         outcomeType: memo.outcomeType || (memo.status === 'sold' ? 'complete-sale' : 'partial-sale'),
-        status:      memo.status,
-        soldCts:     Number(totalSoldCts.toFixed(3)),
-        soldPcs:     totalSoldPcs,
+        status: memo.status,
+        soldCts: Number(totalSoldCts.toFixed(3)),
+        soldPcs: totalSoldPcs,
         returnedCts: Number(totalRetCts.toFixed(3)),
-        saleRate:    memo.saleRate || null,
-        saleValue:   memo.saleRate ? Number((memo.saleRate * totalSoldCts).toFixed(0)) : null,
-        saleDate:    memo.saleDate || null,
-        notes:       memo.outcomeNotes || memo.notes || '',
-        itemCount:   (memo.items || []).length,
-        items:       memo.items || []
+        saleRate: memo.saleRate || null,
+        saleValue: memo.saleRate ? Number((memo.saleRate * totalSoldCts).toFixed(0)) : null,
+        saleDate: memo.saleDate || null,
+        notes: memo.outcomeNotes || memo.notes || '',
+        itemCount: (memo.items || []).length,
+        items: memo.items || []
       });
     });
 
@@ -70,18 +70,18 @@ const SalesController = {
     const records = this.getSaleRecords();
 
     const totalSoldCts = records.reduce((s, r) => s + r.soldCts, 0);
-    const totalValue   = records.filter(r => r.saleValue).reduce((s, r) => s + r.saleValue, 0);
+    const totalValue = records.filter(r => r.saleValue).reduce((s, r) => s + r.saleValue, 0);
 
-    const elCts   = document.getElementById('sales-metric-total-sold');
-    const elTxns  = document.getElementById('sales-metric-total-txns');
+    const elCts = document.getElementById('sales-metric-total-sold');
+    const elTxns = document.getElementById('sales-metric-total-txns');
     const elValue = document.getElementById('sales-metric-total-value');
-    if (elCts)   elCts.textContent   = totalSoldCts.toFixed(2) + ' cts';
-    if (elTxns)  elTxns.textContent  = records.length;
+    if (elCts) elCts.textContent = totalSoldCts.toFixed(2) + ' cts';
+    if (elTxns) elTxns.textContent = records.length;
     if (elValue) elValue.textContent = totalValue > 0 ? '\u20b9' + totalValue.toLocaleString('en-IN') : '\u2014';
 
-    const query    = (document.getElementById('sales-search-input')?.value || '').toLowerCase().trim();
+    const query = (document.getElementById('sales-search-input')?.value || '').toLowerCase().trim();
     const dateFrom = document.getElementById('sales-filter-date-from')?.value || '';
-    const dateTo   = document.getElementById('sales-filter-date-to')?.value || '';
+    const dateTo = document.getElementById('sales-filter-date-to')?.value || '';
 
     const filtered = records.filter(r => {
       if (query) {
@@ -93,11 +93,11 @@ const SalesController = {
       }
       const closeDate = r.closedAt ? r.closedAt.split('T')[0] : '';
       if (dateFrom && closeDate < dateFrom) return false;
-      if (dateTo   && closeDate > dateTo)   return false;
+      if (dateTo && closeDate > dateTo) return false;
       return true;
     });
 
-    const tbody   = document.getElementById('sales-list-tbody');
+    const tbody = document.getElementById('sales-list-tbody');
     const emptyEl = document.getElementById('sales-empty-state');
     if (!tbody) return;
 
@@ -113,7 +113,7 @@ const SalesController = {
 
     const outcomeStyle = {
       'complete-sale': { bg: 'rgba(48,209,88,0.12)', color: '#30D158', label: 'Complete Sale' },
-      'partial-sale':  { bg: 'rgba(212,175,55,0.12)', color: 'var(--text-gold-dark)', label: 'Partial Sale' }
+      'partial-sale': { bg: 'rgba(212,175,55,0.12)', color: 'var(--text-gold-dark)', label: 'Partial Sale' }
     };
 
     filtered.forEach(r => {
@@ -140,21 +140,21 @@ const SalesController = {
         '<td style="font-weight:700;font-family:var(--font-serif);">' + UI.escapeHtml(r.memoNumber) + '</td>' +
         '<td><div style="font-size:12px;">' + issueFmt + '</div><div style="font-size:10px;color:var(--text-muted);">Closed: ' + closeFmt + '</div></td>' +
         '<td><div style="font-weight:600;">' + UI.escapeHtml(r.brokerName) + '</div>' +
-          (r.clientName ? '<div style="font-size:11px;color:var(--text-muted);">Client: ' + UI.escapeHtml(r.clientName) + '</div>' : '') +
+        (r.clientName ? '<div style="font-size:11px;color:var(--text-muted);">Client: ' + UI.escapeHtml(r.clientName) + '</div>' : '') +
         '</td>' +
         '<td style="text-align:right;">' +
-          '<div style="font-weight:700;font-size:14px;color:#30D158;">' + r.soldCts.toFixed(2) + ' cts</div>' +
-          '<div style="font-size:10px;color:var(--text-muted);">' + r.soldPcs + ' pcs</div>' +
-          (r.returnedCts > 0 ? '<div style="font-size:10px;color:var(--text-muted);">\u21a9 ' + r.returnedCts.toFixed(2) + ' returned</div>' : '') +
+        '<div style="font-weight:700;font-size:14px;color:#30D158;">' + r.soldCts.toFixed(2) + ' cts</div>' +
+        '<div style="font-size:10px;color:var(--text-muted);">' + r.soldPcs + ' pcs</div>' +
+        (r.returnedCts > 0 ? '<div style="font-size:10px;color:var(--text-muted);">\u21a9 ' + r.returnedCts.toFixed(2) + ' returned</div>' : '') +
         '</td>' +
         '<td style="text-align:right;">' + valueStr + '</td>' +
         '<td><span style="display:inline-block;padding:2px 10px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;background:' + st.bg + ';color:' + st.color + ';">' + st.label + '</span></td>' +
         '<td style="font-size:11px;color:var(--text-muted);max-width:160px;">' +
-          '<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + UI.escapeHtml(pudiaList) + '">' + UI.escapeHtml(pudiaList) + '</div>' +
-          (r.notes ? '<div style="margin-top:3px;font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + UI.escapeHtml(r.notes) + '">&ldquo;' + UI.escapeHtml(r.notes) + '&rdquo;</div>' : '') +
+        '<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + UI.escapeHtml(pudiaList) + '">' + UI.escapeHtml(pudiaList) + '</div>' +
+        (r.notes ? '<div style="margin-top:3px;font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + UI.escapeHtml(r.notes) + '">&ldquo;' + UI.escapeHtml(r.notes) + '&rdquo;</div>' : '') +
         '</td>' +
         '<td>' +
-          '<button type="button" class="btn btn-secondary btn-small btn-reverse-sale" style="font-size:11px;white-space:nowrap;color:var(--text-gold-dark);border-color:rgba(212,175,55,0.4);">Reverse Sale</button>' +
+        '<button type="button" class="btn btn-secondary btn-small btn-reverse-sale" style="font-size:11px;white-space:nowrap;color:var(--text-gold-dark);border-color:rgba(212,175,55,0.4);">Reverse Sale</button>' +
         '</td>';
 
       const revBtn = tr.querySelector('.btn-reverse-sale');

@@ -11,6 +11,7 @@ const App = {
     try { Startup.init(); } catch (e) { console.error("Startup.init error:", e); }
     try { Catalog.init(); } catch (e) { console.error("Catalog.init error:", e); }
     try { Settings.init(); } catch (e) { console.error("Settings.init error:", e); }
+    try { if (window.BiometricAuth) BiometricAuth.init(); } catch (e) { console.error("BiometricAuth.init error:", e); }
     try { this.initTheme(); } catch (e) { console.error("initTheme error:", e); }
     if (window.EmeraldController) { try { EmeraldController.init(); } catch (e) { console.error(e); } }
     if (window.EmeraldDashboardController) { try { EmeraldDashboardController.init(); } catch (e) { console.error(e); } }
@@ -424,6 +425,10 @@ const App = {
 
     // Sync mobile bottom navigation active state
     this.syncMobileBottomNav(tabId);
+
+    if (tabId === 'tab-settings' && window.BiometricAuth) {
+      BiometricAuth.updateSettingsUI();
+    }
   },
 
   syncMobileBottomNav(tabId) {

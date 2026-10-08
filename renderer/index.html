@@ -20,6 +20,13 @@
         }
       } catch (e) { }
 
+      // Early biometric lock check to prevent sensitive data flashing before UI render
+      try {
+        if (localStorage.getItem('face_id_enabled') === 'true') {
+          document.documentElement.classList.add('vault-locked');
+        }
+      } catch (e) { }
+
       // 2. Prevent accidental pinch-zoom and double-tap zoom on iOS WKWebView
       let lastTouchTime = 0;
       document.addEventListener('touchend', function (e) {
@@ -60,6 +67,24 @@
 </head>
 
 <body>
+
+  <!-- ==================== BIOMETRIC & FACE ID SECURITY LOCK SCREEN ==================== -->
+  <div id="biometric-lock-screen" class="biometric-lock-overlay hidden" aria-modal="true" role="dialog">
+    <div class="biometric-lock-card">
+      <div class="biometric-lock-crest">
+        <div class="biometric-icon-pulse">
+          <svg viewBox="0 0 24 24" width="46" height="46" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+          </svg>
+        </div>
+      </div>
+      <h2 class="biometric-lock-brand">MAVA GEMS</h2>
+      <div class="biometric-lock-badge">CONFIDENTIAL TRADE VAULT</div>
+      <p id="biometric-lock-status" class="biometric-lock-desc">
+        Authenticating with Face ID...
+      </p>
+    </div>
+  </div>
 
   <!-- ==================== STARTUP / ONBOARDING SCREEN ==================== -->
   <div id="startup-screen" class="startup-overlay-container">
@@ -2191,6 +2216,38 @@
                 <button type="button" id="btn-theme-dark" class="btn btn-secondary" style="flex: 1;">Force Dark</button>
                 <button type="button" id="btn-theme-reset" class="btn btn-secondary" style="flex: 1;">Use
                   System</button>
+              </div>
+            </div>
+
+            <!-- Card: Security & Biometric Lock (Face ID) -->
+            <div class="settings-card" id="settings-card-biometrics">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap;">
+                <div>
+                  <h3 style="display: flex; align-items: center; gap: 8px;">
+                    <span>Face ID & App Security</span>
+                    <span id="face-id-badge-status" class="badge" style="font-size: 10px; padding: 2px 8px; border-radius: 10px; background: rgba(212,175,55,0.15); color: var(--text-gold-dark); border: 1px solid rgba(212,175,55,0.3);">Face ID Ready</span>
+                  </h3>
+                  <p class="settings-card-desc">
+                    Protect wholesale margins, valuations, and gemstone inventory from prying eyes. Require Face ID authentication immediately on launch and whenever returning to the app.
+                  </p>
+                </div>
+              </div>
+
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 8px; margin: 12px 0;">
+                <div>
+                  <div style="font-size: 13px; font-weight: 600; color: var(--text-main);">Require Face ID on Launch</div>
+                  <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Prompts Face ID before displaying inventory or vaults</div>
+                </div>
+                <label class="switch" style="position: relative; display: inline-block; width: 44px; height: 24px; margin: 0;">
+                  <input type="checkbox" id="toggle-face-id-lock" style="opacity: 0; width: 0; height: 0;">
+                  <span class="slider round"></span>
+                </label>
+              </div>
+
+              <div class="settings-actions-row" style="margin-top: 10px;">
+                <button type="button" id="btn-test-biometric-auth" class="btn btn-secondary" style="font-size: 12px;">
+                  Test Face ID Prompt
+                </button>
               </div>
             </div>
 
@@ -5447,6 +5504,44 @@
     </div>
   </div>
 
+  <!-- ==================== FACE ID ONBOARDING PROMPT MODAL ==================== -->
+  <div id="modal-face-id-onboarding" class="modal-overlay hidden" style="z-index: 2600;">
+    <div class="modal-card" style="max-width: 440px; text-align: center; border: 1px solid var(--border-gold-subtle, rgba(212,175,55,0.4)); box-shadow: 0 20px 60px rgba(0,0,0,0.7);">
+      <div class="modal-header" style="justify-content: flex-end; border-bottom: none; padding-bottom: 0;">
+        <button type="button" class="btn-icon modal-close-trigger-face-id-onboarding" title="Close" aria-label="Close" style="color: var(--text-muted); font-size: 20px; line-height: 1;">
+          &times;
+        </button>
+      </div>
+      <div class="modal-body" style="padding: 6px 24px 24px 24px;">
+        <div style="width: 64px; height: 64px; margin: 0 auto 16px auto; border-radius: 50%; background: radial-gradient(circle, rgba(212,175,55,0.18) 0%, rgba(212,175,55,0.02) 70%); border: 1px solid rgba(212,175,55,0.4); display: flex; align-items: center; justify-content: center; color: var(--gold-accent, #d4af37);">
+          <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+          </svg>
+        </div>
+        <h3 style="font-family: var(--font-serif); font-size: 20px; color: var(--text-main); margin: 0 0 6px 0; letter-spacing: 0.5px;">
+          Enable Face ID Protection?
+        </h3>
+        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-gold-dark); margin-bottom: 14px;">
+          Mava Gems Trade Vault
+        </div>
+        <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin: 0 0 22px 0;">
+          Protect your wholesale margins, confidential gemstone inventory, and customer memos against prying eyes with instant biometric security whenever opening the app.
+        </p>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <button type="button" id="btn-face-id-onboarding-enable" class="btn btn-primary" style="height: 44px; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px;">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+            Enable Face ID
+          </button>
+          <button type="button" id="btn-face-id-onboarding-skip" class="btn btn-secondary" style="height: 38px; font-size: 12px; color: var(--text-muted); border-color: transparent;">
+            Not Now
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="print-section"></div>
 
   <!-- ==================== SCROLL TO TOP FLOATING BUTTON ==================== -->
@@ -5462,6 +5557,7 @@
   <script src="js/pako.min.js"></script>
   <script src="js/crypto-js.min.js"></script>
   <script src="js/tauri-shim.js"></script>
+  <script src="js/biometric-auth.js"></script>
   <script src="js/db-manager.js"></script>
   <script src="js/calc.js"></script>
   <script src="js/logs.js"></script>
