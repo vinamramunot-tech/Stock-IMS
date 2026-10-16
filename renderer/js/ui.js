@@ -1164,6 +1164,88 @@ const UI = {
     }
   },
 
+  /**
+   * Check if a given SKU matches an existing piece in catalog
+   */
+  checkSkuDuplicate(enteredSku) {
+    const rawSku = (enteredSku !== undefined ? enteredSku : (document.getElementById('item-sku')?.value || '')).trim();
+    if (!rawSku) return null;
+
+    const isEdit = this.activeItemState && this.activeItemState.id !== undefined;
+    const currentId = isEdit ? this.activeItemState.id : null;
+
+    const allItems = DBManager.getItems();
+    const matched = allItems.find(i => i.sku && i.sku.toLowerCase().trim() === rawSku.toLowerCase() && (!currentId || i.id !== currentId));
+    return matched || null;
+  },
+
+  /**
+   * Render instant real-time warning if entered SKU was already sold, issued on memo, or is active
+   */
+  renderSkuDuplicateWarning(matched) {
+    const helperEl = document.getElementById('sku-helper-text');
+    if (!helperEl) return;
+
+    if (!matched) {
+      this.updateSkuSuggestion();
+      return;
+    }
+
+    helperEl.replaceChildren();
+    const warnBox = document.createElement('div');
+    warnBox.className = 'sku-duplicate-warning-badge';
+    warnBox.style.marginTop = '6px';
+    warnBox.style.padding = '8px 12px';
+    warnBox.style.borderRadius = '6px';
+    warnBox.style.fontSize = '12px';
+    warnBox.style.display = 'flex';
+    warnBox.style.alignItems = 'flex-start';
+    warnBox.style.gap = '8px';
+    warnBox.style.lineHeight = '1.4';
+
+    if (matched.status === 'Sold') {
+      warnBox.style.background = 'rgba(239, 68, 68, 0.12)';
+      warnBox.style.border = '1px solid rgba(239, 68, 68, 0.35)';
+      warnBox.style.color = '#ef4444';
+      warnBox.innerHTML = `
+        <span style="font-size:15px;line-height:1;">⚠️</span>
+        <div>
+          <strong style="text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:2px;">Duplicate Warning: Piece Already Sold</strong>
+          <span style="color:var(--text-main);font-weight:400;font-size:11px;">
+            SKU "<strong>${UI.escapeHtml(matched.sku)}</strong>" (${UI.escapeHtml(matched.name || 'Jewelry Piece')}) was already <strong>SOLD</strong> to <strong>${UI.escapeHtml(matched.soldTo || 'Direct Sale')}</strong> on <strong>${UI.escapeHtml(matched.soldDate || 'past date')}</strong> for <strong>₹${Number(matched.soldPrice || 0).toLocaleString()}</strong>${matched.issuedMemoNumber ? ' (via Memo ' + UI.escapeHtml(matched.issuedMemoNumber) + ')' : ''}.
+          </span>
+        </div>
+      `;
+    } else if (matched.status === 'Issued') {
+      warnBox.style.background = 'rgba(59, 130, 246, 0.12)';
+      warnBox.style.border = '1px solid rgba(59, 130, 246, 0.35)';
+      warnBox.style.color = '#38bdf8';
+      warnBox.innerHTML = `
+        <span style="font-size:15px;line-height:1;">⚠️</span>
+        <div>
+          <strong style="text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:2px;">Duplicate Warning: Item Out On Memo</strong>
+          <span style="color:var(--text-main);font-weight:400;font-size:11px;">
+            SKU "<strong>${UI.escapeHtml(matched.sku)}</strong>" (${UI.escapeHtml(matched.name || 'Jewelry Piece')}) is currently <strong>OUT ON MEMO ${UI.escapeHtml(matched.issuedMemoNumber || '')}</strong> to <strong>${UI.escapeHtml(matched.issuedTo || 'Client')}</strong>.
+          </span>
+        </div>
+      `;
+    } else {
+      warnBox.style.background = 'rgba(245, 158, 11, 0.12)';
+      warnBox.style.border = '1px solid rgba(245, 158, 11, 0.35)';
+      warnBox.style.color = '#f59e0b';
+      warnBox.innerHTML = `
+        <span style="font-size:15px;line-height:1;">⚠️</span>
+        <div>
+          <strong style="text-transform:uppercase;letter-spacing:0.04em;display:block;margin-bottom:2px;">Duplicate Warning: Active In Inventory</strong>
+          <span style="color:var(--text-main);font-weight:400;font-size:11px;">
+            SKU "<strong>${UI.escapeHtml(matched.sku)}</strong>" is already in active stock as "<strong>${UI.escapeHtml(matched.name || 'Jewelry Piece')}</strong>".
+          </span>
+        </div>
+      `;
+    }
+    helperEl.appendChild(warnBox);
+  },
+
   // Setup Global Scroll-to-Top Button for all scrollable screens & modals
   initScrollToTop() {
     const btn = document.getElementById('btn-scroll-to-top');

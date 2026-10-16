@@ -279,6 +279,58 @@ const JewelryMemoController = {
       return true;
     });
 
+    // Notify user if any pieces matching search query cannot be added because they were already sold or are out on another memo
+    const warnEl = document.getElementById('jewelry-memo-search-warning');
+    if (warnEl) {
+      if (query) {
+        const unavailableMatches = items.filter(item => {
+          const status = item.status || 'In Stock';
+          const isUnavailable = (status === 'Sold') || (status === 'Issued' && (!editingMemo || item.issuedMemoNumber !== editingMemo.memoNumber));
+          if (!isUnavailable) return false;
+          if (catVal && (item.category || '').toLowerCase() !== catVal.toLowerCase()) return false;
+
+          const name = (item.name || '').toLowerCase();
+          const sku = (item.sku || '').toLowerCase();
+          const desc = (item.description || '').toLowerCase();
+          return name.includes(query) || sku.includes(query) || desc.includes(query);
+        });
+
+        if (unavailableMatches.length > 0) {
+          warnEl.style.display = 'block';
+          warnEl.replaceChildren();
+
+          const header = document.createElement('div');
+          header.style.fontWeight = '700';
+          header.style.marginBottom = '6px';
+          header.style.color = '#ef4444';
+          header.style.display = 'flex';
+          header.style.alignItems = 'center';
+          header.style.gap = '6px';
+          header.innerHTML = `<span>⚠️</span><span>Matching piece(s) found that cannot be added to memo:</span>`;
+          warnEl.appendChild(header);
+
+          unavailableMatches.slice(0, 5).forEach(mItem => {
+            const itemRow = document.createElement('div');
+            itemRow.style.fontSize = '11px';
+            itemRow.style.padding = '3px 0';
+            itemRow.style.color = 'var(--text-main)';
+            if (mItem.status === 'Sold') {
+              itemRow.innerHTML = `• <strong style="color:#ef4444;">[ALREADY SOLD]</strong> SKU <strong>${UI.escapeHtml(mItem.sku || 'N/A')}</strong> (${UI.escapeHtml(mItem.name)}) was sold to <strong>${UI.escapeHtml(mItem.soldTo || 'client')}</strong> on ${UI.escapeHtml(mItem.soldDate || 'past date')}${mItem.issuedMemoNumber ? ' (Memo ' + UI.escapeHtml(mItem.issuedMemoNumber) + ')' : ''}`;
+            } else {
+              itemRow.innerHTML = `• <strong style="color:#38bdf8;">[OUT ON MEMO]</strong> SKU <strong>${UI.escapeHtml(mItem.sku || 'N/A')}</strong> (${UI.escapeHtml(mItem.name)}) is currently issued on <strong>Memo ${UI.escapeHtml(mItem.issuedMemoNumber || '')}</strong> to <strong>${UI.escapeHtml(mItem.issuedTo || 'client')}</strong>`;
+            }
+            warnEl.appendChild(itemRow);
+          });
+        } else {
+          warnEl.style.display = 'none';
+          warnEl.replaceChildren();
+        }
+      } else {
+        warnEl.style.display = 'none';
+        warnEl.replaceChildren();
+      }
+    }
+
     if (filtered.length === 0) {
       const opt = document.createElement('option');
       opt.value = '';
@@ -309,6 +361,18 @@ const JewelryMemoController = {
     const itemId = selectEl.value;
     const item = DBManager.getItems().find(i => i.id === itemId);
     if (!item) return;
+
+    if (item.status === 'Sold') {
+      UI.showToast(`Cannot add to memo: SKU "${item.sku}" was already SOLD to ${item.soldTo || 'client'} on ${item.soldDate || 'past date'}.`, true);
+      return;
+    }
+    const editingMemo = this.editingMemoId
+      ? DBManager.getJewelryMemos().find(m => m.id === this.editingMemoId)
+      : null;
+    if (item.status === 'Issued' && (!editingMemo || item.issuedMemoNumber !== editingMemo.memoNumber)) {
+      UI.showToast(`Cannot add to memo: SKU "${item.sku}" is currently OUT ON MEMO ${item.issuedMemoNumber || ''} to ${item.issuedTo || 'client'}.`, true);
+      return;
+    }
 
     const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
     const evalItem = Calc.evaluateItem(item, goldRate);

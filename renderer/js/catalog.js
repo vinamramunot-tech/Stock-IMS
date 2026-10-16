@@ -1440,9 +1440,15 @@ const Catalog = {
     // Check duplicate SKUs (only if new, or modified on existing)
     const isEdit = UI.activeItemState && UI.activeItemState.id;
     const allItems = DBManager.getItems();
-    const isSkuDuplicate = allItems.some(i => i.sku === sku && (!isEdit || i.id !== UI.activeItemState.id));
-    if (isSkuDuplicate) {
-      UI.showToast(`The SKU code "${sku}" is already in use by another piece.`, true);
+    const duplicateItem = allItems.find(i => i.sku && i.sku.toLowerCase().trim() === sku.toLowerCase().trim() && (!isEdit || i.id !== UI.activeItemState.id));
+    if (duplicateItem) {
+      if (duplicateItem.status === 'Sold') {
+        UI.showToast(`Cannot save piece: SKU "${sku}" was already SOLD to ${duplicateItem.soldTo || 'client'} on ${duplicateItem.soldDate || 'past date'} for ₹${Number(duplicateItem.soldPrice || 0).toLocaleString()} (Memo ${duplicateItem.issuedMemoNumber || 'Direct'}). Cannot duplicate sold inventory.`, true);
+      } else if (duplicateItem.status === 'Issued') {
+        UI.showToast(`Cannot save piece: SKU "${sku}" is currently OUT ON MEMO ${duplicateItem.issuedMemoNumber || ''} to ${duplicateItem.issuedTo || 'client'}.`, true);
+      } else {
+        UI.showToast(`The SKU code "${sku}" is already in use by active piece "${duplicateItem.name}".`, true);
+      }
       return;
     }
 
@@ -4155,6 +4161,7 @@ const Catalog = {
     parsedItems.forEach(parsed => {
       let isDup = false;
       let reason = '';
+      let dupStatus = '';
 
       const pGross = parsed.grossWt || (parsed.metals[0] ? parsed.metals[0].weight : 0);
       const pNet = parsed.netWt || (parsed.metals[0] ? parsed.metals[0].weight : 0);
@@ -4165,7 +4172,14 @@ const Catalog = {
         // 1. Check SKU match
         if (parsed.sku && exist.sku && parsed.sku.toLowerCase().trim() === exist.sku.toLowerCase().trim()) {
           isDup = true;
-          reason = `Existing item found with matching SKU "${exist.sku}" (${exist.name})`;
+          dupStatus = exist.status || 'In Stock';
+          if (exist.status === 'Sold') {
+            reason = `Already SOLD to ${exist.soldTo || 'client'} on ${exist.soldDate || 'past date'} (SKU: "${exist.sku}")`;
+          } else if (exist.status === 'Issued') {
+            reason = `Currently OUT ON MEMO ${exist.issuedMemoNumber || ''} to ${exist.issuedTo || 'client'} (SKU: "${exist.sku}")`;
+          } else {
+            reason = `Existing active item in inventory with matching SKU "${exist.sku}" (${exist.name})`;
+          }
           break;
         }
 
@@ -4183,12 +4197,20 @@ const Catalog = {
 
         if (grossMatch && netMatch && karatMatch && nameMatch) {
           isDup = true;
-          reason = `Exact details match existing piece "${exist.name}" (Gross: ${eGross}g, Net: ${eNet}g, Karat: ${eKarat}KT)`;
+          dupStatus = exist.status || 'In Stock';
+          if (exist.status === 'Sold') {
+            reason = `Exact details match piece "${exist.name}" that was ALREADY SOLD to ${exist.soldTo || 'client'} on ${exist.soldDate || 'past date'}`;
+          } else if (exist.status === 'Issued') {
+            reason = `Exact details match piece "${exist.name}" currently OUT ON MEMO ${exist.issuedMemoNumber || ''} to ${exist.issuedTo || 'client'}`;
+          } else {
+            reason = `Exact details match existing active piece "${exist.name}" (Gross: ${eGross}g, Net: ${eNet}g, Karat: ${eKarat}KT)`;
+          }
           break;
         }
       }
 
       parsed.isDuplicate = isDup;
+      parsed.duplicateStatus = dupStatus;
       parsed.duplicateReason = reason;
     });
   },
@@ -4274,13 +4296,17 @@ const Catalog = {
                 <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                   <strong style="font-size: 14px; color: var(--text-main);">${UI.escapeHtml(item.name)}</strong>
                   ${item.isDuplicate
-          ? `<span class="badge-import-status badge-import-duplicate">Duplicate - Skipped</span>`
+          ? (item.duplicateStatus === 'Sold'
+              ? `<span class="badge-import-status" style="background:rgba(239,68,68,0.15);color:#ef4444;font-weight:700;">Already Sold - Skipped</span>`
+              : item.duplicateStatus === 'Issued'
+                ? `<span class="badge-import-status" style="background:rgba(59,130,246,0.15);color:#38bdf8;font-weight:700;">Out on Memo - Skipped</span>`
+                : `<span class="badge-import-status badge-import-duplicate">Duplicate - Skipped</span>`)
           : `<span class="badge-import-status badge-import-new">Ready to Import</span>`}
                   <span style="font-size: 11px; background: var(--bg-base); border: 1px solid var(--border-light); padding: 2px 8px; border-radius: 4px; font-weight: 600; color: var(--text-muted);">${UI.escapeHtml(item.category)}</span>
                 </div>
 
                 ${item.isDuplicate ? `
-                  <div style="font-size: 11px; color: #e65100; margin-top: 4px; font-weight: 600;">
+                  <div style="font-size: 11px; color: ${item.duplicateStatus === 'Sold' ? '#ef4444' : (item.duplicateStatus === 'Issued' ? '#38bdf8' : '#e65100')}; margin-top: 4px; font-weight: 600;">
                     ⚠️ ${UI.escapeHtml(item.duplicateReason)}
                   </div>
                 ` : ''}

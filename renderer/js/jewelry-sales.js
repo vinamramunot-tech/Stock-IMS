@@ -126,6 +126,9 @@ const JewelrySalesController = {
   },
 
   getSalesRecords() {
+    if (DBManager.healJewelrySales && DBManager.database) {
+      DBManager.healJewelrySales(DBManager.database);
+    }
     const rawSales = DBManager.getJewelrySales ? DBManager.getJewelrySales() : (DBManager.database?.jewelrySales || []);
     const records = rawSales.map(s => this.enrichSaleRecord(s));
 

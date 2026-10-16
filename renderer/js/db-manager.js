@@ -212,6 +212,122 @@ const DBManager = {
         }
       }
     }
+
+    // 5. Automatically heal and reconcile jewelrySales array from sold items and memos
+    this.healJewelrySales(db);
+  },
+
+  /**
+   * Reconciles finished jewelry sales records with items marked as Sold and closed memo records.
+   * Ensures that any item sold directly or via a memo is never missing from the jewelrySales ledger.
+   */
+  healJewelrySales(db) {
+    if (!db || typeof db !== 'object') return;
+    if (!Array.isArray(db.items)) db.items = [];
+    if (!Array.isArray(db.jewelrySales)) db.jewelrySales = [];
+    if (!Array.isArray(db.jewelryMemos)) db.jewelryMemos = [];
+
+    const goldRate = (db.settings && db.settings.goldRate24kt) ? Number(db.settings.goldRate24kt.ratePerGram || 0) : 0;
+    const items = db.items;
+    const memos = db.jewelryMemos;
+    const sales = db.jewelrySales;
+
+    const soldItems = items.filter(i => i && i.status === 'Sold');
+
+    soldItems.forEach(item => {
+      let sale = sales.find(s => (s.itemId && s.itemId === item.id) || (s.sku && item.sku && s.sku.toLowerCase() === item.sku.toLowerCase()));
+
+      let memoInfo = null;
+      for (const m of memos) {
+        const mi = (m.items || []).find(it => (it.itemId && it.itemId === item.id) || (it.sku && item.sku && it.sku.toLowerCase() === item.sku.toLowerCase()));
+        if (mi && mi.status === 'sold') {
+          memoInfo = { memo: m, memoItem: mi };
+          if ((mi.soldPrice === undefined || mi.soldPrice === null) && item.soldPrice) {
+            mi.soldPrice = item.soldPrice;
+          }
+          break;
+        }
+      }
+
+      const evalItem = (typeof Calc !== 'undefined' && Calc.evaluateItem) ? Calc.evaluateItem(item, goldRate) : null;
+      const mfgCost = (item.mfgCostPrice && Number(item.mfgCostPrice) > 0)
+        ? Number(item.mfgCostPrice)
+        : ((evalItem && evalItem.mfgGrandTotal) ? evalItem.mfgGrandTotal : (evalItem?.marketCostPrice || 0));
+      const replacementCost = (evalItem && evalItem.marketCostPrice) ? evalItem.marketCostPrice : mfgCost;
+      const soldPrice = Number(item.soldPrice) || (memoInfo?.memoItem?.soldPrice) || (evalItem ? evalItem.sellingPrice : 0);
+      const saleDate = item.soldDate || (memoInfo?.memo?.date) || (item.updatedAt ? item.updatedAt.split('T')[0] : new Date().toISOString().split('T')[0]);
+      const mfgDate = item.mfgDate || (item.createdAt ? item.createdAt.split('T')[0] : saleDate);
+      const customerName = item.soldTo || (memoInfo?.memo?.personName) || 'Direct Sale';
+      const brokerName = item.soldBroker || (memoInfo?.memo?.brokerName) || '—';
+
+      const mfgTime = new Date(mfgDate + 'T00:00:00').getTime();
+      const saleTime = new Date(saleDate + 'T00:00:00').getTime();
+      const diffMs = Math.max(0, saleTime - mfgTime);
+      const daysElapsed = Math.round(diffMs / (1000 * 60 * 60 * 24));
+      const monthsElapsed = Math.max(0.1, Number((daysElapsed / 30.4375).toFixed(2)));
+
+      const profit = soldPrice - mfgCost;
+      const marginPct = mfgCost > 0 ? (profit / mfgCost) * 100 : 0;
+      const replacementProfit = soldPrice - replacementCost;
+      const replacementMarginPct = replacementCost > 0 ? (replacementProfit / replacementCost) * 100 : 0;
+      const goldCommodityGain = replacementCost - mfgCost;
+      const monthlyProfitPct = Number((marginPct / monthsElapsed).toFixed(2));
+
+      if (!sale) {
+        sale = {
+          id: 'jsale_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+          saleNumber: '',
+          saleDate,
+          mfgDate,
+          daysElapsed,
+          monthsElapsed,
+          memoId: memoInfo ? memoInfo.memo.id : null,
+          memoNumber: memoInfo ? memoInfo.memo.memoNumber : (item.issuedMemoNumber || '—'),
+          itemId: item.id,
+          sku: item.sku,
+          name: item.name,
+          category: item.category,
+          customerName,
+          brokerName,
+          mfgCost,
+          replacementCost,
+          soldPrice,
+          profit,
+          mfgProfit: profit,
+          marginPct,
+          mfgMarginPct: marginPct,
+          replacementProfit,
+          replacementMarginPct,
+          goldCommodityGain,
+          monthlyProfitPct,
+          notes: item.notes || '',
+          createdAt: item.updatedAt || new Date().toISOString()
+        };
+        sales.push(sale);
+      } else {
+        if (!sale.sku && item.sku) sale.sku = item.sku;
+        if (!sale.name && item.name) sale.name = item.name;
+        if (!sale.category && item.category) sale.category = item.category;
+        if (!sale.memoId && memoInfo) sale.memoId = memoInfo.memo.id;
+        if ((!sale.memoNumber || sale.memoNumber === '—') && memoInfo) sale.memoNumber = memoInfo.memo.memoNumber;
+        if (!sale.replacementCost) sale.replacementCost = replacementCost;
+        if (!sale.replacementProfit) sale.replacementProfit = replacementProfit;
+        if (!sale.replacementMarginPct) sale.replacementMarginPct = replacementMarginPct;
+        if (!sale.goldCommodityGain) sale.goldCommodityGain = goldCommodityGain;
+      }
+    });
+
+    // Chronological order & sequential numbering
+    sales.sort((a, b) => {
+      const tA = new Date(a.saleDate || a.createdAt || 0).getTime();
+      const tB = new Date(b.saleDate || b.createdAt || 0).getTime();
+      if (tA !== tB) return tA - tB;
+      return (a.sku || '').localeCompare(b.sku || '');
+    });
+
+    sales.forEach((s, idx) => {
+      s.saleNumber = 'JS-' + String(idx + 1).padStart(4, '0');
+    });
   },
 
   _isSaving: false,

@@ -97,6 +97,16 @@ const App = {
       });
     }
 
+    // Real-time duplicate SKU detection & notification
+    const itemSkuEl = document.getElementById('item-sku');
+    if (itemSkuEl) {
+      itemSkuEl.addEventListener('input', () => {
+        itemSkuEl.dataset.autoFilled = 'false';
+        const matched = UI.checkSkuDuplicate(itemSkuEl.value);
+        UI.renderSkuDuplicateWarning(matched);
+      });
+    }
+
     // Dynamic metal row button click
     const btnAddMetalPart = document.getElementById('btn-add-metal-part');
     if (btnAddMetalPart) {
