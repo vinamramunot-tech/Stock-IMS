@@ -778,12 +778,13 @@
       const core = getTauriCore();
       if (core) {
         try {
-          return await safeInvoke('export_backup_dialog', { _default_name: defaultName, default_name: defaultName, defaultName }, 10000);
+          return await core.invoke('export_backup_dialog', { _default_name: defaultName, default_name: defaultName, defaultName });
         } catch (e) {
           console.warn("exportBackupDialog failed:", e);
+          return null;
         }
       }
-      return defaultName || "mava_gems_stock_backup.db";
+      return null;
     },
     
     importBackupDialog: async () => {
@@ -954,12 +955,14 @@
         const core = getTauriCore();
         if (core) {
           try {
-            return await safeInvoke('save_file_dialog', { default_name: defaultName, defaultName }, 10000);
+            // Interactive file save dialog: do not apply short timeout so user has time to choose save folder
+            return await core.invoke('save_file_dialog', { _default_name: defaultName, default_name: defaultName, defaultName });
           } catch (e) {
             console.warn("saveFileDialog failed:", e);
+            return null;
           }
         }
-        return defaultName;
+        return null;
       }
     },
 

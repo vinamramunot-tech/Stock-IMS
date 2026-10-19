@@ -2680,6 +2680,7 @@ const Catalog = {
     // =========================================================
     let rowIdx = 8;
     let sNo = 1;
+    const itemMtlRows = [];
 
     filteredItems.forEach((item) => {
       const mainKarat = Number(item.karat || (item.metals && item.metals[0] ? item.metals[0].karat : 18));
@@ -2716,6 +2717,7 @@ const Catalog = {
       }
 
       const mtlR = rowIdx;
+      itemMtlRows.push(mtlR);
       ws.getRow(mtlR).height = 22;
 
       // MTL Row
@@ -3234,9 +3236,15 @@ const Catalog = {
     gtC.font = { bold: true, name: 'Calibri' };
     gtC.border = BORDER_ALL;
 
+    // Format the SUM formulas using the exact first and last item row indices, or item rows
+    const firstItemP = itemMtlRows.length > 0 ? itemMtlRows[0] : firstItemRow;
+    const lastItemP = itemMtlRows.length > 0 ? itemMtlRows[itemMtlRows.length - 1] : lastItemRow;
+
     const gtM = ws.getCell(grandRow, C.M);
     gtM.value = {
-      formula: `ROUND(SUM(${colLetter(C.M)}${firstItemRow}:${colLetter(C.M)}${lastItemRow}), 2)`,
+      formula: itemMtlRows.length > 0
+        ? `ROUND(${itemMtlRows.map(r => `${colLetter(C.M)}${r}`).join('+')}, 2)`
+        : `ROUND(SUM(${colLetter(C.M)}${firstItemRow}:${colLetter(C.M)}${lastItemRow}), 2)`,
       result: Number(totalMarketCP.toFixed(2))
     };
     gtM.font = { bold: true, name: 'Calibri' };
@@ -3245,7 +3253,9 @@ const Catalog = {
 
     const gtN = ws.getCell(grandRow, C.N);
     gtN.value = {
-      formula: `ROUND(SUM(${colLetter(C.N)}${firstItemRow}:${colLetter(C.N)}${lastItemRow}), 2)`,
+      formula: itemMtlRows.length > 0
+        ? `ROUND(${itemMtlRows.map(r => `${colLetter(C.N)}${r}`).join('+')}, 2)`
+        : `ROUND(SUM(${colLetter(C.N)}${firstItemRow}:${colLetter(C.N)}${lastItemRow}), 2)`,
       result: Number(totalMfgCost.toFixed(2))
     };
     gtN.font = { bold: true, name: 'Calibri' };
@@ -3254,7 +3264,9 @@ const Catalog = {
 
     const gtO = ws.getCell(grandRow, C.O);
     gtO.value = {
-      formula: `ROUND(SUM(${colLetter(C.O)}${firstItemRow}:${colLetter(C.O)}${lastItemRow}), 2)`,
+      formula: itemMtlRows.length > 0
+        ? `ROUND(${itemMtlRows.map(r => `${colLetter(C.O)}${r}`).join('+')}, 2)`
+        : `ROUND(SUM(${colLetter(C.O)}${firstItemRow}:${colLetter(C.O)}${lastItemRow}), 2)`,
       result: Number(totalHomeCP.toFixed(2))
     };
     gtO.font = { bold: true, name: 'Calibri' };
@@ -3263,7 +3275,11 @@ const Catalog = {
 
     const gtP = ws.getCell(grandRow, C.P);
     gtP.value = {
-      formula: `ROUND(SUM(${colLetter(C.P)}${firstItemRow}:${colLetter(C.P)}${lastItemRow}), 2)`,
+      formula: itemMtlRows.length > 0
+        ? (itemMtlRows.length === 1
+            ? `ROUND(${colLetter(C.P)}${itemMtlRows[0]}, 2)`
+            : `ROUND(SUM(${colLetter(C.P)}${itemMtlRows[0]}:${colLetter(C.P)}${itemMtlRows[itemMtlRows.length - 1]}), 2)`)
+        : `ROUND(SUM(${colLetter(C.P)}${firstItemRow}:${colLetter(C.P)}${lastItemRow}), 2)`,
       result: Number(totalSellingPrice.toFixed(2))
     };
     gtP.font = { bold: true, name: 'Calibri' };
