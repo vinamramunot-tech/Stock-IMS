@@ -326,11 +326,17 @@ fn select_directory() -> Option<String> {
 }
 
 #[tauri::command]
-fn export_backup_dialog(_handle: AppHandle, _default_name: Option<String>) -> Option<String> {
+fn export_backup_dialog(
+    _handle: AppHandle,
+    default_name: Option<String>,
+    _default_name: Option<String>,
+) -> Option<String> {
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     {
         let doc_dir = _handle.path().document_dir().ok();
-        let default_filename = _default_name.unwrap_or_else(|| "mava_gems_stock_backup.db".to_string());
+        let default_filename = default_name
+            .or(_default_name)
+            .unwrap_or_else(|| "mava_gems_stock_backup.db".to_string());
         
         let mut dialog = FileDialog::new()
             .set_title("Export Database Backup")
@@ -832,11 +838,18 @@ async fn copy_file(source_path: String, dest_path: String) -> Result<bool, Strin
 }
 
 #[tauri::command]
-fn save_file_dialog(_handle: AppHandle, _default_name: String) -> Option<String> {
+fn save_file_dialog(
+    _handle: AppHandle,
+    default_name: Option<String>,
+    _default_name: Option<String>,
+) -> Option<String> {
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     {
         let doc_dir = _handle.path().document_dir().ok();
-        let ext = std::path::Path::new(&_default_name)
+        let chosen_name = default_name
+            .or(_default_name)
+            .unwrap_or_else(|| "report.xlsx".to_string());
+        let ext = std::path::Path::new(&chosen_name)
             .extension()
             .and_then(|e| e.to_str())
             .unwrap_or("pdf");
@@ -853,7 +866,7 @@ fn save_file_dialog(_handle: AppHandle, _default_name: String) -> Option<String>
         if let Some(path) = doc_dir {
             dialog = dialog.set_directory(path);
         }
-        dialog = dialog.set_file_name(&_default_name);
+        dialog = dialog.set_file_name(&chosen_name);
         
         dialog.save_file().map(|p| p.to_string_lossy().to_string())
     }
@@ -869,8 +882,12 @@ async fn save_pdf_file(base64_data: String, path: String) -> Result<bool, String
         use base64::{Engine as _, engine::general_purpose};
         let buffer = general_purpose::STANDARD.decode(&base64_data)
             .map_err(|e| format!("Failed to decode base64: {:?}", e))?;
-        std::fs::write(path, buffer)
-            .map_err(|e| format!("Failed to save PDF file: {:?}", e))?;
+        let path_obj = std::path::Path::new(&path);
+        if let Some(parent) = path_obj.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        std::fs::write(&path, buffer)
+            .map_err(|e| format!("Failed to save file: {:?}", e))?;
         Ok::<bool, String>(true)
     })
     .await

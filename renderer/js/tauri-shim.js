@@ -1041,7 +1041,26 @@
       } else {
         const core = getTauriCore();
         if (core) {
-          return await safeInvoke('save_pdf_file', { base64_data: base64Data, base64Data, path }, 10000);
+          return await safeInvoke('save_pdf_file', { base64_data: base64Data, base64Data, path }, 60000);
+        }
+        // Browser download fallback
+        try {
+          let cleanBase64 = base64Data || '';
+          if (cleanBase64.includes(',')) cleanBase64 = cleanBase64.split(',')[1];
+          const byteCharacters = atob(cleanBase64);
+          const byteNumbers = new Uint8Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
+          const blob = new Blob([byteNumbers], { type: 'application/pdf' });
+          const blobUrl = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = (path || 'report.pdf').split('/').pop() || 'report.pdf';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+        } catch (e) {
+          console.warn("Browser PDF fallback failed:", e);
         }
         return true;
       }
@@ -1117,7 +1136,26 @@
       } else {
         const core = getTauriCore();
         if (core) {
-          return await safeInvoke('save_pdf_file', { base64_data: base64Data, base64Data, path }, 10000);
+          return await safeInvoke('save_pdf_file', { base64_data: base64Data, base64Data, path }, 60000);
+        }
+        // Browser download fallback
+        try {
+          let cleanBase64 = base64Data || '';
+          if (cleanBase64.includes(',')) cleanBase64 = cleanBase64.split(',')[1];
+          const byteCharacters = atob(cleanBase64);
+          const byteNumbers = new Uint8Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
+          const blob = new Blob([byteNumbers], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+          const blobUrl = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = (path || 'report.xlsx').split('/').pop() || 'report.xlsx';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+        } catch (e) {
+          console.warn("Browser XLSX fallback failed:", e);
         }
         return true;
       }
