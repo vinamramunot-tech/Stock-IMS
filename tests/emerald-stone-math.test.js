@@ -111,4 +111,37 @@ test('Emerald & Stone Mathematics - Pure Engine Tests', async (t) => {
     assert.equal(resRuby.hasEmerald, false);
     assert.equal(resRuby.sellingPrice, 117650);
   });
+
+  await t.test('Multiplier on-screen target value transparency in UI and DOM', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const indexHtml = fs.readFileSync(path.join(__dirname, '../renderer/index.html'), 'utf8');
+    const catalogJs = fs.readFileSync(path.join(__dirname, '../renderer/js/catalog.js'), 'utf8');
+    const emeraldJs = fs.readFileSync(path.join(__dirname, '../renderer/js/emerald.js'), 'utf8');
+
+    // 1. Jewelry Print & Export Modal explicitly declares target as Base Selling Price
+    assert.match(indexHtml, /id="jewelry-export-multiplier-applied-info"/);
+    assert.match(indexHtml, /Multiplier Applied On:[\s\S]*Base Selling Price/);
+    assert.match(catalogJs, /Applied on Base SP:/);
+    assert.match(catalogJs, /Base Selling Price \(1\.0x\)/);
+
+    // 2. Emerald Catalog toolbar explicitly declares target as Rate / Carat
+    assert.match(indexHtml, /id="catalog-multiplier-applied-pill"/);
+    assert.match(indexHtml, /Apply Multiplier[\s\S]*\(on Rate\/ct\)/);
+    assert.match(emeraldJs, /Applied on: Rate\/Carat \(₹\/ct\)/);
+
+    // 3. Emerald Share Modal explicitly declares target as Rate / Carat
+    assert.match(indexHtml, /Price\s+Multiplier Discount[\s\S]*\(Applied on Rate \/ Carat — ₹\/ct\)/);
+    assert.match(indexHtml, /Orig Rate:[\s\S]*New Rate:/);
+
+    // 4. Emerald Bulk Share Modal declares target as Rate / Carat
+    assert.match(indexHtml, /id="bulk-share-multiplier-note"/);
+    assert.match(indexHtml, /Multiplier Applied On:[\s\S]*Rate \/ Carat \(₹\/ct\)/);
+    assert.match(emeraldJs, /Orig Rate:[\s\S]*New Rate:/);
+
+    // 5. Presentation Mode declares target as Market Cost Price
+    assert.match(indexHtml, /Applied on: Market Cost Price/);
+    assert.match(catalogJs, /Price \(\$\{multiplier\.toFixed\(2\)\}x on Market Cost Price\)/);
+  });
 });
+

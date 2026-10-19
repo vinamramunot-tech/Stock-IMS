@@ -1007,7 +1007,8 @@
                 style="display: flex; align-items: center; gap: 8px; font-size: 13px; border-left: 1px solid var(--border-light); padding-left: 12px; margin-left: 4px; flex-wrap: wrap;">
                 <label
                   style="display: inline-flex; align-items: center; gap: 6px; font-weight: normal; text-transform: none; margin: 0; cursor: pointer; user-select: none;">
-                  <input type="checkbox" id="catalog-apply-multiplier" style="width: auto; margin: 0;"> Apply Multiplier
+                  <input type="checkbox" id="catalog-apply-multiplier" style="width: auto; margin: 0;">
+                  <span>Apply Multiplier <span style="font-size: 11px; color: var(--text-gold); font-weight: 600;">(on Rate/ct)</span></span>
                 </label>
                 <select id="catalog-multiplier-select" class="filter-select"
                   style="height: 38px; width: 110px; display: none; padding: 2px 6px;">
@@ -1020,6 +1021,9 @@
                 </select>
                 <input type="number" id="catalog-multiplier-custom" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 0.85"
                   style="width: 75px; height: 38px; display: none; padding: 6px 8px; border: 1px solid var(--border-light); border-radius: 4px; background: var(--bg-base); color: var(--text-main);">
+                <span id="catalog-multiplier-applied-pill" style="display: none; font-size: 11px; padding: 4px 8px; border-radius: 4px; background: rgba(212,175,55,0.12); color: var(--text-gold); border: 1px solid rgba(212,175,55,0.3); font-weight: 600; white-space: nowrap;">
+                  Applied on: Rate / Carat (₹/ct)
+                </span>
               </div>
 
               <!-- View Mode Toggle -->
@@ -4455,7 +4459,7 @@
           <div
             style="display: flex; flex-direction: column; gap: 5px; width: 100%; margin-top: 5px; border-top: 1px solid var(--border-light); padding-top: 10px;">
             <label style="font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Price
-              Multiplier Discount</label>
+              Multiplier Discount <span style="color: var(--text-gold); font-size: 11px; font-weight: 600; text-transform: none;">(Applied on Rate / Carat — ₹/ct)</span></label>
             <div style="display: flex; gap: 10px; align-items: center;">
               <select id="share-price-multiplier" class="filter-select"
                 style="flex: 1; height: 36px; padding: 2px 6px;">
@@ -4469,11 +4473,14 @@
               <input type="number" id="share-price-multiplier-custom" step="0.01" min="0" placeholder="e.g. 0.85"
                 style="display: none; flex: 1; height: 36px; padding: 6px 8px; border: 1px solid var(--border-light); border-radius: 4px; background: var(--bg-base); color: var(--text-main); margin-left: 5px;">
               <div
-                style="display: flex; flex-direction: column; font-size: 11px; min-width: 140px; text-align: right; color: var(--text-muted); justify-content: center; gap: 2px;">
-                <div>Orig: <strong id="share-orig-price-display" style="color: var(--text-main);">₹0/ct</strong></div>
-                <div>New: <strong id="share-new-price-display"
+                style="display: flex; flex-direction: column; font-size: 11px; min-width: 155px; text-align: right; color: var(--text-muted); justify-content: center; gap: 2px;">
+                <div>Orig Rate: <strong id="share-orig-price-display" style="color: var(--text-main);">₹0/ct</strong></div>
+                <div>New Rate: <strong id="share-new-price-display"
                     style="color: var(--text-gold-dark); font-weight: 700;">₹0/ct</strong></div>
               </div>
+            </div>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+              Multiplier is applied to <strong style="color: var(--text-gold);">Rate / Carat (₹/ct)</strong>. Total parcel valuation updates automatically.
             </div>
           </div>
         </div>
@@ -4544,42 +4551,52 @@
         </div>
 
         <div class="jewelry-export-multiplier-container"
-          style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; gap: 12px; flex-wrap: wrap;">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
-              style="color: var(--text-gold);">
-              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-            </svg>
-            <div>
-              <div style="font-weight: 600; font-size: 12px; color: var(--text-main);">Selling Price Multiplier (Print
-                Report & Export)</div>
-              <div style="font-size: 11px; color: var(--text-muted);">Adjust selling prices in client catalog report
-                (cost price remains unaffected)</div>
+          style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 6px; padding: 10px 12px; margin-bottom: 12px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+                style="color: var(--text-gold);">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+              </svg>
+              <div>
+                <div style="font-weight: 600; font-size: 12px; color: var(--text-main);">Selling Price Multiplier (Print Report & Export)</div>
+                <div style="font-size: 11px; color: var(--text-muted);">Adjust selling prices in client catalog report (cost price remains unaffected)</div>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <select id="jewelry-export-price-multiplier" class="filter-select"
+                style="height: 34px; min-width: 155px; padding: 2px 8px; font-size: 12px;">
+                <option value="1.0" selected>1.0x (Standard Selling Price)</option>
+                <option value="1.05">1.05x (+5% markup)</option>
+                <option value="1.1">1.10x (+10% markup)</option>
+                <option value="1.15">1.15x (+15% markup)</option>
+                <option value="1.2">1.20x (+20% markup)</option>
+                <option value="1.25">1.25x (+25% markup)</option>
+                <option value="1.3">1.30x (+30% markup)</option>
+                <option value="1.35">1.35x (+35% markup)</option>
+                <option value="1.4">1.40x (+40% markup)</option>
+                <option value="1.5">1.50x (+50% markup)</option>
+                <option value="0.95">0.95x (-5% discount)</option>
+                <option value="0.9">0.90x (-10% discount)</option>
+                <option value="0.85">0.85x (-15% discount)</option>
+                <option value="0.8">0.80x (-20% discount)</option>
+                <option value="0.75">0.75x (-25% discount)</option>
+                <option value="custom">Custom Multiplier...</option>
+              </select>
+              <input type="number" id="jewelry-export-price-multiplier-custom" step="0.01" min="0.01" value="1.0"
+                placeholder="e.g. 1.25"
+                style="display: none; width: 80px; height: 34px; padding: 4px 8px; font-size: 12px; border: 1px solid var(--border-light); border-radius: 4px; background: var(--bg-base); color: var(--text-main);">
             </div>
           </div>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <select id="jewelry-export-price-multiplier" class="filter-select"
-              style="height: 34px; min-width: 155px; padding: 2px 8px; font-size: 12px;">
-              <option value="1.0" selected>1.0x (Standard Selling Price)</option>
-              <option value="1.05">1.05x (+5% markup)</option>
-              <option value="1.1">1.10x (+10% markup)</option>
-              <option value="1.15">1.15x (+15% markup)</option>
-              <option value="1.2">1.20x (+20% markup)</option>
-              <option value="1.25">1.25x (+25% markup)</option>
-              <option value="1.3">1.30x (+30% markup)</option>
-              <option value="1.35">1.35x (+35% markup)</option>
-              <option value="1.4">1.40x (+40% markup)</option>
-              <option value="1.5">1.50x (+50% markup)</option>
-              <option value="0.95">0.95x (-5% discount)</option>
-              <option value="0.9">0.90x (-10% discount)</option>
-              <option value="0.85">0.85x (-15% discount)</option>
-              <option value="0.8">0.80x (-20% discount)</option>
-              <option value="0.75">0.75x (-25% discount)</option>
-              <option value="custom">Custom Multiplier...</option>
-            </select>
-            <input type="number" id="jewelry-export-price-multiplier-custom" step="0.01" min="0.01" value="1.0"
-              placeholder="e.g. 1.25"
-              style="display: none; width: 80px; height: 34px; padding: 4px 8px; font-size: 12px; border: 1px solid var(--border-light); border-radius: 4px; background: var(--bg-base); color: var(--text-main);">
+          <div id="jewelry-export-multiplier-applied-info"
+            style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; padding: 6px 10px; background: rgba(212, 175, 55, 0.08); border-radius: 4px; border: 1px solid rgba(212, 175, 55, 0.25); color: var(--text-main); margin-top: 8px; flex-wrap: wrap; gap: 6px;">
+            <span style="display: flex; align-items: center; gap: 5px;">
+              <strong style="color: var(--text-gold);">Multiplier Applied On:</strong>
+              <span id="jewelry-export-multiplier-target-text" style="font-weight: 600;">Base Selling Price (Standard unmodified price)</span>
+            </span>
+            <span id="jewelry-export-multiplier-effect-text" style="color: var(--text-muted); font-size: 10px;">
+              Cost prices (Mfg & Market Cost) remain strictly unaffected
+            </span>
           </div>
         </div>
 
@@ -4763,6 +4780,11 @@
               <button type="button" id="btn-bulk-share-select-all-pudias" class="btn-text">Select All</button>
             </span>
           </label>
+          <div id="bulk-share-multiplier-note"
+            style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px; padding: 5px 10px; background: rgba(212, 175, 55, 0.08); border: 1px solid rgba(212, 175, 55, 0.2); border-radius: 4px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
+            <span><strong style="color: var(--text-gold);">Multiplier Applied On:</strong> Rate / Carat (₹/ct) for each pudia</span>
+            <span style="color: var(--text-muted); font-size: 10px;">Total piece valuations update from multiplied rate</span>
+          </div>
           <div id="bulk-share-pudias-list-container"
             style="max-height: 220px; overflow-y: auto; border: 1px solid var(--border-light); background-color: var(--bg-base); padding: 10px 15px; display: flex; flex-direction: column;">
             <!-- Checkbox list of pudias will populate dynamically here -->
@@ -4844,7 +4866,7 @@
                 placeholder="e.g. 1.25" />
               <div id="presentation-multiplier-help" class="form-helper-text"
                 style="font-size: 11px; color: var(--text-gold-dark); margin-top: 4px; font-weight: 600;">
-                Multiplier 1.25x = +25% margin on Market Cost Price
+                Applied on: Market Cost Price • Multiplier 1.25x = +25% margin on Market Cost Price
               </div>
             </div>
           </div>

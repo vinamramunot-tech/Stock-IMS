@@ -75,6 +75,30 @@ const EmeraldController = {
     const catalogMultiplierCustom = document.getElementById('catalog-multiplier-custom');
 
     if (catalogApplyMultiplier && catalogMultiplierSelect && catalogMultiplierCustom) {
+      const updatePill = () => {
+        const pill = document.getElementById('catalog-multiplier-applied-pill');
+        if (!pill) return;
+        if (!catalogApplyMultiplier.checked) {
+          pill.style.display = 'none';
+          return;
+        }
+        pill.style.display = 'inline-block';
+        let mult = 1.0;
+        if (catalogMultiplierSelect.value === 'custom') {
+          mult = parseFloat(catalogMultiplierCustom.value);
+          if (isNaN(mult) || mult <= 0) mult = 1.0;
+        } else {
+          mult = parseFloat(catalogMultiplierSelect.value) || 1.0;
+        }
+        if (mult !== 1.0) {
+          const pct = Math.round((mult - 1.0) * 100);
+          const sign = pct >= 0 ? `+${pct}%` : `${pct}%`;
+          pill.textContent = `Applied on: Rate/Carat (₹/ct) • ${mult.toFixed(2)}x (${sign})`;
+        } else {
+          pill.textContent = 'Applied on: Rate/Carat (₹/ct) • 1.0x';
+        }
+      };
+
       catalogApplyMultiplier.addEventListener('change', () => {
         if (catalogApplyMultiplier.checked) {
           catalogMultiplierSelect.style.display = 'inline-block';
@@ -85,6 +109,7 @@ const EmeraldController = {
           catalogMultiplierSelect.style.display = 'none';
           catalogMultiplierCustom.style.display = 'none';
         }
+        updatePill();
         this.renderEmeraldGrid();
       });
 
@@ -95,10 +120,12 @@ const EmeraldController = {
         } else {
           catalogMultiplierCustom.style.display = 'none';
         }
+        updatePill();
         this.renderEmeraldGrid();
       });
 
       catalogMultiplierCustom.addEventListener('input', () => {
+        updatePill();
         this.renderEmeraldGrid();
       });
     }
@@ -1704,7 +1731,7 @@ const EmeraldController = {
           if (isMultiplierEnabled) {
             const discountedRate = Number((pricePerCaratInr * globalMultiplier).toFixed(2));
             const discountedValue = Number((totalWeight * discountedRate).toFixed(2));
-            rateHtml = `<span style="text-decoration: line-through; opacity: 0.6;">₹${pricePerCaratInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> → <strong style="color: var(--text-gold-dark); font-weight: 700;">₹${discountedRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>/ct`;
+            rateHtml = `<span style="text-decoration: line-through; opacity: 0.6;">₹${pricePerCaratInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> → <strong style="color: var(--text-gold-dark); font-weight: 700;">₹${discountedRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>/ct <span style="font-size: 10px; color: var(--text-gold); font-weight: 600;">(${globalMultiplier.toFixed(2)}x on Rate/ct)</span>`;
             valueHtml = `<span style="text-decoration: line-through; opacity: 0.6;">₹${totalValueInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> → <strong style="color: var(--text-gold-dark); font-weight: 700;">₹${discountedValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>`;
           }
 
@@ -1749,7 +1776,7 @@ const EmeraldController = {
             const discountedPriceUsd = Number((usdRate > 0 ? discountedRate / usdRate : 0).toFixed(2));
             const discountedValueUsd = Number((usdRate > 0 ? discountedValue / usdRate : 0).toFixed(2));
 
-            usdPriceDisplay = `<span style="text-decoration: line-through; opacity: 0.6;">$${pricePerCaratUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> → <strong style="color: var(--text-gold-dark); font-weight: 700;">$${discountedPriceUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>`;
+            usdPriceDisplay = `<span style="text-decoration: line-through; opacity: 0.6;">$${pricePerCaratUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> → <strong style="color: var(--text-gold-dark); font-weight: 700;">$${discountedPriceUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>/ct <span style="font-size: 10px; color: var(--text-gold); font-weight: 600;">(${globalMultiplier.toFixed(2)}x on Rate/ct)</span>`;
             usdValueDisplay = `<span style="text-decoration: line-through; opacity: 0.6;">$${totalValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> → <strong style="color: var(--text-gold-dark); font-weight: 700;">$${discountedValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>`;
           }
 
@@ -2895,8 +2922,8 @@ const EmeraldController = {
           #${e.color || 'N/A'} (${weight.toFixed(2)}ct)
         </label>
         <div style="display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--text-muted);">
-          <span>Orig: <strong style="color: var(--text-main);">₹${pricePerCaratInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
-          <span style="display: flex; align-items: center;">
+          <span>Orig Rate: <strong style="color: var(--text-main);">₹${pricePerCaratInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/ct</strong></span>
+          <span style="display: flex; align-items: center;" title="Multiplier applied on Rate/ct">
             <select class="bulk-share-multiplier-select" data-id="${e.id}" style="height: 26px; padding: 1px 4px; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 4px; color: var(--text-main); font-size: 11px;">
               <option value="1.0" selected>1.0x</option>
               <option value="0.9">0.9x</option>
@@ -2907,7 +2934,7 @@ const EmeraldController = {
             </select>
             <input type="number" step="0.01" class="bulk-share-custom-multiplier-input" data-id="${e.id}" style="display: none; width: 55px; height: 26px; padding: 1px 4px; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 4px; color: var(--text-main); font-size: 11px; margin-left: 4px;" placeholder="1.0">
           </span>
-          <span style="min-width: 85px; text-align: right;">New: <strong class="bulk-share-new-price-val" data-id="${e.id}" style="color: var(--text-gold-dark);">₹${pricePerCaratInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+          <span style="min-width: 95px; text-align: right;">New Rate: <strong class="bulk-share-new-price-val" data-id="${e.id}" style="color: var(--text-gold-dark);">₹${pricePerCaratInr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/ct</strong></span>
         </div>
       `;
 
@@ -2925,7 +2952,7 @@ const EmeraldController = {
           mult = parseFloat(select.value) || 1.0;
         }
         const newPrice = Number((pricePerCaratInr * mult).toFixed(2));
-        newValEl.textContent = `₹${newPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        newValEl.textContent = `₹${newPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/ct`;
       };
 
       select.addEventListener('change', () => {
@@ -3667,7 +3694,7 @@ const EmeraldController = {
     if (isMultiplierEnabled) {
       const discountedRate = Number((pricePerCaratInr * globalMultiplier).toFixed(2));
       const discountedValue = Number((totalWeight * discountedRate).toFixed(2));
-      rateHtml = `<span style="text-decoration: line-through; opacity: 0.6; font-size: 11px;">₹${pricePerCaratInr.toLocaleString()}</span> <strong style="color: var(--text-gold-dark);">₹${discountedRate.toLocaleString()}</strong>/ct`;
+      rateHtml = `<span style="text-decoration: line-through; opacity: 0.6; font-size: 11px;">₹${pricePerCaratInr.toLocaleString()}</span> <strong style="color: var(--text-gold-dark);">₹${discountedRate.toLocaleString()}</strong>/ct <span style="font-size: 9px; color: var(--text-gold); font-weight: 600;">(${globalMultiplier.toFixed(2)}x on Rate/ct)</span>`;
       valueHtml = `<span style="text-decoration: line-through; opacity: 0.6; font-size: 11px;">₹${totalValueInr.toLocaleString()}</span> <strong style="color: var(--text-gold-dark);">₹${discountedValue.toLocaleString()}</strong>`;
     }
 
@@ -3684,7 +3711,7 @@ const EmeraldController = {
         const discountedValue = Number((totalWeight * discountedRate).toFixed(2));
         const discountedPriceUsd = Number((usdRate > 0 ? discountedRate / usdRate : 0).toFixed(2));
         const discountedValueUsd = Number((usdRate > 0 ? discountedValue / usdRate : 0).toFixed(2));
-        usdRateDisplay = `<span style="text-decoration: line-through; opacity: 0.6;">$${pricePerCaratUsd.toLocaleString()}</span> <strong>$${discountedPriceUsd.toLocaleString()}</strong>/ct`;
+        usdRateDisplay = `<span style="text-decoration: line-through; opacity: 0.6;">$${pricePerCaratUsd.toLocaleString()}</span> <strong>$${discountedPriceUsd.toLocaleString()}</strong>/ct <span style="font-size: 9px; color: var(--text-gold); font-weight: 600;">(${globalMultiplier.toFixed(2)}x on Rate/ct)</span>`;
         usdValueDisplay = `<span style="text-decoration: line-through; opacity: 0.6;">$${totalValueUsd.toLocaleString()}</span> <strong>$${discountedValueUsd.toLocaleString()}</strong>`;
       }
       usdDisplay = `

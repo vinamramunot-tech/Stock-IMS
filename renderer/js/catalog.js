@@ -1672,11 +1672,33 @@ const Catalog = {
         } else {
           multCustom.style.display = 'none';
         }
+        this.updatePrintMultiplierInfo();
         this.populatePrintItemsChecklist();
       });
       multCustom.addEventListener('input', () => {
+        this.updatePrintMultiplierInfo();
         this.populatePrintItemsChecklist();
       });
+    }
+  },
+
+  updatePrintMultiplierInfo() {
+    const multiplier = this.getPrintMultiplier();
+    const targetEl = document.getElementById('jewelry-export-multiplier-target-text');
+    const effectEl = document.getElementById('jewelry-export-multiplier-effect-text');
+    if (!targetEl) return;
+
+    if (multiplier === 1.0) {
+      targetEl.textContent = 'Base Selling Price (1.0x — Standard unmodified price)';
+      if (effectEl) effectEl.textContent = 'Cost prices (Mfg & Market Cost) remain strictly unaffected';
+    } else if (multiplier > 1.0) {
+      const markupPct = Math.round((multiplier - 1.0) * 100);
+      targetEl.textContent = `Base Selling Price (${multiplier.toFixed(2)}x = +${markupPct}% markup)`;
+      if (effectEl) effectEl.textContent = 'Multiplies Base Selling Price only; Cost prices remain strictly unaffected';
+    } else {
+      const discountPct = Math.round((1.0 - multiplier) * 100);
+      targetEl.textContent = `Base Selling Price (${multiplier.toFixed(2)}x = -${discountPct}% discount)`;
+      if (effectEl) effectEl.textContent = 'Discounts Base Selling Price only; Cost prices remain strictly unaffected';
     }
   },
 
@@ -1777,6 +1799,7 @@ const Catalog = {
       multCustom.style.display = 'none';
       multCustom.value = '1.0';
     }
+    this.updatePrintMultiplierInfo();
 
     // Initialize persistent printSelectedItemIds
     this.printSelectedItemIds = new Set();
@@ -1922,9 +1945,31 @@ const Catalog = {
       // Checkbox state read from persistent Set
       const isChecked = this.printSelectedItemIds ? this.printSelectedItemIds.has(item.id) : false;
 
-      const multBadge = multiplier !== 1.0
-        ? `<span style="font-size:10px; color:var(--text-gold); margin-left:4px; font-weight:600;">(${multiplier.toFixed(2)}x)</span>`
-        : '';
+      const baseSellingPrice = evaluation.baseSellingPrice !== undefined
+        ? evaluation.baseSellingPrice
+        : Number(item.sellingPrice || evaluation.sellingPrice || evaluation.marketCostPrice || 0);
+      const finalPrice = Math.round(evaluation.sellingPrice || (baseSellingPrice * multiplier));
+
+      let priceHtml = '';
+      if (multiplier !== 1.0) {
+        priceHtml = `
+          <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
+            <span class="jewelry-print-val-tag" style="color: var(--text-gold); font-weight: 700;" title="Multiplied Selling Price">₹${finalPrice.toLocaleString('en-IN')}</span>
+            <span style="font-size: 10px; color: var(--text-muted); white-space: nowrap;">
+              Applied on Base SP: <span style="text-decoration: line-through; opacity: 0.75;">₹${Math.round(baseSellingPrice).toLocaleString('en-IN')}</span> × ${multiplier.toFixed(2)}x
+            </span>
+          </div>
+        `;
+      } else {
+        priceHtml = `
+          <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
+            <span class="jewelry-print-val-tag" title="Standard Base Selling Price">₹${finalPrice.toLocaleString('en-IN')}</span>
+            <span style="font-size: 10px; color: var(--text-muted); white-space: nowrap;">
+              Base Selling Price (1.0x)
+            </span>
+          </div>
+        `;
+      }
 
       const row = document.createElement('label');
       row.className = 'jewelry-print-item-row';
@@ -1944,7 +1989,7 @@ const Catalog = {
           </div>
         </div>
         <div class="jewelry-print-item-right">
-          <span class="jewelry-print-val-tag" title="Selling Price">₹${Math.round(evaluation.sellingPrice).toLocaleString('en-IN')}${multBadge}</span>
+          ${priceHtml}
         </div>
       `;
 
@@ -4642,7 +4687,7 @@ const Catalog = {
       }
       const pct = Math.round((val - 1.0) * 1000) / 10;
       const sign = pct >= 0 ? `+${pct}%` : `${pct}%`;
-      helper.textContent = `Multiplier ${val.toFixed(2)}x = ${sign} margin on Market Cost Price`;
+      helper.textContent = `Applied on: Market Cost Price • Multiplier ${val.toFixed(2)}x = ${sign} margin on Market Cost Price`;
     };
 
     if (priceModeSel) {
@@ -4841,7 +4886,7 @@ const Catalog = {
     } else if (priceMode === 'custom') {
       const baseMarketCost = item.evaluation ? (item.evaluation.marketCostPrice || item.evaluation.grandTotal || 0) : 0;
       const sp = Math.round(baseMarketCost * (multiplier || 1.0));
-      displayPriceHtml = `<div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: ${textMutedColor}; letter-spacing: 0.1em; margin-bottom: 4px;">Price</div>
+      displayPriceHtml = `<div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: ${textMutedColor}; letter-spacing: 0.1em; margin-bottom: 4px;">Price (${multiplier.toFixed(2)}x on Market Cost Price)</div>
                           <div style="font-size: 32px; font-weight: 700; font-family: var(--font-serif); color: ${accentColor};">₹${sp.toLocaleString('en-IN')}</div>`;
     }
 
