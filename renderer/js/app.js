@@ -12,6 +12,8 @@ const App = {
     try { Catalog.init(); } catch (e) { console.error("Catalog.init error:", e); }
     try { Settings.init(); } catch (e) { console.error("Settings.init error:", e); }
     try { if (window.BiometricAuth) BiometricAuth.init(); } catch (e) { console.error("BiometricAuth.init error:", e); }
+    try { if (window.BackupManager) BackupManager.init(); } catch (e) { console.error("BackupManager.init error:", e); }
+    try { if (window.CloudSync) CloudSync.init(); } catch (e) { console.error("CloudSync.init error:", e); }
     try { this.initTheme(); } catch (e) { console.error("initTheme error:", e); }
     if (window.EmeraldController) { try { EmeraldController.init(); } catch (e) { console.error(e); } }
     if (window.EmeraldDashboardController) { try { EmeraldDashboardController.init(); } catch (e) { console.error(e); } }

@@ -352,6 +352,21 @@ const DBManager = {
       // Compress JSON (no indentation) to improve save performance and minimize memory/disk I/O overhead.
       const plainText = JSON.stringify(this.database);
       await window.electronAPI.writeVault(plainText, this.activePath);
+
+      // Post-save background enhancements (non-blocking, zero data loss)
+      try {
+        if (typeof window !== 'undefined') {
+          if (window.BackupManager && typeof window.BackupManager.checkAndRunDailyBackup === 'function') {
+            window.BackupManager.checkAndRunDailyBackup().catch(e => console.warn("Daily backup background check:", e));
+          }
+          if (window.CloudSync && typeof window.CloudSync.queueSync === 'function') {
+            window.CloudSync.queueSync();
+          }
+        }
+      } catch (bgErr) {
+        console.warn("Post-save background hook note:", bgErr);
+      }
+
       return true;
     } catch (error) {
       console.error("Failed to save database:", error);

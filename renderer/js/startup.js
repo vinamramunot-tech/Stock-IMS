@@ -338,6 +338,20 @@ const Startup = {
         if (window.StoneController && typeof window.StoneController.renderStoneGrid === 'function') {
           window.StoneController.renderStoneGrid();
         }
+
+        // Automated Daily OneDrive Backup check on startup
+        if (window.BackupManager && typeof window.BackupManager.checkAndRunDailyBackup === 'function') {
+          window.BackupManager.checkAndRunDailyBackup().catch(e => console.warn("Startup backup check:", e));
+        }
+
+        // Background Cloud Sync pull on startup
+        if (window.CloudSync && typeof window.CloudSync.syncAll === 'function' && window.CloudSync.isEnabled()) {
+          window.CloudSync.syncAll(window.DBManager.database).then(res => {
+            if (res && res.updated && window.App && typeof window.App.refreshAllDisplays === 'function') {
+              window.App.refreshAllDisplays();
+            }
+          }).catch(e => console.warn("Startup cloud sync:", e));
+        }
       }
     } catch (err) {
       console.warn("Vault load failure:", err.message);

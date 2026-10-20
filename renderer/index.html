@@ -2255,6 +2255,87 @@
               </div>
             </div>
 
+            <!-- Card: Cloud Synchronization (Firebase Firestore) -->
+            <div class="settings-card" id="settings-card-cloud-sync">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap;">
+                <div>
+                  <h3 style="display: flex; align-items: center; gap: 8px;">
+                    <span>Cloud Catalog Synchronization</span>
+                    <span id="cloud-sync-badge-status" class="badge" style="font-size: 10px; padding: 2px 8px; border-radius: 10px; background: rgba(212,175,55,0.15); color: var(--text-gold-dark); border: 1px solid rgba(212,175,55,0.3);">Cloud Sync Ready</span>
+                  </h3>
+                  <p class="settings-card-desc">
+                    Synchronize jewelry catalog, emeralds, stones, memos, and sales in real time across all staff devices (macOS, Windows, iOS) via Firebase Firestore.
+                  </p>
+                </div>
+              </div>
+
+              <div class="settings-info-box" style="margin: 10px 0;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                  <span class="label">CLOUD PROJECT:</span>
+                  <span class="value code" id="cloud-sync-project-display">mava-gems-ios</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span class="label">LAST SYNCHRONIZED:</span>
+                  <span class="value code" id="cloud-sync-last-time">Never / Ready</span>
+                </div>
+              </div>
+
+              <div class="settings-actions-row" style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
+                <button type="button" id="btn-cloud-sync-now" class="btn btn-primary" style="flex: 1; min-width: 150px;">
+                  Sync With Cloud Now
+                </button>
+                <button type="button" id="btn-configure-cloud-sync" class="btn btn-secondary" style="flex: 1; min-width: 150px;">
+                  Cloud Settings...
+                </button>
+              </div>
+            </div>
+
+            <!-- Card: Automated Daily OneDrive Backup -->
+            <div class="settings-card" id="settings-card-onedrive-backup">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap;">
+                <div>
+                  <h3 style="display: flex; align-items: center; gap: 8px;">
+                    <span>Automated Daily OneDrive Backup</span>
+                    <span id="onedrive-badge-status" class="badge" style="font-size: 10px; padding: 2px 8px; border-radius: 10px; background: rgba(243, 156, 18, 0.15); color: #f39c12; border: 1px solid rgba(243, 156, 18, 0.3);">Today's Backup Pending</span>
+                  </h3>
+                  <p class="settings-card-desc">
+                    Maintains an automated, verified daily snapshot of your stock database inside Microsoft OneDrive with 30-day rolling history to prevent data loss.
+                  </p>
+                </div>
+              </div>
+
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 8px; margin: 10px 0;">
+                <div>
+                  <div style="font-size: 13px; font-weight: 600; color: var(--text-main);">Automatic Daily Backup</div>
+                  <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Generates a verified snapshot automatically on launch and after edits</div>
+                </div>
+                <label class="switch" style="position: relative; display: inline-block; width: 44px; height: 24px; margin: 0;">
+                  <input type="checkbox" id="toggle-auto-daily-backup" checked style="opacity: 0; width: 0; height: 0;">
+                  <span class="slider round"></span>
+                </label>
+              </div>
+
+              <div class="settings-info-box" style="margin: 10px 0;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                  <span class="label">LAST DAILY BACKUP:</span>
+                  <span class="value code" id="onedrive-last-date">Checking...</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span class="label">BACKUP DIRECTORY:</span>
+                  <span class="value code" id="onedrive-folder-display" style="max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">OneDrive / App Storage</span>
+                </div>
+              </div>
+
+              <div class="settings-actions-row" style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
+                <button type="button" id="btn-run-onedrive-backup" class="btn btn-primary" style="flex: 1; min-width: 150px;">
+                  Back Up to OneDrive Now
+                </button>
+                <button type="button" id="btn-choose-onedrive-dir" class="btn btn-secondary" style="flex: 1; min-width: 150px;">
+                  Select OneDrive Folder...
+                </button>
+              </div>
+            </div>
+
             <!-- Card: About & Privacy Policy -->
             <div class="settings-card">
               <h3>About & Privacy</h3>
@@ -2322,6 +2403,50 @@
         <span>Menu</span>
       </button>
     </nav>
+  </div>
+
+  <!-- ==================== MODAL: CLOUD SYNC CONFIGURATION ==================== -->
+  <div id="modal-cloud-sync-config" class="modal-overlay hidden">
+    <div class="modal-card mini">
+      <div class="modal-header">
+        <h3>Cloud Sync Configuration</h3>
+        <button type="button" class="btn-close modal-close-trigger">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-instructions">Configure Firebase Firestore connection to synchronize inventory and memos across staff devices.</p>
+
+        <div class="input-group">
+          <label for="cloud-config-project-id">Firebase Project ID</label>
+          <input type="text" id="cloud-config-project-id" placeholder="e.g. mava-gems-ios" value="mava-gems-ios">
+        </div>
+
+        <div class="input-group">
+          <label for="cloud-config-api-key">Firebase Web API Key</label>
+          <input type="password" id="cloud-config-api-key" placeholder="AIzaSy..." value="AIzaSyALEzdipzOrS4U0_wAj69UHTSIpIBAhvsc">
+        </div>
+
+        <div class="input-group">
+          <label for="cloud-config-prefix">Collection Namespace Prefix</label>
+          <input type="text" id="cloud-config-prefix" placeholder="mava_catalog" value="mava_catalog">
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 6px; margin-top: 10px;">
+          <div>
+            <div style="font-size: 13px; font-weight: 600;">Enable Cloud Sync</div>
+            <div style="font-size: 11px; color: var(--text-muted);">Background synchronization when online</div>
+          </div>
+          <label class="switch" style="position: relative; display: inline-block; width: 44px; height: 24px; margin: 0;">
+            <input type="checkbox" id="cloud-config-enabled" checked style="opacity: 0; width: 0; height: 0;">
+            <span class="slider round"></span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary modal-close-trigger">Cancel</button>
+        <button type="button" id="btn-test-cloud-config" class="btn btn-secondary">Test Connection</button>
+        <button type="button" id="btn-save-cloud-config" class="btn btn-primary">Save Configuration</button>
+      </div>
+    </div>
   </div>
 
   <!-- ==================== MODAL: GOLD RATE UPDATE ==================== -->
@@ -5583,6 +5708,8 @@
   <script src="js/crypto-js.min.js"></script>
   <script src="js/tauri-shim.js"></script>
   <script src="js/biometric-auth.js"></script>
+  <script src="js/cloud-sync.js"></script>
+  <script src="js/backup-manager.js"></script>
   <script src="js/db-manager.js"></script>
   <script src="js/calc.js"></script>
   <script src="js/logs.js"></script>
