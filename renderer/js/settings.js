@@ -107,7 +107,13 @@ const Settings = {
       UI.closeModal('modal-gold-rate');
       UI.showToast("Valuation rates successfully rotated!");
       App.refreshAllDisplays();
-      await DBManager.saveVault();
+      await DBManager.saveSettings({
+        goldRate24kt: {
+          ratePerGram: newRate,
+          effectiveDate: dateVal,
+          updatedAt: new Date().toISOString()
+        }
+      });
     } catch (err) {
       UI.showToast(err.message, true);
     }
@@ -152,7 +158,13 @@ const Settings = {
       UI.closeModal('modal-usd-rate');
       UI.showToast("USD/INR exchange rate updated!");
       App.refreshAllDisplays();
-      await DBManager.saveVault();
+      await DBManager.saveSettings({
+        usdToInr: {
+          rate: newRate,
+          effectiveDate: dateVal,
+          updatedAt: new Date().toISOString()
+        }
+      });
     } catch (err) {
       UI.showToast(err.message, true);
     }
@@ -258,7 +270,7 @@ const Settings = {
         UI.showToast("Initiating cloud synchronization...");
         btnSyncNow.disabled = true;
         try {
-          const res = await window.CloudSync.syncAll(DBManager.database);
+          const res = await window.CloudSync.syncAll(DBManager.database, { forceFull: true });
           if (res.success) {
             UI.showToast("Cloud sync complete! All catalog data verified.");
             if (res.updated) App.refreshAllDisplays();
@@ -280,11 +292,13 @@ const Settings = {
         const cfg = window.CloudSync.config || {};
         const inputProj = document.getElementById('cloud-config-project-id');
         const inputKey = document.getElementById('cloud-config-api-key');
+        const inputBucket = document.getElementById('cloud-config-storage-bucket');
         const inputPrefix = document.getElementById('cloud-config-prefix');
         const chkEnabled = document.getElementById('cloud-config-enabled');
 
         if (inputProj) inputProj.value = cfg.projectId || '';
         if (inputKey) inputKey.value = cfg.apiKey || '';
+        if (inputBucket) inputBucket.value = cfg.storageBucket || 'mava-gems-ios.firebasestorage.app';
         if (inputPrefix) inputPrefix.value = cfg.collectionPrefix || 'mava_catalog';
         if (chkEnabled) chkEnabled.checked = Boolean(cfg.enabled);
 
@@ -298,12 +312,14 @@ const Settings = {
         if (!window.CloudSync) return;
         const inputProj = document.getElementById('cloud-config-project-id');
         const inputKey = document.getElementById('cloud-config-api-key');
+        const inputBucket = document.getElementById('cloud-config-storage-bucket');
         const inputPrefix = document.getElementById('cloud-config-prefix');
         const chkEnabled = document.getElementById('cloud-config-enabled');
 
         window.CloudSync.saveConfig({
           projectId: inputProj ? inputProj.value.trim() : 'mava-gems-ios',
           apiKey: inputKey ? inputKey.value.trim() : '',
+          storageBucket: inputBucket ? inputBucket.value.trim() : 'mava-gems-ios.firebasestorage.app',
           collectionPrefix: inputPrefix ? inputPrefix.value.trim() : 'mava_catalog',
           enabled: chkEnabled ? chkEnabled.checked : true
         });

@@ -2188,24 +2188,19 @@
 
             <!-- Card: Database Management -->
             <div class="settings-card">
-              <h3>Vault File Configuration</h3>
-              <p class="settings-card-desc">Move your database file, import an external backup, or export a copy of the
-                database.</p>
+              <h3>Local Offline Vault Cache</h3>
+              <p class="settings-card-desc">Local disk replica of your Cloud Firestore catalog. Enables instantaneous 0ms offline access, manual file exports, and emergency disaster recovery.</p>
 
               <div class="settings-info-box">
-                <span class="label">ACTIVE PATH:</span>
+                <span class="label">ACTIVE CACHE PATH:</span>
                 <span class="value code"
                   id="settings-vault-path">/Users/username/Documents/MavaGemsJewelleryStock/mava_gems_stock.db</span>
               </div>
 
               <div class="settings-actions-row">
-                <button type="button" id="btn-disconnect-vault" class="btn btn-secondary"
-                  style="border-color: var(--danger-red); color: var(--danger-red); font-weight: 500;">Disconnect /
-                  Switch Database...</button>
-                <button type="button" id="btn-export-backup" class="btn btn-secondary">Export Vault Backup
-                  (.db)</button>
-                <button type="button" id="btn-import-backup" class="btn btn-secondary">Import Database
-                  Backup...</button>
+                <button type="button" id="btn-disconnect-vault" class="btn btn-secondary">Switch Local Vault File...</button>
+                <button type="button" id="btn-export-backup" class="btn btn-secondary">Export Vault Backup (.db)</button>
+                <button type="button" id="btn-import-backup" class="btn btn-secondary">Import Database Backup...</button>
               </div>
             </div>
 
@@ -2270,6 +2265,10 @@
               </div>
 
               <div class="settings-info-box" style="margin: 10px 0;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                  <span class="label">LAUNCH MODE:</span>
+                  <span class="value" style="color: var(--emerald-green, #2ecc71); font-weight: 600; font-size: 11px;">Instant Launch (Direct Catalog)</span>
+                </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
                   <span class="label">CLOUD PROJECT:</span>
                   <span class="value code" id="cloud-sync-project-display">mava-gems-ios</span>
@@ -2428,6 +2427,11 @@
         <div class="input-group">
           <label for="cloud-config-prefix">Collection Namespace Prefix</label>
           <input type="text" id="cloud-config-prefix" placeholder="mava_catalog" value="mava_catalog">
+        </div>
+
+        <div class="input-group">
+          <label for="cloud-config-storage-bucket">Firebase Storage Bucket (Photos)</label>
+          <input type="text" id="cloud-config-storage-bucket" placeholder="mava-gems-ios.firebasestorage.app" value="mava-gems-ios.firebasestorage.app">
         </div>
 
         <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 6px; margin-top: 10px;">

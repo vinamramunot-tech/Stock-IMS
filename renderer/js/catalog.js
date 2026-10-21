@@ -1543,6 +1543,13 @@ const Catalog = {
       // Ensure image is compressed before pushing to DB & saving vault
       if (savedItem.image) {
         savedItem.image = await UI.compressBase64Image(savedItem.image);
+        if (typeof window !== 'undefined' && window.CloudSync && typeof window.CloudSync.uploadImage === 'function' && window.CloudSync.config.storageBucket) {
+          try {
+            const photoPath = `images/pieces/${savedItem.sku || savedItem.id}_${Date.now()}.jpg`;
+            const uploadedUrl = await window.CloudSync.uploadImage(savedItem.image, photoPath);
+            if (uploadedUrl) savedItem.image = uploadedUrl;
+          } catch (_) {}
+        }
       }
 
       if (isEdit) {
@@ -1551,19 +1558,15 @@ const Catalog = {
         const summary = Logs.buildSummary(changes, `Updated ${savedItem.name}`);
 
         DBManager.addLog("EDIT", savedItem.id, savedItem.name, summary, changes);
-
-        // Replace item in array
-        const index = DBManager.database.items.findIndex(i => i.id === savedItem.id);
-        if (index !== -1) {
-          DBManager.database.items[index] = savedItem;
-        }
         UI.showToast("Jewelry details updated successfully!");
       } else {
         // Add
         DBManager.addLog("ADD", savedItem.id, savedItem.name, `Added new jewelry item: ${savedItem.name}`, []);
-        DBManager.database.items.push(savedItem);
         UI.showToast("New jewelry piece added successfully!");
       }
+
+      // Fast granular cloud patch + in-memory store + debounced flush
+      await DBManager.saveItem('mava_catalog_items', savedItem);
 
       // Resequence jewelry serial numbers to ensure unbroken 1..N order
       DBManager.resequenceJewelrySno();
@@ -1571,7 +1574,6 @@ const Catalog = {
       UI.closeModal('modal-jewelry-item');
       UI.resetForm();
       App.refreshAllDisplays();
-      await DBManager.saveVault();
     } catch (err) {
       UI.showToast(err.message, true);
     }
@@ -1582,15 +1584,12 @@ const Catalog = {
       try {
         DBManager.addLog("DELETE", item.id, item.name, `Deleted jewelry item: ${item.name}`, []);
 
-        const index = DBManager.database.items.findIndex(i => i.id === item.id);
-        if (index !== -1) {
-          DBManager.database.items.splice(index, 1);
-          DBManager.resequenceJewelrySno();
-        }
+        // Fast granular cloud delete + in-memory removal + debounced flush
+        await DBManager.deleteItem('mava_catalog_items', item.id);
+        DBManager.resequenceJewelrySno();
 
         App.refreshAllDisplays();
         UI.showToast("Item deleted from stock.");
-        await DBManager.saveVault();
       } catch (err) {
         UI.showToast(err.message, true);
       }

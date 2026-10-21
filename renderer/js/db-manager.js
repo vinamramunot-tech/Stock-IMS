@@ -333,10 +333,150 @@ const DBManager = {
   _isSaving: false,
   _savePending: false,
 
+  _debounceTimer: null,
+
   /**
-   * Serialize and write the current database state as pretty-printed JSON.
+   * Canonical collection name mapper between local DB array keys and Firestore collection names.
+   */
+  _resolveCollectionNames(key) {
+    const rawKey = String(key || '').trim();
+    const map = {
+      items: { dbKey: 'items', firestoreCol: 'mava_catalog_items' },
+      mava_catalog_items: { dbKey: 'items', firestoreCol: 'mava_catalog_items' },
+      emeralds: { dbKey: 'emeralds', firestoreCol: 'mava_catalog_emeralds' },
+      mava_catalog_emeralds: { dbKey: 'emeralds', firestoreCol: 'mava_catalog_emeralds' },
+      stones: { dbKey: 'stones', firestoreCol: 'mava_catalog_stones' },
+      mava_catalog_stones: { dbKey: 'stones', firestoreCol: 'mava_catalog_stones' },
+      jewelryMemos: { dbKey: 'jewelryMemos', firestoreCol: 'mava_catalog_jewelry_memos' },
+      mava_catalog_jewelry_memos: { dbKey: 'jewelryMemos', firestoreCol: 'mava_catalog_jewelry_memos' },
+      jewelStoneMemos: { dbKey: 'jewelStoneMemos', firestoreCol: 'mava_catalog_jewel_stone_memos' },
+      mava_catalog_jewel_stone_memos: { dbKey: 'jewelStoneMemos', firestoreCol: 'mava_catalog_jewel_stone_memos' },
+      jewelrySales: { dbKey: 'jewelrySales', firestoreCol: 'mava_catalog_jewelry_sales' },
+      mava_catalog_jewelry_sales: { dbKey: 'jewelrySales', firestoreCol: 'mava_catalog_jewelry_sales' },
+      emeraldMemos: { dbKey: 'memos', firestoreCol: 'mava_catalog_emerald_memos' },
+      mava_catalog_emerald_memos: { dbKey: 'memos', firestoreCol: 'mava_catalog_emerald_memos' },
+      memos: { dbKey: 'memos', firestoreCol: 'mava_catalog_emerald_memos' },
+      emeraldSales: { dbKey: 'sales', firestoreCol: 'mava_catalog_emerald_sales' },
+      mava_catalog_emerald_sales: { dbKey: 'sales', firestoreCol: 'mava_catalog_emerald_sales' },
+      sales: { dbKey: 'sales', firestoreCol: 'mava_catalog_emerald_sales' }
+    };
+    if (map[rawKey]) return map[rawKey];
+    const dbKey = rawKey.replace(/^mava_catalog_/, '');
+    const firestoreCol = rawKey.startsWith('mava_catalog_') ? rawKey : `mava_catalog_${rawKey}`;
+    return { dbKey, firestoreCol };
+  },
+
+  /**
+   * Granular save for an individual item into a collection.
+   * Updates in-memory database immediately (0ms UI latency),
+   * pushes a single lightweight document patch to Firestore (2KB vs 21MB),
+   * and debounces the local file flush.
+   */
+  async saveItem(collectionKey, item) {
+    if (!this.database || !item) return false;
+    const { dbKey, firestoreCol } = this._resolveCollectionNames(collectionKey);
+
+    if (!Array.isArray(this.database[dbKey])) {
+      this.database[dbKey] = [];
+    }
+
+    const arr = this.database[dbKey];
+    const idVal = item.id || (item.sku ? `item_${item.sku}` : (item.pudiaNumber ? `pudia_${item.pudiaNumber}` : `rec_${Date.now()}`));
+    if (!item.id && idVal) item.id = idVal;
+    if (!item.updatedAt) item.updatedAt = new Date().toISOString();
+
+    const idx = arr.findIndex(i => i && String(i.id) === String(idVal));
+    if (idx >= 0) {
+      arr[idx] = item;
+    } else {
+      arr.push(item);
+    }
+
+    // Direct Firestore patch in background (only this single record!)
+    if (typeof window !== 'undefined' && window.CloudSync && window.CloudSync.isEnabled()) {
+      window.CloudSync.setDocument(firestoreCol, String(item.id), item).catch(err => {
+        console.warn(`Granular push ${firestoreCol}/${item.id} note:`, err.message);
+      });
+    }
+
+    // Debounce the heavy full local disk write
+    this.scheduleVaultFlush();
+    return true;
+  },
+
+  /**
+   * Granular delete for an individual item from a collection.
+   */
+  async deleteItem(collectionKey, itemId) {
+    if (!this.database) return false;
+    const { dbKey, firestoreCol } = this._resolveCollectionNames(collectionKey);
+    if (!Array.isArray(this.database[dbKey])) return false;
+
+    this.database[dbKey] = this.database[dbKey].filter(i => i && String(i.id) !== String(itemId));
+
+    if (typeof window !== 'undefined' && window.CloudSync && window.CloudSync.isEnabled()) {
+      window.CloudSync.deleteDocument(firestoreCol, String(itemId)).catch(err => {
+        console.warn(`Granular delete ${firestoreCol}/${itemId} note:`, err.message);
+      });
+    }
+
+    this.scheduleVaultFlush();
+    return true;
+  },
+
+  /**
+   * Granular settings update: updates valuation and meta in Firestore and local state.
+   */
+  async saveSettings(settingsPatch) {
+    if (!this.database) return false;
+    if (!this.database.settings) this.database.settings = {};
+    if (settingsPatch && typeof settingsPatch === 'object') {
+      this.database.settings = Object.assign(this.database.settings, settingsPatch);
+    }
+    this.database.settings.updatedAt = new Date().toISOString();
+
+    if (typeof window !== 'undefined' && window.CloudSync && window.CloudSync.isEnabled()) {
+      window.CloudSync.setDocument('mava_catalog_meta', 'settings', this.database.settings).catch(err => {
+        console.warn('Granular settings push note:', err.message);
+      });
+    }
+
+    this.scheduleVaultFlush();
+    return true;
+  },
+
+  /**
+   * Debounced vault flush: aggregates rapid local writes into a single disk write
+   */
+  scheduleVaultFlush(delayMs = 1500) {
+    if (this._debounceTimer) clearTimeout(this._debounceTimer);
+    return new Promise((resolve) => {
+      this._debounceTimer = setTimeout(async () => {
+        this._debounceTimer = null;
+        try {
+          await this.flushVaultToDisk();
+          resolve(true);
+        } catch (_) {
+          resolve(false);
+        }
+      }, delayMs);
+      if (this._debounceTimer && typeof this._debounceTimer.unref === 'function') {
+        this._debounceTimer.unref();
+      }
+    });
+  },
+
+  /**
+   * Serialize and write the current database state to disk immediately.
    */
   async saveVault() {
+    return await this.flushVaultToDisk();
+  },
+
+  /**
+   * Physical local disk write routine with backup and cloud queue triggers.
+   */
+  async flushVaultToDisk() {
     if (!this.isLoaded || !this.database) {
       throw new Error("No active database loaded; cannot save.");
     }
@@ -351,7 +491,9 @@ const DBManager = {
     try {
       // Compress JSON (no indentation) to improve save performance and minimize memory/disk I/O overhead.
       const plainText = JSON.stringify(this.database);
-      await window.electronAPI.writeVault(plainText, this.activePath);
+      if (window.electronAPI && typeof window.electronAPI.writeVault === 'function') {
+        await window.electronAPI.writeVault(plainText, this.activePath);
+      }
 
       // Post-save background enhancements (non-blocking, zero data loss)
       try {
@@ -376,7 +518,7 @@ const DBManager = {
       this._isSaving = false;
       if (this._savePending) {
         this._savePending = false;
-        setTimeout(() => this.saveVault(), 50);
+        setTimeout(() => this.flushVaultToDisk(), 50);
       }
     }
   },
@@ -580,4 +722,9 @@ const DBManager = {
   }
 };
 
-window.DBManager = DBManager;
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = DBManager;
+}
+if (typeof window !== 'undefined') {
+  window.DBManager = DBManager;
+}

@@ -14,10 +14,11 @@
     enabled: true,
     projectId: 'mava-gems-ios',
     apiKey: 'AIzaSyALEzdipzOrS4U0_wAj69UHTSIpIBAhvsc',
+    storageBucket: 'mava-gems-ios.firebasestorage.app',
     databaseId: '(default)',
     collectionPrefix: 'mava_catalog',
-    autoSyncIntervalMs: 60000, // 60 seconds
-    timeoutMs: 10000
+    autoSyncIntervalMs: 15000, // 15 seconds fast active sync
+    timeoutMs: 12000
   };
 
   const CloudSync = {
@@ -285,6 +286,70 @@
     },
 
     /**
+     * Convert base64 data to binary Uint8Array or Buffer
+     */
+    base64ToUint8Array(base64Data) {
+      let clean = base64Data || '';
+      if (clean.includes(',')) clean = clean.split(',')[1];
+      if (typeof Buffer !== 'undefined') {
+        return Buffer.from(clean, 'base64');
+      }
+      const binaryStr = atob(clean);
+      const len = binaryStr.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryStr.charCodeAt(i);
+      }
+      return bytes;
+    },
+
+    /**
+     * Upload binary photo to Firebase Cloud Storage.
+     * Decouples heavy image binaries from Firestore documents.
+     * If storage bucket is unreachable or not yet configured, returns base64 safely as fallback.
+     */
+    async uploadImage(base64Str, remotePath) {
+      if (!base64Str || typeof base64Str !== 'string') return null;
+      // If already a remote URL, return directly
+      if (base64Str.startsWith('http://') || base64Str.startsWith('https://')) {
+        return base64Str;
+      }
+      if (!this.config.storageBucket) {
+        return base64Str;
+      }
+
+      const bucket = this.config.storageBucket;
+      const cleanPath = remotePath || `images/items/img_${Date.now()}.jpg`;
+      const mime = base64Str.includes('image/png') ? 'image/png' : 'image/jpeg';
+      const binaryData = this.base64ToUint8Array(base64Str);
+
+      const url = `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(bucket)}/o?name=${encodeURIComponent(cleanPath)}&uploadType=media`;
+
+      try {
+        const res = await this._fetchWithTimeout(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': mime
+          },
+          body: binaryData
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const token = data.downloadTokens ? `&token=${encodeURIComponent(data.downloadTokens)}` : '';
+          const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(bucket)}/o/${encodeURIComponent(cleanPath)}?alt=media${token}`;
+          return downloadUrl;
+        } else {
+          // If storage returns 404/403 (bucket pending), fallback gracefully to base64
+          return base64Str;
+        }
+      } catch (uploadErr) {
+        console.warn('Cloud storage upload fallback note:', uploadErr.message);
+        return base64Str;
+      }
+    },
+
+    /**
      * Internal fetch with timeout & cross-environment safety
      */
     async _fetchWithTimeout(url, options = {}) {
@@ -361,10 +426,49 @@
     },
 
     /**
-     * Full bidirectional sync routine.
-     * Safely migrates local data to cloud and merges remote updates.
+     * Query documents modified after a specific ISO timestamp using Firestore runQuery.
+     * Dramatically reduces bandwidth by fetching only edited records.
      */
-    async syncAll(localDb) {
+    async queryUpdatedDocuments(collectionName, sinceTimestamp) {
+      if (!sinceTimestamp) return [];
+      const { projectId, databaseId, apiKey } = this.config;
+      const url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/${encodeURIComponent(databaseId)}/documents:runQuery?key=${encodeURIComponent(apiKey)}`;
+
+      const body = {
+        structuredQuery: {
+          from: [{ collectionId: collectionName }],
+          where: {
+            fieldFilter: {
+              field: { fieldPath: 'updatedAt' },
+              op: 'GREATER_THAN',
+              value: { stringValue: sinceTimestamp }
+            }
+          }
+        }
+      };
+
+      const res = await this._fetchWithTimeout(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      if (!res.ok) {
+        throw new Error(`Firestore delta runQuery failed (${res.status})`);
+      }
+
+      const results = await res.json();
+      if (!Array.isArray(results)) return [];
+      return results
+        .filter(r => r && r.document)
+        .map(r => this.firestoreDocumentToObject(r.document));
+    },
+
+    /**
+     * Full and delta bidirectional sync routine.
+     * Safely migrates local data to cloud and merges remote updates with zero data loss.
+     */
+    async syncAll(localDb, options = {}) {
       if (!this.isEnabled()) return { success: false, reason: 'Sync disabled' };
       if (!localDb || typeof localDb !== 'object') {
         return { success: false, reason: 'No active local database provided' };
@@ -374,7 +478,8 @@
       }
 
       this.syncInProgress = true;
-      this.updateStatus('syncing', 'Syncing catalog with cloud...');
+      const isDelta = Boolean(this.lastSyncTime && !options.forceFull);
+      this.updateStatus('syncing', isDelta ? 'Checking cloud for updates...' : 'Syncing full catalog with cloud...');
 
       const prefix = this.config.collectionPrefix || 'mava_catalog';
       const collections = [
@@ -408,39 +513,78 @@
           console.warn('Settings cloud sync note:', settingsErr.message);
         }
 
-        // 2. Sync all inventory collections
+        // 2. Sync inventory collections (Delta or Full)
         let failedCount = 0;
         let lastErr = null;
 
         for (const col of collections) {
-          const localList = Array.isArray(localDb[col.key]) ? localDb[col.key] : [];
-
-          let remoteList = [];
-          try {
-            remoteList = await this.listDocuments(col.name);
-          } catch (listErr) {
-            console.warn(`Could not list remote ${col.name}:`, listErr.message);
-            failedCount++;
-            lastErr = listErr;
-            // If remote list failed, skip destructive merge, keep local safe
-            continue;
+          if (!Array.isArray(localDb[col.key])) {
+            localDb[col.key] = [];
           }
+          const localList = localDb[col.key];
 
-          const { merged, itemsToUpload } = this.mergeArray(localList, remoteList, col.idKey);
-
-          // Update local collection if merged differs
-          if (merged.length !== localList.length || itemsToUpload.length > 0) {
-            localDb[col.key] = merged;
-            anyUpdates = true;
-          }
-
-          // Upload local additions/updates to cloud
-          for (const item of itemsToUpload) {
-            if (item && item[col.idKey]) {
+          if (isDelta) {
+            // Delta path: Only fetch documents modified since last sync
+            try {
+              const updatedDocs = await this.queryUpdatedDocuments(col.name, this.lastSyncTime);
+              if (updatedDocs && updatedDocs.length > 0) {
+                for (const remoteItem of updatedDocs) {
+                  if (!remoteItem || !remoteItem[col.idKey]) continue;
+                  const idx = localList.findIndex(l => l && String(l[col.idKey]) === String(remoteItem[col.idKey]));
+                  if (idx >= 0) {
+                    const localTime = new Date(localList[idx].updatedAt || localList[idx].createdAt || 0).getTime();
+                    const remoteTime = new Date(remoteItem.updatedAt || remoteItem.createdAt || 0).getTime();
+                    if (remoteTime >= localTime) {
+                      localList[idx] = { ...localList[idx], ...remoteItem };
+                      anyUpdates = true;
+                    }
+                  } else {
+                    localList.push(remoteItem);
+                    anyUpdates = true;
+                  }
+                }
+              }
+            } catch (deltaErr) {
+              console.warn(`Delta query for ${col.name} failed, falling back to standard list:`, deltaErr.message);
+              // Fallback to full list for this collection
               try {
-                await this.setDocument(col.name, String(item[col.idKey]), item);
-              } catch (upErr) {
-                console.warn(`Failed to push ${col.name}/${item[col.idKey]}:`, upErr.message);
+                const remoteList = await this.listDocuments(col.name);
+                const { merged, itemsToUpload } = this.mergeArray(localList, remoteList, col.idKey);
+                if (merged.length !== localList.length || itemsToUpload.length > 0) {
+                  localDb[col.key] = merged;
+                  anyUpdates = true;
+                }
+              } catch (listErr) {
+                failedCount++;
+                lastErr = listErr;
+              }
+            }
+          } else {
+            // Full reconciliation path
+            let remoteList = [];
+            try {
+              remoteList = await this.listDocuments(col.name);
+            } catch (listErr) {
+              console.warn(`Could not list remote ${col.name}:`, listErr.message);
+              failedCount++;
+              lastErr = listErr;
+              continue;
+            }
+
+            const { merged, itemsToUpload } = this.mergeArray(localList, remoteList, col.idKey);
+
+            if (merged.length !== localList.length || itemsToUpload.length > 0) {
+              localDb[col.key] = merged;
+              anyUpdates = true;
+            }
+
+            for (const item of itemsToUpload) {
+              if (item && item[col.idKey]) {
+                try {
+                  await this.setDocument(col.name, String(item[col.idKey]), item);
+                } catch (upErr) {
+                  console.warn(`Failed to push ${col.name}/${item[col.idKey]}:`, upErr.message);
+                }
               }
             }
           }
@@ -452,6 +596,16 @@
 
         this.lastSyncTime = new Date().toISOString();
         this.updateStatus('online', `Sync complete at ${new Date().toLocaleTimeString()}`);
+
+        // Notify application components via custom event
+        if (anyUpdates && typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+          try {
+            window.dispatchEvent(new CustomEvent('mava:cloud-synced', {
+              detail: { updated: anyUpdates, timestamp: this.lastSyncTime }
+            }));
+          } catch (_) {}
+        }
+
         return { success: true, updated: anyUpdates, timestamp: this.lastSyncTime };
       } catch (err) {
         console.warn('Cloud sync error (local database safely protected):', err.message);
@@ -483,12 +637,30 @@
     },
 
     /**
-     * Start recurring background auto-sync
+     * Start recurring background auto-sync and real-time wake listeners
      */
     setupAutoSync() {
+      // 1. Instant sync when app regains focus or user unlocks mobile screen
+      if (typeof window !== 'undefined' && window.addEventListener && !this._listenersBound) {
+        this._listenersBound = true;
+        window.addEventListener('focus', () => {
+          if (this.isEnabled() && !this.syncInProgress) {
+            this.queueSync(200);
+          }
+        });
+        if (typeof document !== 'undefined' && document.addEventListener) {
+          document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && this.isEnabled() && !this.syncInProgress) {
+              this.queueSync(200);
+            }
+          });
+        }
+      }
+
+      // 2. Active recurring interval
       if (typeof setInterval === 'undefined') return;
       if (this._autoSyncInterval) clearInterval(this._autoSyncInterval);
-      const interval = Math.max(15000, this.config.autoSyncIntervalMs || 60000);
+      const interval = Math.max(10000, this.config.autoSyncIntervalMs || 15000);
       this._autoSyncInterval = setInterval(() => {
         if (this.isEnabled() && !this.syncInProgress) {
           this.queueSync(500);

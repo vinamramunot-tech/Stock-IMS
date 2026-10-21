@@ -2075,6 +2075,13 @@ const EmeraldController = {
       for (const p of savedPudias) {
         if (p.image) {
           p.image = await UI.compressBase64Image(p.image);
+          if (typeof window !== 'undefined' && window.CloudSync && typeof window.CloudSync.uploadImage === 'function' && window.CloudSync.config.storageBucket) {
+            try {
+              const photoPath = `images/emeralds/${p.pudiaNumber || p.id}_${Date.now()}.jpg`;
+              const uploadedUrl = await window.CloudSync.uploadImage(p.image, photoPath);
+              if (uploadedUrl) p.image = uploadedUrl;
+            } catch (_) {}
+          }
         }
       }
 
@@ -2086,26 +2093,21 @@ const EmeraldController = {
         const summary = Logs.buildSummary(changes, `Updated Emerald: ${shapes.join(', ')} (${updatedPudia.weight}ct)`);
 
         DBManager.addLog("EDIT", updatedPudia.id, `Emerald (${shapes.join(', ')})`, summary, changes);
-
-        const index = DBManager.database.emeralds.findIndex(e => String(e.id) === String(updatedPudia.id));
-        if (index !== -1) {
-          DBManager.database.emeralds[index] = updatedPudia;
-        }
+        await DBManager.saveItem('mava_catalog_emeralds', updatedPudia);
         UI.showToast("Emerald stock updated successfully!");
       } else {
         // Add flow (could be 1 or multiple!)
-        savedPudias.forEach(p => {
+        for (const p of savedPudias) {
           const shapes = p.shape.split(', ').filter(Boolean);
           DBManager.addLog("ADD", p.id, `Emerald (${shapes.join(', ')})`, `Added new emerald stock: ${shapes.join(', ')} (${p.weight}ct)`, []);
-          DBManager.database.emeralds.push(p);
-        });
+          await DBManager.saveItem('mava_catalog_emeralds', p);
+        }
         UI.showToast(`Successfully added ${savedPudias.length} Pudia(s) to Group "${group}"!`);
       }
 
       UI.closeModal('modal-emerald-item');
       this.resetForm();
       App.refreshAllDisplays();
-      await DBManager.saveVault();
     } catch (err) {
       UI.showToast(err.message, true);
     }
@@ -2119,14 +2121,10 @@ const EmeraldController = {
       try {
         DBManager.addLog("DELETE", emerald.id, "Emerald", `Deleted emerald stock entry (${shapes}, ${weight}ct)`, []);
 
-        const index = DBManager.database.emeralds.findIndex(e => String(e.id) === String(emerald.id));
-        if (index !== -1) {
-          DBManager.database.emeralds.splice(index, 1);
-        }
+        await DBManager.deleteItem('mava_catalog_emeralds', emerald.id);
 
         UI.showToast("Emerald deleted from stock.");
         App.refreshAllDisplays();
-        await DBManager.saveVault();
       } catch (err) {
         UI.showToast(err.message, true);
       }

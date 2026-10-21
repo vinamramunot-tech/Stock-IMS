@@ -82,9 +82,40 @@ const Startup = {
       btnMobileChangeDb.addEventListener('click', () => this.handleOpenExistingVault());
     }
 
-    // Always show the Startup / Database Setup landing screen on launch
-    // (exact same behavior on both desktop and mobile/TestFlight)
-    this.showStartupScreen();
+    // Instant Launch: Automatically boot active database and load directly into Catalog
+    this.autoBoot();
+  },
+
+  /**
+   * Auto-boot active database without blocking startup screen.
+   * If local vault exists, load it immediately; if new device, initialize and hydrate from Firestore.
+   */
+  async autoBoot() {
+    try {
+      let activePath = 'mava_gems_stock.db';
+      if (window.electronAPI && typeof window.electronAPI.getLastDbPath === 'function') {
+        const saved = await window.electronAPI.getLastDbPath();
+        if (saved && String(saved).trim().length > 0) {
+          activePath = saved.trim();
+        }
+      }
+
+      const fileInfo = window.electronAPI && typeof window.electronAPI.readVault === 'function'
+        ? await window.electronAPI.readVault(activePath)
+        : null;
+
+      if (fileInfo && fileInfo.exists) {
+        await this.bootstrapDatabase(activePath);
+        return;
+      }
+
+      // On new installation, automatically initialize local vault and hydrate from cloud
+      await DBManager.initVault(activePath || 'mava_gems_stock.db');
+      await this.bootstrapDatabase(activePath || 'mava_gems_stock.db');
+    } catch (err) {
+      console.warn("AutoBoot fallback to setup screen:", err);
+      this.showStartupScreen();
+    }
   },
 
   startupFocusIndex: 0,
@@ -354,7 +385,27 @@ const Startup = {
         }
       }
     } catch (err) {
-      console.warn("Vault load failure:", err.message);
+      console.warn("Vault load failure, auto-recovering with default cloud-backed vault:", err.message);
+      try {
+        await DBManager.initVault('mava_gems_stock.db');
+        const retry = await DBManager.loadVault('mava_gems_stock.db');
+        if (retry && retry.success) {
+          this.hideStartupScreen();
+          if (window.App && typeof window.App.refreshAllDisplays === 'function') {
+            window.App.refreshAllDisplays();
+          }
+          if (window.CloudSync && typeof window.CloudSync.syncAll === 'function' && window.CloudSync.isEnabled()) {
+            window.CloudSync.syncAll(window.DBManager.database).then(res => {
+              if (res && res.updated && window.App && typeof window.App.refreshAllDisplays === 'function') {
+                window.App.refreshAllDisplays();
+              }
+            }).catch(e => console.warn("AutoBoot cloud sync:", e));
+          }
+          return;
+        }
+      } catch (recoveryErr) {
+        console.error("Auto recovery error:", recoveryErr);
+      }
       UI.showToast("Database file read failure: " + err.message, true);
       await this.showStartupScreen();
     }

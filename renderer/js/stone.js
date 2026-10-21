@@ -1175,15 +1175,15 @@ const StoneController = {
         DBManager.addLog("EDIT", savedStone.id, `${savedStone.type} #${savedStone.color}`, summary, changes);
         UI.showToast("Stone details updated successfully!");
       } else {
-        DBManager.database.stones.push(savedStone);
         DBManager.addLog("ADD", savedStone.id, `${savedStone.type} #${savedStone.color}`, `Added new loose stone stock`, []);
         UI.showToast("New stone stock added successfully!");
       }
 
+      await DBManager.saveItem('mava_catalog_stones', savedStone);
+
       UI.closeModal('modal-stone-item');
       this.resetForm();
       App.refreshAllDisplays();
-      await DBManager.saveVault();
     } catch (err) {
       UI.showToast(err.message, true);
     }
@@ -1192,14 +1192,10 @@ const StoneController = {
   async handleDeleteStone(stone) {
     UI.confirm(`Are you sure you want to delete ${stone.type} Packet #${stone.color} from stock?`, async () => {
       try {
-        const index = DBManager.database.stones.findIndex(st => st.id === stone.id);
-        if (index !== -1) {
-          DBManager.database.stones.splice(index, 1);
-        }
+        await DBManager.deleteItem('mava_catalog_stones', stone.id);
         DBManager.addLog("DELETE", stone.id, `${stone.type} #${stone.color}`, `Deleted loose stone stock`, []);
         UI.showToast("Stock item deleted.");
         App.refreshAllDisplays();
-        await DBManager.saveVault();
       } catch (err) {
         UI.showToast(err.message, true);
       }

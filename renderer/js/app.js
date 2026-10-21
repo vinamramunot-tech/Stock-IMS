@@ -278,6 +278,15 @@ const App = {
     }
 
     this.initLauncherKeyboardNav();
+
+    // Real-Time Cloud Sync Listener: auto-refresh UI displays whenever remote updates land
+    if (typeof window !== 'undefined' && window.addEventListener) {
+      window.addEventListener('mava:cloud-synced', (e) => {
+        if (e && e.detail && e.detail.updated) {
+          this.refreshAllDisplays();
+        }
+      });
+    }
   },
 
 
