@@ -715,6 +715,221 @@ datalist option {
   gap: 20px;
 }
 
+.cloud-header-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-main);
+  background: rgba(46, 204, 113, 0.08);
+  border: 1px solid rgba(46, 204, 113, 0.3);
+  border-radius: 20px;
+  padding: 5px 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: all var(--transition-fast);
+}
+
+.cloud-header-status:hover {
+  background: rgba(46, 204, 113, 0.16);
+  border-color: rgba(46, 204, 113, 0.5);
+}
+
+.cloud-pulse-dot {
+  width: 8px;
+  height: 8px;
+  background-color: var(--success-green, #2ecc71);
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7);
+  animation: pulse-cloud-green 2s infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pulse-cloud-green {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 6px rgba(46, 204, 113, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(46, 204, 113, 0);
+  }
+}
+
+.cloud-header-title {
+  color: var(--text-muted);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.cloud-highlight {
+  color: var(--success-green, #2ecc71);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+/* ==================== CLOUD STATUS POPOVER & INTUITIVE SYNC ==================== */
+.cloud-header-status-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.cloud-pending-badge {
+  background: #f39c12;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  margin-left: 2px;
+  line-height: 1.2;
+}
+
+.cloud-status-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 270px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-dark);
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.28);
+  z-index: 1050;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: popoverFadeIn 0.15s ease-out;
+}
+
+@keyframes popoverFadeIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.cloud-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-light);
+  padding-bottom: 10px;
+}
+
+.cloud-popover-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.cloud-popover-state-pill {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: rgba(46, 204, 113, 0.15);
+  color: var(--emerald-green, #2ecc71);
+}
+
+.cloud-popover-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cloud-popover-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+}
+
+.cloud-popover-label {
+  color: var(--text-muted);
+}
+
+.cloud-popover-value {
+  font-weight: 600;
+  color: var(--text-main);
+  font-family: var(--font-mono);
+}
+
+.cloud-popover-actions {
+  border-top: 1px solid var(--border-light);
+  padding-top: 10px;
+}
+
+.sync-icon-spin.rotating {
+  animation: spinSync 0.9s linear infinite;
+}
+
+@keyframes spinSync {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Image Shimmer Skeleton */
+.product-img-box {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-surface);
+}
+
+.product-img-box.loading::after {
+  content: "";
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0,
+    rgba(255, 255, 255, 0.08) 20%,
+    rgba(255, 255, 255, 0.15) 60%,
+    rgba(255, 255, 255, 0)
+  );
+  animation: imgBoxShimmer 1.5s infinite;
+}
+
+@keyframes imgBoxShimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Item Micro Sync Dot */
+.item-cloud-sync-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.item-cloud-sync-dot.synced {
+  background-color: var(--emerald-green, #2ecc71);
+  opacity: 0.75;
+}
+
+.item-cloud-sync-dot.pending {
+  background-color: #f39c12;
+  box-shadow: 0 0 4px #f39c12;
+  animation: pulse-dot-amber 1.5s infinite;
+}
+
+@keyframes pulse-dot-amber {
+  0% { transform: scale(0.9); opacity: 0.6; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.6; }
+}
+
 .vault-info {
   display: flex;
   align-items: center;

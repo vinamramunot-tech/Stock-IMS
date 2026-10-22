@@ -47,16 +47,12 @@
       document.addEventListener('gesturestart', function (e) { e.preventDefault(); }, { passive: false });
       document.addEventListener('dblclick', function (e) { e.preventDefault(); }, { passive: false });
 
-      // 3. Global WebKit Error Boundary to guarantee screen is never blank
+      // 3. Global WebKit Error Boundary to log runtime exceptions safely
       window.addEventListener('error', function (e) {
         console.error("[MavaGems WebKit Error]", e.message, e.filename, e.lineno);
-        var startup = document.getElementById('startup-screen');
-        if (startup) startup.classList.remove('hidden');
       });
       window.addEventListener('unhandledrejection', function (e) {
         console.error("[MavaGems WebKit Promise Rejection]", e.reason);
-        var startup = document.getElementById('startup-screen');
-        if (startup) startup.classList.remove('hidden');
       });
     })();
   </script>
@@ -87,7 +83,7 @@
   </div>
 
   <!-- ==================== STARTUP / ONBOARDING SCREEN ==================== -->
-  <div id="startup-screen" class="startup-overlay-container">
+  <div id="startup-screen" class="startup-overlay-container hidden" style="display: none !important;">
     <div class="startup-card">
       <div class="startup-header-row">
         <div class="startup-brand-row">
@@ -177,26 +173,34 @@
           <span class="divider">|</span>
           <span class="startup-tagline">APP PORTAL</span>
         </div>
-        <button type="button" id="btn-launcher-toggle-theme" class="btn-icon theme-toggle-btn startup-theme-btn"
-          title="Toggle Dark/Light Mode">
-          <!-- Sun Icon -->
-          <svg class="sun-icon" viewBox="0 0 24 24" width="22" height="22">
-            <circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="2" />
-            <path stroke="currentColor" stroke-width="2" stroke-linecap="round"
-              d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-          </svg>
-          <!-- Moon Icon -->
-          <svg class="moon-icon" viewBox="0 0 24 24" width="22" height="22">
-            <path fill="currentColor"
-              d="M12.3 22h-.1c-5.5 0-10-4.5-10-10 0-4.8 3.5-8.9 8.2-9.8.5-.1 1 .2 1.1.7.2.5-.1 1.1-.6 1.3-3.6 1.4-6 5-6 9 0 4.4 3.6 8 8 8 2.2 0 4.3-.9 5.8-2.5.4-.4 1-.5 1.4-.2.4.3.6.8.5 1.3-1 4.5-5.1 7.7-9.8 7.7z" />
-          </svg>
-        </button>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button type="button" id="btn-launcher-toggle-theme" class="btn-icon theme-toggle-btn startup-theme-btn"
+            title="Toggle Dark/Light Mode">
+            <!-- Sun Icon -->
+            <svg class="sun-icon" viewBox="0 0 24 24" width="22" height="22">
+              <circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="2" />
+              <path stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+            </svg>
+            <!-- Moon Icon -->
+            <svg class="moon-icon" viewBox="0 0 24 24" width="22" height="22">
+              <path fill="currentColor"
+                d="M12.3 22h-.1c-5.5 0-10-4.5-10-10 0-4.8 3.5-8.9 8.2-9.8.5-.1 1 .2 1.1.7.2.5-.1 1.1-.6 1.3-3.6 1.4-6 5-6 9 0 4.4 3.6 8 8 8 2.2 0 4.3-.9 5.8-2.5.4-.4 1-.5 1.4-.2.4.3.6.8.5 1.3-1 4.5-5.1 7.7-9.8 7.7z" />
+            </svg>
+          </button>
+          <button type="button" id="btn-launcher-close" class="btn-icon" title="Return to Active Suite"
+            style="display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border-light); background: var(--bg-surface); cursor: pointer; color: var(--text-main);">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>
+          </button>
+        </div>
       </div>
 
       <p class="startup-desc" style="margin-bottom: 25px;">
-        Database Connected: <strong id="launcher-db-path-text"
-          style="color: var(--text-main);">mava_gems_stock.db</strong><br>
-        Select a dedicated catalog application suite to launch below.
+        Cloud Catalog: <strong id="launcher-db-path-text"
+          style="color: var(--emerald-green, #2ecc71);">Synchronized (mava-gems-ios)</strong><br>
+        Select a dedicated application suite below to view inventory.
       </p>
 
       <div class="startup-options-grid launcher-grid">
@@ -221,16 +225,21 @@
 
       <div
         style="margin-top: 30px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-light); padding-top: 20px;">
-        <button type="button" id="btn-launcher-disconnect" class="btn btn-secondary">
-          Disconnect / Switch Database
-        </button>
-        <span class="offline-tag" style="margin: 0;">Mava Offline Portal</span>
+        <div style="display: flex; gap: 10px;">
+          <button type="button" id="btn-launcher-disconnect" class="btn btn-secondary">
+            Database Settings...
+          </button>
+          <button type="button" id="btn-launcher-return" class="btn btn-secondary">
+            &larr; Back to App
+          </button>
+        </div>
+        <span class="offline-tag" style="margin: 0;">Mava Cloud Portal</span>
       </div>
     </div>
   </div>
 
   <!-- ==================== MAIN WORKSPACE CONTAINER ==================== -->
-  <div id="app-workspace" class="workspace-container hidden">
+  <div id="app-workspace" class="workspace-container">
 
     <!-- SHOWROOM PRESENTATION BANNER (Visible only in Showroom Mode) -->
     <div class="showroom-indicator-bar" id="showroom-indicator-bar">
@@ -256,13 +265,14 @@
           Portal
         </button>
         <div class="mobile-action-divider"></div>
-        <button type="button" id="btn-mobile-change-db" class="mobile-action-btn" title="Change database">
+        <button type="button" id="btn-mobile-sync-cloud" class="mobile-action-btn" title="Sync with Cloud">
           <svg viewBox="0 0 24 24" width="16" height="16">
             <path fill="currentColor"
-              d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V6h5.17l2 2H20v10z" />
+              d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z" />
           </svg>
-          <span id="mobile-db-label">Database</span>
+          <span id="mobile-sync-label">Sync</span>
         </button>
+        <button type="button" id="btn-mobile-change-db" style="display: none;" aria-hidden="true"></button>
         <div class="mobile-action-divider"></div>
         <button type="button" id="btn-client-showroom-mode" class="mobile-action-btn"
           title="Toggle Client Showroom View (Hides cost prices & margins)">
@@ -337,16 +347,58 @@
               d="M12.3 22h-.1c-5.5 0-10-4.5-10-10 0-4.8 3.5-8.9 8.2-9.8.5-.1 1 .2 1.1.7.2.5-.1 1.1-.6 1.3-3.6 1.4-6 5-6 9 0 4.4 3.6 8 8 8 2.2 0 4.3-.9 5.8-2.5.4-.4 1-.5 1.4-.2.4.3.6.8.5 1.3-1 4.5-5.1 7.7-9.8 7.7z" />
           </svg>
         </button>
-        <div class="vault-info" id="vault-info-container">
-          <span class="vault-status-indicator" title="Connected"></span>
-          <input type="text" id="active-vault-input" class="vault-path-input"
-            title="Edit database path and press Enter to connect" value="Documents/mava_gems_stock.db">
-          <button type="button" id="btn-browse-vault" class="btn-icon" title="Browse database file">
-            <svg viewBox="0 0 24 24" width="14" height="14">
-              <path fill="currentColor"
-                d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
-            </svg>
-          </button>
+        <div class="cloud-header-status-wrapper" data-client-hide>
+          <div class="cloud-header-status" id="vault-info-container" title="Cloud Catalog Active (Firestore: mava-gems-ios) — Click for diagnostics & quick sync">
+            <span class="cloud-pulse-dot" id="cloud-header-dot"></span>
+            <span class="cloud-header-title">Cloud: <span class="cloud-highlight" id="cloud-header-status-text">Live</span></span>
+            <span class="cloud-pending-badge hidden" id="cloud-header-pending-count" title="Pending offline changes">0</span>
+            <input type="hidden" id="active-vault-input" value="Cloud Firestore (mava-gems-ios)">
+            <button type="button" id="btn-browse-vault" style="display: none;" aria-hidden="true"></button>
+          </div>
+
+          <!-- Cloud Status Popover Dropdown -->
+          <div id="cloud-status-popover" class="cloud-status-popover hidden" data-client-hide>
+            <div class="cloud-popover-header">
+              <div class="cloud-popover-title">
+                <svg viewBox="0 0 24 24" width="16" height="16" style="color: var(--emerald-green, #2ecc71);">
+                  <path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/>
+                </svg>
+                <span>Mava Cloud Sync</span>
+              </div>
+              <span class="cloud-popover-state-pill" id="cloud-popover-pill">Live</span>
+            </div>
+
+            <div class="cloud-popover-body">
+              <div class="cloud-popover-stat-row">
+                <span class="cloud-popover-label">Database</span>
+                <span class="cloud-popover-value" id="cloud-popover-project">mava-gems-ios</span>
+              </div>
+              <div class="cloud-popover-stat-row">
+                <span class="cloud-popover-label">Latency</span>
+                <span class="cloud-popover-value" id="cloud-popover-latency">-- ms</span>
+              </div>
+              <div class="cloud-popover-stat-row">
+                <span class="cloud-popover-label">Last Synced</span>
+                <span class="cloud-popover-value" id="cloud-popover-last-time">Just now</span>
+              </div>
+              <div class="cloud-popover-stat-row">
+                <span class="cloud-popover-label">Offline Queue</span>
+                <span class="cloud-popover-value" id="cloud-popover-queue-count">0 pending</span>
+              </div>
+            </div>
+
+            <div class="cloud-popover-actions">
+              <button type="button" id="btn-popover-sync-now" class="btn btn-primary btn-small" style="width: 100%; justify-content: center; gap: 6px;">
+                <svg viewBox="0 0 24 24" width="14" height="14" class="sync-icon-spin" id="popover-sync-spin-icon">
+                  <path fill="currentColor" d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
+                </svg>
+                Sync Now
+              </button>
+              <button type="button" id="btn-popover-settings" class="btn btn-secondary btn-small" style="width: 100%; justify-content: center; margin-top: 6px;">
+                Cloud Settings
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </header>
@@ -2273,6 +2325,14 @@
                   <span class="label">CLOUD PROJECT:</span>
                   <span class="value code" id="cloud-sync-project-display">mava-gems-ios</span>
                 </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                  <span class="label">NETWORK LATENCY:</span>
+                  <span class="value code" id="cloud-sync-latency-display">-- ms</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                  <span class="label">OFFLINE WRITE QUEUE:</span>
+                  <span class="value code" id="cloud-sync-queue-display">Empty (All Synced)</span>
+                </div>
                 <div style="display: flex; justify-content: space-between;">
                   <span class="label">LAST SYNCHRONIZED:</span>
                   <span class="value code" id="cloud-sync-last-time">Never / Ready</span>
@@ -2282,6 +2342,9 @@
               <div class="settings-actions-row" style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
                 <button type="button" id="btn-cloud-sync-now" class="btn btn-primary" style="flex: 1; min-width: 150px;">
                   Sync With Cloud Now
+                </button>
+                <button type="button" id="btn-flush-offline-queue" class="btn btn-secondary" style="flex: 1; min-width: 150px;">
+                  Flush Offline Queue
                 </button>
                 <button type="button" id="btn-configure-cloud-sync" class="btn btn-secondary" style="flex: 1; min-width: 150px;">
                   Cloud Settings...

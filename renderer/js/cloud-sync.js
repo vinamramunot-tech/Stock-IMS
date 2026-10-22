@@ -25,10 +25,12 @@
     config: { ...DEFAULT_CONFIG },
     status: 'idle', // 'idle' | 'syncing' | 'online' | 'offline' | 'error'
     lastSyncTime: null,
+    lastSyncLatencyMs: null,
     lastError: null,
     syncInProgress: false,
     _syncTimeout: null,
     _listeners: [],
+    STORAGE_KEY_QUEUE: 'mava_offline_sync_queue',
 
     /**
      * Initialize CloudSync with stored settings and event bindings
@@ -94,8 +96,12 @@
       } else if (status === 'online') {
         this.lastError = null;
       }
+      const meta = {
+        latencyMs: this.lastSyncLatencyMs,
+        pendingQueueCount: this.getPendingQueueCount()
+      };
       this._listeners.forEach(fn => {
-        try { fn(this.status, message, this.lastSyncTime); } catch (_) {}
+        try { fn(this.status, message, this.lastSyncTime, meta); } catch (_) {}
       });
     },
 
@@ -221,26 +227,200 @@
     },
 
     /**
-     * Save or Patch document in Firestore REST API
+     * Document Resource Name in Firestore format
+     */
+    getDocumentPath(collectionName, docId) {
+      const { projectId, databaseId } = this.config;
+      return `projects/${projectId}/databases/${databaseId}/documents/${collectionName}/${docId}`;
+    },
+
+    /**
+     * Atomic/Batched multi-document writes via Firestore REST documents:batchWrite.
+     * Supports up to 500 writes per request (chunks automatically if > 500).
+     */
+    async batchWrite(operations = []) {
+      if (!Array.isArray(operations) || operations.length === 0) {
+        return { success: true, count: 0 };
+      }
+
+      const { projectId, databaseId, apiKey } = this.config;
+      const baseUrl = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/${encodeURIComponent(databaseId)}/documents:batchWrite`;
+      const apiKeyParam = apiKey ? `?key=${encodeURIComponent(apiKey)}` : '';
+      const url = `${baseUrl}${apiKeyParam}`;
+
+      const CHUNK_SIZE = 500;
+      let totalCommitted = 0;
+
+      for (let i = 0; i < operations.length; i += CHUNK_SIZE) {
+        const chunk = operations.slice(i, i + CHUNK_SIZE);
+        const writes = chunk.map(op => {
+          const docPath = this.getDocumentPath(op.collection, op.id);
+          if (op.op === 'delete') {
+            return { delete: docPath };
+          }
+          const docPayload = this.objectToFirestoreDocument(op.data || {});
+          return {
+            update: {
+              name: docPath,
+              fields: docPayload.fields
+            }
+          };
+        });
+
+        const res = await this._fetchWithTimeout(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ writes })
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(`Firestore batchWrite failed (${res.status}): ${errText}`);
+        }
+
+        const data = await res.json();
+        totalCommitted += (data.writeResults ? data.writeResults.length : chunk.length);
+      }
+
+      return { success: true, count: totalCommitted };
+    },
+
+    /**
+     * Offline Queue methods for write-ahead resilience
+     */
+    getPendingQueue() {
+      try {
+        if (typeof localStorage !== 'undefined') {
+          const raw = localStorage.getItem(this.STORAGE_KEY_QUEUE);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [];
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to read offline sync queue:', e);
+      }
+      return [];
+    },
+
+    savePendingQueue(queue) {
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem(this.STORAGE_KEY_QUEUE, JSON.stringify(queue || []));
+        }
+      } catch (e) {
+        console.warn('Failed to save offline sync queue:', e);
+      }
+      this.notifyQueueChanged();
+    },
+
+    enqueueMutation(collection, id, data = null, op = 'set') {
+      const queue = this.getPendingQueue();
+      const existingIdx = queue.findIndex(q => q.collection === collection && String(q.id) === String(id));
+      const entry = {
+        collection,
+        id: String(id),
+        op,
+        data,
+        queuedAt: new Date().toISOString()
+      };
+
+      if (existingIdx >= 0) {
+        queue[existingIdx] = entry;
+      } else {
+        queue.push(entry);
+      }
+      this.savePendingQueue(queue);
+    },
+
+    getPendingQueueCount() {
+      return this.getPendingQueue().length;
+    },
+
+    clearPendingQueue() {
+      this.savePendingQueue([]);
+    },
+
+    notifyQueueChanged() {
+      if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+        try {
+          window.dispatchEvent(new CustomEvent('mava:queue-changed', {
+            detail: { count: this.getPendingQueueCount() }
+          }));
+        } catch (_) {}
+      }
+    },
+
+    async drainPendingQueue() {
+      const queue = this.getPendingQueue();
+      if (!queue || queue.length === 0) return { drained: 0 };
+      if (!this.isEnabled()) return { drained: 0, reason: 'Sync disabled' };
+
+      try {
+        const ops = queue.map(q => ({
+          collection: q.collection,
+          id: q.id,
+          op: q.op,
+          data: q.data
+        }));
+
+        await this.batchWrite(ops);
+        this.clearPendingQueue();
+        return { drained: ops.length, success: true };
+      } catch (err) {
+        console.warn('Offline queue drain deferred (network offline):', err.message);
+        return { drained: 0, error: err.message };
+      }
+    },
+
+    /**
+     * Measure network round-trip latency to Firestore in milliseconds.
+     */
+    async measureLatency() {
+      const startTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      try {
+        const baseUrl = this.getBaseUrl();
+        const apiKeyParam = this.config.apiKey ? `?key=${encodeURIComponent(this.config.apiKey)}` : '';
+        const url = `${baseUrl}${apiKeyParam}`;
+        const res = await this._fetchWithTimeout(url, { method: 'GET' });
+        const endTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+        const ms = Math.round(endTime - startTime);
+        this.lastSyncLatencyMs = ms;
+        return { ok: res.ok, status: res.status, latencyMs: ms };
+      } catch (err) {
+        const endTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+        return { ok: false, error: err.message, latencyMs: Math.round(endTime - startTime) };
+      }
+    },
+
+    /**
+     * Save or Patch document in Firestore REST API (with offline queue fallback)
      */
     async setDocument(collectionName, docId, dataObj) {
-      const baseUrl = this.getBaseUrl();
-      const apiKey = this.config.apiKey ? `?key=${encodeURIComponent(this.config.apiKey)}` : '';
-      const url = `${baseUrl}/${encodeURIComponent(collectionName)}/${encodeURIComponent(docId)}${apiKey}`;
+      try {
+        const baseUrl = this.getBaseUrl();
+        const apiKey = this.config.apiKey ? `?key=${encodeURIComponent(this.config.apiKey)}` : '';
+        const url = `${baseUrl}/${encodeURIComponent(collectionName)}/${encodeURIComponent(docId)}${apiKey}`;
 
-      const docPayload = this.objectToFirestoreDocument(dataObj);
-      const res = await this._fetchWithTimeout(url, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(docPayload)
-      });
+        const docPayload = this.objectToFirestoreDocument(dataObj);
+        const res = await this._fetchWithTimeout(url, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(docPayload)
+        });
 
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`Firestore PATCH failed (${res.status}): ${errText}`);
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(`Firestore PATCH failed (${res.status}): ${errText}`);
+        }
+        const data = await res.json();
+        return this.firestoreDocumentToObject(data);
+      } catch (err) {
+        console.warn(`setDocument ${collectionName}/${docId} offline fallback:`, err.message);
+        this.enqueueMutation(collectionName, docId, dataObj, 'set');
+        this.updateStatus('offline', 'Offline: Mutation queued for cloud sync');
+        return dataObj;
       }
-      const data = await res.json();
-      return this.firestoreDocumentToObject(data);
     },
 
     /**
@@ -272,17 +452,24 @@
     },
 
     /**
-     * Delete document from Firestore REST API
+     * Delete document from Firestore REST API (with offline queue fallback)
      */
     async deleteDocument(collectionName, docId) {
-      const baseUrl = this.getBaseUrl();
-      const apiKey = this.config.apiKey ? `?key=${encodeURIComponent(this.config.apiKey)}` : '';
-      const url = `${baseUrl}/${encodeURIComponent(collectionName)}/${encodeURIComponent(docId)}${apiKey}`;
+      try {
+        const baseUrl = this.getBaseUrl();
+        const apiKey = this.config.apiKey ? `?key=${encodeURIComponent(this.config.apiKey)}` : '';
+        const url = `${baseUrl}/${encodeURIComponent(collectionName)}/${encodeURIComponent(docId)}${apiKey}`;
 
-      const res = await this._fetchWithTimeout(url, { method: 'DELETE' });
-      if (res.status === 404 || res.ok) return true;
-      const errText = await res.text();
-      throw new Error(`Firestore DELETE failed (${res.status}): ${errText}`);
+        const res = await this._fetchWithTimeout(url, { method: 'DELETE' });
+        if (res.status === 404 || res.ok) return true;
+        const errText = await res.text();
+        throw new Error(`Firestore DELETE failed (${res.status}): ${errText}`);
+      } catch (err) {
+        console.warn(`deleteDocument ${collectionName}/${docId} offline fallback:`, err.message);
+        this.enqueueMutation(collectionName, docId, null, 'delete');
+        this.updateStatus('offline', 'Offline: Deletion queued for cloud sync');
+        return true;
+      }
     },
 
     /**
@@ -477,9 +664,15 @@
         return { success: false, reason: 'Sync already in progress' };
       }
 
+      const startTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
       this.syncInProgress = true;
       const isDelta = Boolean(this.lastSyncTime && !options.forceFull);
       this.updateStatus('syncing', isDelta ? 'Checking cloud for updates...' : 'Syncing full catalog with cloud...');
+
+      // Drain any pending write-ahead mutations before reconciling
+      try {
+        await this.drainPendingQueue();
+      } catch (_) {}
 
       const prefix = this.config.collectionPrefix || 'mava_catalog';
       const collections = [
@@ -578,12 +771,21 @@
               anyUpdates = true;
             }
 
-            for (const item of itemsToUpload) {
-              if (item && item[col.idKey]) {
-                try {
-                  await this.setDocument(col.name, String(item[col.idKey]), item);
-                } catch (upErr) {
-                  console.warn(`Failed to push ${col.name}/${item[col.idKey]}:`, upErr.message);
+            if (itemsToUpload.length > 0) {
+              const uploadOps = itemsToUpload
+                .filter(item => item && item[col.idKey])
+                .map(item => ({
+                  collection: col.name,
+                  id: String(item[col.idKey]),
+                  op: 'set',
+                  data: item
+                }));
+              try {
+                await this.batchWrite(uploadOps);
+              } catch (batchErr) {
+                console.warn(`Batch upload for ${col.name} failed, queueing items:`, batchErr.message);
+                for (const op of uploadOps) {
+                  this.enqueueMutation(op.collection, op.id, op.data, 'set');
                 }
               }
             }
@@ -594,8 +796,10 @@
           throw new Error(lastErr ? lastErr.message : 'All remote collections unreachable');
         }
 
+        const endTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+        this.lastSyncLatencyMs = Math.max(1, Math.round(endTime - startTime));
         this.lastSyncTime = new Date().toISOString();
-        this.updateStatus('online', `Sync complete at ${new Date().toLocaleTimeString()}`);
+        this.updateStatus('online', `Sync complete (${this.lastSyncLatencyMs}ms)`);
 
         // Notify application components via custom event
         if (anyUpdates && typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
@@ -647,6 +851,11 @@
           if (this.isEnabled() && !this.syncInProgress) {
             this.queueSync(200);
           }
+        });
+        window.addEventListener('online', () => {
+          this.drainPendingQueue().then(() => {
+            this.queueSync(200);
+          });
         });
         if (typeof document !== 'undefined' && document.addEventListener) {
           document.addEventListener('visibilitychange', () => {

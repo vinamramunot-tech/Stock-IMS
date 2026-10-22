@@ -218,6 +218,7 @@ const App = {
       item.addEventListener('click', () => {
         const action = item.getAttribute('data-action');
         mobileMenuOverlay.classList.add('hidden');
+        document.body.classList.remove('modal-open');
 
         if (action === 'tab-jewelry-analyzer' || action === 'tab-catalog' || action === 'tab-jewelry-sales' || action === 'tab-emerald-catalog' || action === 'tab-memos' || action === 'tab-logs' || action === 'tab-settings' || action === 'tab-stone-catalog' || action === 'tab-jewel-stone-memos' || action === 'tab-jewelry-memos' || action === 'tab-jewelry-photos' || action === 'tab-emerald-photos') {
           this.switchTab(action);
@@ -270,7 +271,22 @@ const App = {
     }
     const btnLauncherDisconnect = document.getElementById('btn-launcher-disconnect');
     if (btnLauncherDisconnect) {
-      btnLauncherDisconnect.addEventListener('click', () => Startup.showStartupScreen());
+      btnLauncherDisconnect.addEventListener('click', () => {
+        this.launchApp(this.previousApp || 'jewelry');
+        this.switchTab('tab-settings');
+      });
+    }
+    const btnLauncherClose = document.getElementById('btn-launcher-close');
+    if (btnLauncherClose) {
+      btnLauncherClose.addEventListener('click', () => {
+        this.launchApp(this.previousApp || 'jewelry');
+      });
+    }
+    const btnLauncherReturn = document.getElementById('btn-launcher-return');
+    if (btnLauncherReturn) {
+      btnLauncherReturn.addEventListener('click', () => {
+        this.launchApp(this.previousApp || 'jewelry');
+      });
     }
     const btnSidebarSwitchApp = document.getElementById('btn-sidebar-switch-app');
     if (btnSidebarSwitchApp) {
@@ -284,6 +300,9 @@ const App = {
       window.addEventListener('mava:cloud-synced', (e) => {
         if (e && e.detail && e.detail.updated) {
           this.refreshAllDisplays();
+          if (window.UI && typeof window.UI.showToast === 'function') {
+            window.UI.showToast("✨ Catalog synchronized with cloud catalog");
+          }
         }
       });
     }
@@ -1312,11 +1331,20 @@ const App = {
 
   launchApp(appName) {
     this.activeApp = appName;
+    this.previousApp = appName;
     
     // Hide Launcher Portal Screen
-    document.getElementById('app-launcher-screen').classList.add('hidden');
+    const ls = document.getElementById('app-launcher-screen');
+    if (ls) {
+      ls.classList.add('hidden');
+      ls.style.display = 'none';
+    }
     // Show Main Workspace
-    document.getElementById('app-workspace').classList.remove('hidden');
+    const ws = document.getElementById('app-workspace');
+    if (ws) {
+      ws.classList.remove('hidden');
+      ws.style.display = '';
+    }
 
     // Filter sidebar navigation groups
     const appGroups = document.querySelectorAll('.sidebar-app-group[data-app-group]');
@@ -1380,8 +1408,10 @@ const App = {
     'btn-launch-jewelry',
     'btn-launch-emerald',
     'btn-launch-stone',
+    'btn-launcher-return',
     'btn-launcher-disconnect',
-    'btn-launcher-toggle-theme'
+    'btn-launcher-toggle-theme',
+    'btn-launcher-close'
   ],
 
   workspaceFocusIndex: -1,
@@ -1592,6 +1622,12 @@ const App = {
       // Ignore if typing inside any input or textarea
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
 
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        this.launchApp(this.previousApp || 'jewelry');
+        return;
+      }
+
       const ids = this.launcherFocusableIds;
 
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey)) {
@@ -1643,19 +1679,29 @@ const App = {
   },
 
   showLauncher() {
+    this.previousApp = this.activeApp || 'jewelry';
     this.activeApp = null;
     this.clearWorkspaceHighlights();
     this.workspaceFocusIndex = -1;
     const ws = document.getElementById('app-workspace');
-    if (ws) ws.classList.add('hidden');
+    if (ws) {
+      ws.classList.add('hidden');
+      ws.style.display = 'none';
+    }
     const ss = document.getElementById('startup-screen');
-    if (ss) ss.classList.add('hidden');
+    if (ss) {
+      ss.classList.add('hidden');
+      ss.style.display = 'none';
+    }
     const ls = document.getElementById('app-launcher-screen');
-    if (ls) ls.classList.remove('hidden');
+    if (ls) {
+      ls.classList.remove('hidden');
+      ls.style.display = 'flex';
+    }
 
     const dbPathText = document.getElementById('launcher-db-path-text');
     if (dbPathText) {
-      dbPathText.textContent = DBManager.activePath || 'mava_gems_stock.db';
+      dbPathText.textContent = 'Synchronized (mava-gems-ios)';
     }
 
     // Default highlighter to first suite (Jewelry Suite) on launcher open

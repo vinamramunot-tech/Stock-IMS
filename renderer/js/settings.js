@@ -350,11 +350,52 @@ const Settings = {
       });
     }
 
+    const btnFlushQueue = document.getElementById('btn-flush-offline-queue');
+    if (btnFlushQueue) {
+      btnFlushQueue.addEventListener('click', async () => {
+        if (!window.CloudSync) return;
+        btnFlushQueue.disabled = true;
+        try {
+          UI.showToast("Draining pending offline queue to Firestore...");
+          const res = await window.CloudSync.drainPendingQueue();
+          if (res.success) {
+            UI.showToast(`Drained ${res.drained} queued mutations to Firestore!`);
+            await window.CloudSync.syncAll(DBManager.database);
+            if (window.App && typeof window.App.refreshAllDisplays === 'function') {
+              window.App.refreshAllDisplays();
+            }
+          } else {
+            UI.showToast("Queue drain note: " + (res.error || "Device is currently offline"), false);
+          }
+        } catch (err) {
+          UI.showToast("Queue drain error: " + err.message, false);
+        } finally {
+          btnFlushQueue.disabled = false;
+        }
+      });
+    }
+
     // Status listener
     if (window.CloudSync && typeof window.CloudSync.onStatusChange === 'function') {
-      window.CloudSync.onStatusChange((status, message, lastTime) => {
+      window.CloudSync.onStatusChange((status, message, lastTime, meta) => {
         const badge = document.getElementById('cloud-sync-badge-status');
         const timeDisplay = document.getElementById('cloud-sync-last-time');
+        const latencyDisplay = document.getElementById('cloud-sync-latency-display');
+        const queueDisplay = document.getElementById('cloud-sync-queue-display');
+
+        const queueCount = (meta && typeof meta.pendingQueueCount === 'number')
+          ? meta.pendingQueueCount
+          : (window.CloudSync.getPendingQueueCount ? window.CloudSync.getPendingQueueCount() : 0);
+
+        if (queueDisplay) {
+          queueDisplay.textContent = queueCount > 0 ? `${queueCount} operations queued` : 'Empty (All Synced)';
+          queueDisplay.style.color = queueCount > 0 ? '#f39c12' : 'var(--emerald-green, #2ecc71)';
+        }
+
+        if (latencyDisplay && meta && meta.latencyMs) {
+          latencyDisplay.textContent = `${meta.latencyMs} ms`;
+        }
+
         if (badge) {
           if (status === 'online') {
             badge.textContent = 'Cloud Sync Active';
@@ -384,6 +425,15 @@ const Settings = {
           } catch (_) {
             timeDisplay.textContent = lastTime;
           }
+        }
+      });
+
+      window.addEventListener('mava:queue-changed', (e) => {
+        const count = e && e.detail ? e.detail.count : 0;
+        const queueDisplay = document.getElementById('cloud-sync-queue-display');
+        if (queueDisplay) {
+          queueDisplay.textContent = count > 0 ? `${count} operations queued` : 'Empty (All Synced)';
+          queueDisplay.style.color = count > 0 ? '#f39c12' : 'var(--emerald-green, #2ecc71)';
         }
       });
     }

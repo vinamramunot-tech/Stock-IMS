@@ -57,29 +57,176 @@ const Startup = {
       }
     });
 
-    // Editable database path listener (on enter connect) and browse button listener
-    const activeVaultInput = document.getElementById('active-vault-input');
-    if (activeVaultInput) {
-      activeVaultInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          this.handleVaultPathChange(e.target.value.trim());
+    // Cloud Header Status Widget & Interactive Popover
+    const cloudStatusHeader = document.getElementById('vault-info-container');
+    const cloudPopover = document.getElementById('cloud-status-popover');
+    if (cloudStatusHeader && cloudPopover) {
+      cloudStatusHeader.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isHidden = cloudPopover.classList.contains('hidden');
+        if (isHidden) {
+          cloudPopover.classList.remove('hidden');
+          if (window.CloudSync && typeof window.CloudSync.measureLatency === 'function') {
+            window.CloudSync.measureLatency().then(ping => {
+              const latEl = document.getElementById('cloud-popover-latency');
+              if (latEl && ping) latEl.textContent = `${ping.latencyMs} ms`;
+            });
+          }
+        } else {
+          cloudPopover.classList.add('hidden');
+        }
+      });
+
+      // Close popover when clicking anywhere outside
+      document.addEventListener('click', (e) => {
+        if (!cloudPopover.classList.contains('hidden') && !cloudPopover.contains(e.target) && !cloudStatusHeader.contains(e.target)) {
+          cloudPopover.classList.add('hidden');
         }
       });
     }
-    const btnBrowseVault = document.getElementById('btn-browse-vault');
-    if (btnBrowseVault) {
-      btnBrowseVault.addEventListener('click', () => this.handleOpenExistingVault());
+
+    const btnPopoverSync = document.getElementById('btn-popover-sync-now');
+    if (btnPopoverSync) {
+      btnPopoverSync.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (window.CloudSync && typeof window.CloudSync.syncAll === 'function') {
+          const spinIcon = document.getElementById('popover-sync-spin-icon');
+          if (spinIcon) spinIcon.classList.add('rotating');
+          btnPopoverSync.disabled = true;
+          try {
+            await window.CloudSync.syncAll(DBManager.database, { forceFull: true });
+            if (window.App && typeof window.App.refreshAllDisplays === 'function') {
+              window.App.refreshAllDisplays();
+            }
+          } finally {
+            btnPopoverSync.disabled = false;
+            if (spinIcon) spinIcon.classList.remove('rotating');
+          }
+        }
+      });
+    }
+
+    const btnPopoverSettings = document.getElementById('btn-popover-settings');
+    if (btnPopoverSettings) {
+      btnPopoverSettings.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (cloudPopover) cloudPopover.classList.add('hidden');
+        if (window.App && typeof window.App.switchTab === 'function') {
+          window.App.switchTab('tab-settings');
+        }
+      });
     }
 
     // Mobile action bar buttons
     const btnMobileHome = document.getElementById('btn-mobile-home');
     if (btnMobileHome) {
-      btnMobileHome.addEventListener('click', () => this.showStartupScreen());
+      btnMobileHome.addEventListener('click', () => {
+        if (window.App && typeof window.App.showLauncher === 'function') {
+          window.App.showLauncher();
+        }
+      });
     }
-    const btnMobileChangeDb = document.getElementById('btn-mobile-change-db');
-    if (btnMobileChangeDb) {
-      btnMobileChangeDb.addEventListener('click', () => this.handleOpenExistingVault());
+
+    const btnMobileSync = document.getElementById('btn-mobile-sync-cloud');
+    if (btnMobileSync) {
+      btnMobileSync.addEventListener('click', async () => {
+        if (window.CloudSync && typeof window.CloudSync.syncAll === 'function') {
+          if (window.UI) UI.showToast("Synchronizing with cloud catalog...");
+          await window.CloudSync.syncAll(DBManager.database, { forceFull: true });
+          if (window.UI) UI.showToast("Cloud sync complete!");
+          if (window.App && typeof window.App.refreshAllDisplays === 'function') {
+            window.App.refreshAllDisplays();
+          }
+        }
+      });
+    }
+
+    // Live Cloud Status Header & Popover updates
+    if (typeof window !== 'undefined' && window.CloudSync && typeof window.CloudSync.onStatusChange === 'function') {
+      window.CloudSync.onStatusChange((status, message, lastTime, meta) => {
+        const textEl = document.getElementById('cloud-header-status-text');
+        const dotEl = document.getElementById('cloud-header-dot');
+        const badgePending = document.getElementById('cloud-header-pending-count');
+        const popoverPill = document.getElementById('cloud-popover-pill');
+        const popoverLastTime = document.getElementById('cloud-popover-last-time');
+        const popoverQueue = document.getElementById('cloud-popover-queue-count');
+        const popoverLatency = document.getElementById('cloud-popover-latency');
+
+        const queueCount = (meta && typeof meta.pendingQueueCount === 'number')
+          ? meta.pendingQueueCount
+          : (window.CloudSync.getPendingQueueCount ? window.CloudSync.getPendingQueueCount() : 0);
+
+        if (badgePending) {
+          if (queueCount > 0) {
+            badgePending.textContent = String(queueCount);
+            badgePending.classList.remove('hidden');
+          } else {
+            badgePending.classList.add('hidden');
+          }
+        }
+
+        if (popoverQueue) popoverQueue.textContent = `${queueCount} pending`;
+        if (popoverLatency && meta && meta.latencyMs) popoverLatency.textContent = `${meta.latencyMs} ms`;
+
+        if (popoverLastTime && lastTime) {
+          try {
+            popoverLastTime.textContent = new Date(lastTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          } catch (_) {
+            popoverLastTime.textContent = lastTime;
+          }
+        }
+
+        if (status === 'syncing') {
+          if (textEl) {
+            textEl.textContent = 'Syncing...';
+            textEl.style.color = '#f39c12';
+          }
+          if (dotEl) dotEl.style.backgroundColor = '#f39c12';
+          if (popoverPill) {
+            popoverPill.textContent = 'Syncing...';
+            popoverPill.style.background = 'rgba(243, 156, 18, 0.15)';
+            popoverPill.style.color = '#f39c12';
+          }
+        } else if (status === 'offline' || status === 'error') {
+          if (textEl) {
+            textEl.textContent = 'Offline (Local Safe)';
+            textEl.style.color = '#e74c3c';
+          }
+          if (dotEl) dotEl.style.backgroundColor = '#e74c3c';
+          if (popoverPill) {
+            popoverPill.textContent = 'Offline';
+            popoverPill.style.background = 'rgba(231, 76, 60, 0.15)';
+            popoverPill.style.color = '#e74c3c';
+          }
+        } else {
+          if (textEl) {
+            textEl.textContent = 'Live';
+            textEl.style.color = 'var(--success-green, #2ecc71)';
+          }
+          if (dotEl) dotEl.style.backgroundColor = 'var(--success-green, #2ecc71)';
+          if (popoverPill) {
+            popoverPill.textContent = 'Live';
+            popoverPill.style.background = 'rgba(46, 204, 113, 0.15)';
+            popoverPill.style.color = 'var(--emerald-green, #2ecc71)';
+          }
+        }
+      });
+
+      // Also listen to direct queue-changed events
+      window.addEventListener('mava:queue-changed', (e) => {
+        const count = e && e.detail ? e.detail.count : 0;
+        const badgePending = document.getElementById('cloud-header-pending-count');
+        const popoverQueue = document.getElementById('cloud-popover-queue-count');
+        if (badgePending) {
+          if (count > 0) {
+            badgePending.textContent = String(count);
+            badgePending.classList.remove('hidden');
+          } else {
+            badgePending.classList.add('hidden');
+          }
+        }
+        if (popoverQueue) popoverQueue.textContent = `${count} pending`;
+      });
     }
 
     // Instant Launch: Automatically boot active database and load directly into Catalog
@@ -88,9 +235,26 @@ const Startup = {
 
   /**
    * Auto-boot active database without blocking startup screen.
-   * If local vault exists, load it immediately; if new device, initialize and hydrate from Firestore.
+   * Directly opens into Catalog / Dashboard with cloud synchronization in background.
    */
   async autoBoot() {
+    // Ensure all overlay screens are suppressed immediately
+    const ss = document.getElementById('startup-screen');
+    if (ss) {
+      ss.classList.add('hidden');
+      ss.style.display = 'none';
+    }
+    const ls = document.getElementById('app-launcher-screen');
+    if (ls) {
+      ls.classList.add('hidden');
+      ls.style.display = 'none';
+    }
+    const ws = document.getElementById('app-workspace');
+    if (ws) {
+      ws.classList.remove('hidden');
+      ws.style.display = '';
+    }
+
     try {
       let activePath = 'mava_gems_stock.db';
       if (window.electronAPI && typeof window.electronAPI.getLastDbPath === 'function') {
@@ -100,9 +264,12 @@ const Startup = {
         }
       }
 
-      const fileInfo = window.electronAPI && typeof window.electronAPI.readVault === 'function'
-        ? await window.electronAPI.readVault(activePath)
-        : null;
+      let fileInfo = null;
+      try {
+        if (window.electronAPI && typeof window.electronAPI.readVault === 'function') {
+          fileInfo = await window.electronAPI.readVault(activePath);
+        }
+      } catch (_) {}
 
       if (fileInfo && fileInfo.exists) {
         await this.bootstrapDatabase(activePath);
@@ -113,8 +280,13 @@ const Startup = {
       await DBManager.initVault(activePath || 'mava_gems_stock.db');
       await this.bootstrapDatabase(activePath || 'mava_gems_stock.db');
     } catch (err) {
-      console.warn("AutoBoot fallback to setup screen:", err);
-      this.showStartupScreen();
+      console.warn("AutoBoot recovering seamlessly:", err);
+      try {
+        await DBManager.initVault('mava_gems_stock.db');
+        await this.bootstrapDatabase('mava_gems_stock.db');
+      } catch (e) {
+        console.error("Critical boot recovery failure:", e);
+      }
     }
   },
 
@@ -173,9 +345,23 @@ const Startup = {
   },
 
   hideStartupScreen() {
-    document.getElementById('startup-screen').classList.add('hidden');
-    if (window.App) {
-      window.App.showLauncher();
+    const ss = document.getElementById('startup-screen');
+    if (ss) {
+      ss.classList.add('hidden');
+      ss.style.display = 'none';
+    }
+    const ls = document.getElementById('app-launcher-screen');
+    if (ls) {
+      ls.classList.add('hidden');
+      ls.style.display = 'none';
+    }
+    const ws = document.getElementById('app-workspace');
+    if (ws) {
+      ws.classList.remove('hidden');
+      ws.style.display = '';
+    }
+    if (window.App && typeof window.App.launchApp === 'function') {
+      window.App.launchApp('jewelry');
     }
     if (window.BiometricAuth && typeof window.BiometricAuth.checkAndShowOnboardingPrompt === 'function') {
       setTimeout(() => window.BiometricAuth.checkAndShowOnboardingPrompt(), 500);
@@ -351,9 +537,9 @@ const Startup = {
         const settingsPath = document.getElementById('settings-vault-path');
         if (settingsPath) settingsPath.textContent = customPath;
         const launcherDb = document.getElementById('launcher-db-path-text');
-        if (launcherDb) launcherDb.textContent = customPath;
+        if (launcherDb) launcherDb.textContent = 'Synchronized (mava-gems-ios)';
         
-        UI.showToast("Database successfully loaded!");
+        UI.showToast("Catalog synchronized successfully!");
         if (window.App && window.App.dirtyTabs) {
           window.App.dirtyTabs.clear();
         }

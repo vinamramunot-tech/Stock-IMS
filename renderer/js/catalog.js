@@ -1300,8 +1300,8 @@ const Catalog = {
     const badgeStatusHtml = `<span class="badge-status product-card-badge-status ${statusClass}">${statusLabel}</span>`;
 
     const imgHtml = item.image
-      ? `<div class="product-img-box" style="cursor: pointer;" title="Click to view photo & details">
-           <img src="${item.image}" alt="${UI.escapeHtml(item.name || 'Jewelry Photo')}" class="product-img" loading="lazy" decoding="async">
+      ? `<div class="product-img-box loading" style="cursor: pointer;" title="Click to view photo & details">
+           <img src="${item.image}" alt="${UI.escapeHtml(item.name || 'Jewelry Photo')}" class="product-img" loading="lazy" decoding="async" onload="this.parentElement.classList.remove('loading')">
          </div>`
       : `<div class="product-img-box product-img-box-placeholder" style="cursor: pointer;" title="Click to view details or add photo">
            <div class="product-img-placeholder-content">
@@ -1322,6 +1322,12 @@ const Catalog = {
       <span class="catalog-custom-checkbox"></span>
     </label>`;
 
+    const isPendingSync = window.CloudSync && typeof window.CloudSync.getPendingQueue === 'function' &&
+      window.CloudSync.getPendingQueue().some(q => q.id === String(item.id));
+    const cloudSyncDotHtml = isPendingSync
+      ? `<span class="item-cloud-sync-dot pending" data-client-hide title="Queued locally for cloud sync"></span>`
+      : `<span class="item-cloud-sync-dot synced" data-client-hide title="Synchronized with cloud catalog"></span>`;
+
     const commVal = typeof item.commission === 'object' ? Number(item.commission.value || 0) : Number(item.commission || 0);
     const commHtml = commVal > 0 ? `<div class="specs-line broker-comm-data cost-price-data"><strong>Commission:</strong> ₹${commVal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>` : '';
 
@@ -1333,7 +1339,10 @@ const Catalog = {
         <div class="product-meta">
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap;">
             <span class="product-sno-badge" style="font-family: var(--font-mono); font-weight: 800; font-size: 11px; background: var(--bg-gold-subtle, rgba(212, 175, 55, 0.15)); color: var(--text-gold-dark, #b8860b); border: 1px solid var(--border-gold-subtle, rgba(212, 175, 55, 0.3)); padding: 2px 7px; border-radius: 4px;" title="Serial Number #${serialNumber}">S.No: ${serialNumber}</span>
-            <div class="product-sku">${UI.escapeHtml(item.sku || 'SKU-NONE')}</div>
+            <div class="product-sku" style="display: inline-flex; align-items: center; gap: 5px;">
+              ${UI.escapeHtml(item.sku || 'SKU-NONE')}
+              ${cloudSyncDotHtml}
+            </div>
             <span style="font-size: 9px; font-weight: 700; text-transform: uppercase; background-color: var(--bg-base); border: 1px solid var(--border-light); padding: 2px 6px; border-radius: 4px; letter-spacing: 0.05em; color: var(--text-muted);">${UI.escapeHtml(item.category || 'Jewelry')}</span>
           </div>
           <h3 class="product-title" style="margin-top: 4px;">${UI.escapeHtml(item.name || 'Unnamed Piece')}</h3>
