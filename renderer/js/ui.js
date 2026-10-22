@@ -38,14 +38,24 @@ const UI = {
   },
 
   /**
-   * Formats a number as an Indian-locale rupee string.
+   * Formats a number as an Indian-locale rupee string following Indian numeric system.
    * e.g.  fmtINR(123456.7) → "₹1,23,456.70"
-   * Replaces all repeated: .toLocaleString(undefined, { minimumFractionDigits: 2 })
+   * e.g.  fmtINR(1000000) → "₹10,00,000.00"
    * @param {number} n
+   * @param {object} [options]
    * @returns {string}
    */
-  fmtINR(n) {
-    return '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  fmtINR(n, options = {}) {
+    const opts = { minimumFractionDigits: 2, maximumFractionDigits: 2, ...options };
+    return '₹' + Number(n || 0).toLocaleString('en-IN', opts);
+  },
+
+  formatINR(n, options = {}) {
+    return this.fmtINR(n, options);
+  },
+
+  formatIndianNumber(n, options = {}) {
+    return Number(n || 0).toLocaleString('en-IN', options);
   },
 
   /**

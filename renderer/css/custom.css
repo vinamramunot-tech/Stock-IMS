@@ -2955,37 +2955,90 @@ body.showroom-client-mode #detail-jewelry-selling-price {
 
   .mobile-bottom-nav {
     display: flex !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
     height: calc(44px + env(safe-area-inset-bottom, 0px)) !important;
     padding-bottom: env(safe-area-inset-bottom, 0px) !important;
-    padding-left: calc(16px + env(safe-area-inset-left, 0px)) !important;
-    padding-right: calc(16px + env(safe-area-inset-right, 0px)) !important;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)) !important;
+    padding-right: max(16px, env(safe-area-inset-right, 0px)) !important;
+    padding-top: 0 !important;
     background-color: rgba(16, 16, 20, 0.94) !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.25) !important;
+    z-index: 990 !important;
+    align-items: center !important;
+    justify-content: space-around !important;
+    box-sizing: border-box !important;
+    backdrop-filter: blur(25px) !important;
+    -webkit-backdrop-filter: blur(25px) !important;
   }
 
   .mobile-nav-btn {
-    padding: 2px 0 1px 0 !important;
-    font-size: 8.5px !important;
-    gap: 1px !important;
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: 100% !important;
+    padding: 0 4px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    gap: 5px !important;
+    white-space: nowrap !important;
   }
 
   .mobile-nav-btn svg {
-    width: 15px !important;
-    height: 15px !important;
+    width: 16px !important;
+    height: 16px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .mobile-nav-btn span {
+    font-size: 11px !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+  }
+
+  .mobile-nav-btn.active {
+    color: var(--text-gold, #D4AF37) !important;
+  }
+
+  .mobile-nav-btn.active::after {
+    display: none !important;
   }
 
   .mobile-nav-add-icon {
-    width: 32px !important;
-    height: 32px !important;
-    margin-top: -8px !important;
+    width: 26px !important;
+    height: 26px !important;
+    margin-top: 0 !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #E6C65A, #A67C00) !important;
+    color: #121214 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: 0 2px 8px rgba(212, 175, 55, 0.35) !important;
+    flex-shrink: 0 !important;
   }
 
   .mobile-nav-add-icon svg {
-    width: 16px !important;
-    height: 16px !important;
+    width: 14px !important;
+    height: 14px !important;
+  }
+
+  .scroll-to-top-btn {
+    bottom: calc(52px + env(safe-area-inset-bottom, 0px)) !important;
+    right: max(16px, env(safe-area-inset-right, 16px)) !important;
+    width: 36px !important;
+    height: 36px !important;
+    z-index: 800 !important;
   }
 
   .workspace-main {
-    padding: 10px calc(12px + env(safe-area-inset-right, 0px)) calc(50px + env(safe-area-inset-bottom, 12px)) calc(12px + env(safe-area-inset-left, 0px)) !important;
+    padding: 10px max(12px, env(safe-area-inset-right, 0px)) calc(54px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px)) !important;
   }
 
   /* 3. Startup Launcher in Landscape */
@@ -3229,6 +3282,99 @@ body.showroom-client-mode #detail-jewelry-selling-price {
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 10px !important;
   }
+}
+
+/* Fallback & Class-based mobile landscape navbar stabilization */
+body.platform-mobile.orientation-landscape .workspace-sidebar {
+  display: none !important;
+}
+
+body.platform-mobile.orientation-landscape .mobile-bottom-nav {
+  display: flex !important;
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  height: calc(44px + env(safe-area-inset-bottom, 0px)) !important;
+  padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)) !important;
+  padding-right: max(16px, env(safe-area-inset-right, 0px)) !important;
+  padding-top: 0 !important;
+  background-color: rgba(16, 16, 20, 0.94) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.25) !important;
+  z-index: 990 !important;
+  align-items: center !important;
+  justify-content: space-around !important;
+  box-sizing: border-box !important;
+  backdrop-filter: blur(25px) !important;
+  -webkit-backdrop-filter: blur(25px) !important;
+}
+
+body.platform-mobile.orientation-landscape .mobile-nav-btn {
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 100% !important;
+  padding: 0 4px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  gap: 5px !important;
+  white-space: nowrap !important;
+}
+
+body.platform-mobile.orientation-landscape .mobile-nav-btn svg {
+  width: 16px !important;
+  height: 16px !important;
+  flex-shrink: 0 !important;
+}
+
+body.platform-mobile.orientation-landscape .mobile-nav-btn span {
+  font-size: 11px !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+}
+
+body.platform-mobile.orientation-landscape .mobile-nav-btn.active {
+  color: var(--text-gold, #D4AF37) !important;
+}
+
+body.platform-mobile.orientation-landscape .mobile-nav-btn.active::after {
+  display: none !important;
+}
+
+body.platform-mobile.orientation-landscape .mobile-nav-add-icon {
+  width: 26px !important;
+  height: 26px !important;
+  margin-top: 0 !important;
+  border-radius: 50% !important;
+  background: linear-gradient(135deg, #E6C65A, #A67C00) !important;
+  color: #121214 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 2px 8px rgba(212, 175, 55, 0.35) !important;
+  flex-shrink: 0 !important;
+}
+
+body.platform-mobile.orientation-landscape .mobile-nav-add-icon svg {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+body.platform-mobile.orientation-landscape .scroll-to-top-btn {
+  bottom: calc(52px + env(safe-area-inset-bottom, 0px)) !important;
+  right: max(16px, env(safe-area-inset-right, 16px)) !important;
+  width: 36px !important;
+  height: 36px !important;
+  z-index: 800 !important;
+}
+
+body.platform-mobile.orientation-landscape .workspace-main {
+  padding: 10px max(12px, env(safe-area-inset-right, 0px)) calc(54px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px)) !important;
 }
 
 /* ==========================================================================

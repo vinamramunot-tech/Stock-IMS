@@ -75,11 +75,39 @@ test('Landscape Orientation & Safe Area Insets Integrity Tests', async (t) => {
       /@media[^{]*orientation:\s*landscape[\s\S]*?\.app-header\s*\{[^}]*flex-direction:\s*row\s*!important/,
       'Landscape header must arrange items horizontally to conserve vertical space'
     );
-    // Bottom nav is slimmed down
+    // Bottom nav is pinned, fixed, and slimmed down
+    assert.match(
+      customCss,
+      /@media[^{]*orientation:\s*landscape[\s\S]*?\.mobile-bottom-nav\s*\{[^}]*position:\s*fixed\s*!important/s,
+      'Landscape bottom nav must be position: fixed'
+    );
+    assert.match(
+      customCss,
+      /@media[^{]*orientation:\s*landscape[\s\S]*?\.mobile-bottom-nav\s*\{[^}]*bottom:\s*0\s*!important/s,
+      'Landscape bottom nav must be pinned to bottom: 0'
+    );
     assert.match(
       customCss,
       /@media[^{]*orientation:\s*landscape[\s\S]*?\.mobile-bottom-nav\s*\{[^}]*height:\s*calc\(44px\s*\+\s*env\(safe-area-inset-bottom/s,
       'Landscape bottom nav must use a slim 44px profile'
+    );
+    // Nav buttons use horizontal row layout to avoid vertical text/icon clipping
+    assert.match(
+      customCss,
+      /@media[^{]*orientation:\s*landscape[\s\S]*?\.mobile-nav-btn\s*\{[^}]*flex-direction:\s*row\s*!important/s,
+      'Landscape nav buttons must arrange icon and label in a row'
+    );
+    // Add icon is vertically centered without negative margin
+    assert.match(
+      customCss,
+      /@media[^{]*orientation:\s*landscape[\s\S]*?\.mobile-nav-add-icon\s*\{[^}]*margin-top:\s*0\s*!important/s,
+      'Landscape add icon must reset margin-top to 0'
+    );
+    // Scroll to top button floats above landscape navbar
+    assert.match(
+      customCss,
+      /@media[^{]*orientation:\s*landscape[\s\S]*?\.scroll-to-top-btn\s*\{[^}]*bottom:\s*calc\(52px\s*\+\s*env\(safe-area-inset-bottom/s,
+      'Scroll to top button must float above 44px landscape bottom navbar'
     );
     // Launcher grid displays side-by-side suites
     assert.match(
@@ -97,6 +125,10 @@ test('Landscape Orientation & Safe Area Insets Integrity Tests', async (t) => {
     assert.ok(
       appJs.includes('orientationchange') && appJs.includes('orientation-landscape'),
       'App must listen for orientationchange and toggle orientation-landscape'
+    );
+    assert.ok(
+      appJs.includes("classList.toggle('platform-mobile'"),
+      'App must toggle platform-mobile dynamically'
     );
   });
 });

@@ -521,12 +521,10 @@ const App = {
   initOrientationHandler() {
     const handleOrientation = () => {
       const isLandscape = window.innerWidth > window.innerHeight;
-      const isMobile = window.isMobilePlatform ? window.isMobilePlatform() : false;
+      const isMobile = (window.isMobilePlatform && window.isMobilePlatform()) || (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
       document.body.classList.toggle('orientation-landscape', isLandscape);
       document.body.classList.toggle('orientation-portrait', !isLandscape);
-      if (isMobile) {
-        document.body.classList.add('platform-mobile');
-      }
+      document.body.classList.toggle('platform-mobile', Boolean(isMobile));
     };
     handleOrientation();
     window.addEventListener('resize', handleOrientation);

@@ -1,9 +1,68 @@
 /**
  * Mathematical Calculation Engine for Mava Gems
  * Centralizes all calculations to ensure consistency across the application.
+ * Follows the Indian Numeric System (Lakhs & Crores: 1,00,000 & 1,00,00,000)
  */
 
+// =========================================================================
+// INDIAN NUMERIC SYSTEM INITIALIZATION
+// Ensures that all calculations, reports, and displays follow the Indian
+// numbering system (3-2-2 comma grouping: Lakhs & Crores).
+// =========================================================================
+(function initIndianNumericSystem() {
+  if (typeof Number !== 'undefined' && Number.prototype && Number.prototype.toLocaleString) {
+    if (!Number.prototype.__enInPatched) {
+      const originalNumberToLocaleString = Number.prototype.toLocaleString;
+      Number.prototype.toLocaleString = function(locales, options) {
+        // Default undefined, null, or empty string locales to 'en-IN' (Indian Numbering System)
+        const targetLocale = (locales === undefined || locales === null || locales === '') ? 'en-IN' : locales;
+        return originalNumberToLocaleString.call(this, targetLocale, options);
+      };
+      Number.prototype.__enInPatched = true;
+    }
+  }
+
+  if (typeof Intl !== 'undefined' && Intl.NumberFormat) {
+    if (!Intl.NumberFormat.__enInPatched) {
+      const OriginalNumberFormat = Intl.NumberFormat;
+      const PatchedNumberFormat = function(locales, options) {
+        const targetLocale = (locales === undefined || locales === null || locales === '') ? 'en-IN' : locales;
+        return new OriginalNumberFormat(targetLocale, options);
+      };
+      PatchedNumberFormat.prototype = OriginalNumberFormat.prototype;
+      PatchedNumberFormat.supportedLocalesOf = OriginalNumberFormat.supportedLocalesOf;
+      PatchedNumberFormat.__enInPatched = true;
+      Intl.NumberFormat = PatchedNumberFormat;
+    }
+  }
+})();
+
 const Calc = {
+  /**
+   * Format a number according to the Indian numeric system (e.g. 1,00,000 or 12,34,567.89)
+   * @param {number|string} num
+   * @param {object} [options]
+   * @returns {string}
+   */
+  formatIndianNumber(num, options = {}) {
+    const val = Number(num);
+    if (isNaN(val)) return '0';
+    return val.toLocaleString('en-IN', options);
+  },
+
+  /**
+   * Format currency in Indian numeric system with Rupee symbol (e.g. ₹12,34,567.00)
+   * @param {number|string} amount
+   * @param {object} [options]
+   * @returns {string}
+   */
+  formatINR(amount, options = {}) {
+    const val = Number(amount);
+    if (isNaN(val)) return '₹0.00';
+    const opts = { minimumFractionDigits: 2, maximumFractionDigits: 2, ...options };
+    return '₹' + val.toLocaleString('en-IN', opts);
+  },
+
   // Metal karats presets and factors
   KARAT_FACTORS: {
     24: 24 / 24,

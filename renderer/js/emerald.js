@@ -1497,7 +1497,7 @@ const EmeraldController = {
 
     if (wtEl) wtEl.textContent = `${totalWeight.toFixed(2)} cts`;
     if (valInrEl) valInrEl.textContent = `₹${totalValuationINR.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
-    if (valUsdEl) valUsdEl.textContent = `$${totalValuationUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (valUsdEl) valUsdEl.textContent = `$${totalValuationUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   },
 
   renderEmeraldGrid() {
@@ -1767,8 +1767,8 @@ const EmeraldController = {
           const pricePerCaratUsd = Number((usdRate > 0 ? pricePerCaratInr / usdRate : 0).toFixed(2));
           const totalValueUsd = Number((usdRate > 0 ? totalValueInr / usdRate : 0).toFixed(2));
 
-          let usdPriceDisplay = `$${pricePerCaratUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-          let usdValueDisplay = `$${totalValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+          let usdPriceDisplay = `$${pricePerCaratUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+          let usdValueDisplay = `$${totalValueUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
           if (isMultiplierEnabled) {
             const discountedRate = Number((pricePerCaratInr * globalMultiplier).toFixed(2));
@@ -1776,8 +1776,8 @@ const EmeraldController = {
             const discountedPriceUsd = Number((usdRate > 0 ? discountedRate / usdRate : 0).toFixed(2));
             const discountedValueUsd = Number((usdRate > 0 ? discountedValue / usdRate : 0).toFixed(2));
 
-            usdPriceDisplay = `<span style="text-decoration: line-through; opacity: 0.6;">$${pricePerCaratUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> → <strong style="color: var(--text-gold-dark); font-weight: 700;">$${discountedPriceUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>/ct <span style="font-size: 10px; color: var(--text-gold); font-weight: 600;">(${globalMultiplier.toFixed(2)}x on Rate/ct)</span>`;
-            usdValueDisplay = `<span style="text-decoration: line-through; opacity: 0.6;">$${totalValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> → <strong style="color: var(--text-gold-dark); font-weight: 700;">$${discountedValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>`;
+            usdPriceDisplay = `<span style="text-decoration: line-through; opacity: 0.6;">$${pricePerCaratUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> → <strong style="color: var(--text-gold-dark); font-weight: 700;">$${discountedPriceUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>/ct <span style="font-size: 10px; color: var(--text-gold); font-weight: 600;">(${globalMultiplier.toFixed(2)}x on Rate/ct)</span>`;
+            usdValueDisplay = `<span style="text-decoration: line-through; opacity: 0.6;">$${totalValueUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> → <strong style="color: var(--text-gold-dark); font-weight: 700;">$${discountedValueUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>`;
           }
 
           const dollarPriceHtml = usdRate > 0 ? `
@@ -2357,7 +2357,7 @@ const EmeraldController = {
       html += `
         <div class="print-summary-card">
           <span class="label">Total Valuation (USD)</span>
-          <span class="value">$${grandTotalValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          <span class="value">$${grandTotalValueUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
       `;
     }
@@ -3702,15 +3702,15 @@ const EmeraldController = {
 
     let usdDisplay = '';
     if (usdRate > 0) {
-      let usdRateDisplay = `$${pricePerCaratUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/ct`;
-      let usdValueDisplay = `$${totalValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      let usdRateDisplay = `$${pricePerCaratUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/ct`;
+      let usdValueDisplay = `$${totalValueUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       if (isMultiplierEnabled) {
         const discountedRate = Number((pricePerCaratInr * globalMultiplier).toFixed(2));
         const discountedValue = Number((totalWeight * discountedRate).toFixed(2));
         const discountedPriceUsd = Number((usdRate > 0 ? discountedRate / usdRate : 0).toFixed(2));
         const discountedValueUsd = Number((usdRate > 0 ? discountedValue / usdRate : 0).toFixed(2));
-        usdRateDisplay = `<span style="text-decoration: line-through; opacity: 0.6;">$${pricePerCaratUsd.toLocaleString()}</span> <strong>$${discountedPriceUsd.toLocaleString()}</strong>/ct <span style="font-size: 9px; color: var(--text-gold); font-weight: 600;">(${globalMultiplier.toFixed(2)}x on Rate/ct)</span>`;
-        usdValueDisplay = `<span style="text-decoration: line-through; opacity: 0.6;">$${totalValueUsd.toLocaleString()}</span> <strong>$${discountedValueUsd.toLocaleString()}</strong>`;
+        usdRateDisplay = `<span style="text-decoration: line-through; opacity: 0.6;">$${pricePerCaratUsd.toLocaleString('en-US')}</span> <strong>$${discountedPriceUsd.toLocaleString('en-US')}</strong>/ct <span style="font-size: 9px; color: var(--text-gold); font-weight: 600;">(${globalMultiplier.toFixed(2)}x on Rate/ct)</span>`;
+        usdValueDisplay = `<span style="text-decoration: line-through; opacity: 0.6;">$${totalValueUsd.toLocaleString('en-US')}</span> <strong>$${discountedValueUsd.toLocaleString('en-US')}</strong>`;
       }
       usdDisplay = `
         <div class="cost-price-data" style="font-size: 11px; color: var(--text-muted); border-top: 1px dashed var(--border-light); padding-top: 6px; margin-top: 6px; display: flex; flex-direction: column; gap: 2px;">
