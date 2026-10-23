@@ -13,6 +13,34 @@ const MemoController = {
   lockedMemoItems: [], // Fully resolved (no remaining carats) memo items shown read-only
   originalOpenEmeraldIds: [], // EmeraldIds that were open at the start of edit (for diffing)
 
+  /**
+   * Immediately push an emerald memo to Firestore (or queue it offline).
+   * @param {object|null} memo - The memo object (null = use memoId for delete).
+   * @param {boolean} isDelete - If true, removes the document from Firestore.
+   * @param {string} memoId - Required when isDelete=true.
+   */
+  _pushToCloud(memo, isDelete = false, memoId = null) {
+    if (!window.CloudSync || !window.CloudSync.isEnabled()) return;
+    const col = 'mava_catalog_emerald_memos';
+    try {
+      if (isDelete) {
+        const id = memoId || (memo && memo.id);
+        if (id) {
+          window.CloudSync.deleteDocument(col, String(id)).catch(err =>
+            console.warn('Emerald memo cloud delete note:', err.message)
+          );
+        }
+      } else if (memo) {
+        memo.updatedAt = new Date().toISOString();
+        window.CloudSync.setDocument(col, String(memo.id), memo).catch(err =>
+          console.warn('Emerald memo cloud push note:', err.message)
+        );
+      }
+    } catch (e) {
+      console.warn('MemoController _pushToCloud error:', e.message);
+    }
+  },
+
   // ── Initialisation ──────────────────────────────────────────────────────────
 
   init() {
@@ -721,6 +749,9 @@ const MemoController = {
         []
       );
 
+      memo.updatedAt = new Date().toISOString();
+      this._pushToCloud(memo);
+
       try {
         this.editingMemoId = null;
         this.lockedMemoItems = [];
@@ -775,6 +806,8 @@ const MemoController = {
       `Issued memo ${memoNumber} to ${brokerName}${clientName ? ` (client: ${clientName})` : ''}: ${totalCarats.toFixed(2)} cts (${this.selectedItems.length} Pudia${this.selectedItems.length !== 1 ? 's' : ''})`,
       []
     );
+
+    this._pushToCloud(memo);
 
     try {
       UI.closeModal('modal-create-memo');
@@ -1316,8 +1349,10 @@ Thank you,
       if (isDeleted) {
         UI.closeModal('modal-memo-detail');
         UI.showToast(`Memo ${memo.memoNumber} has been fully returned and deleted.`);
+        this._pushToCloud(null, true, memo.id);
       } else {
         UI.showToast(`Successfully processed partial ${actionType} — ${inputCarats.toFixed(2)} cts`);
+        this._pushToCloud(memo);
       }
       
       // Update UI displays
@@ -1400,8 +1435,10 @@ Thank you,
           if (isDeleted) {
             UI.closeModal('modal-memo-detail');
             UI.showToast(`Memo ${memo.memoNumber} fully returned and deleted.`);
+            this._pushToCloud(null, true, memo.id);
           } else {
             UI.showToast(`Memo ${memo.memoNumber} fully closed as ${action}.`);
+            this._pushToCloud(memo);
           }
           App.refreshAllDisplays();
         } catch (err) {
@@ -1674,6 +1711,7 @@ Thank you,
 
     try {
       await DBManager.saveVault();
+      this._pushToCloud(memo);
       UI.closeModal('modal-memo-outcome');
       UI.showToast(`💰 Memo ${memo.memoNumber} — Complete Sale recorded. ${totalSoldCts.toFixed(2)} cts sold.`);
       App.refreshAllDisplays();
@@ -1785,6 +1823,7 @@ Thank you,
 
     try {
       await DBManager.saveVault();
+      this._pushToCloud(memo);
       UI.closeModal('modal-memo-outcome');
       UI.showToast(`⚖️ Memo ${memo.memoNumber} — Partial outcome recorded. ${totalSoldCts.toFixed(2)} cts sold, ${totalRetCts.toFixed(2)} cts returned.`);
       App.refreshAllDisplays();
@@ -1833,6 +1872,11 @@ Thank you,
 
     try {
       await DBManager.saveVault();
+      if (isDeleted) {
+        this._pushToCloud(null, true, memo.id);
+      } else {
+        this._pushToCloud(memo);
+      }
       UI.closeModal('modal-memo-outcome');
       UI.showToast(isDeleted
         ? `↩️ Memo ${memo.memoNumber} fully returned and deleted.`
@@ -1907,6 +1951,7 @@ Thank you,
 
         try {
           await DBManager.saveVault();
+          this._pushToCloud(memo);
           UI.showToast(`↺ Sale reversed for Memo ${memo.memoNumber} — ${totalRestoredCts.toFixed(2)} cts returned to stock.`);
           App.refreshAllDisplays();
         } catch (err) {
@@ -1953,6 +1998,7 @@ Thank you,
 
         try {
           await DBManager.saveVault();
+          this._pushToCloud(null, true, memo.id);
           UI.closeModal('modal-memo-detail');
           UI.showToast(`Deleted Memo ${memo.memoNumber}.`);
           App.refreshAllDisplays();

@@ -11,6 +11,35 @@ const JewelryMemoController = {
   lockedMemoItems: [],        // Sold/returned memo items shown read-only during edit
   originalOpenItemIds: [],    // Item IDs that were open at the start of edit (for diffing)
 
+  /**
+   * Immediately push a jewelry memo to Firestore (or queue it offline).
+   * Stamps updatedAt on the memo before pushing.
+   * @param {object|null} memo - The memo object to push (null triggers delete path).
+   * @param {boolean} isDelete - If true, deletes the document from Firestore.
+   * @param {string} memoId - Required when isDelete=true.
+   */
+  _pushToCloud(memo, isDelete = false, memoId = null) {
+    if (!window.CloudSync || !window.CloudSync.isEnabled()) return;
+    const col = 'mava_catalog_jewelry_memos';
+    try {
+      if (isDelete) {
+        const id = memoId || (memo && memo.id);
+        if (id) {
+          window.CloudSync.deleteDocument(col, String(id)).catch(err =>
+            console.warn('Jewelry memo cloud delete note:', err.message)
+          );
+        }
+      } else if (memo) {
+        if (!memo.updatedAt) memo.updatedAt = new Date().toISOString();
+        window.CloudSync.setDocument(col, String(memo.id), memo).catch(err =>
+          console.warn('Jewelry memo cloud push note:', err.message)
+        );
+      }
+    } catch (e) {
+      console.warn('Jewelry memo _pushToCloud error:', e.message);
+    }
+  },
+
   init() {
     // Nav triggers
     const btnNavCreate = document.getElementById('btn-nav-create-jewelry-memo');
@@ -148,7 +177,7 @@ const JewelryMemoController = {
 
     // Separate open items (editable) from sold/returned (locked)
     const openMemoItems = (memo.items || []).filter(mi => mi.status === 'open');
-    const lockedItems   = (memo.items || []).filter(mi => mi.status !== 'open');
+    const lockedItems = (memo.items || []).filter(mi => mi.status !== 'open');
 
     // Resolve catalog objects for the open items so selectedItems has full item data and attach existing custom price
     this.selectedItems = openMemoItems
@@ -164,7 +193,7 @@ const JewelryMemoController = {
       .filter(Boolean);
 
     // Store locked items and the original open IDs for diffing on save
-    this.lockedMemoItems    = lockedItems;
+    this.lockedMemoItems = lockedItems;
     this.originalOpenItemIds = openMemoItems.map(mi => mi.itemId);
 
     // Pre-fill header fields
@@ -269,7 +298,7 @@ const JewelryMemoController = {
         const desc = (item.description || '').toLowerCase();
         const cat = (item.category || '').toLowerCase();
         const sno = String(item.sno || '');
-        
+
         // Also match stones & metals inside the piece
         const stonesMatch = (item.stones || []).some(s => (s.type || '').toLowerCase().includes(query) || (s.name || '').toLowerCase().includes(query));
         const metalsMatch = (item.metals || []).some(m => (m.name || '').toLowerCase().includes(query) || String(m.karat || '').includes(query));
@@ -515,10 +544,10 @@ const JewelryMemoController = {
       const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
 
       // Diff: what changed vs what was originally open
-      const newOpenIds      = new Set(this.selectedItems.map(i => i.id));
-      const originalIds     = new Set(this.originalOpenItemIds);
-      const removedIds      = [...originalIds].filter(id => !newOpenIds.has(id));
-      const addedItems      = this.selectedItems.filter(i => !originalIds.has(i.id));
+      const newOpenIds = new Set(this.selectedItems.map(i => i.id));
+      const originalIds = new Set(this.originalOpenItemIds);
+      const removedIds = [...originalIds].filter(id => !newOpenIds.has(id));
+      const addedItems = this.selectedItems.filter(i => !originalIds.has(i.id));
 
       // Process removals: revert catalog item to In Stock, remove from memo.items
       removedIds.forEach(id => {
@@ -601,6 +630,9 @@ const JewelryMemoController = {
         `Edited Jewelry Memo ${memo.memoNumber} — ${removedIds.length} piece(s) removed, ${addedItems.length} piece(s) added. Person: "${personName}", Broker: "${brokerName || '—'}".`,
         []
       );
+
+      memo.updatedAt = new Date().toISOString();
+      this._pushToCloud(memo);
 
       try {
         this.editingMemoId = null;
@@ -688,6 +720,8 @@ const JewelryMemoController = {
       `Issued ${memoItems.length} pieces on Memo ${memoNumber} to ${personName} (Broker: ${brokerName || 'None'}): ₹${totalValue.toLocaleString()}`,
       []
     );
+
+    this._pushToCloud(memo);
 
     try {
       UI.closeModal('modal-create-jewelry-memo');
@@ -884,7 +918,7 @@ const JewelryMemoController = {
     const closedRow = document.getElementById('jewelry-memo-detail-closed-row');
     if (memo.closedAt && closedRow) {
       const cd = new Date(memo.closedAt);
-      const cdFmt = !isNaN(cd.getTime()) ? cd.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+      const cdFmt = !isNaN(cd.getTime()) ? cd.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
       const closedAtEl = document.getElementById('jewelry-memo-detail-closed-at');
       if (closedAtEl) closedAtEl.textContent = cdFmt;
       closedRow.classList.remove('hidden');
@@ -911,8 +945,8 @@ const JewelryMemoController = {
         const statusBadge = item.status === 'open'
           ? `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;background:rgba(245,158,11,0.18);color:#f59e0b;border:1px solid rgba(245,158,11,0.35);">ISSUED</span>`
           : item.status === 'returned'
-          ? `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;background:rgba(80,200,120,0.15);color:var(--success-color);">RETURNED</span>`
-          : `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;background:rgba(212,175,55,0.15);color:var(--text-gold-dark);">SOLD</span>`;
+            ? `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;background:rgba(80,200,120,0.15);color:var(--success-color);">RETURNED</span>`
+            : `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;background:rgba(212,175,55,0.15);color:var(--text-gold-dark);">SOLD</span>`;
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -1013,8 +1047,8 @@ const JewelryMemoController = {
 
     const party = memo.personName || memo.customerName || memo.brokerName || 'Sir/Madam';
 
-    const message = 
-`*MAVA GEMS — JEWELRY MEMO RETURN REMINDER*
+    const message =
+      `*MAVA GEMS — JEWELRY MEMO RETURN REMINDER*
 
 Namaste ${party},
 This is a gentle reminder regarding Finished Jewelry Approval Memo *#${memo.memoNumber}* dated *${dateFmt}* (${daysOpen} day${daysOpen === 1 ? '' : 's'} open).
@@ -1078,6 +1112,8 @@ Thank you,
           []
         );
 
+        this._pushToCloud(null, true, memo.id);
+
         try {
           await DBManager.saveVault();
           UI.closeModal('modal-jewelry-memo-detail');
@@ -1128,6 +1164,9 @@ Thank you,
         `Returned SKU: ${item.sku} back to stock from Memo ${memo.memoNumber}`,
         []
       );
+
+      memo.updatedAt = new Date().toISOString();
+      this._pushToCloud(memo);
 
       try {
         UI.showToast(`Piece ${item.sku} returned to stock.`);
@@ -1359,6 +1398,8 @@ Thank you,
           if (mItem) {
             mItem.soldPrice = finalSoldPrice;
           }
+          memo.updatedAt = new Date().toISOString();
+          this._pushToCloud(memo);
         }
       }
 
@@ -1515,6 +1556,9 @@ Thank you,
         `Closed Memo ${memo.memoNumber} (Returned All to Stock)`,
         []
       );
+
+      memo.updatedAt = new Date().toISOString();
+      this._pushToCloud(memo);
 
       try {
         UI.closeModal('modal-jewelry-memo-detail');

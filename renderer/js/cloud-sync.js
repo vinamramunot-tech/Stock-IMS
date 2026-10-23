@@ -740,7 +740,9 @@
         { name: `${prefix}_emerald_memos`, key: 'memos', idKey: 'id' },
         { name: `${prefix}_jewelry_memos`, key: 'jewelryMemos', idKey: 'id' },
         { name: `${prefix}_jewel_stone_memos`, key: 'jewelStoneMemos', idKey: 'id' },
-        { name: `${prefix}_jewelry_sales`, key: 'jewelrySales', idKey: 'id' }
+        { name: `${prefix}_jewelry_sales`, key: 'jewelrySales', idKey: 'id' },
+        { name: `${prefix}_emerald_memos`, key: 'memos', idKey: 'id' },
+        { name: `${prefix}_emerald_sales`, key: 'sales', idKey: 'id' }
       ];
 
       let anyUpdates = false;
