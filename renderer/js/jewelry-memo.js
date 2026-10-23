@@ -11,6 +11,35 @@ const JewelryMemoController = {
   lockedMemoItems: [],        // Sold/returned memo items shown read-only during edit
   originalOpenItemIds: [],    // Item IDs that were open at the start of edit (for diffing)
 
+  /**
+   * Immediately push a jewelry memo to Firestore (or queue it offline).
+   * Stamps updatedAt on the memo before pushing.
+   * @param {object|null} memo - The memo object to push (null triggers delete path).
+   * @param {boolean} isDelete - If true, deletes the document from Firestore.
+   * @param {string} memoId - Required when isDelete=true.
+   */
+  _pushToCloud(memo, isDelete = false, memoId = null) {
+    if (!window.CloudSync || !window.CloudSync.isEnabled()) return;
+    const col = 'mava_catalog_jewelry_memos';
+    try {
+      if (isDelete) {
+        const id = memoId || (memo && memo.id);
+        if (id) {
+          window.CloudSync.deleteDocument(col, String(id)).catch(err =>
+            console.warn('Jewelry memo cloud delete note:', err.message)
+          );
+        }
+      } else if (memo) {
+        if (!memo.updatedAt) memo.updatedAt = new Date().toISOString();
+        window.CloudSync.setDocument(col, String(memo.id), memo).catch(err =>
+          console.warn('Jewelry memo cloud push note:', err.message)
+        );
+      }
+    } catch (e) {
+      console.warn('Jewelry memo _pushToCloud error:', e.message);
+    }
+  },
+
   init() {
     // Nav triggers
     const btnNavCreate = document.getElementById('btn-nav-create-jewelry-memo');
@@ -589,6 +618,9 @@ const JewelryMemoController = {
         []
       );
 
+      memo.updatedAt = new Date().toISOString();
+      this._pushToCloud(memo);
+
       try {
         this.editingMemoId = null;
         this.lockedMemoItems = [];
@@ -672,6 +704,8 @@ const JewelryMemoController = {
       `Issued ${memoItems.length} pieces on Memo ${memoNumber} to ${personName} (Broker: ${brokerName || 'None'}): ₹${totalValue.toLocaleString()}`,
       []
     );
+
+    this._pushToCloud(memo);
 
     try {
       UI.closeModal('modal-create-jewelry-memo');
@@ -1060,6 +1094,8 @@ Thank you,
           []
         );
 
+        this._pushToCloud(null, true, memo.id);
+
         try {
           await DBManager.saveVault();
           UI.closeModal('modal-jewelry-memo-detail');
@@ -1107,6 +1143,9 @@ Thank you,
         `Returned SKU: ${item.sku} back to stock from Memo ${memo.memoNumber}`,
         []
       );
+
+      memo.updatedAt = new Date().toISOString();
+      this._pushToCloud(memo);
 
       try {
         UI.showToast(`Piece ${item.sku} returned to stock.`);
@@ -1338,6 +1377,8 @@ Thank you,
           if (mItem) {
             mItem.soldPrice = finalSoldPrice;
           }
+          memo.updatedAt = new Date().toISOString();
+          this._pushToCloud(memo);
         }
       }
 
@@ -1408,6 +1449,8 @@ Thank you,
           memo.status = 'closed';
           memo.closedAt = new Date().toISOString();
         }
+        memo.updatedAt = new Date().toISOString();
+        this._pushToCloud(memo);
       }
     }
 
@@ -1486,6 +1529,9 @@ Thank you,
         `Closed Memo ${memo.memoNumber} (Returned All to Stock)`,
         []
       );
+
+      memo.updatedAt = new Date().toISOString();
+      this._pushToCloud(memo);
 
       try {
         UI.closeModal('modal-jewelry-memo-detail');

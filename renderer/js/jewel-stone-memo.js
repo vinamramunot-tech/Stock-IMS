@@ -9,6 +9,34 @@ const JewelStoneMemoController = {
   activeCreateSelectedId: null,
   activeActionContext: null,
 
+  /**
+   * Immediately push a jewel stone memo to Firestore (or queue it offline).
+   * @param {object|null} memo - The memo object (null = use memoId for delete).
+   * @param {boolean} isDelete - If true, removes the document from Firestore.
+   * @param {string} memoId - Required when isDelete=true.
+   */
+  _pushToCloud(memo, isDelete = false, memoId = null) {
+    if (!window.CloudSync || !window.CloudSync.isEnabled()) return;
+    const col = 'mava_catalog_jewel_stone_memos';
+    try {
+      if (isDelete) {
+        const id = memoId || (memo && memo.id);
+        if (id) {
+          window.CloudSync.deleteDocument(col, String(id)).catch(err =>
+            console.warn('Jewel stone memo cloud delete note:', err.message)
+          );
+        }
+      } else if (memo) {
+        memo.updatedAt = new Date().toISOString();
+        window.CloudSync.setDocument(col, String(memo.id), memo).catch(err =>
+          console.warn('Jewel stone memo cloud push note:', err.message)
+        );
+      }
+    } catch (e) {
+      console.warn('JewelStoneMemo _pushToCloud error:', e.message);
+    }
+  },
+
   init() {
     // Nav triggers
     const btnNavCreate = document.getElementById('btn-nav-create-jewel-stone-memo');
@@ -459,6 +487,8 @@ const JewelStoneMemoController = {
       []
     );
 
+    this._pushToCloud(memo);
+
     try {
       UI.closeModal('modal-create-jewel-stone-memo');
       UI.showToast(`Jewel Stone Memo ${memoNumber} issued to ${manufacturerName}`);
@@ -829,8 +859,10 @@ const JewelStoneMemoController = {
       if (isDeleted) {
         UI.closeModal('modal-jewel-stone-memo-detail');
         UI.showToast(`Jewel Stone Memo ${memo.memoNumber} has been fully returned and deleted.`);
+        this._pushToCloud(null, true, memo.id);
       } else {
         UI.showToast(`Processed partial ${actionType} — ${inputCarats.toFixed(3)} cts`);
+        this._pushToCloud(memo);
       }
 
       App.refreshAllDisplays();
@@ -916,8 +948,10 @@ const JewelStoneMemoController = {
           if (isDeleted) {
             UI.closeModal('modal-jewel-stone-memo-detail');
             UI.showToast(`Jewel Stone Memo ${memo.memoNumber} fully returned and deleted.`);
+            this._pushToCloud(null, true, memo.id);
           } else {
             UI.showToast(`Jewel Stone Memo ${memo.memoNumber} closed successfully.`);
+            this._pushToCloud(memo);
           }
           App.refreshAllDisplays();
           await DBManager.saveVault();
