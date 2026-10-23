@@ -2059,7 +2059,7 @@ const Catalog = {
     this.populatePrintItemsChecklist();
   },
 
-  printFromSelection() {
+  async printFromSelection() {
     if (!this.printSelectedItemIds || this.printSelectedItemIds.size === 0) {
       UI.showToast("Please select at least one jewelry piece to print.", true);
       return;
@@ -2077,7 +2077,8 @@ const Catalog = {
 
     const filtered = this.applyMultiplierToItems(selectedItems, goldRate, multiplier);
 
-    const doc = this.generatePDF(filtered, goldRate, multiplier);
+    UI.showToast("Generating PDF catalog report...", false);
+    const doc = await this.generatePDF(filtered, goldRate, multiplier);
     this.activePdfDocument = doc;
     this.activePdfMultiplier = multiplier;
     // Clear emerald's active PDF so the shared save button picks this one
@@ -2091,7 +2092,7 @@ const Catalog = {
     UI.openModal('modal-print-preview');
   },
 
-  generatePDF(filtered, goldRate, multiplier = 1.0) {
+  async generatePDF(filtered, goldRate, multiplier = 1.0) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const allDbItems = this.getAllCatalogItems();
@@ -2100,6 +2101,24 @@ const Catalog = {
     const marginL = 12;
     const marginR = 198;
     const contentWidth = marginR - marginL; // 186mm
+
+    // Preload & prepare item photos in parallel
+    const imageMap = new Map();
+    try {
+      const loadPromises = filtered.map(async (item) => {
+        if (item.image) {
+          try {
+            const prep = await this.prepareImageForPdf(item.image);
+            if (prep && prep.data) {
+              imageMap.set(item.id, prep);
+            }
+          } catch (_) {}
+        }
+      });
+      await Promise.all(loadPromises);
+    } catch (e) {
+      console.warn("Catalog PDF image preloading error:", e);
+    }
 
     // Draw header on a page
     const drawPageHeader = (pageNum) => {
@@ -2184,12 +2203,13 @@ const Catalog = {
       doc.setFontSize(7.5);
       doc.setTextColor(51, 65, 85);
 
-      doc.text("#", 17, startY + 4.8, { align: 'center' });
-      doc.text("SKU", 24, startY + 4.8);
-      doc.text("ITEM & CATEGORY", 48, startY + 4.8);
-      doc.text("METAL SPECS", 96, startY + 4.8);
+      doc.text("#", 16, startY + 4.8, { align: 'center' });
+      doc.text("PHOTO", 28, startY + 4.8, { align: 'center' });
+      doc.text("SKU", 37, startY + 4.8);
+      doc.text("ITEM & CATEGORY", 58, startY + 4.8);
+      doc.text("METAL SPECS", 101, startY + 4.8);
       doc.text("STONES / DIAMONDS", 128, startY + 4.8);
-      doc.text("GROSS WT", 175, startY + 4.8, { align: 'right' });
+      doc.text("GROSS WT", 174, startY + 4.8, { align: 'right' });
       doc.text("PRICE (INR)", 197, startY + 4.8, { align: 'right' });
 
       return startY + 7;
@@ -2307,12 +2327,12 @@ const Catalog = {
           : Number(((item.sellingPrice || evalData.sellingPrice || evalData.marketCostPrice || 0) * multiplier).toFixed(2));
 
         // Split text to fit columns cleanly
-        const nameLines = doc.splitTextToSize(item.name || 'Unnamed Piece', 46);
-        const metalLines = doc.splitTextToSize(metalsStr, 30);
-        const stoneLines = doc.splitTextToSize(stonesStr, 30);
+        const nameLines = doc.splitTextToSize(item.name || 'Unnamed Piece', 40);
+        const metalLines = doc.splitTextToSize(metalsStr, 25);
+        const stoneLines = doc.splitTextToSize(stonesStr, 29);
 
         const textLinesCount = Math.max(nameLines.length + 1, metalLines.length, stoneLines.length, 1);
-        const rowH = Math.max(8.5, textLinesCount * 3.6 + 2);
+        const rowH = Math.max(14.5, textLinesCount * 3.6 + 2);
 
         checkPageBreak(rowH);
 
@@ -2326,58 +2346,93 @@ const Catalog = {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(7.5);
         doc.setTextColor(100, 116, 139);
-        doc.text(String(serialNumber), 17, y + 4.8, { align: 'center' });
+        doc.text(String(serialNumber), 16, y + (rowH / 2) + 1.2, { align: 'center' });
 
-        // Column 2: SKU
+        // Column 2: Photo Thumbnail
+        const thumbW = 14;
+        const thumbH = 12;
+        const boxX = 21;
+        const boxY = y + (rowH - thumbH) / 2;
+
+        doc.setFillColor(248, 250, 252);
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.2);
+        doc.roundedRect(boxX, boxY, thumbW, thumbH, 1, 1, 'FD');
+
+        const prep = imageMap.get(item.id);
+        if (prep && prep.data) {
+          try {
+            const maxW = thumbW - 1;
+            const maxH = thumbH - 1;
+            let targetW = maxW;
+            let targetH = maxW / (prep.aspect || 1.0);
+            if (targetH > maxH) {
+              targetH = maxH;
+              targetW = maxH * (prep.aspect || 1.0);
+            }
+            const imgX = boxX + (thumbW - targetW) / 2;
+            const imgY = boxY + (thumbH - targetH) / 2;
+            doc.addImage(prep.data, prep.format, imgX, imgY, targetW, targetH);
+          } catch (imgErr) {
+            console.warn("Could not render thumbnail in PDF for item:", item.sku, imgErr);
+          }
+        } else {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(5.5);
+          doc.setTextColor(160, 174, 192);
+          doc.text("No Pic", boxX + thumbW / 2, boxY + thumbH / 2 + 1, { align: 'center' });
+        }
+
+        // Column 3: SKU
         doc.setFont("helvetica", "bold");
         doc.setFontSize(7.5);
         doc.setTextColor(30, 41, 59);
-        doc.text((item.sku || '—').substring(0, 16), 24, y + 4.8);
+        doc.text((item.sku || '—').substring(0, 14), 37, y + 5.2);
 
-        // Column 3: Item Name & Category Tag
+        // Column 4: Item Name & Category Tag
         doc.setFont("helvetica", "bold");
         doc.setFontSize(7.5);
         doc.setTextColor(15, 23, 42);
-        doc.text(nameLines[0] || 'Jewelry Piece', 48, y + 4.5);
+        doc.text(nameLines[0] || 'Jewelry Piece', 58, y + 4.8);
 
         if (nameLines.length > 1) {
           doc.setFont("helvetica", "normal");
           doc.setFontSize(7);
           doc.setTextColor(51, 65, 85);
           for (let i = 1; i < nameLines.length; i++) {
-            doc.text(nameLines[i], 48, y + 4.5 + i * 3.5);
+            doc.text(nameLines[i], 58, y + 4.8 + i * 3.5);
           }
         }
 
-        const catY = y + 4.5 + nameLines.length * 3.4;
+        const catY = y + 4.8 + nameLines.length * 3.4;
         doc.setFont("helvetica", "normal");
         const isSold = item.status === 'Sold';
         const statusSuffix = isSold ? ' \u2022 SOLD' : (item.status === 'Issued' || item.status === 'On Memo' ? ' \u2022 ISSUED' : '');
-        doc.text(((item.category || 'Jewelry') + statusSuffix).toUpperCase(), 48, catY);
+        doc.text(((item.category || 'Jewelry') + statusSuffix).toUpperCase(), 58, catY);
 
-        // Column 4: Metal Specs
+        // Column 5: Metal Specs
         doc.setFont("helvetica", "normal");
         doc.setFontSize(7);
         doc.setTextColor(51, 65, 85);
-        doc.text(metalLines, 96, y + 4.5);
+        doc.text(metalLines, 101, y + 4.8);
 
-        // Column 5: Stones & Diamonds
+        // Column 6: Stones & Diamonds
         doc.setFont("helvetica", "normal");
         doc.setFontSize(7);
         doc.setTextColor(71, 85, 105);
-        doc.text(stoneLines, 128, y + 4.5);
+        doc.text(stoneLines, 128, y + 4.8);
 
-        // Column 6: Gross Weight
+        // Column 7: Gross Weight
         doc.setFont("helvetica", "normal");
         doc.setFontSize(7.5);
         doc.setTextColor(30, 41, 59);
-        doc.text(`${grossWt.toFixed(2)} g`, 175, y + 4.8, { align: 'right' });
+        doc.text(`${grossWt.toFixed(2)} g`, 174, y + 5.2, { align: 'right' });
 
-        // Column 7: Price
+        // Column 8: Price
         doc.setFont("helvetica", "bold");
         doc.setFontSize(7.5);
         doc.setTextColor(15, 23, 42);
-        doc.text(`INR ${Math.round(itemSellingPrice).toLocaleString('en-IN')}`, 197, y + 4.8, { align: 'right' });
+        doc.text(`INR ${Math.round(itemSellingPrice).toLocaleString('en-IN')}`, 197, y + 5.2, { align: 'right' });
 
         // Subtle row bottom divider line
         doc.setDrawColor(241, 245, 249);
@@ -2399,9 +2454,9 @@ const Catalog = {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7.2);
       doc.setTextColor(71, 85, 105);
-      doc.text(`Subtotal (${catName}) \u2014 ${group.items.length} ${group.items.length === 1 ? 'pc' : 'pcs'}`, 48, y + 3.8);
+      doc.text(`Subtotal (${catName}) \u2014 ${group.items.length} ${group.items.length === 1 ? 'pc' : 'pcs'}`, 58, y + 3.8);
 
-      doc.text(`${group.totalGrossWt.toFixed(2)} g`, 175, y + 3.8, { align: 'right' });
+      doc.text(`${group.totalGrossWt.toFixed(2)} g`, 174, y + 3.8, { align: 'right' });
       doc.text(`INR ${Math.round(group.totalSelling).toLocaleString('en-IN')}`, 197, y + 3.8, { align: 'right' });
 
       y += 8;
@@ -4987,7 +5042,13 @@ const Catalog = {
   async prepareImageForPdf(imgSrc) {
     if (!imgSrc || typeof imgSrc !== 'string') return null;
 
-    // Direct clean PNG or JPEG data URI
+    // 1. Normalization: raw base64 without data URI scheme
+    if (!imgSrc.startsWith('data:') && !imgSrc.startsWith('http') && imgSrc.length > 50) {
+      const isPng = imgSrc.startsWith('iVBORw');
+      imgSrc = `data:${isPng ? 'image/png' : 'image/jpeg'};base64,` + imgSrc;
+    }
+
+    // 2. Direct clean PNG or JPEG data URI
     if (imgSrc.startsWith('data:image/jpeg') || imgSrc.startsWith('data:image/png')) {
       return new Promise((resolve) => {
         const img = new Image();
@@ -5005,7 +5066,28 @@ const Catalog = {
       });
     }
 
-    // Convert other formats (e.g. WebP, Blob, local URL) via off-screen canvas
+    // 3. Remote HTTP / HTTPS URL: Fetch as Blob first to bypass canvas tainting where CORS/token allow
+    if (imgSrc.startsWith('http://') || imgSrc.startsWith('https://')) {
+      try {
+        const resp = await fetch(imgSrc);
+        if (resp.ok) {
+          const blob = await resp.blob();
+          const base64Data = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(blob);
+          });
+          if (base64Data && typeof base64Data === 'string' && base64Data.startsWith('data:')) {
+            return await this.prepareImageForPdf(base64Data);
+          }
+        }
+      } catch (fetchErr) {
+        // Fall back to Image loading below
+      }
+    }
+
+    // 4. Convert other formats (e.g. WebP, Blob, local URL) via off-screen canvas
     return new Promise((resolve) => {
       try {
         const img = new Image();
