@@ -37,6 +37,8 @@
      * Initialize CloudSync with stored settings and event bindings
      */
     init(customConfig = {}) {
+      this._batchWriteForbidden = false;
+      this._syncCount = 0;
       this.loadConfig();
       if (customConfig && typeof customConfig === 'object') {
         this.config = { ...this.config, ...customConfig };
@@ -244,6 +246,29 @@
         return { success: true, count: 0 };
       }
 
+      // Helper for concurrent granular execution when batchWrite endpoint is forbidden on API key
+      const executeChunkConcurrently = async (chunk) => {
+        const CONCURRENCY = 6;
+        let count = 0;
+        for (let j = 0; j < chunk.length; j += CONCURRENCY) {
+          const slice = chunk.slice(j, j + CONCURRENCY);
+          await Promise.all(slice.map(async op => {
+            if (op.op === 'delete') {
+              await this.deleteDocument(op.collection, op.id);
+            } else {
+              await this.setDocument(op.collection, op.id, op.data);
+            }
+            count++;
+          }));
+        }
+        return count;
+      };
+
+      if (this._batchWriteForbidden) {
+        const count = await executeChunkConcurrently(operations);
+        return { success: true, count };
+      }
+
       const { projectId, databaseId, apiKey } = this.config;
       const baseUrl = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/${encodeURIComponent(databaseId)}/documents:batchWrite`;
       const apiKeyParam = apiKey ? `?key=${encodeURIComponent(apiKey)}` : '';
@@ -275,6 +300,15 @@
         });
 
         if (!res.ok) {
+          if (res.status === 403) {
+            // Client API key does not have IAM batchWrite permission.
+            // Seamlessly fall back to concurrent granular document writes which ARE permitted by Firebase rules.
+            this._batchWriteForbidden = true;
+            const remainingOps = operations.slice(i);
+            const fallbackCount = await executeChunkConcurrently(remainingOps);
+            totalCommitted += fallbackCount;
+            break;
+          }
           const errText = await res.text();
           throw new Error(`Firestore batchWrite failed (${res.status}): ${errText}`);
         }
@@ -645,6 +679,9 @@
           } else if (localTime > remoteTime) {
             // Local is newer: keep local, flag for upload to cloud
             itemsToUpload.push(localItem);
+          } else if (JSON.stringify(localItem) !== JSON.stringify(remoteItem)) {
+            // Equal timestamps but different data: adopt remote updates to avoid silent divergence
+            merged[localIndex] = { ...localItem, ...remoteItem };
           }
         } else {
           // New record from cloud: add to local inventory
@@ -724,7 +761,9 @@
       const syncStartTime = new Date().toISOString();
       const startTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
       this.syncInProgress = true;
-      const isDelta = Boolean(this.lastSyncTime && !options.forceFull);
+      this._syncCount = (this._syncCount || 0) + 1;
+      // Perform full reconciliation on initial sync or periodically every 10 delta syncs to heal edge-case drift
+      const isDelta = Boolean(this.lastSyncTime && !options.forceFull && (this._syncCount % 10 !== 0));
       this.updateStatus('syncing', isDelta ? 'Checking cloud for updates...' : 'Syncing full catalog with cloud...');
 
       // Drain any pending write-ahead mutations before reconciling
@@ -741,7 +780,6 @@
         { name: `${prefix}_jewelry_memos`, key: 'jewelryMemos', idKey: 'id' },
         { name: `${prefix}_jewel_stone_memos`, key: 'jewelStoneMemos', idKey: 'id' },
         { name: `${prefix}_jewelry_sales`, key: 'jewelrySales', idKey: 'id' },
-        { name: `${prefix}_emerald_memos`, key: 'memos', idKey: 'id' },
         { name: `${prefix}_emerald_sales`, key: 'sales', idKey: 'id' }
       ];
 
@@ -772,7 +810,8 @@
         try {
           let remoteDeletions = [];
           if (isDelta) {
-            remoteDeletions = await this.queryUpdatedDocuments(`${prefix}_deletions`, this.lastSyncTime);
+            const safeDelSince = new Date(Math.max(0, new Date(this.lastSyncTime).getTime() - 60000)).toISOString();
+            remoteDeletions = await this.queryUpdatedDocuments(`${prefix}_deletions`, safeDelSince);
           } else {
             remoteDeletions = await this.listDocuments(`${prefix}_deletions`);
           }
@@ -815,9 +854,10 @@
           }
 
           if (isDelta) {
-            // Delta path: Fetch remote documents modified since last sync
+            // Delta path: Fetch remote documents modified since last sync (with 60s clock skew window)
             try {
-              const updatedDocs = await this.queryUpdatedDocuments(col.name, this.lastSyncTime);
+              const safeSince = new Date(Math.max(0, new Date(this.lastSyncTime).getTime() - 60000)).toISOString();
+              const updatedDocs = await this.queryUpdatedDocuments(col.name, safeSince);
               if (updatedDocs && updatedDocs.length > 0) {
                 for (const remoteItem of updatedDocs) {
                   if (!remoteItem || !remoteItem[col.idKey]) continue;

@@ -383,7 +383,7 @@ const DBManager = {
     const arr = this.database[dbKey];
     const idVal = item.id || (item.sku ? `item_${item.sku}` : (item.pudiaNumber ? `pudia_${item.pudiaNumber}` : `rec_${Date.now()}`));
     if (!item.id && idVal) item.id = idVal;
-    if (!item.updatedAt) item.updatedAt = new Date().toISOString();
+    item.updatedAt = new Date().toISOString();
 
     const idx = arr.findIndex(i => i && String(i.id) === String(idVal));
     if (idx >= 0) {

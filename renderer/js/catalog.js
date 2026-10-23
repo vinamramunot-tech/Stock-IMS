@@ -4699,6 +4699,7 @@ const Catalog = {
       // Add log & push to db
       DBManager.addLog("ADD", finalItem.id, finalItem.name, `Imported piece from Excel: ${finalItem.name} (SKU: ${finalItem.sku})`, []);
       DBManager.database.items.push(finalItem);
+      if (window.DBManager) DBManager.saveItem('mava_catalog_items', finalItem);
       importedCount++;
     });
 
@@ -4708,6 +4709,9 @@ const Catalog = {
     try {
       UI.closeModal('modal-import-excel-preview');
       App.refreshAllDisplays();
+      if (window.CloudSync && typeof window.CloudSync.queueSync === 'function') {
+        window.CloudSync.queueSync(200);
+      }
       await DBManager.saveVault();
       UI.showToast(`Successfully imported ${importedCount} jewelry item(s) into stock!`);
     } catch (err) {

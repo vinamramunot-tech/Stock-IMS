@@ -1304,6 +1304,7 @@ Thank you,
       const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
       if (emerald) {
         this.deductStockFromEmerald(emerald, inputCarats, inputPieces);
+        if (window.DBManager) DBManager.saveItem('mava_catalog_emeralds', emerald);
       }
     }
 
@@ -1397,6 +1398,7 @@ Thank you,
             const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
             if (emerald) {
               this.deductStockFromEmerald(emerald, rem, remPcs);
+              if (window.DBManager) DBManager.saveItem('mava_catalog_emeralds', emerald);
             }
           } else {
             item.returnedCarats = Number(((item.returnedCarats || 0) + rem).toFixed(3));
@@ -1693,6 +1695,7 @@ Thank you,
       const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
       if (emerald) {
         this.deductStockFromEmerald(emerald, rem, remPcs);
+        if (window.DBManager) DBManager.saveItem('mava_catalog_emeralds', emerald);
       }
     });
 
@@ -1778,6 +1781,7 @@ Thank you,
         const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
         if (emerald) {
           this.deductStockFromEmerald(emerald, soldVal, soldPcs);
+          if (window.DBManager) DBManager.saveItem('mava_catalog_emeralds', emerald);
         }
       }
 
@@ -1911,6 +1915,7 @@ Thank you,
             const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
             if (emerald) {
               this.restoreStockToEmerald(emerald, soldCts, soldPcs);
+              if (window.DBManager) DBManager.saveItem('mava_catalog_emeralds', emerald);
             }
 
             // Convert sold carats to returned carats on the memo item
@@ -1979,6 +1984,7 @@ Thank you,
             const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
             if (emerald) {
               this.restoreStockToEmerald(emerald, soldCarats, soldPieces);
+              if (window.DBManager) DBManager.saveItem('mava_catalog_emeralds', emerald);
               totalRestoredCarats += soldCarats;
             }
           }

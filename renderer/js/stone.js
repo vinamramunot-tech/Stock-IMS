@@ -533,6 +533,9 @@ const StoneController = {
         if (DBManager.database.settings.stoneTypes) {
           DBManager.database.settings.stoneTypes = DBManager.database.settings.stoneTypes.filter(t => t !== option);
         }
+        if (window.DBManager && typeof window.DBManager.saveSettings === 'function') {
+          DBManager.saveSettings(DBManager.database.settings);
+        }
         await DBManager.saveVault();
         UI.showToast(`Removed category option: ${option}`);
         if (refreshDropdown) refreshDropdown();

@@ -271,4 +271,71 @@ test('Cross-Device Data Sync & Storage Pushes Test Suite', async (t) => {
     }
   });
 
+  await t.test('6. batchWrite Seamless 403 Fallback to Concurrent setDocument/deleteDocument', async () => {
+    const executedOps = [];
+    const origSet = CloudSync.setDocument;
+    const origDel = CloudSync.deleteDocument;
+    const origFetch = CloudSync._fetchWithTimeout;
+
+    // Simulate 403 PERMISSION_DENIED on batchWrite REST endpoint
+    CloudSync._fetchWithTimeout = async () => ({
+      ok: false,
+      status: 403,
+      text: async () => JSON.stringify({ error: { message: "Missing or insufficient permissions." } })
+    });
+
+    CloudSync.setDocument = async (col, id, data) => {
+      executedOps.push({ type: 'set', col, id, data });
+      return data;
+    };
+    CloudSync.deleteDocument = async (col, id) => {
+      executedOps.push({ type: 'delete', col, id });
+      return true;
+    };
+
+    try {
+      CloudSync._batchWriteForbidden = false;
+      const ops = [
+        { collection: 'mava_catalog_items', id: 'it_1', op: 'set', data: { name: 'Gold Ring' } },
+        { collection: 'mava_catalog_items', id: 'it_2', op: 'delete' },
+        { collection: 'mava_catalog_jewelry_memos', id: 'jm_1', op: 'set', data: { memoNumber: 'JM-001' } }
+      ];
+
+      const res = await CloudSync.batchWrite(ops);
+      assert.equal(res.success, true);
+      assert.equal(res.count, 3);
+      assert.equal(executedOps.length, 3, 'All 3 operations were executed via individual permitted document endpoints');
+      assert.equal(executedOps[0].type, 'set');
+      assert.equal(executedOps[0].id, 'it_1');
+      assert.equal(executedOps[1].type, 'delete');
+      assert.equal(executedOps[1].id, 'it_2');
+      assert.equal(executedOps[2].type, 'set');
+      assert.equal(executedOps[2].id, 'jm_1');
+      assert.equal(CloudSync._batchWriteForbidden, true, 'Cached _batchWriteForbidden for subsequent fast writes');
+    } finally {
+      CloudSync.setDocument = origSet;
+      CloudSync.deleteDocument = origDel;
+      CloudSync._fetchWithTimeout = origFetch;
+      CloudSync._batchWriteForbidden = false;
+    }
+  });
+
+  await t.test('7. DBManager.saveItem Always Refreshes updatedAt Timestamp', async () => {
+    const DBManager = require(path.join(__dirname, '../renderer/js/db-manager.js'));
+    DBManager.database = {
+      items: [{ id: 'piece_101', sku: 'SKU-101', updatedAt: '2026-10-01T00:00:00.000Z' }]
+    };
+
+    const itemToUpdate = DBManager.database.items[0];
+    const oldTimestamp = itemToUpdate.updatedAt;
+
+    // Small delay to ensure timestamp difference
+    await new Promise(r => setTimeout(r, 10));
+    await DBManager.saveItem('mava_catalog_items', itemToUpdate);
+
+    assert.notEqual(itemToUpdate.updatedAt, oldTimestamp, 'updatedAt was refreshed to current time');
+    assert.ok(new Date(itemToUpdate.updatedAt).getTime() > new Date(oldTimestamp).getTime(), 'New updatedAt is strictly newer');
+  });
+
 });
+

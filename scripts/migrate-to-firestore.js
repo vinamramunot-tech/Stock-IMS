@@ -59,6 +59,9 @@ async function migrate() {
   console.log(`   • Loose Stones  : ${db.stones ? db.stones.length : 0}`);
   console.log(`   • Jewelry Memos : ${db.jewelryMemos ? db.jewelryMemos.length : 0}`);
   console.log(`   • Jewelry Sales : ${db.jewelrySales ? db.jewelrySales.length : 0}`);
+  console.log(`   • Emerald Memos : ${db.memos ? db.memos.length : 0}`);
+  console.log(`   • Jewel St Memos: ${db.jewelStoneMemos ? db.jewelStoneMemos.length : 0}`);
+  console.log(`   • Emerald Sales : ${db.sales ? db.sales.length : 0}`);
 
   // Initialize CloudSync with active credentials
   CloudSync.init({
@@ -75,7 +78,9 @@ async function migrate() {
     { col: 'mava_catalog_items', id: 'piece_live_test_01' },
     { col: 'mava_catalog_emeralds', id: 'pudia_live_test_01' },
     { col: 'mava_catalog_stones', id: 'stone_live_test_01' },
-    { col: 'mava_catalog_jewelry_memos', id: 'memo_live_test_01' }
+    { col: 'mava_catalog_jewelry_memos', id: 'memo_live_test_01' },
+    { col: 'mava_catalog_emerald_memos', id: 'memo_live_test_01' },
+    { col: 'mava_catalog_jewel_stone_memos', id: 'memo_live_test_01' }
   ];
 
   for (const t of testDocs) {
@@ -128,6 +133,9 @@ async function migrate() {
   await uploadCollection('mava_catalog_stones', db.stones || [], 'id', 'Loose Stones');
   await uploadCollection('mava_catalog_jewelry_memos', db.jewelryMemos || [], 'id', 'Jewelry Memos');
   await uploadCollection('mava_catalog_jewelry_sales', db.jewelrySales || [], 'id', 'Jewelry Sales');
+  await uploadCollection('mava_catalog_emerald_memos', db.memos || [], 'id', 'Emerald Memos');
+  await uploadCollection('mava_catalog_jewel_stone_memos', db.jewelStoneMemos || [], 'id', 'Jewel Stone Memos');
+  await uploadCollection('mava_catalog_emerald_sales', db.sales || [], 'id', 'Emerald Sales');
 
   // Step 5: Verification
   console.log(`\n4. Verifying uploaded collections in Firestore...`);
@@ -145,6 +153,15 @@ async function migrate() {
 
   const remoteSales = await CloudSync.listDocuments('mava_catalog_jewelry_sales', 300);
   console.log(`   • Remote Jewelry Sales in Cloud : ${remoteSales.length} (Expected: ${db.jewelrySales ? db.jewelrySales.length : 0})`);
+
+  const remoteEmeraldMemos = await CloudSync.listDocuments('mava_catalog_emerald_memos', 300);
+  console.log(`   • Remote Emerald Memos in Cloud : ${remoteEmeraldMemos.length} (Expected: ${db.memos ? db.memos.length : 0})`);
+
+  const remoteJewelStoneMemos = await CloudSync.listDocuments('mava_catalog_jewel_stone_memos', 300);
+  console.log(`   • Remote Jewel Stone Memos Cloud: ${remoteJewelStoneMemos.length} (Expected: ${db.jewelStoneMemos ? db.jewelStoneMemos.length : 0})`);
+
+  const remoteEmeraldSales = await CloudSync.listDocuments('mava_catalog_emerald_sales', 300);
+  console.log(`   • Remote Emerald Sales in Cloud : ${remoteEmeraldSales.length} (Expected: ${db.sales ? db.sales.length : 0})`);
 
   console.log(`\n======================================================`);
   console.log(`🎉 DATA MIGRATION COMPLETE WITH ZERO LOSS OF DATA!`);

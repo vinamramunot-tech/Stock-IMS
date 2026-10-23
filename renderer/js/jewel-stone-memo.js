@@ -827,6 +827,7 @@ const JewelStoneMemoController = {
         }
         stone.weight = newW;
         stone.updatedAt = new Date().toISOString();
+        if (window.DBManager) DBManager.saveItem('mava_catalog_stones', stone);
       }
     }
 
@@ -925,6 +926,7 @@ const JewelStoneMemoController = {
               }
               stone.weight = newW;
               stone.updatedAt = new Date().toISOString();
+              if (window.DBManager) DBManager.saveItem('mava_catalog_stones', stone);
             }
           } else {
             item.returnedCarats = Number(((item.returnedCarats || 0) + rem).toFixed(3));

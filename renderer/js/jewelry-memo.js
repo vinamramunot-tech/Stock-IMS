@@ -30,7 +30,7 @@ const JewelryMemoController = {
           );
         }
       } else if (memo) {
-        if (!memo.updatedAt) memo.updatedAt = new Date().toISOString();
+        memo.updatedAt = new Date().toISOString();
         window.CloudSync.setDocument(col, String(memo.id), memo).catch(err =>
           console.warn('Jewelry memo cloud push note:', err.message)
         );
@@ -598,6 +598,7 @@ const JewelryMemoController = {
           mainItem.issuedTo = personName;
           mainItem.issuedBroker = brokerName || '—';
           mainItem.updatedAt = new Date().toISOString();
+          if (window.DBManager) DBManager.saveItem('mava_catalog_items', mainItem);
         }
       });
 
@@ -1473,6 +1474,7 @@ Thank you,
         }
         memo.updatedAt = new Date().toISOString();
         if (window.DBManager) DBManager.saveItem('mava_catalog_jewelry_memos', memo);
+        this._pushToCloud(memo);
       }
     }
 
@@ -1749,6 +1751,7 @@ Thank you,
         mainItem.soldTo = customerName;
         mainItem.soldBroker = brokerName;
         mainItem.updatedAt = new Date().toISOString();
+        if (window.DBManager) DBManager.saveItem('mava_catalog_items', mainItem);
       }
 
       const profit = finalSoldPrice - mfgCost;
@@ -1763,7 +1766,7 @@ Thank you,
       const monthsElapsed = Math.max(0.1, Number((daysElapsed / 30.4375).toFixed(2)));
       const monthlyProfitPct = Number((marginPct / monthsElapsed).toFixed(2));
 
-      DBManager.database.jewelrySales.push({
+      const saleRecord = {
         id: 'jsale_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
         saleNumber: 'JS-' + String(DBManager.database.jewelrySales.length + 1).padStart(4, '0'),
         saleDate,
@@ -1784,8 +1787,11 @@ Thank you,
         marginPct,
         monthlyProfitPct,
         notes: notes || memo.notes || '',
-        createdAt: new Date().toISOString()
-      });
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      DBManager.database.jewelrySales.push(saleRecord);
+      if (window.DBManager) DBManager.saveItem('mava_catalog_jewelry_sales', saleRecord);
 
       soldCount++;
       totalSaleVal += finalSoldPrice;
@@ -1797,6 +1803,9 @@ Thank you,
       memo.status = 'closed';
       memo.closedAt = new Date().toISOString();
     }
+    memo.updatedAt = new Date().toISOString();
+    if (window.DBManager) DBManager.saveItem('mava_catalog_jewelry_memos', memo);
+    this._pushToCloud(memo);
 
     // Resequence remaining active inventory serial numbers
     DBManager.resequenceJewelrySno();
