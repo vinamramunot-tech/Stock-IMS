@@ -3670,9 +3670,15 @@ const Catalog = {
 
     UI.confirm(`Are you sure you want to delete all ${count} selected jewelry piece(s) from stock?`, async () => {
       try {
+        const idsToDelete = Array.from(this.selectedItemIds);
         const initialCount = DBManager.database.items.length;
         DBManager.database.items = DBManager.database.items.filter(item => !this.selectedItemIds.has(item.id));
         const deletedCount = initialCount - DBManager.database.items.length;
+
+        // Propagate deletions to Firestore
+        if (window.DBManager) {
+          idsToDelete.forEach(id => DBManager.deleteItem('mava_catalog_items', id));
+        }
 
         // Resequence remaining active items
         DBManager.resequenceJewelrySno();

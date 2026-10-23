@@ -566,6 +566,19 @@ const JewelrySalesController = {
         DBManager.database.jewelrySales = DBManager.database.jewelrySales.filter(s => s.id !== saleRecord.id && s.itemId !== saleRecord.itemId);
       }
 
+      if (window.DBManager) {
+        DBManager.deleteItem('mava_catalog_jewelry_sales', saleRecord.id);
+        if (mainItem) DBManager.saveItem('mava_catalog_items', mainItem);
+        if (saleRecord.memoId) {
+          const memos = DBManager.database.jewelryMemos || [];
+          const memo = memos.find(m => m.id === saleRecord.memoId);
+          if (memo) {
+            memo.updatedAt = new Date().toISOString();
+            DBManager.saveItem('mava_catalog_jewelry_memos', memo);
+          }
+        }
+      }
+
       // Resequence active inventory serial numbers
       DBManager.resequenceJewelrySno();
 

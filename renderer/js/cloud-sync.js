@@ -28,6 +28,7 @@
     lastSyncLatencyMs: null,
     lastError: null,
     syncInProgress: false,
+    _syncPending: false,
     _syncTimeout: null,
     _listeners: [],
     STORAGE_KEY_QUEUE: 'mava_offline_sync_queue',
@@ -402,6 +403,10 @@
         const apiKey = this.config.apiKey ? `?key=${encodeURIComponent(this.config.apiKey)}` : '';
         const url = `${baseUrl}/${encodeURIComponent(collectionName)}/${encodeURIComponent(docId)}${apiKey}`;
 
+        if (dataObj && typeof dataObj === 'object' && !dataObj.updatedAt) {
+          dataObj.updatedAt = new Date().toISOString();
+        }
+
         const docPayload = this.objectToFirestoreDocument(dataObj);
         const res = await this._fetchWithTimeout(url, {
           method: 'PATCH',
@@ -414,6 +419,8 @@
           throw new Error(`Firestore PATCH failed (${res.status}): ${errText}`);
         }
         const data = await res.json();
+        // Remove any old deletion record in the background
+        this.removeRemoteDeletion(collectionName, docId).catch(() => {});
         return this.firestoreDocumentToObject(data);
       } catch (err) {
         console.warn(`setDocument ${collectionName}/${docId} offline fallback:`, err.message);
@@ -461,7 +468,10 @@
         const url = `${baseUrl}/${encodeURIComponent(collectionName)}/${encodeURIComponent(docId)}${apiKey}`;
 
         const res = await this._fetchWithTimeout(url, { method: 'DELETE' });
-        if (res.status === 404 || res.ok) return true;
+        if (res.status === 404 || res.ok) {
+          this.recordRemoteDeletion(collectionName, docId).catch(() => {});
+          return true;
+        }
         const errText = await res.text();
         throw new Error(`Firestore DELETE failed (${res.status}): ${errText}`);
       } catch (err) {
@@ -470,6 +480,48 @@
         this.updateStatus('offline', 'Offline: Deletion queued for cloud sync');
         return true;
       }
+    },
+
+    /**
+     * Record a deletion event in the cloud deletions log
+     */
+    async recordRemoteDeletion(collectionName, docId) {
+      try {
+        const prefix = this.config.collectionPrefix || 'mava_catalog';
+        const delCol = `${prefix}_deletions`;
+        const delDocId = `${collectionName}__${docId}`;
+        const baseUrl = this.getBaseUrl();
+        const apiKey = this.config.apiKey ? `?key=${encodeURIComponent(this.config.apiKey)}` : '';
+        const url = `${baseUrl}/${encodeURIComponent(delCol)}/${encodeURIComponent(delDocId)}${apiKey}`;
+
+        const payload = this.objectToFirestoreDocument({
+          collection: collectionName,
+          docId: String(docId),
+          deletedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+
+        await this._fetchWithTimeout(url, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } catch (_) {}
+    },
+
+    /**
+     * Remove a deletion record if document is restored/recreated
+     */
+    async removeRemoteDeletion(collectionName, docId) {
+      try {
+        const prefix = this.config.collectionPrefix || 'mava_catalog';
+        const delCol = `${prefix}_deletions`;
+        const delDocId = `${collectionName}__${docId}`;
+        const baseUrl = this.getBaseUrl();
+        const apiKey = this.config.apiKey ? `?key=${encodeURIComponent(this.config.apiKey)}` : '';
+        const url = `${baseUrl}/${encodeURIComponent(delCol)}/${encodeURIComponent(delDocId)}${apiKey}`;
+        await this._fetchWithTimeout(url, { method: 'DELETE' });
+      } catch (_) {}
     },
 
     /**
@@ -510,7 +562,8 @@
       const mime = base64Str.includes('image/png') ? 'image/png' : 'image/jpeg';
       const binaryData = this.base64ToUint8Array(base64Str);
 
-      const url = `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(bucket)}/o?name=${encodeURIComponent(cleanPath)}&uploadType=media`;
+      const apiKeyParam = this.config.apiKey ? `&key=${encodeURIComponent(this.config.apiKey)}` : '';
+      const url = `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(bucket)}/o?name=${encodeURIComponent(cleanPath)}&uploadType=media${apiKeyParam}`;
 
       try {
         const res = await this._fetchWithTimeout(url, {
@@ -563,7 +616,7 @@
      * ZERO data loss: Never deletes local records missing from remote during normal sync.
      * Resolves conflicts by comparing `updatedAt` / `createdAt` timestamps.
      */
-    mergeArray(localArray = [], remoteArray = [], idKey = 'id') {
+    mergeArray(localArray = [], remoteArray = [], idKey = 'id', deletedIds = new Set()) {
       const merged = [...localArray];
       const localMap = new Map();
       merged.forEach((item, index) => {
@@ -577,6 +630,7 @@
       for (const remoteItem of remoteArray) {
         if (!remoteItem || !remoteItem[idKey]) continue;
         const rKey = String(remoteItem[idKey]);
+        if (deletedIds && deletedIds.has(rKey)) continue;
 
         if (localMap.has(rKey)) {
           const localIndex = localMap.get(rKey);
@@ -602,7 +656,9 @@
       // Any local items that weren't in remote at all should be uploaded to cloud
       for (const localItem of localArray) {
         if (localItem && localItem[idKey]) {
-          const existsInRemote = remoteArray.some(r => r && String(r[idKey]) === String(localItem[idKey]));
+          const lKey = String(localItem[idKey]);
+          if (deletedIds && deletedIds.has(lKey)) continue;
+          const existsInRemote = remoteArray.some(r => r && String(r[idKey]) === lKey);
           if (!existsInRemote) {
             itemsToUpload.push(localItem);
           }
@@ -661,9 +717,11 @@
         return { success: false, reason: 'No active local database provided' };
       }
       if (this.syncInProgress) {
+        this._syncPending = true;
         return { success: false, reason: 'Sync already in progress' };
       }
 
+      const syncStartTime = new Date().toISOString();
       const startTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
       this.syncInProgress = true;
       const isDelta = Boolean(this.lastSyncTime && !options.forceFull);
@@ -679,6 +737,7 @@
         { name: `${prefix}_items`, key: 'items', idKey: 'id' },
         { name: `${prefix}_emeralds`, key: 'emeralds', idKey: 'id' },
         { name: `${prefix}_stones`, key: 'stones', idKey: 'id' },
+        { name: `${prefix}_emerald_memos`, key: 'memos', idKey: 'id' },
         { name: `${prefix}_jewelry_memos`, key: 'jewelryMemos', idKey: 'id' },
         { name: `${prefix}_jewel_stone_memos`, key: 'jewelStoneMemos', idKey: 'id' },
         { name: `${prefix}_jewelry_sales`, key: 'jewelrySales', idKey: 'id' }
@@ -706,7 +765,37 @@
           console.warn('Settings cloud sync note:', settingsErr.message);
         }
 
-        // 2. Sync inventory collections (Delta or Full)
+        // 2. Sync Deletions across devices
+        const knownDeletions = new Set();
+        try {
+          let remoteDeletions = [];
+          if (isDelta) {
+            remoteDeletions = await this.queryUpdatedDocuments(`${prefix}_deletions`, this.lastSyncTime);
+          } else {
+            remoteDeletions = await this.listDocuments(`${prefix}_deletions`);
+          }
+
+          if (Array.isArray(remoteDeletions) && remoteDeletions.length > 0) {
+            for (const del of remoteDeletions) {
+              if (!del || !del.collection || !del.docId) continue;
+              const fullKey = `${del.collection}__${del.docId}`;
+              knownDeletions.add(fullKey);
+
+              const targetCol = collections.find(c => c.name === del.collection);
+              if (targetCol && Array.isArray(localDb[targetCol.key])) {
+                const prevCount = localDb[targetCol.key].length;
+                localDb[targetCol.key] = localDb[targetCol.key].filter(i => i && String(i[targetCol.idKey]) !== String(del.docId));
+                if (localDb[targetCol.key].length !== prevCount) {
+                  anyUpdates = true;
+                }
+              }
+            }
+          }
+        } catch (delSyncErr) {
+          console.warn('Deletions sync note:', delSyncErr.message);
+        }
+
+        // 3. Sync inventory collections (Delta or Full)
         let failedCount = 0;
         let lastErr = null;
 
@@ -716,14 +805,24 @@
           }
           const localList = localDb[col.key];
 
+          const colDeletedIds = new Set();
+          for (const k of knownDeletions) {
+            if (k.startsWith(`${col.name}__`)) {
+              colDeletedIds.add(k.substring(col.name.length + 2));
+            }
+          }
+
           if (isDelta) {
-            // Delta path: Only fetch documents modified since last sync
+            // Delta path: Fetch remote documents modified since last sync
             try {
               const updatedDocs = await this.queryUpdatedDocuments(col.name, this.lastSyncTime);
               if (updatedDocs && updatedDocs.length > 0) {
                 for (const remoteItem of updatedDocs) {
                   if (!remoteItem || !remoteItem[col.idKey]) continue;
-                  const idx = localList.findIndex(l => l && String(l[col.idKey]) === String(remoteItem[col.idKey]));
+                  const rId = String(remoteItem[col.idKey]);
+                  if (colDeletedIds.has(rId)) continue;
+
+                  const idx = localList.findIndex(l => l && String(l[col.idKey]) === rId);
                   if (idx >= 0) {
                     const localTime = new Date(localList[idx].updatedAt || localList[idx].createdAt || 0).getTime();
                     const remoteTime = new Date(remoteItem.updatedAt || remoteItem.createdAt || 0).getTime();
@@ -737,15 +836,62 @@
                   }
                 }
               }
+
+              // PUSH LOCAL DELTA: Scan localList for records created or updated after lastSyncTime
+              const lastSyncMs = new Date(this.lastSyncTime).getTime();
+              const localDeltaUploads = localList.filter(item => {
+                if (!item || !item[col.idKey]) return false;
+                const rId = String(item[col.idKey]);
+                if (colDeletedIds.has(rId)) return false;
+                const itemTime = new Date(item.updatedAt || item.createdAt || 0).getTime();
+                return itemTime > lastSyncMs;
+              });
+
+              if (localDeltaUploads.length > 0) {
+                const uploadOps = localDeltaUploads.map(item => {
+                  if (!item.updatedAt) item.updatedAt = new Date().toISOString();
+                  return {
+                    collection: col.name,
+                    id: String(item[col.idKey]),
+                    op: 'set',
+                    data: item
+                  };
+                });
+
+                try {
+                  await this.batchWrite(uploadOps);
+                } catch (batchErr) {
+                  console.warn(`Delta batch upload for ${col.name} failed, queueing items:`, batchErr.message);
+                  for (const op of uploadOps) {
+                    this.enqueueMutation(op.collection, op.id, op.data, 'set');
+                  }
+                }
+              }
             } catch (deltaErr) {
               console.warn(`Delta query for ${col.name} failed, falling back to standard list:`, deltaErr.message);
               // Fallback to full list for this collection
               try {
                 const remoteList = await this.listDocuments(col.name);
-                const { merged, itemsToUpload } = this.mergeArray(localList, remoteList, col.idKey);
+                const { merged, itemsToUpload } = this.mergeArray(localList, remoteList, col.idKey, colDeletedIds);
                 if (merged.length !== localList.length || itemsToUpload.length > 0) {
                   localDb[col.key] = merged;
                   anyUpdates = true;
+                }
+                if (itemsToUpload.length > 0) {
+                  const uploadOps = itemsToUpload
+                    .filter(item => item && item[col.idKey] && !colDeletedIds.has(String(item[col.idKey])))
+                    .map(item => {
+                      if (!item.updatedAt) item.updatedAt = new Date().toISOString();
+                      return {
+                        collection: col.name,
+                        id: String(item[col.idKey]),
+                        op: 'set',
+                        data: item
+                      };
+                    });
+                  if (uploadOps.length > 0) {
+                    await this.batchWrite(uploadOps);
+                  }
                 }
               } catch (listErr) {
                 failedCount++;
@@ -764,7 +910,7 @@
               continue;
             }
 
-            const { merged, itemsToUpload } = this.mergeArray(localList, remoteList, col.idKey);
+            const { merged, itemsToUpload } = this.mergeArray(localList, remoteList, col.idKey, colDeletedIds);
 
             if (merged.length !== localList.length || itemsToUpload.length > 0) {
               localDb[col.key] = merged;
@@ -773,19 +919,24 @@
 
             if (itemsToUpload.length > 0) {
               const uploadOps = itemsToUpload
-                .filter(item => item && item[col.idKey])
-                .map(item => ({
-                  collection: col.name,
-                  id: String(item[col.idKey]),
-                  op: 'set',
-                  data: item
-                }));
-              try {
-                await this.batchWrite(uploadOps);
-              } catch (batchErr) {
-                console.warn(`Batch upload for ${col.name} failed, queueing items:`, batchErr.message);
-                for (const op of uploadOps) {
-                  this.enqueueMutation(op.collection, op.id, op.data, 'set');
+                .filter(item => item && item[col.idKey] && !colDeletedIds.has(String(item[col.idKey])))
+                .map(item => {
+                  if (!item.updatedAt) item.updatedAt = new Date().toISOString();
+                  return {
+                    collection: col.name,
+                    id: String(item[col.idKey]),
+                    op: 'set',
+                    data: item
+                  };
+                });
+              if (uploadOps.length > 0) {
+                try {
+                  await this.batchWrite(uploadOps);
+                } catch (batchErr) {
+                  console.warn(`Batch upload for ${col.name} failed, queueing items:`, batchErr.message);
+                  for (const op of uploadOps) {
+                    this.enqueueMutation(op.collection, op.id, op.data, 'set');
+                  }
                 }
               }
             }
@@ -798,16 +949,29 @@
 
         const endTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
         this.lastSyncLatencyMs = Math.max(1, Math.round(endTime - startTime));
-        this.lastSyncTime = new Date().toISOString();
+        this.lastSyncTime = syncStartTime;
         this.updateStatus('online', `Sync complete (${this.lastSyncLatencyMs}ms)`);
 
-        // Notify application components via custom event
-        if (anyUpdates && typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
-          try {
-            window.dispatchEvent(new CustomEvent('mava:cloud-synced', {
-              detail: { updated: anyUpdates, timestamp: this.lastSyncTime }
-            }));
-          } catch (_) {}
+        // If changes were made to local state, heal and persist to physical local disk
+        if (anyUpdates && typeof window !== 'undefined') {
+          if (window.DBManager) {
+            if (typeof window.DBManager.resequenceJewelrySno === 'function') {
+              try { window.DBManager.resequenceJewelrySno(); } catch (_) {}
+            }
+            if (typeof window.DBManager.healJewelrySales === 'function') {
+              try { window.DBManager.healJewelrySales(localDb); } catch (_) {}
+            }
+            if (typeof window.DBManager.scheduleVaultFlush === 'function') {
+              window.DBManager.scheduleVaultFlush(500);
+            }
+          }
+          if (typeof window.dispatchEvent === 'function') {
+            try {
+              window.dispatchEvent(new CustomEvent('mava:cloud-synced', {
+                detail: { updated: anyUpdates, timestamp: this.lastSyncTime }
+              }));
+            } catch (_) {}
+          }
         }
 
         return { success: true, updated: anyUpdates, timestamp: this.lastSyncTime };
@@ -817,21 +981,30 @@
         return { success: false, error: err.message };
       } finally {
         this.syncInProgress = false;
+        if (this._syncPending) {
+          this._syncPending = false;
+          this.queueSync(300);
+        }
       }
     },
 
     /**
      * Non-blocking trigger to queue a background sync
      */
-    queueSync(delayMs = 2000) {
+    queueSync(delayMs = 400) {
       if (!this.isEnabled()) return;
       if (this._syncTimeout) clearTimeout(this._syncTimeout);
 
       this._syncTimeout = setTimeout(async () => {
         if (typeof window !== 'undefined' && window.DBManager && window.DBManager.database) {
           const result = await this.syncAll(window.DBManager.database);
-          if (result && result.updated && window.App && typeof window.App.refreshAllDisplays === 'function') {
-            window.App.refreshAllDisplays();
+          if (result && result.updated) {
+            if (window.DBManager && typeof window.DBManager.scheduleVaultFlush === 'function') {
+              window.DBManager.scheduleVaultFlush(500);
+            }
+            if (window.App && typeof window.App.refreshAllDisplays === 'function') {
+              window.App.refreshAllDisplays();
+            }
           }
         }
       }, delayMs);

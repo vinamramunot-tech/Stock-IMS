@@ -444,6 +444,7 @@ const JewelStoneMemoController = {
       date,
       status: 'open', // open | closed
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       closedAt: null,
       notes,
       items: this.selectedItems,
@@ -452,6 +453,7 @@ const JewelStoneMemoController = {
 
     if (!DBManager.database.jewelStoneMemos) DBManager.database.jewelStoneMemos = [];
     DBManager.database.jewelStoneMemos.push(memo);
+    if (window.DBManager) DBManager.saveItem('mava_catalog_jewel_stone_memos', memo);
 
     DBManager.addLog(
       'ADD', memo.id, `Jewel Stone Memo ${memoNumber}`,
@@ -808,11 +810,17 @@ const JewelStoneMemoController = {
       const totalMounted = memo.items.reduce((sum, it) => sum + (it.mountedCarats || 0), 0);
       if (totalMounted <= 0.001) {
         DBManager.database.jewelStoneMemos = DBManager.database.jewelStoneMemos.filter(m => m.id !== memo.id);
+        if (window.DBManager) DBManager.deleteItem('mava_catalog_jewel_stone_memos', memo.id);
         isDeleted = true;
       } else {
         memo.status = 'closed';
         memo.closedAt = new Date().toISOString();
+        memo.updatedAt = new Date().toISOString();
+        if (window.DBManager) DBManager.saveItem('mava_catalog_jewel_stone_memos', memo);
       }
+    } else {
+      memo.updatedAt = new Date().toISOString();
+      if (window.DBManager) DBManager.saveItem('mava_catalog_jewel_stone_memos', memo);
     }
 
     DBManager.addLog(
@@ -897,9 +905,12 @@ const JewelStoneMemoController = {
 
         if (totalMounted <= 0.001) {
           DBManager.database.jewelStoneMemos = DBManager.database.jewelStoneMemos.filter(m => m.id !== memo.id);
+          if (window.DBManager) DBManager.deleteItem('mava_catalog_jewel_stone_memos', memo.id);
           isDeleted = true;
         } else {
           memo.status = 'closed';
+          memo.updatedAt = new Date().toISOString();
+          if (window.DBManager) DBManager.saveItem('mava_catalog_jewel_stone_memos', memo);
         }
 
         DBManager.addLog(

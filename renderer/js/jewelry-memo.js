@@ -582,6 +582,19 @@ const JewelryMemoController = {
       memo.brokerName = brokerName || '—';
       memo.date = date;
       memo.notes = notes;
+      memo.updatedAt = new Date().toISOString();
+
+      if (window.DBManager) {
+        DBManager.saveItem('mava_catalog_jewelry_memos', memo);
+        removedIds.forEach(id => {
+          const mainItem = DBManager.database.items.find(i => i.id === id);
+          if (mainItem) DBManager.saveItem('mava_catalog_items', mainItem);
+        });
+        addedItems.forEach(item => {
+          const mainItem = DBManager.database.items.find(i => i.id === item.id);
+          if (mainItem) DBManager.saveItem('mava_catalog_items', mainItem);
+        });
+      }
 
       DBManager.addLog(
         'EDIT', memo.id, `Jewelry Memo ${memo.memoNumber}`,
@@ -646,6 +659,7 @@ const JewelryMemoController = {
       date,
       status: 'open', // open | closed
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       closedAt: null,
       notes,
       items: memoItems,
@@ -661,11 +675,13 @@ const JewelryMemoController = {
         item.issuedBroker = brokerName;
         item.issuedMemoNumber = memoNumber;
         item.updatedAt = new Date().toISOString();
+        if (window.DBManager) DBManager.saveItem('mava_catalog_items', item);
       }
     });
 
     if (!DBManager.database.jewelryMemos) DBManager.database.jewelryMemos = [];
     DBManager.database.jewelryMemos.push(memo);
+    if (window.DBManager) DBManager.saveItem('mava_catalog_jewelry_memos', memo);
 
     DBManager.addLog(
       'ADD', memo.id, `Jewelry Memo ${memoNumber}`,
@@ -1044,6 +1060,7 @@ Thank you,
               delete mainItem.issuedBroker;
               delete mainItem.issuedMemoNumber;
               mainItem.updatedAt = new Date().toISOString();
+              if (window.DBManager) DBManager.saveItem('mava_catalog_items', mainItem);
               restoredCount++;
             }
           }
@@ -1051,6 +1068,7 @@ Thank you,
 
         // Delete memo from storage
         DBManager.database.jewelryMemos = (DBManager.database.jewelryMemos || []).filter(m => m.id !== memoId);
+        if (window.DBManager) DBManager.deleteItem('mava_catalog_jewelry_memos', memoId);
 
         DBManager.addLog(
           'DELETE',
@@ -1093,6 +1111,7 @@ Thank you,
         mainItem.issuedBroker = null;
         mainItem.issuedMemoNumber = null;
         mainItem.updatedAt = new Date().toISOString();
+        if (window.DBManager) DBManager.saveItem('mava_catalog_items', mainItem);
       }
 
       // Check if all items in memo are resolved
@@ -1101,6 +1120,8 @@ Thank you,
         memo.status = 'closed';
         memo.closedAt = new Date().toISOString();
       }
+      memo.updatedAt = new Date().toISOString();
+      if (window.DBManager) DBManager.saveItem('mava_catalog_jewelry_memos', memo);
 
       DBManager.addLog(
         'EDIT', memo.id, `Jewelry Memo ${memo.memoNumber}`,
@@ -1384,7 +1405,8 @@ Thank you,
       monthlyProfitPct,
       notes,
       itemSnapshot: mainItem ? JSON.parse(JSON.stringify(mainItem)) : null,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
     if (memoId) {
@@ -1408,10 +1430,13 @@ Thank you,
           memo.status = 'closed';
           memo.closedAt = new Date().toISOString();
         }
+        memo.updatedAt = new Date().toISOString();
+        if (window.DBManager) DBManager.saveItem('mava_catalog_jewelry_memos', memo);
       }
     }
 
     DBManager.database.jewelrySales.push(saleRecord);
+    if (window.DBManager) DBManager.saveItem('mava_catalog_jewelry_sales', saleRecord);
 
     // Mark item as Sold in main catalog
     if (mainItem) {
@@ -1422,6 +1447,7 @@ Thank you,
       mainItem.soldTo = customerName;
       mainItem.soldBroker = brokerName;
       mainItem.updatedAt = new Date().toISOString();
+      if (window.DBManager) DBManager.saveItem('mava_catalog_items', mainItem);
     }
 
     // Resequence remaining active inventory serial numbers
@@ -1471,6 +1497,7 @@ Thank you,
             mainItem.issuedBroker = null;
             mainItem.issuedMemoNumber = null;
             mainItem.updatedAt = new Date().toISOString();
+            if (window.DBManager) DBManager.saveItem('mava_catalog_items', mainItem);
           }
         }
       });
@@ -1480,6 +1507,8 @@ Thank you,
 
       memo.status = 'closed';
       memo.closedAt = new Date().toISOString();
+      memo.updatedAt = new Date().toISOString();
+      if (window.DBManager) DBManager.saveItem('mava_catalog_jewelry_memos', memo);
 
       DBManager.addLog(
         'EDIT', memo.id, `Jewelry Memo ${memo.memoNumber}`,

@@ -2134,9 +2134,15 @@ const EmeraldController = {
   async handleDeleteEmeraldGroup(groupName) {
     UI.confirm(`Are you absolutely sure you want to delete ALL emeralds in the group "${groupName}"? This cannot be undone.`, async () => {
       try {
+        const toDelete = DBManager.database.emeralds.filter(e => (e.group || 'Default') === groupName);
+        const deletedIds = toDelete.map(e => e.id);
         const initialCount = DBManager.database.emeralds.length;
         DBManager.database.emeralds = DBManager.database.emeralds.filter(e => (e.group || 'Default') !== groupName);
         const deletedCount = initialCount - DBManager.database.emeralds.length;
+
+        if (window.DBManager) {
+          deletedIds.forEach(id => DBManager.deleteItem('mava_catalog_emeralds', id));
+        }
 
         DBManager.addLog("DELETE", `group_${groupName}`, "Emerald Group", `Deleted emerald group "${groupName}" (${deletedCount} items)`, []);
         UI.showToast(`Deleted ${deletedCount} items from group "${groupName}".`);
@@ -2151,6 +2157,12 @@ const EmeraldController = {
   async handleDeleteEmeraldGrade(groupName, gradeName) {
     UI.confirm(`Are you absolutely sure you want to delete ALL emeralds in the grade "${gradeName}" (Group: "${groupName}")? This cannot be undone.`, async () => {
       try {
+        const toDelete = DBManager.database.emeralds.filter(e => {
+          const eGroup = e.group || 'Default';
+          const eGrade = e.grade || 'Default';
+          return (eGroup === groupName && eGrade === gradeName);
+        });
+        const deletedIds = toDelete.map(e => e.id);
         const initialCount = DBManager.database.emeralds.length;
         DBManager.database.emeralds = DBManager.database.emeralds.filter(e => {
           const eGroup = e.group || 'Default';
@@ -2158,6 +2170,10 @@ const EmeraldController = {
           return !(eGroup === groupName && eGrade === gradeName);
         });
         const deletedCount = initialCount - DBManager.database.emeralds.length;
+
+        if (window.DBManager) {
+          deletedIds.forEach(id => DBManager.deleteItem('mava_catalog_emeralds', id));
+        }
 
         DBManager.addLog("DELETE", `grade_${groupName}_${gradeName}`, "Emerald Grade", `Deleted emerald grade "${gradeName}" from group "${groupName}" (${deletedCount} items)`, []);
         UI.showToast(`Deleted ${deletedCount} items from grade "${gradeName}".`);
@@ -4086,10 +4102,12 @@ const EmeraldController = {
       DBManager.database.emeralds[parentIndex].sizes = parentSizes;
       DBManager.database.emeralds[parentIndex].weight = remParentWeight;
       DBManager.database.emeralds[parentIndex].updatedAt = new Date().toISOString();
+      if (window.DBManager) DBManager.saveItem('mava_catalog_emeralds', DBManager.database.emeralds[parentIndex]);
     }
 
     // Add child to database
     DBManager.database.emeralds.push(childItem);
+    if (window.DBManager) DBManager.saveItem('mava_catalog_emeralds', childItem);
 
     // Audit logs
     DBManager.addLog("SPLIT", parent.id, `Emerald Pudia #${parent.color}`, `Split ${splitCarats.toFixed(2)} cts into child Pudia #${childColor} (${childStockType})`, []);
@@ -4371,12 +4389,14 @@ const EmeraldController = {
       const selectedIdSet = this.activeMergeSelectedIds;
       selected.forEach(src => {
         DBManager.addLog("MERGE_ARCHIVE", src.id, `Emerald Pudia #${src.color}`, `Merged into new Pudia #${destColor} (${destGroup})`, []);
+        if (window.DBManager) DBManager.deleteItem('mava_catalog_emeralds', src.id);
       });
       DBManager.database.emeralds = DBManager.database.emeralds.filter(e => !selectedIdSet.has(e.id));
     }
 
     // Add merged item to database
     DBManager.database.emeralds.push(mergedItem);
+    if (window.DBManager) DBManager.saveItem('mava_catalog_emeralds', mergedItem);
 
     // Audit log
     DBManager.addLog("MERGE", mergedItem.id, `Emerald Pudia #${destColor}`, `Merged ${selected.length} lots (${selected.map(e => '#' + e.color).join(', ')}) into Pudia #${destColor} (${totalCarats.toFixed(2)} cts @ ₹${destPrice}/ct)`, []);

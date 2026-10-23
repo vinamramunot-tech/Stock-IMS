@@ -1205,6 +1205,11 @@ const StoneController = {
   async handleDeleteGroup(groupName) {
     UI.confirm(`Are you sure you want to delete the entire group "${groupName}"?\n\nThis will permanently delete all packets belonging to this group.`, async () => {
       try {
+        const toDelete = DBManager.getStones().filter(st => {
+          const stGroup = (st.group && st.group.trim()) ? st.group.trim() : "Unassigned Group";
+          return stGroup === groupName;
+        });
+        const deletedIds = toDelete.map(st => st.id);
         const initialCount = DBManager.getStones().length;
         DBManager.database.stones = DBManager.database.stones.filter(st => {
           const stGroup = (st.group && st.group.trim()) ? st.group.trim() : "Unassigned Group";
@@ -1212,6 +1217,10 @@ const StoneController = {
         });
 
         const deletedCount = initialCount - DBManager.database.stones.length;
+
+        if (window.DBManager) {
+          deletedIds.forEach(id => DBManager.deleteItem('mava_catalog_stones', id));
+        }
         DBManager.addLog("DELETE", "group_" + groupName, groupName, `Deleted entire stone group "${groupName}" containing ${deletedCount} packets`, []);
         UI.showToast(`Group "${groupName}" deleted along with ${deletedCount} packets.`);
         

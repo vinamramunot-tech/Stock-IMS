@@ -708,9 +708,12 @@ const MemoController = {
       memo.clientName = clientName || null;
       memo.date = date;
       memo.notes = notes;
+      memo.updatedAt = new Date().toISOString();
 
       // Recalculate totalCarats from all memo.items
       memo.totalCarats = Number(memo.items.reduce((sum, i) => sum + (i.carats || 0), 0).toFixed(3));
+
+      if (window.DBManager) DBManager.saveItem('mava_catalog_emerald_memos', memo);
 
       DBManager.addLog(
         'EDIT', memo.id, `Memo ${memo.memoNumber}`,
@@ -753,6 +756,7 @@ const MemoController = {
       date,
       status: 'open',          // "open" | "returned" | "sold" | "closed"
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       closedAt: null,
       notes,
       items: this.selectedItems,
@@ -761,6 +765,7 @@ const MemoController = {
 
     if (!DBManager.database.memos) DBManager.database.memos = [];
     DBManager.database.memos.push(memo);
+    if (window.DBManager) DBManager.saveItem('mava_catalog_emerald_memos', memo);
 
     // Note: Stock weight is NOT deducted upon memo issuance (it remains in physical inventory valuation,
     // tagged as ON MEMO in the catalog view until actually sold).
@@ -1281,6 +1286,7 @@ Thank you,
       if (totalSold <= 0.001) {
         // Delete memo completely since everything has been returned!
         DBManager.database.memos = DBManager.database.memos.filter(m => m.id !== memo.id);
+        if (window.DBManager) DBManager.deleteItem('mava_catalog_emerald_memos', memo.id);
         isDeleted = true;
       } else {
         const totalReturned = memo.items.reduce((sum, it) => sum + (it.returnedCarats || 0), 0);
@@ -1290,6 +1296,8 @@ Thank you,
           memo.status = 'sold';
         }
         memo.closedAt = new Date().toISOString();
+        memo.updatedAt = new Date().toISOString();
+        if (window.DBManager) DBManager.saveItem('mava_catalog_emerald_memos', memo);
       }
     }
 
@@ -1368,10 +1376,13 @@ Thank you,
         if (totalSold <= 0.001) {
           // Delete memo completely
           DBManager.database.memos = DBManager.database.memos.filter(m => m.id !== memo.id);
+          if (window.DBManager) DBManager.deleteItem('mava_catalog_emerald_memos', memo.id);
           isDeleted = true;
         } else {
           memo.status   = action === 'returned' ? 'closed' : action;
           memo.closedAt = new Date().toISOString();
+          memo.updatedAt = new Date().toISOString();
+          if (window.DBManager) DBManager.saveItem('mava_catalog_emerald_memos', memo);
         }
 
         DBManager.addLog(
@@ -1650,10 +1661,12 @@ Thank you,
 
     memo.status      = 'sold';
     memo.closedAt    = new Date().toISOString();
+    memo.updatedAt   = new Date().toISOString();
     memo.outcomeType = 'complete-sale';
     if (saleRate > 0) memo.saleRate = saleRate;
     if (saleDate)     memo.saleDate = saleDate;
     if (saleNotes)    memo.outcomeNotes = saleNotes;
+    if (window.DBManager) DBManager.saveItem('mava_catalog_emerald_memos', memo);
 
     const rateNote = saleRate > 0 ? ` · Rate: ₹${saleRate.toLocaleString('en-IN')}/ct · Total: ₹${(saleRate * totalSoldCts).toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '';
     DBManager.addLog('DELETE', memo.id, `Memo ${memo.memoNumber}`,
@@ -1750,6 +1763,7 @@ Thank you,
       const totalSoldAll = memo.items.reduce((s, it) => s + (it.soldCarats || 0), 0);
       if (totalSoldAll <= 0.001) {
         DBManager.database.memos = DBManager.database.memos.filter(m => m.id !== memo.id);
+        if (window.DBManager) DBManager.deleteItem('mava_catalog_emerald_memos', memo.id);
       } else {
         const totalRetAll = memo.items.reduce((s, it) => s + (it.returnedCarats || 0), 0);
         memo.status   = totalRetAll > 0.001 ? 'closed' : 'sold';
@@ -1761,6 +1775,10 @@ Thank you,
     if (saleRate > 0) memo.saleRate = saleRate;
     if (saleDate)     memo.saleDate = saleDate;
     if (saleNotes)    memo.outcomeNotes = saleNotes;
+    memo.updatedAt    = new Date().toISOString();
+    if (window.DBManager && DBManager.database.memos.some(m => m.id === memo.id)) {
+      DBManager.saveItem('mava_catalog_emerald_memos', memo);
+    }
 
     DBManager.addLog('EDIT', memo.id, `Memo ${memo.memoNumber}`,
       `Partial Sale: Memo ${memo.memoNumber} (${memo.brokerName}) — ${totalSoldCts.toFixed(2)} cts sold, ${totalRetCts.toFixed(2)} cts returned.`, []);
@@ -1792,12 +1810,15 @@ Thank you,
     if (totalSoldAll <= 0.001) {
       // No prior sales — delete memo entirely
       DBManager.database.memos = DBManager.database.memos.filter(m => m.id !== memo.id);
+      if (window.DBManager) DBManager.deleteItem('mava_catalog_emerald_memos', memo.id);
       isDeleted = true;
     } else {
       memo.status      = 'closed';
       memo.closedAt    = new Date().toISOString();
+      memo.updatedAt   = new Date().toISOString();
       memo.outcomeType = 'full-return';
       if (notes) memo.outcomeNotes = notes;
+      if (window.DBManager) DBManager.saveItem('mava_catalog_emerald_memos', memo);
     }
 
     DBManager.addLog(
@@ -1873,6 +1894,8 @@ Thank you,
 
         memo.saleRate = null;
         memo.saleDate = null;
+        memo.updatedAt = new Date().toISOString();
+        if (window.DBManager) DBManager.saveItem('mava_catalog_emerald_memos', memo);
 
         DBManager.addLog(
           'EDIT',
@@ -1918,6 +1941,7 @@ Thank you,
 
         // Delete memo from storage
         DBManager.database.memos = (DBManager.database.memos || []).filter(m => m.id !== memoId);
+        if (window.DBManager) DBManager.deleteItem('mava_catalog_emerald_memos', memoId);
 
         DBManager.addLog(
           'DELETE',
