@@ -709,18 +709,20 @@
 
           const localTime = new Date(localItem.updatedAt || localItem.createdAt || 0).getTime();
           const remoteTime = new Date(remoteItem.updatedAt || remoteItem.createdAt || 0).getTime();
+          // Fix: Within a 5s window, treat as a tie and prefer remote (phone edit).
+          // This prevents laptop clock being marginally ahead from discarding mobile updates.
+          const SKEW_MS = 5000;
 
-          if (remoteTime > localTime) {
-            // Remote is newer: merge remote over local, keeping non-conflicting properties
-            merged[localIndex] = { ...localItem, ...remoteItem };
-            updatedRemoteCount++;
-          } else if (localTime > remoteTime) {
-            // Local is newer: keep local, flag for upload to cloud
+          if (remoteTime > localTime || (localTime - remoteTime) <= SKEW_MS) {
+            // Remote is newer (or within skew tolerance): merge remote over local
+            const candidate = { ...localItem, ...remoteItem };
+            if (JSON.stringify(localItem) !== JSON.stringify(candidate)) {
+              merged[localIndex] = candidate;
+              updatedRemoteCount++;
+            }
+          } else {
+            // Local is clearly newer: keep local, flag for upload to cloud
             itemsToUpload.push(localItem);
-          } else if (JSON.stringify(localItem) !== JSON.stringify(remoteItem)) {
-            // Equal timestamps but different data: adopt remote updates to avoid silent divergence
-            merged[localIndex] = { ...localItem, ...remoteItem };
-            updatedRemoteCount++;
           }
         } else {
           // New record from cloud: add to local inventory
@@ -803,7 +805,8 @@
       this.syncInProgress = true;
       this._syncCount = (this._syncCount || 0) + 1;
       // Perform full reconciliation on initial sync or periodically every 10 delta syncs to heal edge-case drift
-      const isDelta = Boolean(this.lastSyncTime && !options.forceFull && (this._syncCount % 10 !== 0));
+      // Fix: Full reconciliation every 5 delta cycles (was 10) to heal cross-device drift faster
+      const isDelta = Boolean(this.lastSyncTime && !options.forceFull && (this._syncCount % 5 !== 0));
       this.updateStatus('syncing', isDelta ? 'Checking cloud for updates...' : 'Syncing full catalog with cloud...');
 
       // Drain any pending write-ahead mutations before reconciling
@@ -853,7 +856,9 @@
         try {
           let remoteDeletions = [];
           if (isDelta) {
-            const safeDelSince = new Date(Math.max(0, new Date(this.lastSyncTime).getTime() - 60000)).toISOString();
+            // Fix: Widen clock-skew buffer to 5 min (was 60s) so phone edits made just before
+            // the laptop's last sync timestamp are never missed due to device clock drift.
+            const safeDelSince = new Date(Math.max(0, new Date(this.lastSyncTime).getTime() - 300000)).toISOString();
             remoteDeletions = await this.queryUpdatedDocuments(`${prefix}_deletions`, safeDelSince);
           } else {
             remoteDeletions = await this.listDocuments(`${prefix}_deletions`);
@@ -897,9 +902,10 @@
           }
 
           if (isDelta) {
-            // Delta path: Fetch remote documents modified since last sync (with 60s clock skew window)
+            // Delta path: Fetch remote documents modified since last sync.
+            // Fix: Widen clock-skew buffer to 5 min (was 60s) so phone edits are never missed.
             try {
-              const safeSince = new Date(Math.max(0, new Date(this.lastSyncTime).getTime() - 60000)).toISOString();
+              const safeSince = new Date(Math.max(0, new Date(this.lastSyncTime).getTime() - 300000)).toISOString();
               const updatedDocs = await this.queryUpdatedDocuments(col.name, safeSince);
               if (updatedDocs && updatedDocs.length > 0) {
                 for (const remoteItem of updatedDocs) {
@@ -911,15 +917,13 @@
                   if (idx >= 0) {
                     const localTime = new Date(localList[idx].updatedAt || localList[idx].createdAt || 0).getTime();
                     const remoteTime = new Date(remoteItem.updatedAt || remoteItem.createdAt || 0).getTime();
-                    if (remoteTime > localTime) {
+                    // Fix: Within a 5s tolerance, prefer remote (phone edit) over local to prevent
+                    // client clock skew from silently discarding mobile updates.
+                    const CLOCK_SKEW_TOLERANCE_MS = 5000;
+                    if (remoteTime > localTime || (localTime - remoteTime) <= CLOCK_SKEW_TOLERANCE_MS) {
                       const mergedItem = { ...localList[idx], ...remoteItem };
                       if (JSON.stringify(localList[idx]) !== JSON.stringify(mergedItem)) {
                         localList[idx] = mergedItem;
-                        anyUpdates = true;
-                      }
-                    } else if (remoteTime === localTime) {
-                      if (JSON.stringify(localList[idx]) !== JSON.stringify(remoteItem)) {
-                        localList[idx] = { ...localList[idx], ...remoteItem };
                         anyUpdates = true;
                       }
                     }
@@ -1107,7 +1111,9 @@
         this._listenersBound = true;
         window.addEventListener('focus', () => {
           if (this.isEnabled() && !this.syncInProgress) {
-            this.queueSync(200);
+            // Fix: Drain the offline write-ahead queue first so any memo saves that
+            // the iPhone queued while offline are flushed before the reconciliation read.
+            this.drainPendingQueue().then(() => this.queueSync(200)).catch(() => this.queueSync(200));
           }
         });
         window.addEventListener('online', () => {
@@ -1118,7 +1124,8 @@
         if (typeof document !== 'undefined' && document.addEventListener) {
           document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible' && this.isEnabled() && !this.syncInProgress) {
-              this.queueSync(200);
+              // Fix: Also drain queue on tab/window becoming visible (covers browser-embedded view)
+              this.drainPendingQueue().then(() => this.queueSync(200)).catch(() => this.queueSync(200));
             }
           });
         }
