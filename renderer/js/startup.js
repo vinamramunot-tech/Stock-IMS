@@ -561,9 +561,9 @@ const Startup = {
           window.BackupManager.checkAndRunDailyBackup().catch(e => console.warn("Startup backup check:", e));
         }
 
-        // Background Cloud Sync pull on startup
+        // Background Cloud Sync pull on startup (force full reconciliation on launch)
         if (window.CloudSync && typeof window.CloudSync.syncAll === 'function' && window.CloudSync.isEnabled()) {
-          window.CloudSync.syncAll(window.DBManager.database).then(res => {
+          window.CloudSync.syncAll(window.DBManager.database, { forceFull: true }).then((res) => {
             if (res && res.updated && window.App && typeof window.App.refreshAllDisplays === 'function') {
               window.App.refreshAllDisplays();
             }
@@ -581,7 +581,7 @@ const Startup = {
             window.App.refreshAllDisplays();
           }
           if (window.CloudSync && typeof window.CloudSync.syncAll === 'function' && window.CloudSync.isEnabled()) {
-            window.CloudSync.syncAll(window.DBManager.database).then(res => {
+            window.CloudSync.syncAll(window.DBManager.database, { forceFull: true }).then((res) => {
               if (res && res.updated && window.App && typeof window.App.refreshAllDisplays === 'function') {
                 window.App.refreshAllDisplays();
               }

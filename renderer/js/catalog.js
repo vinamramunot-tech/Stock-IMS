@@ -1055,7 +1055,7 @@ const Catalog = {
     return index !== -1 ? index + 1 : 1;
   },
 
-  renderCatalogGrid() {
+  renderCatalogGrid(force = false) {
     const gridContainer = this.getDOM('gridContainer', 'catalog-grid');
     const emptyState = this.getDOM('emptyState', 'catalog-empty-state');
     if (!gridContainer || !emptyState) return;
@@ -1094,9 +1094,6 @@ const Catalog = {
     activeDbItems.forEach((it, idx) => {
       itemSnoMap.set(it.id, it.sno || (idx + 1));
     });
-
-    // Clear grid
-    gridContainer.innerHTML = '';
 
     // Filter Items
     let filtered = allItems.filter(item => {
@@ -1151,6 +1148,19 @@ const Catalog = {
     } else if (sortVal === 'name-az') {
       filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     }
+
+    // Fingerprint check to prevent redundant DOM destruction and screen flickering
+    const fingerprint = `${query}|${filterCat}|${statusFilter}|${filterKarat}|${sortVal}|${this.viewType}|${goldRate}|${this.selectedItemIds ? this.selectedItemIds.size : 0}|${filtered.length}|` +
+      filtered.map(i => `${i.id}_${i.updatedAt || ''}_${i.status}_${itemSnoMap.get(i.id) || i.sno}_${Math.round(i.calculatedTotal || 0)}_${(this.selectedItemIds && this.selectedItemIds.has(i.id)) ? 1 : 0}_${(i.images && i.images.length) || 0}`).join(';');
+
+    if (!force && this._lastGridFingerprint === fingerprint && gridContainer.children.length > 0) {
+      this.updateBulkSelectionUI(filtered);
+      return;
+    }
+    this._lastGridFingerprint = fingerprint;
+
+    // Clear grid
+    gridContainer.innerHTML = '';
 
     if (filtered.length === 0) {
       gridContainer.classList.add('hidden');
@@ -1589,6 +1599,11 @@ const Catalog = {
   },
 
   async handleDeleteItem(item) {
+    if (item.status === 'Issued') {
+      UI.showToast(`Cannot delete "${item.name}" (SKU: ${item.sku}) because it is currently out on Memo (${item.issuedMemoNumber || 'active'}). Return or settle the piece on memo first.`, true);
+      return;
+    }
+
     UI.confirm(`Are you absolutely sure you want to delete "${item.name}" (SKU: ${item.sku}) from stock? This cannot be undone.`, async () => {
       try {
         DBManager.addLog("DELETE", item.id, item.name, `Deleted jewelry item: ${item.name}`, []);
@@ -3722,6 +3737,15 @@ const Catalog = {
   async handleBulkDelete() {
     const count = this.selectedItemIds.size;
     if (count === 0) return;
+
+    // Guard: Check if any selected items are currently out on Memo
+    const selectedItems = (DBManager.getItems() || []).filter(i => this.selectedItemIds.has(i.id));
+    const issuedItems = selectedItems.filter(i => i.status === 'Issued');
+    if (issuedItems.length > 0) {
+      const issuedSkus = issuedItems.map(i => i.sku).slice(0, 3).join(', ') + (issuedItems.length > 3 ? '...' : '');
+      UI.showToast(`Cannot delete: ${issuedItems.length} selected item(s) (${issuedSkus}) are currently out on Memo. Return them from memo before deleting.`, true);
+      return;
+    }
 
     UI.confirm(`Are you sure you want to delete all ${count} selected jewelry piece(s) from stock?`, async () => {
       try {

@@ -549,6 +549,19 @@ const JewelryMemoController = {
       const removedIds = [...originalIds].filter(id => !newOpenIds.has(id));
       const addedItems = this.selectedItems.filter(i => !originalIds.has(i.id));
 
+      // Concurrency check for newly added items
+      const unavailableAdded = [];
+      for (const item of addedItems) {
+        const liveItem = (DBManager.getItems() || []).find(i => i.id === item.id);
+        if (!liveItem || liveItem.status === 'Sold' || liveItem.status === 'Issued') {
+          unavailableAdded.push(item.sku || 'Piece');
+        }
+      }
+      if (unavailableAdded.length > 0) {
+        UI.showToast(`Cannot add items: ${unavailableAdded.join(', ')} are no longer available in stock.`, true);
+        return;
+      }
+
       // Process removals: revert catalog item to In Stock, remove from memo.items
       removedIds.forEach(id => {
         const mainItem = DBManager.database.items.find(i => i.id === id);
@@ -662,6 +675,23 @@ const JewelryMemoController = {
       return;
     }
 
+    // Concurrency / Race Condition safeguard: verify none of the selected items were marked Sold or Issued
+    const unavailableItems = [];
+    for (const sel of this.selectedItems) {
+      const liveItem = (DBManager.getItems() || []).find(i => i.id === sel.id);
+      if (!liveItem) {
+        unavailableItems.push(`${sel.sku || 'Piece'} (deleted)`);
+      } else if (liveItem.status === 'Sold') {
+        unavailableItems.push(`${sel.sku || liveItem.name} (already Sold)`);
+      } else if (liveItem.status === 'Issued') {
+        unavailableItems.push(`${sel.sku || liveItem.name} (already on Memo ${liveItem.issuedMemoNumber || ''})`);
+      }
+    }
+    if (unavailableItems.length > 0) {
+      UI.showToast(`Cannot issue memo: ${unavailableItems.join(', ')}. Please refresh and select available pieces.`, true);
+      return;
+    }
+
     const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
     const memoNumber = this.getNextMemoNumber();
 
@@ -734,7 +764,7 @@ const JewelryMemoController = {
     }
   },
 
-  renderMemoList() {
+  renderMemoList(force = false) {
     const memos = DBManager.getJewelryMemos();
     const openMemos = memos.filter(m => m.status === 'open');
     const totalValOnMemo = openMemos.reduce((s, m) => s + (Number(m.totalValue) || 0), 0);
@@ -794,6 +824,16 @@ const JewelryMemoController = {
     const tbody = document.getElementById('jewelry-memo-list-tbody');
     const emptyEl = document.getElementById('jewelry-memo-empty-state');
     if (!tbody) return;
+
+    // Fingerprint check to prevent redundant DOM destruction and screen flickering
+    const memoFingerprint = `${filterVal}|${query}|${filtered.length}|` +
+      filtered.map(m => `${m.id}_${m.updatedAt || ''}_${m.status}_${m.totalValue}_${(m.items || []).length}`).join(';');
+
+    if (!force && this._lastMemoFingerprint === memoFingerprint && tbody.children.length > 0) {
+      return;
+    }
+    this._lastMemoFingerprint = memoFingerprint;
+
     tbody.innerHTML = '';
 
     if (filtered.length === 0) {
@@ -1071,6 +1111,9 @@ Thank you,
       message,
       onSavePhone: (phone) => {
         memo.brokerPhone = phone;
+        memo.updatedAt = new Date().toISOString();
+        if (window.DBManager) DBManager.saveItem('mava_catalog_jewelry_memos', memo);
+        this._pushToCloud(memo);
         DBManager.saveVault();
       }
     });

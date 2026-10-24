@@ -491,18 +491,17 @@ const DBManager = {
     try {
       // Compress JSON (no indentation) to improve save performance and minimize memory/disk I/O overhead.
       const plainText = JSON.stringify(this.database);
+      this._lastSelfSaveTime = Date.now();
       if (window.electronAPI && typeof window.electronAPI.writeVault === 'function') {
         await window.electronAPI.writeVault(plainText, this.activePath);
       }
+      this._lastSelfSaveTime = Date.now();
 
       // Post-save background enhancements (non-blocking, zero data loss)
       try {
         if (typeof window !== 'undefined') {
           if (window.BackupManager && typeof window.BackupManager.checkAndRunDailyBackup === 'function') {
             window.BackupManager.checkAndRunDailyBackup().catch(e => console.warn("Daily backup background check:", e));
-          }
-          if (window.CloudSync && typeof window.CloudSync.queueSync === 'function') {
-            window.CloudSync.queueSync();
           }
         }
       } catch (bgErr) {

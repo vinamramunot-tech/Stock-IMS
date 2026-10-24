@@ -300,23 +300,23 @@ const App = {
       window.addEventListener('mava:cloud-synced', (e) => {
         if (e && e.detail && e.detail.updated) {
           this.refreshAllDisplays();
-          if (window.UI && typeof window.UI.showToast === 'function') {
-            window.UI.showToast("✨ Catalog synchronized with cloud catalog");
-          }
         }
       });
     }
   },
 
-
   async handleExternalDbChange(filePath) {
     if (!DBManager.isLoaded || DBManager.activePath !== filePath) return;
     
+    // Suppress reload if triggered by our own save in the last 3 seconds
+    if (DBManager._lastSelfSaveTime && (Date.now() - DBManager._lastSelfSaveTime < 3000)) {
+      return;
+    }
+
     try {
       // Reload vault state from disk silently
       const loadResult = await DBManager.loadVault(filePath);
       if (loadResult.success) {
-        UI.showToast("Database updated externally; refreshing catalog.");
         this.refreshAllDisplays();
       }
     } catch (err) {
@@ -394,14 +394,31 @@ const App = {
   refreshAllDisplays() {
     const activeTab = this.activeTab || 'tab-catalog';
 
-    // 1. Immediately render active tab & top header metrics for instantaneous UI responsiveness
-    Catalog.renderDashboard();
-    Catalog.renderCatalogGrid();
-    if (window.EmeraldController) EmeraldController.renderEmeraldGrid();
-    if (window.StoneController) StoneController.renderStoneGrid();
+    // 1. If an active interactive modal is open, do not disrupt the user's active workflow
+    const openModals = document.querySelectorAll('.modal:not(.hidden)');
+    let hasInteractiveModal = false;
+    openModals.forEach(m => {
+      if (m.classList.contains('active') || (m.style && m.style.display && m.style.display !== 'none')) {
+        hasInteractiveModal = true;
+      }
+    });
+
+    if (hasInteractiveModal) {
+      this.dirtyTabs.add(activeTab);
+      return;
+    }
+
+    // 2. Preserve scroll position so view doesn't jump
+    const mainWorkArea = document.querySelector('.workspace-main');
+    const prevScrollTop = mainWorkArea ? mainWorkArea.scrollTop : (window.scrollY || document.documentElement.scrollTop);
+
+    // 3. Immediately render active tab and header metrics
+    if (activeTab !== 'tab-catalog') {
+      Catalog.renderDashboard();
+    }
     this.renderTab(activeTab);
 
-    // 2. Mark all other tabs as dirty so they only render when clicked
+    // 4. Mark all other tabs as dirty so they only render when clicked
     const allTabIds = [
       'tab-jewelry-analyzer', 'tab-catalog', 'tab-jewelry-photos', 'tab-jewelry-memos', 'tab-jewelry-sales',
       'tab-emerald-catalog', 'tab-emerald-photos', 'tab-emerald-analysis', 'tab-memos',
@@ -415,6 +432,13 @@ const App = {
         this.dirtyTabs.delete(id);
       }
     });
+
+    // 5. Restore scroll position
+    if (mainWorkArea && prevScrollTop > 0) {
+      mainWorkArea.scrollTop = prevScrollTop;
+    } else if (prevScrollTop > 0) {
+      window.scrollTo(0, prevScrollTop);
+    }
 
     const pathEl = document.getElementById('settings-vault-path');
     if (pathEl) pathEl.textContent = DBManager.activePath || '';

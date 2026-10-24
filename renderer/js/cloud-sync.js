@@ -119,7 +119,32 @@
     /**
      * Convert standard JavaScript object/primitives to Firestore Value format
      */
-    toFirestoreValue(value) {
+    MAX_DOC_SIZE_BYTES: 1048576, // 1 MiB Firestore document limit
+
+    /**
+     * Estimate UTF-8 byte size of an object when serialized
+     */
+    estimateDocSize(obj) {
+      if (!obj) return 0;
+      try {
+        const jsonStr = JSON.stringify(obj);
+        if (typeof Blob !== 'undefined') {
+          return new Blob([jsonStr]).size;
+        }
+        if (typeof Buffer !== 'undefined') {
+          return Buffer.byteLength(jsonStr, 'utf8');
+        }
+        return jsonStr.length;
+      } catch (_) {
+        return 0;
+      }
+    },
+
+    /**
+     * Convert standard JavaScript object/primitives to Firestore Value format
+     * Includes cycle detection and maximum recursion depth safeguards.
+     */
+    toFirestoreValue(value, seen = new WeakSet(), depth = 0) {
       if (value === null || value === undefined) {
         return { nullValue: null };
       }
@@ -135,19 +160,28 @@
       if (typeof value === 'string') {
         return { stringValue: value };
       }
-      if (Array.isArray(value)) {
-        return {
-          arrayValue: {
-            values: value.map(v => this.toFirestoreValue(v))
-          }
-        };
+      if (depth > 32) {
+        return { stringValue: '[Max Depth Exceeded]' };
       }
       if (typeof value === 'object') {
+        if (seen.has(value)) {
+          return { stringValue: '[Circular]' };
+        }
+        seen.add(value);
+
+        if (Array.isArray(value)) {
+          return {
+            arrayValue: {
+              values: value.map(v => this.toFirestoreValue(v, seen, depth + 1))
+            }
+          };
+        }
+
         const fields = {};
         for (const [k, v] of Object.entries(value)) {
           // Avoid undefined properties
           if (v !== undefined) {
-            fields[k] = this.toFirestoreValue(v);
+            fields[k] = this.toFirestoreValue(v, seen, depth + 1);
           }
         }
         return { mapValue: { fields } };
@@ -160,10 +194,12 @@
      */
     objectToFirestoreDocument(obj) {
       const fields = {};
+      const seen = new WeakSet();
       if (obj && typeof obj === 'object') {
+        seen.add(obj);
         for (const [k, v] of Object.entries(obj)) {
           if (v !== undefined) {
-            fields[k] = this.toFirestoreValue(v);
+            fields[k] = this.toFirestoreValue(v, seen, 1);
           }
         }
       }
@@ -660,6 +696,7 @@
       });
 
       const itemsToUpload = [];
+      let updatedRemoteCount = 0;
 
       for (const remoteItem of remoteArray) {
         if (!remoteItem || !remoteItem[idKey]) continue;
@@ -676,17 +713,20 @@
           if (remoteTime > localTime) {
             // Remote is newer: merge remote over local, keeping non-conflicting properties
             merged[localIndex] = { ...localItem, ...remoteItem };
+            updatedRemoteCount++;
           } else if (localTime > remoteTime) {
             // Local is newer: keep local, flag for upload to cloud
             itemsToUpload.push(localItem);
           } else if (JSON.stringify(localItem) !== JSON.stringify(remoteItem)) {
             // Equal timestamps but different data: adopt remote updates to avoid silent divergence
             merged[localIndex] = { ...localItem, ...remoteItem };
+            updatedRemoteCount++;
           }
         } else {
           // New record from cloud: add to local inventory
           merged.push(remoteItem);
           localMap.set(rKey, merged.length - 1);
+          updatedRemoteCount++;
         }
       }
 
@@ -702,7 +742,7 @@
         }
       }
 
-      return { merged, itemsToUpload };
+      return { merged, itemsToUpload, updatedRemoteCount };
     },
 
     /**
@@ -793,8 +833,11 @@
             const localSettingsTime = new Date(localDb.settings?.updatedAt || 0).getTime();
             const remoteSettingsTime = new Date(remoteSettings.updatedAt || 0).getTime();
             if (remoteSettingsTime > localSettingsTime) {
-              localDb.settings = { ...localDb.settings, ...remoteSettings };
-              anyUpdates = true;
+              const mergedSettings = { ...localDb.settings, ...remoteSettings };
+              if (JSON.stringify(localDb.settings) !== JSON.stringify(mergedSettings)) {
+                localDb.settings = mergedSettings;
+                anyUpdates = true;
+              }
             } else if (localSettingsTime > remoteSettingsTime) {
               await this.setDocument(`${prefix}_meta`, 'settings', localDb.settings);
             }
@@ -868,9 +911,17 @@
                   if (idx >= 0) {
                     const localTime = new Date(localList[idx].updatedAt || localList[idx].createdAt || 0).getTime();
                     const remoteTime = new Date(remoteItem.updatedAt || remoteItem.createdAt || 0).getTime();
-                    if (remoteTime >= localTime) {
-                      localList[idx] = { ...localList[idx], ...remoteItem };
-                      anyUpdates = true;
+                    if (remoteTime > localTime) {
+                      const mergedItem = { ...localList[idx], ...remoteItem };
+                      if (JSON.stringify(localList[idx]) !== JSON.stringify(mergedItem)) {
+                        localList[idx] = mergedItem;
+                        anyUpdates = true;
+                      }
+                    } else if (remoteTime === localTime) {
+                      if (JSON.stringify(localList[idx]) !== JSON.stringify(remoteItem)) {
+                        localList[idx] = { ...localList[idx], ...remoteItem };
+                        anyUpdates = true;
+                      }
                     }
                   } else {
                     localList.push(remoteItem);
@@ -914,8 +965,8 @@
               // Fallback to full list for this collection
               try {
                 const remoteList = await this.listDocuments(col.name);
-                const { merged, itemsToUpload } = this.mergeArray(localList, remoteList, col.idKey, colDeletedIds);
-                if (merged.length !== localList.length || itemsToUpload.length > 0) {
+                const { merged, itemsToUpload, updatedRemoteCount } = this.mergeArray(localList, remoteList, col.idKey, colDeletedIds);
+                if (updatedRemoteCount > 0 || merged.length !== localList.length) {
                   localDb[col.key] = merged;
                   anyUpdates = true;
                 }
@@ -952,9 +1003,9 @@
               continue;
             }
 
-            const { merged, itemsToUpload } = this.mergeArray(localList, remoteList, col.idKey, colDeletedIds);
+            const { merged, itemsToUpload, updatedRemoteCount } = this.mergeArray(localList, remoteList, col.idKey, colDeletedIds);
 
-            if (merged.length !== localList.length || itemsToUpload.length > 0) {
+            if (updatedRemoteCount > 0 || merged.length !== localList.length) {
               localDb[col.key] = merged;
               anyUpdates = true;
             }
@@ -1039,15 +1090,7 @@
 
       this._syncTimeout = setTimeout(async () => {
         if (typeof window !== 'undefined' && window.DBManager && window.DBManager.database) {
-          const result = await this.syncAll(window.DBManager.database);
-          if (result && result.updated) {
-            if (window.DBManager && typeof window.DBManager.scheduleVaultFlush === 'function') {
-              window.DBManager.scheduleVaultFlush(500);
-            }
-            if (window.App && typeof window.App.refreshAllDisplays === 'function') {
-              window.App.refreshAllDisplays();
-            }
-          }
+          await this.syncAll(window.DBManager.database);
         }
       }, delayMs);
       if (this._syncTimeout && typeof this._syncTimeout.unref === 'function') {

@@ -212,6 +212,9 @@ const UI = {
       const anyModalOpen = document.querySelector('.modal-overlay:not(.hidden), .mobile-menu-overlay:not(.hidden)');
       if (!anyModalOpen) {
         document.body.classList.remove('modal-open');
+        if (typeof window !== 'undefined' && window.App && window.App.dirtyTabs && window.App.dirtyTabs.has(window.App.activeTab || 'tab-catalog')) {
+          window.App.refreshAllDisplays();
+        }
       }
       if (this.updateScrollToTop) {
         this.updateScrollToTop();
@@ -1184,7 +1187,8 @@ const UI = {
     const isEdit = this.activeItemState && this.activeItemState.id !== undefined;
     const currentId = isEdit ? this.activeItemState.id : null;
 
-    const allItems = DBManager.getItems();
+    const db = typeof DBManager !== 'undefined' ? DBManager : (typeof window !== 'undefined' ? window.DBManager : (typeof global !== 'undefined' ? global.DBManager : null));
+    const allItems = db ? db.getItems() : [];
     const matched = allItems.find(i => i.sku && i.sku.toLowerCase().trim() === rawSku.toLowerCase() && (!currentId || i.id !== currentId));
     return matched || null;
   },
@@ -1451,4 +1455,9 @@ const UI = {
   }
 };
 
-window.UI = UI;
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = UI;
+}
+if (typeof window !== 'undefined') {
+  window.UI = UI;
+}

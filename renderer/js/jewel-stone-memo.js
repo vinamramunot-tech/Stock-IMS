@@ -501,7 +501,7 @@ const JewelStoneMemoController = {
     }
   },
 
-  renderMemoList() {
+  renderMemoList(force = false) {
     const memos = DBManager.getJewelStoneMemos();
     const openMemos = memos.filter(m => m.status === 'open');
     const totalOnMemo = openMemos.reduce((s, m) => s + (m.totalCarats || 0), 0);
@@ -541,6 +541,16 @@ const JewelStoneMemoController = {
     const tbody = document.getElementById('jewel-stone-memo-list-tbody');
     const emptyEl = document.getElementById('jewel-stone-memo-empty-state');
     if (!tbody) return;
+
+    // Fingerprint check to prevent redundant DOM destruction and screen flickering
+    const memoFingerprint = `${filterVal}|${query}|${filtered.length}|` +
+      filtered.map(m => `${m.id}_${m.updatedAt || ''}_${m.status}_${m.totalCarats || 0}_${(m.items || []).length}`).join(';');
+
+    if (!force && this._lastStoneMemoFingerprint === memoFingerprint && tbody.children.length > 0) {
+      return;
+    }
+    this._lastStoneMemoFingerprint = memoFingerprint;
+
     tbody.innerHTML = '';
 
     if (filtered.length === 0) {

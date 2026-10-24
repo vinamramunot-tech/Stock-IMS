@@ -1500,7 +1500,7 @@ const EmeraldController = {
     if (valUsdEl) valUsdEl.textContent = `$${totalValuationUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   },
 
-  renderEmeraldGrid() {
+  renderEmeraldGrid(force = false) {
     this.renderEmeraldMetrics();
     const gridContainer = this.getDOM('gridContainer', 'emerald-catalog-grid');
     const flatContainer = this.getDOM('flatContainer', 'emerald-flat-grid');
@@ -1516,10 +1516,10 @@ const EmeraldController = {
 
     if (catalogApplyMultiplier && catalogApplyMultiplier.checked) {
       isMultiplierEnabled = true;
-      if (catalogMultiplierSelect.value === 'custom') {
-        globalMultiplier = parseFloat(catalogMultiplierCustom.value);
+      if (catalogMultiplierSelect && catalogMultiplierSelect.value === 'custom') {
+        globalMultiplier = parseFloat(catalogMultiplierCustom ? catalogMultiplierCustom.value : '1.0');
         if (isNaN(globalMultiplier)) globalMultiplier = 1.0;
-      } else {
+      } else if (catalogMultiplierSelect) {
         globalMultiplier = parseFloat(catalogMultiplierSelect.value) || 1.0;
       }
     }
@@ -1528,7 +1528,19 @@ const EmeraldController = {
     this.populateGroupFilterOptions();
 
     let filtered = this.getFilteredEmeralds();
-    const sortVal = document.getElementById('emerald-sort-items').value;
+    const sortVal = document.getElementById('emerald-sort-items')?.value || '';
+
+    // Fingerprint check to prevent redundant DOM destruction and screen flickering
+    const emeraldFingerprint = `${this.currentViewMode}|${isMultiplierEnabled}|${globalMultiplier}|${sortVal}|${filtered.length}|` +
+      filtered.map(e => `${e.id}_${e.updatedAt || ''}_${e.weight || ''}_${e.rate || ''}_${e.status || ''}_${e.group || ''}_${e.shape || ''}`).join(';');
+
+    const hasRenderedChildren = (this.currentViewMode === 'grid' && flatContainer.children.length > 0) ||
+                                (this.currentViewMode !== 'grid' && gridContainer.children.length > 0);
+
+    if (!force && this._lastEmeraldFingerprint === emeraldFingerprint && hasRenderedChildren) {
+      return;
+    }
+    this._lastEmeraldFingerprint = emeraldFingerprint;
 
     // Clear both containers
     gridContainer.innerHTML = '';
@@ -2114,6 +2126,12 @@ const EmeraldController = {
   },
 
   async handleDeleteEmerald(emerald) {
+    const memoCarats = window.MemoController ? MemoController.getOpenMemoCaratsForEmerald(emerald.id) : 0;
+    if (memoCarats > 0) {
+      UI.showToast(`Cannot delete Pudia #${emerald.color || 'N/A'}: it has ${memoCarats.toFixed(2)} cts on open approval memo(s). Settle or return memo goods before deleting.`, true);
+      return;
+    }
+
     const weight = this.getEmeraldWeight(emerald);
     const shapes = this.getEmeraldShapes(emerald).join(', ') || 'Emerald';
 
@@ -2132,6 +2150,19 @@ const EmeraldController = {
   },
 
   async handleDeleteEmeraldGroup(groupName) {
+    const emeralds = DBManager.getEmeralds();
+    const inGroup = emeralds.filter(e => (e.group || 'Default') === groupName);
+    const onMemo = inGroup.filter(e => {
+      const mc = window.MemoController ? MemoController.getOpenMemoCaratsForEmerald(e.id) : 0;
+      return mc > 0;
+    });
+
+    if (onMemo.length > 0) {
+      const names = onMemo.map(e => `#${e.color}`).slice(0, 3).join(', ');
+      UI.showToast(`Cannot delete group "${groupName}": ${onMemo.length} Pudia(s) (${names}) have open memos outstanding. Settle or return memo goods first.`, true);
+      return;
+    }
+
     UI.confirm(`Are you absolutely sure you want to delete ALL emeralds in the group "${groupName}"? This cannot be undone.`, async () => {
       try {
         const toDelete = DBManager.database.emeralds.filter(e => (e.group || 'Default') === groupName);
@@ -2155,6 +2186,23 @@ const EmeraldController = {
   },
 
   async handleDeleteEmeraldGrade(groupName, gradeName) {
+    const emeralds = DBManager.getEmeralds();
+    const inGrade = emeralds.filter(e => {
+      const eGroup = e.group || 'Default';
+      const eGrade = e.grade || 'Default';
+      return (eGroup === groupName && eGrade === gradeName);
+    });
+    const onMemo = inGrade.filter(e => {
+      const mc = window.MemoController ? MemoController.getOpenMemoCaratsForEmerald(e.id) : 0;
+      return mc > 0;
+    });
+
+    if (onMemo.length > 0) {
+      const names = onMemo.map(e => `#${e.color}`).slice(0, 3).join(', ');
+      UI.showToast(`Cannot delete grade "${gradeName}": ${onMemo.length} Pudia(s) (${names}) have open memos outstanding. Settle or return memo goods first.`, true);
+      return;
+    }
+
     UI.confirm(`Are you absolutely sure you want to delete ALL emeralds in the grade "${gradeName}" (Group: "${groupName}")? This cannot be undone.`, async () => {
       try {
         const toDelete = DBManager.database.emeralds.filter(e => {

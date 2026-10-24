@@ -337,5 +337,48 @@ test('Cross-Device Data Sync & Storage Pushes Test Suite', async (t) => {
     assert.ok(new Date(itemToUpdate.updatedAt).getTime() > new Date(oldTimestamp).getTime(), 'New updatedAt is strictly newer');
   });
 
+  await t.test('8. Full Reconciliation & mergeArray: Remote Updates on Existing Memos are Applied Even When Array Lengths Match', async () => {
+    const t1 = '2026-10-23T10:00:00.000Z';
+    const t2 = '2026-10-23T12:00:00.000Z';
+
+    const localDb = {
+      settings: { currency: '₹' },
+      items: [],
+      emeralds: [],
+      stones: [],
+      memos: [],
+      jewelryMemos: [
+        { id: 'memo_004', memoNumber: 'JM-004', personName: 'Bangalore', status: 'open', updatedAt: t1 }
+      ],
+      jewelStoneMemos: [],
+      jewelrySales: []
+    };
+
+    const originalListDocs = CloudSync.listDocuments;
+    const originalBatchWrite = CloudSync.batchWrite;
+    CloudSync.batchWrite = async () => ({ success: true, count: 0 });
+    CloudSync.listDocuments = async (col) => {
+      if (col === 'mava_catalog_jewelry_memos') {
+        return [
+          { id: 'memo_004', memoNumber: 'JM-004', personName: 'Bangalore', status: 'closed', updatedAt: t2 }
+        ];
+      }
+      return [];
+    };
+
+    try {
+      const result = await CloudSync.syncAll(localDb, { forceFull: true });
+      assert.equal(result.success, true);
+      assert.equal(result.updated, true, 'Updated flag is true when remote memo has newer timestamp');
+      assert.equal(localDb.jewelryMemos.length, 1);
+      assert.equal(localDb.jewelryMemos[0].status, 'closed', 'Local memo adopted remote status update');
+      assert.equal(localDb.jewelryMemos[0].updatedAt, t2, 'Local memo adopted remote updatedAt timestamp');
+    } finally {
+      CloudSync.listDocuments = originalListDocs;
+      CloudSync.batchWrite = originalBatchWrite;
+    }
+  });
+
 });
+
 

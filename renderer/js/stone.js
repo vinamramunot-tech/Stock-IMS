@@ -835,7 +835,7 @@ const StoneController = {
     }
   },
 
-  renderStoneGrid() {
+  renderStoneGrid(force = false) {
     this.renderStoneMetrics();
     const gridContainer = this.getDOM('gridContainer', 'stone-catalog-grid');
     const emptyState = this.getDOM('emptyState', 'stone-empty-state');
@@ -846,7 +846,16 @@ const StoneController = {
     this.populateTypeFilterOptions();
 
     const filtered = this.getFilteredStones();
-    const sortVal = document.getElementById('stone-sort-items').value;
+    const sortVal = document.getElementById('stone-sort-items')?.value || '';
+
+    // Fingerprint check to prevent redundant DOM destruction and screen flickering
+    const stoneFingerprint = `${sortVal}|${filtered.length}|` +
+      filtered.map(s => `${s.id}_${s.updatedAt || ''}_${s.weight || ''}_${s.pricePerCarat || ''}_${s.status || ''}_${s.group || ''}_${s.type || ''}`).join(';');
+
+    if (!force && this._lastStoneFingerprint === stoneFingerprint && gridContainer.children.length > 0) {
+      return;
+    }
+    this._lastStoneFingerprint = stoneFingerprint;
 
     gridContainer.innerHTML = '';
 
@@ -1193,6 +1202,12 @@ const StoneController = {
   },
 
   async handleDeleteStone(stone) {
+    const memoCarats = window.JewelStoneMemoController ? JewelStoneMemoController.getOpenMemoCaratsForStone(stone.id) : 0;
+    if (memoCarats > 0) {
+      UI.showToast(`Cannot delete ${stone.type} Packet #${stone.color}: it has ${memoCarats.toFixed(3)} cts on open stone memo(s). Settle or return memo goods before deleting.`, true);
+      return;
+    }
+
     UI.confirm(`Are you sure you want to delete ${stone.type} Packet #${stone.color} from stock?`, async () => {
       try {
         await DBManager.deleteItem('mava_catalog_stones', stone.id);
@@ -1206,6 +1221,22 @@ const StoneController = {
   },
 
   async handleDeleteGroup(groupName) {
+    const stones = DBManager.getStones();
+    const inGroup = stones.filter(st => {
+      const stGroup = (st.group && st.group.trim()) ? st.group.trim() : "Unassigned Group";
+      return stGroup === groupName;
+    });
+    const onMemo = inGroup.filter(st => {
+      const mc = window.JewelStoneMemoController ? JewelStoneMemoController.getOpenMemoCaratsForStone(st.id) : 0;
+      return mc > 0;
+    });
+
+    if (onMemo.length > 0) {
+      const names = onMemo.map(st => `#${st.color}`).slice(0, 3).join(', ');
+      UI.showToast(`Cannot delete group "${groupName}": ${onMemo.length} packet(s) (${names}) have open memos outstanding. Settle or return memo goods first.`, true);
+      return;
+    }
+
     UI.confirm(`Are you sure you want to delete the entire group "${groupName}"?\n\nThis will permanently delete all packets belonging to this group.`, async () => {
       try {
         const toDelete = DBManager.getStones().filter(st => {

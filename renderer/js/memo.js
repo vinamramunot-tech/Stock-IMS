@@ -522,7 +522,23 @@ const MemoController = {
     }
 
     filtered.forEach(e => {
-      const availCts = EmeraldController.getEmeraldWeight(e);
+      const totalCts = EmeraldController.getEmeraldWeight(e);
+      let openMemoCts = this.getOpenMemoCaratsForEmerald(e.id);
+      if (this.editingMemoId) {
+        const curMemo = DBManager.getMemos().find(m => m.id === this.editingMemoId);
+        if (curMemo && curMemo.status === 'open') {
+          (curMemo.items || []).forEach(it => {
+            if (it.emeraldId === e.id) {
+              const rem = (it.carats || 0) - (it.returnedCarats || 0) - (it.soldCarats || 0);
+              if (rem > 0) openMemoCts = Math.max(0, openMemoCts - rem);
+            }
+          });
+        }
+      }
+      const stagedCts = this.selectedItems
+        .filter(si => si.emeraldId === e.id)
+        .reduce((sum, si) => sum + (si.carats || 0), 0);
+      const availCts = Math.max(0, Number((totalCts - openMemoCts - stagedCts).toFixed(3)));
 
       const div = document.createElement('div');
       div.className = 'pudia-picker-row';
@@ -586,7 +602,23 @@ const MemoController = {
     const emerald = DBManager.getEmeralds().find(e => e.id === emeraldId);
     if (!emerald) return;
 
-    const maxCts = EmeraldController.getEmeraldWeight(emerald);
+    const totalCts = EmeraldController.getEmeraldWeight(emerald);
+    let openMemoCts = this.getOpenMemoCaratsForEmerald(emerald.id);
+    if (this.editingMemoId) {
+      const curMemo = DBManager.getMemos().find(m => m.id === this.editingMemoId);
+      if (curMemo && curMemo.status === 'open') {
+        (curMemo.items || []).forEach(it => {
+          if (it.emeraldId === emerald.id) {
+            const rem = (it.carats || 0) - (it.returnedCarats || 0) - (it.soldCarats || 0);
+            if (rem > 0) openMemoCts = Math.max(0, openMemoCts - rem);
+          }
+        });
+      }
+    }
+    const stagedCts = this.selectedItems
+      .filter(si => si.emeraldId === emerald.id)
+      .reduce((sum, si) => sum + (si.carats || 0), 0);
+    const maxCts = Math.max(0, Number((totalCts - openMemoCts - stagedCts).toFixed(3)));
 
     if (inputCarats <= 0) {
       UI.showToast('Please enter a valid amount of carats.', true);
@@ -821,7 +853,7 @@ const MemoController = {
 
   // ── Memo List ────────────────────────────────────────────────────────────────
 
-  renderMemoList() {
+  renderMemoList(force = false) {
     const memos     = DBManager.getMemos();
     const openMemos = memos.filter(m => m.status === 'open');
     const totalOnMemo = openMemos.reduce((s, m) => s + (m.totalCarats || 0), 0);
@@ -880,6 +912,15 @@ const MemoController = {
     const tbody     = document.getElementById('memo-list-tbody');
     const emptyEl   = document.getElementById('memo-empty-state');
     if (!tbody) return;
+
+    // Fingerprint check to prevent redundant DOM destruction and screen flickering
+    const memoFingerprint = `${filterVal}|${query}|${filtered.length}|` +
+      filtered.map(m => `${m.id}_${m.updatedAt || ''}_${m.status}_${m.totalCarats || 0}_${(m.items || []).length}`).join(';');
+
+    if (!force && this._lastEmeraldMemoFingerprint === memoFingerprint && tbody.children.length > 0) {
+      return;
+    }
+    this._lastEmeraldMemoFingerprint = memoFingerprint;
 
     tbody.innerHTML = '';
 
@@ -1145,6 +1186,9 @@ Thank you,
       message,
       onSavePhone: (phone) => {
         memo.brokerPhone = phone;
+        memo.updatedAt = new Date().toISOString();
+        if (window.DBManager) DBManager.saveItem('mava_catalog_emerald_memos', memo);
+        this._pushToCloud(memo);
         DBManager.saveVault();
       }
     });

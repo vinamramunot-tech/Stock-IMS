@@ -39,13 +39,32 @@
 
 const Calc = {
   /**
+   * Safely parse a numeric string or number, gracefully handling Indian numbering system commas
+   * (e.g. "12,34,567.89"), currency symbols (e.g. "₹", "$"), and whitespace.
+   * @param {number|string|null|undefined} val
+   * @param {number} [defaultVal=0]
+   * @returns {number}
+   */
+  parseNumber(val, defaultVal = 0) {
+    if (val === null || val === undefined || val === '') return defaultVal;
+    if (typeof val === 'number') return isNaN(val) ? defaultVal : val;
+    if (typeof val !== 'string') return defaultVal;
+
+    // Strip currency symbols, Indian/standard commas, and surrounding whitespace
+    const cleaned = val.replace(/[₹$,\s]/g, '').trim();
+    if (cleaned === '') return defaultVal;
+    const parsed = Number(cleaned);
+    return isNaN(parsed) ? defaultVal : parsed;
+  },
+
+  /**
    * Format a number according to the Indian numeric system (e.g. 1,00,000 or 12,34,567.89)
    * @param {number|string} num
    * @param {object} [options]
    * @returns {string}
    */
   formatIndianNumber(num, options = {}) {
-    const val = Number(num);
+    const val = this.parseNumber(num, NaN);
     if (isNaN(val)) return '0';
     return val.toLocaleString('en-IN', options);
   },
@@ -57,7 +76,7 @@ const Calc = {
    * @returns {string}
    */
   formatINR(amount, options = {}) {
-    const val = Number(amount);
+    const val = this.parseNumber(amount, NaN);
     if (isNaN(val)) return '₹0.00';
     const opts = { minimumFractionDigits: 2, maximumFractionDigits: 2, ...options };
     return '₹' + val.toLocaleString('en-IN', opts);
@@ -239,9 +258,9 @@ const Calc = {
    * Calculate dual manufacturing and replacement profit metrics for a sale
    */
   calculateSaleProfit(soldPrice, mfgCost, replacementCost) {
-    const sold = Number(soldPrice) || 0;
-    const mfg = Number(mfgCost) || 0;
-    const rep = (replacementCost !== undefined && replacementCost !== null) ? Number(replacementCost) : mfg;
+    const sold = this.parseNumber(soldPrice, 0);
+    const mfg = this.parseNumber(mfgCost, 0);
+    const rep = (replacementCost !== undefined && replacementCost !== null) ? this.parseNumber(replacementCost, mfg) : mfg;
     
     const mfgProfit = Number((sold - mfg).toFixed(2));
     const mfgMarginPct = mfg > 0 ? Number(((mfgProfit / mfg) * 100).toFixed(2)) : 0;
