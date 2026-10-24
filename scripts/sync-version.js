@@ -77,4 +77,15 @@ if (fs.existsSync(indexPath)) {
   fs.writeFileSync(indexPath, indexContent);
 }
 
+// 9. Sync package-lock.json
+const pkgLockPath = path.join(__dirname, '../package-lock.json');
+if (fs.existsSync(pkgLockPath)) {
+  const pkgLock = JSON.parse(fs.readFileSync(pkgLockPath, 'utf8'));
+  pkgLock.version = version;
+  if (pkgLock.packages && pkgLock.packages['']) {
+    pkgLock.packages[''].version = version;
+  }
+  fs.writeFileSync(pkgLockPath, JSON.stringify(pkgLock, null, 2) + '\n');
+}
+
 console.log('Version sync completed!');
