@@ -82,6 +82,196 @@ const Calc = {
     return '₹' + val.toLocaleString('en-IN', opts);
   },
 
+  // =========================================================================
+  // ZERO-FLOATING-POINT FINANCIAL & GEMSTONE ARITHMETIC (Pillar 6)
+  // Eliminates IEEE-754 precision drift by operating on integer minor units:
+  // - Currency in Paise (1 INR = 100 paise)
+  // - Gemstones in Millicarats (1 ct = 1,000 millicarats = 100 points)
+  // - Precious Metals in Milligrams (1 gram = 1,000 mg)
+  // =========================================================================
+
+  /**
+   * Convert Rupee amount to integer paise (minor units)
+   * @param {number|string} amount
+   * @returns {number} Integer paise
+   */
+  toPaise(amount) {
+    const val = this.parseNumber(amount, 0);
+    return Math.round(val * 100);
+  },
+
+  /**
+   * Convert integer paise back to standard Rupee amount
+   * @param {number} paise
+   * @returns {number} Rupee amount with 2 decimal precision
+   */
+  fromPaise(paise) {
+    const val = Number(paise) || 0;
+    return Math.round(val) / 100;
+  },
+
+  /**
+   * Convert carats to integer millicarats (1 ct = 1,000 mc)
+   * @param {number|string} carats
+   * @returns {number} Integer millicarats
+   */
+  toMillicarats(carats) {
+    const val = this.parseNumber(carats, 0);
+    return Math.round(val * 1000);
+  },
+
+  /**
+   * Convert integer millicarats back to carats (3 decimal precision)
+   * @param {number} mc
+   * @returns {number}
+   */
+  fromMillicarats(mc) {
+    const val = Number(mc) || 0;
+    return Math.round(val) / 1000;
+  },
+
+  /**
+   * Convert grams to integer milligrams (1 g = 1,000 mg)
+   * @param {number|string} grams
+   * @returns {number} Integer milligrams
+   */
+  toMilligrams(grams) {
+    const val = this.parseNumber(grams, 0);
+    return Math.round(val * 1000);
+  },
+
+  /**
+   * Convert integer milligrams back to grams (3 decimal precision)
+   * @param {number} mg
+   * @returns {number}
+   */
+  fromMilligrams(mg) {
+    const val = Number(mg) || 0;
+    return Math.round(val) / 1000;
+  },
+
+  /**
+   * Add multiple currency amounts using integer paise arithmetic
+   * @param {...(number|string)} amounts
+   * @returns {number}
+   */
+  addCurrency(...amounts) {
+    const totalPaise = amounts.reduce((sum, a) => sum + this.toPaise(a), 0);
+    return this.fromPaise(totalPaise);
+  },
+
+  /**
+   * Subtract currency amounts using integer paise arithmetic: base - sum(deductions)
+   * @param {number|string} base
+   * @param {...(number|string)} deductions
+   * @returns {number}
+   */
+  subtractCurrency(base, ...deductions) {
+    const basePaise = this.toPaise(base);
+    const deductionsPaise = deductions.reduce((sum, d) => sum + this.toPaise(d), 0);
+    return this.fromPaise(basePaise - deductionsPaise);
+  },
+
+  /**
+   * Multiply currency amount by factor using integer paise arithmetic
+   * @param {number|string} amount
+   * @param {number|string} factor
+   * @returns {number}
+   */
+  multiplyCurrency(amount, factor) {
+    const paise = this.toPaise(amount);
+    const mult = this.parseNumber(factor, 0);
+    return this.fromPaise(Math.round(paise * mult));
+  },
+
+  /**
+   * Conserved Parcel Split: splits gemstone parcel while conserving total carat mass and valuation
+   * @param {number|string} originalCts - Original parcel carats
+   * @param {number|string} originalCost - Original parcel total cost
+   * @param {number|string} splitCts - Carats to split off
+   * @param {number|string} [splitRate=null] - Valuation rate per carat for the split portion
+   * @returns {{ splitCts: number, splitValue: number, remainingCts: number, remainingCost: number, remainingRatePerCarat: number, isConserved: boolean }}
+   */
+  calculateConservedParcelSplit(originalCts, originalCost, splitCts, splitRate = null) {
+    const origMc = this.toMillicarats(originalCts);
+    const splitMc = this.toMillicarats(splitCts);
+    const origPaise = this.toPaise(originalCost);
+
+    if (splitMc <= 0 || origMc <= 0 || splitMc > origMc) {
+      return {
+        splitCts: 0,
+        splitValue: 0,
+        remainingCts: this.fromMillicarats(origMc),
+        remainingCost: this.fromPaise(origPaise),
+        remainingRatePerCarat: origMc > 0 ? this.fromPaise(Math.round((origPaise * 1000) / origMc)) : 0,
+        isConserved: true
+      };
+    }
+
+    const remMc = origMc - splitMc;
+    let splitPaise = 0;
+
+    if (splitRate !== null && splitRate !== undefined && !isNaN(this.parseNumber(splitRate))) {
+      const ratePerCarat = this.parseNumber(splitRate);
+      const ratePaise = this.toPaise(ratePerCarat);
+      splitPaise = Math.round((ratePaise * splitMc) / 1000);
+    } else {
+      splitPaise = Math.round((origPaise * splitMc) / origMc);
+    }
+
+    const remPaise = Math.max(0, origPaise - splitPaise);
+    const remCts = this.fromMillicarats(remMc);
+    const remRate = remMc > 0 ? this.fromPaise(Math.round((remPaise * 1000) / remMc)) : 0;
+
+    return {
+      splitCts: this.fromMillicarats(splitMc),
+      splitValue: this.fromPaise(splitPaise),
+      remainingCts: remCts,
+      remainingCost: this.fromPaise(remPaise),
+      remainingRatePerCarat: remRate,
+      isConserved: true
+    };
+  },
+
+  /**
+   * Conserved Lot Merge: merges multiple gemstone or metal parcels into a consolidated lot
+   * Conserves exact carat mass (in millicarats) and total financial cost (in paise).
+   * @param {Array<{ weightCts?: number, carats?: number, totalCost?: number, ratePerCarat?: number }>} parcels
+   * @returns {{ totalCarats: number, totalCost: number, averageRatePerCarat: number, parcelCount: number }}
+   */
+  calculateConservedLotMerge(parcels = []) {
+    if (!Array.isArray(parcels) || parcels.length === 0) {
+      return { totalCarats: 0, totalCost: 0, averageRatePerCarat: 0, parcelCount: 0 };
+    }
+
+    let totalMc = 0;
+    let totalPaise = 0;
+
+    for (const p of parcels) {
+      const cts = p.weightCts !== undefined ? p.weightCts : (p.carats !== undefined ? p.carats : (p.weight || 0));
+      const mc = this.toMillicarats(cts);
+      totalMc += mc;
+
+      if (p.totalCost !== undefined && p.totalCost !== null) {
+        totalPaise += this.toPaise(p.totalCost);
+      } else if (p.ratePerCarat !== undefined && p.ratePerCarat !== null) {
+        const ratePaise = this.toPaise(p.ratePerCarat);
+        totalPaise += Math.round((ratePaise * mc) / 1000);
+      }
+    }
+
+    const totalCts = this.fromMillicarats(totalMc);
+    const totalCostRupees = this.fromPaise(totalPaise);
+    const avgRate = totalMc > 0 ? this.fromPaise(Math.round((totalPaise * 1000) / totalMc)) : 0;
+
+    return {
+      totalCarats: totalCts,
+      totalCost: totalCostRupees,
+      averageRatePerCarat: avgRate,
+      parcelCount: parcels.length
+    };
+  },
+
   // Metal karats presets and factors
   KARAT_FACTORS: {
     24: 24 / 24,

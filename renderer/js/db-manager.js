@@ -32,6 +32,268 @@ const DBManager = {
   activePath: 'mava_gems_stock.db',
   isLoaded: true,
 
+  // =========================================================================
+  // 1. REACTIVE PUB/SUB EVENT SYSTEM (Vue / MobX / Redux Pattern)
+  // Decouples UI modules, allowing tabs and modals to reactively subscribe
+  // to entity changes without tight imperative coupling.
+  // =========================================================================
+  _subscribers: new Map(),
+
+  /**
+   * Subscribe to reactive database events
+   * @param {string} event - e.g. 'items:saved', 'items:deleted', 'sales:created', 'settings:changed', 'vault:loaded'
+   * @param {Function} callback
+   * @returns {Function} unsubscribe function
+   */
+  on(event, callback) {
+    if (typeof callback !== 'function') return () => {};
+    if (!this._subscribers.has(event)) this._subscribers.set(event, new Set());
+    this._subscribers.get(event).add(callback);
+    return () => {
+      const set = this._subscribers.get(event);
+      if (set) set.delete(callback);
+    };
+  },
+
+  off(event, callback) {
+    const set = this._subscribers.get(event);
+    if (set) set.delete(callback);
+  },
+
+  emit(event, payload = {}) {
+    const set = this._subscribers.get(event);
+    if (set) {
+      set.forEach(cb => {
+        try { cb(payload); } catch (err) { console.error(`Event listener error on ${event}:`, err); }
+      });
+    }
+    // Also dispatch on window for browser-level listeners
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      try {
+        window.dispatchEvent(new CustomEvent(`mava:${event}`, { detail: payload }));
+      } catch (_) {}
+    }
+  },
+
+  // =========================================================================
+  // 2. NORMALIZED O(1) IDENTITY MAPS & SECONDARY INDEXES (Linear / Redux Pattern)
+  // Replaces linear O(N) array scans with sub-millisecond O(1) Hash Map lookups.
+  // =========================================================================
+  _indexes: {
+    itemsById: new Map(),
+    itemsBySku: new Map(),
+    itemsByStatus: new Map(),
+    salesByItemId: new Map(),
+    salesBySku: new Map(),
+    memosById: new Map(),
+    memosByNumber: new Map()
+  },
+
+  _rebuildIndexes() {
+    this._indexes.itemsById.clear();
+    this._indexes.itemsBySku.clear();
+    this._indexes.itemsByStatus.clear();
+    this._indexes.salesByItemId.clear();
+    this._indexes.salesBySku.clear();
+    this._indexes.memosById.clear();
+    this._indexes.memosByNumber.clear();
+
+    if (!this.database) return;
+
+    // Index Items
+    for (const item of (this.database.items || [])) {
+      if (!item) continue;
+      this._indexItem(item);
+    }
+
+    // Index Jewelry Sales
+    for (const sale of (this.database.jewelrySales || [])) {
+      if (!sale) continue;
+      if (sale.itemId) this._indexes.salesByItemId.set(String(sale.itemId), sale);
+      if (sale.sku) this._indexes.salesBySku.set(sale.sku.trim().toLowerCase(), sale);
+    }
+
+    // Index Jewelry Memos
+    for (const memo of (this.database.jewelryMemos || [])) {
+      if (!memo) continue;
+      if (memo.id) this._indexes.memosById.set(String(memo.id), memo);
+      if (memo.memoNumber) this._indexes.memosByNumber.set(memo.memoNumber.trim().toUpperCase(), memo);
+    }
+  },
+
+  _indexItem(item) {
+    if (!item) return;
+    if (item.id) this._indexes.itemsById.set(String(item.id), item);
+    if (item.sku) this._indexes.itemsBySku.set(item.sku.trim().toLowerCase(), item);
+    
+    const status = item.status || 'In Stock';
+    if (!this._indexes.itemsByStatus.has(status)) {
+      this._indexes.itemsByStatus.set(status, new Set());
+    }
+    this._indexes.itemsByStatus.get(status).add(item);
+  },
+
+  _unindexItem(item) {
+    if (!item) return;
+    if (item.id) this._indexes.itemsById.delete(String(item.id));
+    if (item.sku) this._indexes.itemsBySku.delete(item.sku.trim().toLowerCase());
+    
+    for (const [, set] of this._indexes.itemsByStatus.entries()) {
+      set.delete(item);
+    }
+  },
+
+  // Fast O(1) Lookups
+  getItem(id) {
+    if (!id) return null;
+    return this._indexes.itemsById.get(String(id)) || (this.database?.items || []).find(i => i && String(i.id) === String(id)) || null;
+  },
+
+  getItemBySku(sku) {
+    if (!sku) return null;
+    return this._indexes.itemsBySku.get(String(sku).trim().toLowerCase()) || (this.database?.items || []).find(i => i && i.sku && i.sku.trim().toLowerCase() === String(sku).trim().toLowerCase()) || null;
+  },
+
+  getItemsByStatus(status) {
+    if (!status) return [];
+    if (this._indexes.itemsByStatus.has(status)) {
+      return Array.from(this._indexes.itemsByStatus.get(status));
+    }
+    return (this.database?.items || []).filter(i => i && (i.status || 'In Stock') === status);
+  },
+
+  getSaleByItemId(itemId) {
+    if (!itemId) return null;
+    return this._indexes.salesByItemId.get(String(itemId)) || (this.database?.jewelrySales || []).find(s => s && String(s.itemId) === String(itemId)) || null;
+  },
+
+  getSaleBySku(sku) {
+    if (!sku) return null;
+    return this._indexes.salesBySku.get(String(sku).trim().toLowerCase()) || (this.database?.jewelrySales || []).find(s => s && s.sku && s.sku.trim().toLowerCase() === String(sku).trim().toLowerCase()) || null;
+  },
+
+  getMemo(id) {
+    if (!id) return null;
+    return this._indexes.memosById.get(String(id)) || (this.database?.jewelryMemos || []).find(m => m && String(m.id) === String(id)) || null;
+  },
+
+  getMemoByNumber(memoNumber) {
+    if (!memoNumber) return null;
+    return this._indexes.memosByNumber.get(String(memoNumber).trim().toUpperCase()) || (this.database?.jewelryMemos || []).find(m => m && m.memoNumber && m.memoNumber.trim().toUpperCase() === String(memoNumber).trim().toUpperCase()) || null;
+  },
+
+  // =========================================================================
+  // 3. DETERMINISTIC IDEMPOTENCY KEY GENERATOR (Square POS & Stripe Pattern)
+  // Ensures repeated network retries or multi-client syncs produce identical keys.
+  // =========================================================================
+  generateIdempotencyKey(domain, primaryId, qualifier) {
+    const d = domain || 'tx';
+    const id = primaryId || 'gen';
+    const q = qualifier ? String(qualifier).replace(/[^a-zA-Z0-9_-]/g, '') : Date.now();
+    return `${d}_${id}_${q}`;
+  },
+
+  // =========================================================================
+  // 4. FINITE STATE MACHINE (FSM) FOR INVENTORY LIFECYCLE (Shopify / NetSuite Pattern)
+  // Formally governs state transitions, preventing orphaned sales or phantom states.
+  // =========================================================================
+  InventoryFSM: {
+    VALID_STATUSES: ['In Stock', 'On Memo', 'Issued', 'Sold', 'Reserved'],
+
+    ALLOWED_TRANSITIONS: {
+      'In Stock': ['On Memo', 'Issued', 'Sold', 'Reserved'],
+      'On Memo':  ['In Stock', 'Sold'],
+      'Issued':   ['In Stock', 'Sold'], // Legacy alias for On Memo
+      'Reserved': ['In Stock', 'On Memo', 'Issued', 'Sold'],
+      'Sold':     ['In Stock'] // Sale Reversal / Return
+    },
+
+    canTransition(currentStatus, targetStatus) {
+      const from = currentStatus || 'In Stock';
+      const to = targetStatus;
+      if (from === to) return true;
+      const allowed = this.ALLOWED_TRANSITIONS[from];
+      return Array.isArray(allowed) && allowed.includes(to);
+    },
+
+    transition(item, targetStatus, payload = {}) {
+      if (!item) throw new Error('Cannot transition null or undefined item');
+      const fromStatus = item.status || 'In Stock';
+
+      if (!this.canTransition(fromStatus, targetStatus)) {
+        throw new Error(`Illegal inventory transition: Cannot transition piece "${item.name || item.sku || item.id}" from "${fromStatus}" to "${targetStatus}".`);
+      }
+
+      switch (targetStatus) {
+        case 'Sold': {
+          const price = payload.soldPrice !== undefined ? payload.soldPrice : payload.salePrice;
+          if (price === undefined || price === null || isNaN(Number(price))) {
+            throw new Error(`Sold transition requires soldPrice for piece ${item.sku || item.id}`);
+          }
+          item.status = 'Sold';
+          item.soldPrice = Number(price);
+          item.soldDate = payload.soldDate || new Date().toISOString().split('T')[0];
+          item.soldTo = payload.soldTo || payload.customerName || 'Direct Sale';
+          if (payload.soldBroker || payload.broker) item.soldBroker = payload.soldBroker || payload.broker;
+          if (payload.saleRecordId) item.activeSaleId = payload.saleRecordId;
+          break;
+        }
+
+        case 'On Memo':
+        case 'Issued':
+          item.status = targetStatus;
+          if (payload.memoId) item.activeMemoId = payload.memoId;
+          if (payload.memoNumber) item.issuedMemoNumber = payload.memoNumber;
+          if (payload.personName || payload.customerName) item.issuedTo = payload.personName || payload.customerName;
+          if (payload.brokerName || payload.broker) item.issuedBroker = payload.brokerName || payload.broker;
+          break;
+
+        case 'Reserved':
+          item.status = 'Reserved';
+          if (payload.reservation) item.reservation = payload.reservation;
+          break;
+
+        case 'In Stock':
+          item.status = 'In Stock';
+          item.activeSaleId = null;
+          item.activeMemoId = null;
+          item.reservation = null;
+          delete item.soldPrice;
+          delete item.soldDate;
+          delete item.soldTo;
+          delete item.soldBroker;
+          delete item.issuedMemoNumber;
+          delete item.issuedTo;
+          delete item.issuedBroker;
+          break;
+      }
+
+      item.statusChangedAt = new Date().toISOString();
+      item.clientMutationId = payload.clientMutationId || `mut_fsm_${item.id || 'it'}_${Date.now()}`;
+      item.updatedAt = new Date().toISOString();
+      return item;
+    },
+
+    transitionItem(item, targetStatus, payload = {}) {
+      return this.transition(item, targetStatus, payload);
+    }
+  },
+
+  /**
+   * Atomically transitions an inventory piece through the FSM, updates indexes,
+   * emits a reactive event, and schedules a database write.
+   */
+  transitionItem(itemIdOrItem, targetStatus, payload = {}) {
+    const item = typeof itemIdOrItem === 'object' ? itemIdOrItem : this.getItem(itemIdOrItem);
+    if (!item) return null;
+    const oldStatus = item.status || 'In Stock';
+    this.InventoryFSM.transition(item, targetStatus, payload);
+    this._indexItem(item);
+    this.emit('items:status-changed', { item, from: oldStatus, to: targetStatus, payload });
+    this.saveItem('mava_catalog_items', item);
+    return item;
+  },
+
   // Empty default database structure
   getDefaultStructure() {
     return {
@@ -73,6 +335,8 @@ const DBManager = {
       this.database = baseDb;
       this.activePath = customPath;
       this.isLoaded = true;
+      this._rebuildIndexes();
+      this.emit('vault:loaded', { path: customPath, isNew: true });
 
       // Add initialization log
       this.addLog("ADD", "vault", "Vault", "Initialized plain-text database vault.", []);
@@ -128,6 +392,8 @@ const DBManager = {
 
       // Resequence jewelry serial numbers so active inventory count is strictly continuous
       this.resequenceJewelrySno();
+      this._rebuildIndexes();
+      this.emit('vault:loaded', { path: customPath, isNew: false });
 
       // Save path to local persistent configuration
       await window.electronAPI.setLastDbPath(customPath);
@@ -421,12 +687,31 @@ const DBManager = {
     if (!item.id && idVal) item.id = idVal;
     item.updatedAt = new Date().toISOString();
 
+    // Assign deterministic idempotency key if not present
+    if (!item.clientMutationId) {
+      item.clientMutationId = this.generateIdempotencyKey(dbKey, item.id || idVal, item.updatedAt);
+    }
+
     const idx = arr.findIndex(i => i && String(i.id) === String(idVal));
     if (idx >= 0) {
       arr[idx] = item;
     } else {
       arr.push(item);
     }
+
+    // Maintain normalized O(1) indexes
+    if (dbKey === 'items') {
+      this._indexItem(item);
+    } else if (dbKey === 'jewelrySales') {
+      if (item.itemId) this._indexes.salesByItemId.set(String(item.itemId), item);
+      if (item.sku) this._indexes.salesBySku.set(item.sku.trim().toLowerCase(), item);
+    } else if (dbKey === 'jewelryMemos') {
+      if (item.id) this._indexes.memosById.set(String(item.id), item);
+      if (item.memoNumber) this._indexes.memosByNumber.set(item.memoNumber.trim().toUpperCase(), item);
+    }
+
+    // Emit reactive event
+    this.emit(`${dbKey}:saved`, { item, id: item.id, collection: firestoreCol });
 
     // Direct Firestore patch in background (only this single record!)
     const cloudSync = this._getCloudSync();
@@ -467,6 +752,13 @@ const DBManager = {
     Object.assign(item, fieldsPatch);
     item.updatedAt = new Date().toISOString();
 
+    // Maintain normalized O(1) indexes
+    if (dbKey === 'items') {
+      this._indexItem(item);
+    }
+
+    this.emit(`${dbKey}:patched`, { item, id: itemId, fieldsPatch, collection: firestoreCol });
+
     const fieldPaths = Object.keys(fieldsPatch);
     if (!fieldPaths.includes('updatedAt')) fieldPaths.push('updatedAt');
 
@@ -496,7 +788,19 @@ const DBManager = {
     const { dbKey, firestoreCol } = this._resolveCollectionNames(collectionKey);
     if (!Array.isArray(this.database[dbKey])) return false;
 
+    const existing = this.database[dbKey].find(i => i && String(i.id) === String(itemId));
+    if (dbKey === 'items' && existing) {
+      this._unindexItem(existing);
+    } else if (dbKey === 'jewelrySales' && existing) {
+      if (existing.itemId) this._indexes.salesByItemId.delete(String(existing.itemId));
+      if (existing.sku) this._indexes.salesBySku.delete(existing.sku.trim().toLowerCase());
+    } else if (dbKey === 'jewelryMemos' && existing) {
+      if (existing.id) this._indexes.memosById.delete(String(existing.id));
+      if (existing.memoNumber) this._indexes.memosByNumber.delete(existing.memoNumber.trim().toUpperCase());
+    }
+
     this.database[dbKey] = this.database[dbKey].filter(i => i && String(i.id) !== String(itemId));
+    this.emit(`${dbKey}:deleted`, { id: itemId, collection: firestoreCol });
 
     if (typeof window !== 'undefined' && window.CloudSync && window.CloudSync.isEnabled()) {
       window.CloudSync.deleteDocument(firestoreCol, String(itemId)).catch(err => {
@@ -576,7 +880,7 @@ const DBManager = {
       // Compress JSON (no indentation) to improve save performance and minimize memory/disk I/O overhead.
       const plainText = JSON.stringify(this.database);
       this._lastSelfSaveTime = Date.now();
-      if (window.electronAPI && typeof window.electronAPI.writeVault === 'function') {
+      if (typeof window !== 'undefined' && window.electronAPI && typeof window.electronAPI.writeVault === 'function') {
         await window.electronAPI.writeVault(plainText, this.activePath);
       }
       this._lastSelfSaveTime = Date.now();

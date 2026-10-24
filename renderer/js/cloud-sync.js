@@ -818,6 +818,51 @@
     },
 
     /**
+     * Decouple heavy media binaries from an item (Pillar 4: Decoupled Binary Media & LQIP).
+     * If the item contains large base64 image data (e.g. item.image or item.images),
+     * this uploads the high-res binary to cloud storage and keeps a lightweight compact URL/LQIP,
+     * preventing database bloat and maintaining instantaneous local vault write speeds.
+     * @param {object} item - Inventory item or gemstone parcel
+     * @param {string} [folder='items'] - Storage folder path
+     * @returns {Promise<object>} Item with decoupled media URLs
+     */
+    async decoupleMedia(item, folder = 'items') {
+      if (!item || typeof item !== 'object') return item;
+      const copy = { ...item };
+      const itemKey = copy.id || copy.sku || `item_${Date.now()}`;
+
+      // Single primary image
+      if (typeof copy.image === 'string' && copy.image.startsWith('data:image/')) {
+        const ext = copy.image.includes('image/png') ? 'png' : 'jpg';
+        const remotePath = `media/${folder}/${itemKey}_primary.${ext}`;
+        const url = await this.uploadImage(copy.image, remotePath);
+        if (url && url !== copy.image) {
+          copy.imageUrl = url;
+          copy.image = url;
+        }
+      }
+
+      // Array of images
+      if (Array.isArray(copy.images) && copy.images.length > 0) {
+        const newImages = [];
+        for (let idx = 0; idx < copy.images.length; idx++) {
+          const img = copy.images[idx];
+          if (typeof img === 'string' && img.startsWith('data:image/')) {
+            const ext = img.includes('image/png') ? 'png' : 'jpg';
+            const remotePath = `media/${folder}/${itemKey}_photo_${idx + 1}.${ext}`;
+            const url = await this.uploadImage(img, remotePath);
+            newImages.push(url || img);
+          } else {
+            newImages.push(img);
+          }
+        }
+        copy.images = newImages;
+      }
+
+      return copy;
+    },
+
+    /**
      * Internal fetch with timeout & cross-environment safety
      */
     async _fetchWithTimeout(url, options = {}) {
@@ -843,13 +888,19 @@
      * Safe bidirectional merge between local database array and remote records.
      * ZERO data loss: Never deletes local records missing from remote during normal sync.
      * Resolves conflicts by comparing `updatedAt` / `createdAt` timestamps.
+     * Supports idempotent clientMutationId deduplication (Pillar 3).
      */
     mergeArray(localArray = [], remoteArray = [], idKey = 'id', deletedIds = new Set()) {
       const merged = [...localArray];
       const localMap = new Map();
+      const localMutationMap = new Map();
+
       merged.forEach((item, index) => {
         if (item && item[idKey]) {
           localMap.set(String(item[idKey]), index);
+        }
+        if (item && item.clientMutationId) {
+          localMutationMap.set(String(item.clientMutationId), index);
         }
       });
 
@@ -862,8 +913,13 @@
         if (deletedIds && deletedIds.has(rKey)) continue;
         if ((rKey === 'item_1' && !remoteItem.name && !remoteItem.customerName) || (remoteItem.sku === 'MG-01' && !remoteItem.name && !remoteItem.customerName)) continue;
 
-        if (localMap.has(rKey)) {
-          const localIndex = localMap.get(rKey);
+        // Check for match either by primary idKey OR by clientMutationId (idempotent matching)
+        let localIndex = localMap.get(rKey);
+        if (localIndex === undefined && remoteItem.clientMutationId && localMutationMap.has(String(remoteItem.clientMutationId))) {
+          localIndex = localMutationMap.get(String(remoteItem.clientMutationId));
+        }
+
+        if (localIndex !== undefined) {
           const localItem = merged[localIndex];
 
           const localTime = new Date(localItem.updatedAt || localItem.createdAt || 0).getTime();
@@ -886,7 +942,11 @@
         } else {
           // New record from cloud: add to local inventory
           merged.push(remoteItem);
-          localMap.set(rKey, merged.length - 1);
+          const newIdx = merged.length - 1;
+          localMap.set(rKey, newIdx);
+          if (remoteItem.clientMutationId) {
+            localMutationMap.set(String(remoteItem.clientMutationId), newIdx);
+          }
           updatedRemoteCount++;
         }
       }
@@ -896,7 +956,12 @@
         if (localItem && localItem[idKey]) {
           const lKey = String(localItem[idKey]);
           if (deletedIds && deletedIds.has(lKey)) continue;
-          const existsInRemote = remoteArray.some(r => r && String(r[idKey]) === lKey);
+          const existsInRemote = remoteArray.some(r => {
+            if (!r) return false;
+            if (String(r[idKey]) === lKey) return true;
+            if (localItem.clientMutationId && r.clientMutationId && String(localItem.clientMutationId) === String(r.clientMutationId)) return true;
+            return false;
+          });
           if (!existsInRemote) {
             itemsToUpload.push(localItem);
           }
