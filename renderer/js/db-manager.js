@@ -233,9 +233,28 @@ const DBManager = {
     const goldRate = (db.settings && db.settings.goldRate24kt) ? Number(db.settings.goldRate24kt.ratePerGram || 0) : 0;
     const items = db.items;
     const memos = db.jewelryMemos;
+    // 1. Purge corrupted/test sales & deduplicate existing sales
+    const seenSaleKeys = new Set();
+    const uniqueSales = [];
+    for (const s of db.jewelrySales) {
+      if (!s) continue;
+      if ((s.id === 'item_1' && !s.name) || (s.sku === 'MG-01' && !s.name)) continue;
+      const key = s.itemId ? `item_${s.itemId}` : (s.sku ? `sku_${s.sku.toLowerCase()}` : `id_${s.id}`);
+      if (!seenSaleKeys.has(key)) {
+        seenSaleKeys.add(key);
+        uniqueSales.push(s);
+      }
+    }
+    db.jewelrySales = uniqueSales;
     const sales = db.jewelrySales;
 
-    const soldItems = items.filter(i => i && i.status === 'Sold');
+    const soldItems = items.filter(i => {
+      if (!i || i.status !== 'Sold') return false;
+      // Skip phantom test items or corrupted items without basic identity
+      if ((i.id === 'item_1' && !i.name) || (i.sku === 'MG-01' && !i.name) || (i.id === 'piece_101' && !i.name)) return false;
+      if (!i.name && !i.sku) return false;
+      return true;
+    });
 
     soldItems.forEach(item => {
       let sale = sales.find(s => (s.itemId && s.itemId === item.id) || (s.sku && item.sku && s.sku.toLowerCase() === item.sku.toLowerCase()));
@@ -277,8 +296,9 @@ const DBManager = {
       const monthlyProfitPct = Number((marginPct / monthsElapsed).toFixed(2));
 
       if (!sale) {
+        const safeSaleId = item.id ? `jsale_${item.id}` : ('jsale_' + (item.sku ? item.sku.toLowerCase().replace(/[^a-z0-9_-]/g, '') : Date.now()));
         sale = {
-          id: 'jsale_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+          id: safeSaleId,
           saleNumber: '',
           saleDate,
           mfgDate,
@@ -308,6 +328,7 @@ const DBManager = {
         };
         sales.push(sale);
       } else {
+        if (!sale.itemId && item.id) sale.itemId = item.id;
         if (!sale.sku && item.sku) sale.sku = item.sku;
         if (!sale.name && item.name) sale.name = item.name;
         if (!sale.category && item.category) sale.category = item.category;

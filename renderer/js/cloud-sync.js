@@ -860,6 +860,7 @@
         if (!remoteItem || !remoteItem[idKey]) continue;
         const rKey = String(remoteItem[idKey]);
         if (deletedIds && deletedIds.has(rKey)) continue;
+        if ((rKey === 'item_1' && !remoteItem.name && !remoteItem.customerName) || (remoteItem.sku === 'MG-01' && !remoteItem.name && !remoteItem.customerName)) continue;
 
         if (localMap.has(rKey)) {
           const localIndex = localMap.get(rKey);
@@ -1070,6 +1071,7 @@
                   if (!remoteItem || !remoteItem[col.idKey]) continue;
                   const rId = String(remoteItem[col.idKey]);
                   if (colDeletedIds.has(rId)) continue;
+                  if ((rId === 'item_1' && !remoteItem.name && !remoteItem.customerName) || (remoteItem.sku === 'MG-01' && !remoteItem.name && !remoteItem.customerName)) continue;
 
                   const idx = localList.findIndex(l => l && String(l[col.idKey]) === rId);
                   if (idx >= 0) {

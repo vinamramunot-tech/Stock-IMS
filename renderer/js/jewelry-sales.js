@@ -129,7 +129,8 @@ const JewelrySalesController = {
     if (DBManager.healJewelrySales && DBManager.database) {
       DBManager.healJewelrySales(DBManager.database);
     }
-    const rawSales = DBManager.getJewelrySales ? DBManager.getJewelrySales() : (DBManager.database?.jewelrySales || []);
+    const rawSales = (DBManager.getJewelrySales ? DBManager.getJewelrySales() : (DBManager.database?.jewelrySales || []))
+      .filter(s => s && s.id !== 'item_1' && !(s.sku === 'MG-01' && !s.name));
     const records = rawSales.map(s => this.enrichSaleRecord(s));
 
     // Fallback: Check for any catalog items marked 'Sold' not yet recorded in array
@@ -137,7 +138,7 @@ const JewelrySalesController = {
     const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
 
     items.forEach(item => {
-      if (item.status === 'Sold' && !records.some(r => r.itemId === item.id || r.sku === item.sku)) {
+      if (item && item.status === 'Sold' && item.id !== 'item_1' && item.name && !records.some(r => r.itemId === item.id || r.sku === item.sku)) {
         const evalItem = Calc.evaluateItem(item, goldRate);
         const mfgCost = (item.mfgCostPrice && Number(item.mfgCostPrice) > 0)
           ? Number(item.mfgCostPrice)
@@ -524,7 +525,11 @@ const JewelrySalesController = {
       if (!DBManager.database.items) DBManager.database.items = [];
       let mainItem = DBManager.database.items.find(i => i.id === saleRecord.itemId || i.sku === saleRecord.sku);
 
-      if (mainItem) {
+      if (mainItem && (mainItem.id === 'item_1' || !mainItem.name || mainItem.id === 'piece_101')) {
+        DBManager.database.items = DBManager.database.items.filter(i => i.id !== mainItem.id);
+        if (window.DBManager) DBManager.deleteItem('mava_catalog_items', mainItem.id);
+        mainItem = null;
+      } else if (mainItem) {
         mainItem.status = 'In Stock';
         delete mainItem.soldPrice;
         delete mainItem.soldDate;

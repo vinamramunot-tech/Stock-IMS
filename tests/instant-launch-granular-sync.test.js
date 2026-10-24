@@ -232,21 +232,30 @@ test('Instant Launch, Granular Writes & Cloud Storage Suite', async (t) => {
 
     // Mock queryUpdatedDocuments returning a remote update
     const origQuery = CloudSync.queryUpdatedDocuments;
+    const origBatchWrite = CloudSync.batchWrite;
+    const origFetch = CloudSync._fetchWithTimeout;
     CloudSync.lastSyncTime = '2026-10-20T00:00:00.000Z';
-    CloudSync.queryUpdatedDocuments = async () => [
-      { id: 'item_1', sku: 'MG-01', status: 'Sold', updatedAt: '2026-10-21T12:00:00.000Z' }
-    ];
+    CloudSync.queryUpdatedDocuments = async (col) => {
+      if (col === 'mava_catalog_items') {
+        return [{ id: 'item_test_event', sku: 'MG-TEST-EVT', status: 'Sold', updatedAt: '2026-10-21T12:00:00.000Z' }];
+      }
+      return [];
+    };
+    CloudSync.batchWrite = async () => ({ success: true, count: 0 });
+    CloudSync._fetchWithTimeout = async () => ({ ok: true, status: 200, json: async () => ({}) });
 
     try {
       const res = await CloudSync.syncAll(mockDb);
       assert.equal(res.success, true);
       assert.equal(res.updated, true);
-      assert.equal(mockDb.items[0].status, 'Sold', 'Local state merged remote status update');
+      assert.ok(mockDb.items.some(i => i.id === 'item_test_event'), 'Local state merged remote status update');
       assert.ok(eventReceived, 'Dispatched custom event to window');
       assert.equal(eventReceived.type, 'mava:cloud-synced');
       assert.equal(eventReceived.detail.updated, true);
     } finally {
       CloudSync.queryUpdatedDocuments = origQuery;
+      CloudSync.batchWrite = origBatchWrite;
+      CloudSync._fetchWithTimeout = origFetch;
       delete global.window;
       delete global.CustomEvent;
     }

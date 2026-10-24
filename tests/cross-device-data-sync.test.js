@@ -322,19 +322,26 @@ test('Cross-Device Data Sync & Storage Pushes Test Suite', async (t) => {
 
   await t.test('7. DBManager.saveItem Always Refreshes updatedAt Timestamp', async () => {
     const DBManager = require(path.join(__dirname, '../renderer/js/db-manager.js'));
-    DBManager.database = {
-      items: [{ id: 'piece_101', sku: 'SKU-101', updatedAt: '2026-10-01T00:00:00.000Z' }]
-    };
+    const origSet = CloudSync.setDocument;
+    CloudSync.setDocument = async (col, id, data) => data;
 
-    const itemToUpdate = DBManager.database.items[0];
-    const oldTimestamp = itemToUpdate.updatedAt;
+    try {
+      DBManager.database = {
+        items: [{ id: 'piece_101', sku: 'SKU-101', updatedAt: '2026-10-01T00:00:00.000Z' }]
+      };
 
-    // Small delay to ensure timestamp difference
-    await new Promise(r => setTimeout(r, 10));
-    await DBManager.saveItem('mava_catalog_items', itemToUpdate);
+      const itemToUpdate = DBManager.database.items[0];
+      const oldTimestamp = itemToUpdate.updatedAt;
 
-    assert.notEqual(itemToUpdate.updatedAt, oldTimestamp, 'updatedAt was refreshed to current time');
-    assert.ok(new Date(itemToUpdate.updatedAt).getTime() > new Date(oldTimestamp).getTime(), 'New updatedAt is strictly newer');
+      // Small delay to ensure timestamp difference
+      await new Promise(r => setTimeout(r, 10));
+      await DBManager.saveItem('mava_catalog_items', itemToUpdate);
+
+      assert.notEqual(itemToUpdate.updatedAt, oldTimestamp, 'updatedAt was refreshed to current time');
+      assert.ok(new Date(itemToUpdate.updatedAt).getTime() > new Date(oldTimestamp).getTime(), 'New updatedAt is strictly newer');
+    } finally {
+      CloudSync.setDocument = origSet;
+    }
   });
 
   await t.test('8. Full Reconciliation & mergeArray: Remote Updates on Existing Memos are Applied Even When Array Lengths Match', async () => {
