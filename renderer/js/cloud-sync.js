@@ -18,6 +18,10 @@
     databaseId: '(default)',
     collectionPrefix: 'mava_catalog',
     autoSyncIntervalMs: 15000, // 15 seconds fast active sync
+    idleSyncIntervalMs: 60000, // 60 seconds when application is idle
+    idleThresholdMs: 120000,   // 2 minutes inactivity considered idle
+    fullReconIntervalCycles: 15, // Periodic full catalog check (cycles)
+    realtimeStreamEnabled: true, // Phase 1: Real-time Firestore push streaming
     timeoutMs: 12000
   };
 
@@ -31,6 +35,9 @@
     _syncPending: false,
     _syncTimeout: null,
     _listeners: [],
+    _syncedDocVersions: new Map(),
+    _lastUserActivity: Date.now(),
+    _lastSyncAttempt: Date.now(),
     STORAGE_KEY_QUEUE: 'mava_offline_sync_queue',
 
     /**
@@ -39,12 +46,21 @@
     init(customConfig = {}) {
       this._batchWriteForbidden = false;
       this._syncCount = 0;
+      this._syncedDocVersions = new Map();
+      this._lastUserActivity = Date.now();
+      this._lastSyncAttempt = Date.now();
       this.loadConfig();
       if (customConfig && typeof customConfig === 'object') {
         this.config = { ...this.config, ...customConfig };
       }
+      if (this.presence && typeof this.presence.init === 'function') {
+        this.presence.init();
+      }
       this.updateStatus('idle', 'Cloud Sync initialized');
       this.setupAutoSync();
+      if (this.config.realtimeStreamEnabled && typeof window !== 'undefined') {
+        this.startRealtimeListener().catch(() => {});
+      }
     },
 
     /**
@@ -244,7 +260,63 @@
       for (const [k, v] of Object.entries(doc.fields)) {
         result[k] = this.fromFirestoreValue(v);
       }
+      if (doc.updateTime) {
+        result._serverUpdateTime = doc.updateTime;
+      }
       return result;
+    },
+
+    /**
+     * Track a successfully synced document version to avoid redundant delta re-uploads
+     */
+    recordSyncedDoc(collectionName, docId, localUpdatedAt, serverUpdateTime = null) {
+      if (!this._syncedDocVersions) {
+        this._syncedDocVersions = new Map();
+      }
+      // Bound cache to 5,000 entries
+      if (this._syncedDocVersions.size > 5000) {
+        const firstKey = this._syncedDocVersions.keys().next().value;
+        this._syncedDocVersions.delete(firstKey);
+      }
+      const key = `${collectionName}__${docId}`;
+      this._syncedDocVersions.set(key, {
+        localUpdatedAt: localUpdatedAt || null,
+        serverUpdateTime: serverUpdateTime || null,
+        timestamp: Date.now()
+      });
+    },
+
+    /**
+     * Check if this exact version of a document has already been committed to Firestore
+     */
+    isAlreadySynced(collectionName, docId, localUpdatedAt) {
+      if (!this._syncedDocVersions || !localUpdatedAt) return false;
+      const key = `${collectionName}__${docId}`;
+      const entry = this._syncedDocVersions.get(key);
+      if (!entry) return false;
+      return entry.localUpdatedAt === localUpdatedAt;
+    },
+
+    /**
+     * Record user interaction to reset idle backoff
+     */
+    recordActivity() {
+      const wasIdle = this.isIdle();
+      this._lastUserActivity = Date.now();
+      if (wasIdle && this.isEnabled() && !this.syncInProgress) {
+        this.queueSync(200);
+      }
+    },
+
+    /**
+     * Determine if application is currently idle
+     */
+    isIdle() {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        return true;
+      }
+      const idleThreshold = (this.config && this.config.idleThresholdMs) || 120000;
+      return (Date.now() - (this._lastUserActivity || 0)) > idleThreshold;
     },
 
     /**
@@ -351,6 +423,14 @@
 
         const data = await res.json();
         totalCommitted += (data.writeResults ? data.writeResults.length : chunk.length);
+
+        // Deduplication: Record all successfully batch-written items
+        chunk.forEach((op, opIdx) => {
+          if (op && op.op !== 'delete' && op.data && op.data.updatedAt) {
+            const serverTime = data.writeResults && data.writeResults[opIdx] ? data.writeResults[opIdx].updateTime : null;
+            this.recordSyncedDoc(op.collection, op.id, op.data.updatedAt, serverTime);
+          }
+        });
       }
 
       return { success: true, count: totalCommitted };
@@ -465,24 +545,87 @@
     },
 
     /**
-     * Save or Patch document in Firestore REST API (with offline queue fallback)
+     * Save or Patch document in Firestore REST API (with offline queue fallback,
+     * granular updateMask fieldPaths, optimistic concurrency preconditions, and auto-conflict retry)
      */
-    async setDocument(collectionName, docId, dataObj) {
+    async setDocument(collectionName, docId, dataObj, options = {}) {
       try {
         const baseUrl = this.getBaseUrl();
-        const apiKey = this.config.apiKey ? `?key=${encodeURIComponent(this.config.apiKey)}` : '';
-        const url = `${baseUrl}/${encodeURIComponent(collectionName)}/${encodeURIComponent(docId)}${apiKey}`;
+        const queryParams = [];
+
+        if (this.config.apiKey) {
+          queryParams.push(`key=${encodeURIComponent(this.config.apiKey)}`);
+        }
+
+        // Granular Field-Level Updates via updateMask.fieldPaths
+        if (Array.isArray(options.fieldPaths) && options.fieldPaths.length > 0) {
+          for (const fp of options.fieldPaths) {
+            queryParams.push(`updateMask.fieldPaths=${encodeURIComponent(fp)}`);
+          }
+        }
+
+        // Optimistic Concurrency Control (Preconditions)
+        if (options.precondition) {
+          if (options.precondition.updateTime) {
+            queryParams.push(`currentDocument.updateTime=${encodeURIComponent(options.precondition.updateTime)}`);
+          }
+          if (options.precondition.exists !== undefined) {
+            queryParams.push(`currentDocument.exists=${Boolean(options.precondition.exists)}`);
+          }
+        }
+
+        const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
+        const url = `${baseUrl}/${encodeURIComponent(collectionName)}/${encodeURIComponent(docId)}${queryString}`;
 
         if (dataObj && typeof dataObj === 'object' && !dataObj.updatedAt) {
           dataObj.updatedAt = new Date().toISOString();
         }
 
-        const docPayload = this.objectToFirestoreDocument(dataObj);
+        // Prepare payload: filter by fieldPaths if specified
+        let payloadSource = dataObj;
+        if (Array.isArray(options.fieldPaths) && options.fieldPaths.length > 0) {
+          payloadSource = {};
+          for (const fp of options.fieldPaths) {
+            if (dataObj && dataObj[fp] !== undefined) {
+              payloadSource[fp] = dataObj[fp];
+            }
+          }
+        }
+
+        const docPayload = this.objectToFirestoreDocument(payloadSource);
         const res = await this._fetchWithTimeout(url, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(docPayload)
         });
+
+        // Handle Optimistic Concurrency Conflict (412 Precondition Failed)
+        if (res.status === 412 && options.retryOnConflict !== false) {
+          console.warn(`Firestore 412 Precondition Failed for ${collectionName}/${docId}. Resolving conflict...`);
+          try {
+            const remoteDoc = await this.getDocument(collectionName, docId);
+            if (remoteDoc) {
+              // Intelligent field-level merge: remote as base, local overlaid
+              const mergedData = { ...remoteDoc, ...dataObj };
+              mergedData.updatedAt = new Date().toISOString();
+              const newPrecondition = remoteDoc._serverUpdateTime ? { updateTime: remoteDoc._serverUpdateTime } : null;
+              return await this.setDocument(collectionName, docId, mergedData, {
+                ...options,
+                precondition: newPrecondition,
+                retryOnConflict: false
+              });
+            } else {
+              // Remote document was removed or missing, retry without updateTime
+              return await this.setDocument(collectionName, docId, dataObj, {
+                ...options,
+                precondition: null,
+                retryOnConflict: false
+              });
+            }
+          } catch (retryErr) {
+            console.warn(`Conflict auto-retry for ${collectionName}/${docId} failed:`, retryErr.message);
+          }
+        }
 
         if (!res.ok) {
           const errText = await res.text();
@@ -491,7 +634,22 @@
         const data = await res.json();
         // Remove any old deletion record in the background
         this.removeRemoteDeletion(collectionName, docId).catch(() => {});
-        return this.firestoreDocumentToObject(data);
+        const converted = this.firestoreDocumentToObject(data);
+
+        // Server Timestamp & UpdateTime Preservation
+        if (data && data.updateTime) {
+          if (converted && typeof converted === 'object') {
+            converted._serverUpdateTime = data.updateTime;
+          }
+          if (dataObj && typeof dataObj === 'object') {
+            dataObj._serverUpdateTime = data.updateTime;
+          }
+        }
+
+        // Deduplication: Record this document version as synced
+        this.recordSyncedDoc(collectionName, docId, dataObj.updatedAt, data && data.updateTime);
+
+        return converted || dataObj;
       } catch (err) {
         console.warn(`setDocument ${collectionName}/${docId} offline fallback:`, err.message);
         this.enqueueMutation(collectionName, docId, dataObj, 'set');
@@ -804,9 +962,8 @@
       const startTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
       this.syncInProgress = true;
       this._syncCount = (this._syncCount || 0) + 1;
-      // Perform full reconciliation on initial sync or periodically every 10 delta syncs to heal edge-case drift
-      // Fix: Full reconciliation every 5 delta cycles (was 10) to heal cross-device drift faster
-      const isDelta = Boolean(this.lastSyncTime && !options.forceFull && (this._syncCount % 5 !== 0));
+      const reconInterval = (this.config && this.config.fullReconIntervalCycles) || 15;
+      const isDelta = Boolean(this.lastSyncTime && !options.forceFull && (this._syncCount % reconInterval !== 0));
       this.updateStatus('syncing', isDelta ? 'Checking cloud for updates...' : 'Syncing full catalog with cloud...');
 
       // Drain any pending write-ahead mutations before reconciling
@@ -823,7 +980,8 @@
         { name: `${prefix}_jewelry_memos`, key: 'jewelryMemos', idKey: 'id' },
         { name: `${prefix}_jewel_stone_memos`, key: 'jewelStoneMemos', idKey: 'id' },
         { name: `${prefix}_jewelry_sales`, key: 'jewelrySales', idKey: 'id' },
-        { name: `${prefix}_emerald_sales`, key: 'sales', idKey: 'id' }
+        { name: `${prefix}_emerald_sales`, key: 'sales', idKey: 'id' },
+        { name: `${prefix}_stock_ledger`, key: 'stockLedger', idKey: 'id' }
       ];
 
       let anyUpdates = false;
@@ -941,7 +1099,13 @@
                 const rId = String(item[col.idKey]);
                 if (colDeletedIds.has(rId)) return false;
                 const itemTime = new Date(item.updatedAt || item.createdAt || 0).getTime();
-                return itemTime > lastSyncMs;
+                if (itemTime <= lastSyncMs) return false;
+
+                // Deduplication: Avoid re-uploading an item version already directly synced
+                if (this.isAlreadySynced(col.name, rId, item.updatedAt)) {
+                  return false;
+                }
+                return true;
               });
 
               if (localDeltaUploads.length > 0) {
@@ -1106,10 +1270,18 @@
      * Start recurring background auto-sync and real-time wake listeners
      */
     setupAutoSync() {
+      this._lastUserActivity = Date.now();
+      this._lastSyncAttempt = Date.now();
+
+      const onActivity = () => {
+        this.recordActivity();
+      };
+
       // 1. Instant sync when app regains focus or user unlocks mobile screen
       if (typeof window !== 'undefined' && window.addEventListener && !this._listenersBound) {
         this._listenersBound = true;
         window.addEventListener('focus', () => {
+          onActivity();
           if (this.isEnabled() && !this.syncInProgress) {
             // Fix: Drain the offline write-ahead queue first so any memo saves that
             // the iPhone queued while offline are flushed before the reconciliation read.
@@ -1117,31 +1289,372 @@
           }
         });
         window.addEventListener('online', () => {
+          onActivity();
           this.drainPendingQueue().then(() => {
             this.queueSync(200);
           });
         });
         if (typeof document !== 'undefined' && document.addEventListener) {
           document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible' && this.isEnabled() && !this.syncInProgress) {
-              // Fix: Also drain queue on tab/window becoming visible (covers browser-embedded view)
-              this.drainPendingQueue().then(() => this.queueSync(200)).catch(() => this.queueSync(200));
+            if (document.visibilityState === 'visible') {
+              onActivity();
+              if (this.isEnabled() && !this.syncInProgress) {
+                // Fix: Also drain queue on tab/window becoming visible (covers browser-embedded view)
+                this.drainPendingQueue().then(() => this.queueSync(200)).catch(() => this.queueSync(200));
+              }
             }
+          });
+
+          // Debounced user activity listeners to wake from idle state
+          let activityThrottle = null;
+          const handleUserInteraction = () => {
+            if (!activityThrottle) {
+              activityThrottle = setTimeout(() => {
+                activityThrottle = null;
+                onActivity();
+              }, 3000);
+            }
+          };
+          ['mousedown', 'keydown', 'touchstart'].forEach(evt => {
+            try {
+              document.addEventListener(evt, handleUserInteraction, { passive: true });
+            } catch (_) {}
           });
         }
       }
 
-      // 2. Active recurring interval
+      // 2. Active & Adaptive recurring interval
       if (typeof setInterval === 'undefined') return;
       if (this._autoSyncInterval) clearInterval(this._autoSyncInterval);
-      const interval = Math.max(10000, this.config.autoSyncIntervalMs || 15000);
+      const baseInterval = Math.max(10000, this.config.autoSyncIntervalMs || 15000);
+
       this._autoSyncInterval = setInterval(() => {
-        if (this.isEnabled() && !this.syncInProgress) {
+        if (!this.isEnabled() || this.syncInProgress) return;
+
+        // Redundant Polling Optimization: When real-time push streaming is connected,
+        // skip the aggressive 15s poll and only run a light 5-minute heartbeat check
+        if (this.isRealtimeConnected()) {
+          const now = Date.now();
+          if (now - this._lastSyncAttempt < 300000) {
+            return;
+          }
+        }
+
+        const now = Date.now();
+        const isIdle = this.isIdle();
+        const idleInterval = (this.config && this.config.idleSyncIntervalMs) || 60000;
+
+        if (isIdle) {
+          // In idle mode, only trigger sync once per idle interval
+          if (now - this._lastSyncAttempt >= idleInterval) {
+            this._lastSyncAttempt = now;
+            this.queueSync(500);
+          }
+        } else {
+          // In active mode, sync every baseInterval
+          this._lastSyncAttempt = now;
           this.queueSync(500);
         }
-      }, interval);
+      }, baseInterval);
+
       if (this._autoSyncInterval && typeof this._autoSyncInterval.unref === 'function') {
         this._autoSyncInterval.unref();
+      }
+    },
+
+    // =========================================================================
+    // Phase 1: Real-Time Push Streaming via Firestore REST :listen
+    // =========================================================================
+    realtime: {
+      connected: false,
+      abortController: null,
+      reconnectTimeout: null
+    },
+
+    async startRealtimeListener() {
+      if (!this.isEnabled()) return;
+      if (this.realtime.connected || this.realtime.abortController) return;
+
+      const { projectId, databaseId, apiKey, collectionPrefix } = this.config;
+      if (!projectId || !apiKey) return;
+
+      const prefix = collectionPrefix || 'mava_catalog';
+      const collectionsToWatch = [
+        `${prefix}_items`,
+        `${prefix}_emeralds`,
+        `${prefix}_stones`,
+        `${prefix}_jewelry_memos`,
+        `${prefix}_emerald_memos`,
+        `${prefix}_jewel_stone_memos`,
+        `${prefix}_jewelry_sales`,
+        `${prefix}_emerald_sales`,
+        `${prefix}_stock_ledger`
+      ];
+
+      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      this.realtime.abortController = controller;
+
+      try {
+        const url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/${encodeURIComponent(databaseId)}/documents:listen?key=${encodeURIComponent(apiKey)}`;
+
+        const targetBody = {
+          addTarget: {
+            query: {
+              parent: `projects/${projectId}/databases/${databaseId}/documents`,
+              structuredQuery: {
+                from: collectionsToWatch.map(c => ({ collectionId: c }))
+              }
+            },
+            targetId: 1
+          }
+        };
+
+        const res = await this._fetchWithTimeout(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(targetBody),
+          signal: controller ? controller.signal : undefined
+        });
+
+        if (!res.ok) {
+          this.realtime.connected = false;
+          this.realtime.abortController = null;
+          return;
+        }
+
+        this.realtime.connected = true;
+        this.updateStatus('online', 'Real-time sync active (Push Stream)');
+
+        if (res.body && typeof res.body.getReader === 'function') {
+          const reader = res.body.getReader();
+          const decoder = typeof TextDecoder !== 'undefined' ? new TextDecoder() : null;
+          let buffer = '';
+
+          while (this.realtime.connected) {
+            const { value, done } = await reader.read();
+            if (done) break;
+
+            if (decoder) {
+              buffer += decoder.decode(value, { stream: true });
+            } else if (typeof Buffer !== 'undefined') {
+              buffer += Buffer.from(value).toString('utf8');
+            }
+
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+
+            for (const line of lines) {
+              const clean = line.trim();
+              if (!clean) continue;
+              try {
+                const message = JSON.parse(clean);
+                this.handleRealtimeMessage(message);
+              } catch (_) {}
+            }
+          }
+        }
+      } catch (err) {
+        this.realtime.connected = false;
+        this.realtime.abortController = null;
+        if (this.isEnabled() && typeof setTimeout !== 'undefined') {
+          this.realtime.reconnectTimeout = setTimeout(() => {
+            if (!this.realtime.connected) {
+              this.startRealtimeListener().catch(() => {});
+            }
+          }, 15000);
+          if (this.realtime.reconnectTimeout && typeof this.realtime.reconnectTimeout.unref === 'function') {
+            this.realtime.reconnectTimeout.unref();
+          }
+        }
+      }
+    },
+
+    stopRealtimeListener() {
+      this.realtime.connected = false;
+      if (this.realtime.abortController) {
+        try { this.realtime.abortController.abort(); } catch (_) {}
+        this.realtime.abortController = null;
+      }
+      if (this.realtime.reconnectTimeout) {
+        clearTimeout(this.realtime.reconnectTimeout);
+        this.realtime.reconnectTimeout = null;
+      }
+    },
+
+    isRealtimeConnected() {
+      return Boolean(this.realtime && this.realtime.connected);
+    },
+
+    handleRealtimeMessage(message) {
+      if (!message || typeof message !== 'object') return;
+
+      if (message.documentChange && message.documentChange.document) {
+        const doc = message.documentChange.document;
+        const name = doc.name || '';
+        const parts = name.split('/documents/')[1]?.split('/') || [];
+        if (parts.length >= 2) {
+          const collectionName = parts[0];
+          const docId = parts.slice(1).join('/');
+          const dataObj = this.firestoreDocumentToObject(doc);
+          this.applyRemoteDocumentChange(collectionName, docId, dataObj, false);
+        }
+      }
+
+      if (message.documentDelete && message.documentDelete.document) {
+        const name = message.documentDelete.document;
+        const parts = name.split('/documents/')[1]?.split('/') || [];
+        if (parts.length >= 2) {
+          const collectionName = parts[0];
+          const docId = parts.slice(1).join('/');
+          this.applyRemoteDocumentChange(collectionName, docId, null, true);
+        }
+      }
+    },
+
+    applyRemoteDocumentChange(collectionName, docId, dataObj, isDelete = false) {
+      if (typeof window === 'undefined' || !window.DBManager || !window.DBManager.database) {
+        return;
+      }
+      const localDb = window.DBManager.database;
+      const { dbKey } = window.DBManager._resolveCollectionNames(collectionName);
+      if (!dbKey || !Array.isArray(localDb[dbKey])) return;
+
+      const arr = localDb[dbKey];
+      const idx = arr.findIndex(i => i && String(i.id) === String(docId));
+
+      let changed = false;
+      if (isDelete) {
+        if (idx >= 0) {
+          arr.splice(idx, 1);
+          changed = true;
+        }
+      } else if (dataObj) {
+        if (idx >= 0) {
+          const existing = arr[idx];
+          const merged = { ...existing, ...dataObj };
+          if (JSON.stringify(existing) !== JSON.stringify(merged)) {
+            arr[idx] = merged;
+            changed = true;
+          }
+        } else {
+          arr.push(dataObj);
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        window.DBManager.scheduleVaultFlush(500);
+        if (typeof window.dispatchEvent === 'function') {
+          window.dispatchEvent(new CustomEvent('mava:record-updated', {
+            detail: { collection: collectionName, id: docId, isDelete, data: dataObj }
+          }));
+          window.dispatchEvent(new CustomEvent('mava:cloud-synced', {
+            detail: { updated: true, realTime: true, timestamp: new Date().toISOString() }
+          }));
+        }
+      }
+    },
+
+    // =========================================================================
+    // Phase 3: Showroom Multi-User Presence
+    // =========================================================================
+    presence: {
+      deviceId: null,
+      staffName: 'Staff',
+      activeView: 'catalog',
+      activeSku: null,
+      onlineStaff: new Map(),
+      _heartbeatInterval: null,
+
+      init(staffName = null) {
+        if (!this.deviceId) {
+          try {
+            this.deviceId = (typeof localStorage !== 'undefined' && localStorage.getItem('mava_device_id')) ||
+              `dev_${Math.random().toString(36).substr(2, 9)}`;
+            if (typeof localStorage !== 'undefined') localStorage.setItem('mava_device_id', this.deviceId);
+          } catch (_) {
+            this.deviceId = `dev_${Date.now()}`;
+          }
+        }
+        if (staffName) this.staffName = staffName;
+        this.startHeartbeat();
+      },
+
+      setStaffIdentity(name) {
+        if (name) {
+          this.staffName = name;
+          this.broadcastPresence().catch(() => {});
+        }
+      },
+
+      updateView(viewName, activeSku = null) {
+        this.activeView = viewName || this.activeView;
+        this.activeSku = activeSku;
+        this.broadcastPresence().catch(() => {});
+      },
+
+      async broadcastPresence() {
+        if (!CloudSync.isEnabled()) return;
+        const payload = {
+          deviceId: this.deviceId,
+          staffName: this.staffName,
+          activeView: this.activeView,
+          activeSku: this.activeSku,
+          lastSeen: new Date().toISOString()
+        };
+        const prefix = CloudSync.config.collectionPrefix || 'mava_catalog';
+        try {
+          await CloudSync.setDocument(`${prefix}_presence`, this.deviceId, payload);
+        } catch (_) {}
+      },
+
+      async pollPresence() {
+        if (!CloudSync.isEnabled()) return [];
+        const prefix = CloudSync.config.collectionPrefix || 'mava_catalog';
+        try {
+          const records = await CloudSync.listDocuments(`${prefix}_presence`);
+          const now = Date.now();
+          const active = [];
+          this.onlineStaff.clear();
+
+          for (const r of (records || [])) {
+            if (!r || !r.lastSeen) continue;
+            const seenTime = new Date(r.lastSeen).getTime();
+            if (now - seenTime <= 120000) {
+              this.onlineStaff.set(r.deviceId || r.staffName, r);
+              active.push(r);
+            }
+          }
+
+          if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+            window.dispatchEvent(new CustomEvent('mava:presence-changed', { detail: { online: active } }));
+          }
+          return active;
+        } catch (_) {
+          return [];
+        }
+      },
+
+      getStaffViewingSku(sku) {
+        if (!sku) return [];
+        const viewers = [];
+        for (const p of this.onlineStaff.values()) {
+          if (p.activeSku && String(p.activeSku).toLowerCase() === String(sku).toLowerCase() && p.deviceId !== this.deviceId) {
+            viewers.push(p.staffName);
+          }
+        }
+        return viewers;
+      },
+
+      startHeartbeat() {
+        if (this._heartbeatInterval) clearInterval(this._heartbeatInterval);
+        this._heartbeatInterval = setInterval(() => {
+          this.broadcastPresence().catch(() => {});
+          this.pollPresence().catch(() => {});
+        }, 60000);
+        if (this._heartbeatInterval && typeof this._heartbeatInterval.unref === 'function') {
+          this._heartbeatInterval.unref();
+        }
       }
     }
   };

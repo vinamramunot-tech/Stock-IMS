@@ -26,7 +26,8 @@ const DBManager = {
     jewelStoneMemos: [],
     jewelryMemos: [],
     jewelrySales: [],
-    logs: []
+    logs: [],
+    stockLedger: []
   },
   activePath: 'mava_gems_stock.db',
   isLoaded: true,
@@ -55,7 +56,8 @@ const DBManager = {
       jewelStoneMemos: [],
       jewelryMemos: [],
       jewelrySales: [],
-      logs: []
+      logs: [],
+      stockLedger: []
     };
   },
 
@@ -147,6 +149,7 @@ const DBManager = {
     if (!Array.isArray(db.logs)) db.logs = [];
     if (!Array.isArray(db.jewelryMemos)) db.jewelryMemos = [];
     if (!Array.isArray(db.jewelStoneMemos)) db.jewelStoneMemos = [];
+    if (!Array.isArray(db.stockLedger)) db.stockLedger = [];
 
     const logsToRestore = [];
     const actualJewelryMemos = [];
@@ -358,12 +361,24 @@ const DBManager = {
       memos: { dbKey: 'memos', firestoreCol: 'mava_catalog_emerald_memos' },
       emeraldSales: { dbKey: 'sales', firestoreCol: 'mava_catalog_emerald_sales' },
       mava_catalog_emerald_sales: { dbKey: 'sales', firestoreCol: 'mava_catalog_emerald_sales' },
-      sales: { dbKey: 'sales', firestoreCol: 'mava_catalog_emerald_sales' }
+      sales: { dbKey: 'sales', firestoreCol: 'mava_catalog_emerald_sales' },
+      stockLedger: { dbKey: 'stockLedger', firestoreCol: 'mava_catalog_stock_ledger' },
+      mava_catalog_stock_ledger: { dbKey: 'stockLedger', firestoreCol: 'mava_catalog_stock_ledger' }
     };
     if (map[rawKey]) return map[rawKey];
     const dbKey = rawKey.replace(/^mava_catalog_/, '');
     const firestoreCol = rawKey.startsWith('mava_catalog_') ? rawKey : `mava_catalog_${rawKey}`;
     return { dbKey, firestoreCol };
+  },
+
+  _getCloudSync() {
+    if (typeof window !== 'undefined' && window.CloudSync) {
+      return window.CloudSync;
+    }
+    if (typeof global !== 'undefined' && global.CloudSync) {
+      return global.CloudSync;
+    }
+    return null;
   },
 
   /**
@@ -393,13 +408,61 @@ const DBManager = {
     }
 
     // Direct Firestore patch in background (only this single record!)
-    if (typeof window !== 'undefined' && window.CloudSync && window.CloudSync.isEnabled()) {
-      window.CloudSync.setDocument(firestoreCol, String(item.id), item).catch(err => {
+    const cloudSync = this._getCloudSync();
+    if (cloudSync && cloudSync.isEnabled()) {
+      const opts = {};
+      if (item._serverUpdateTime) {
+        opts.precondition = { updateTime: item._serverUpdateTime };
+      }
+      cloudSync.setDocument(firestoreCol, String(item.id), item, opts).then(res => {
+        if (res && res._serverUpdateTime) {
+          item._serverUpdateTime = res._serverUpdateTime;
+        }
+      }).catch(err => {
         console.warn(`Granular push ${firestoreCol}/${item.id} note:`, err.message);
       });
     }
 
     // Debounce the heavy full local disk write
+    this.scheduleVaultFlush();
+    return true;
+  },
+
+  /**
+   * Granular field-level patch for an individual item in a collection.
+   * Updates only specified fields using Firestore updateMask, avoiding full-document overwrites.
+   */
+  async patchItem(collectionKey, itemId, fieldsPatch) {
+    if (!this.database || !fieldsPatch || typeof fieldsPatch !== 'object') return false;
+    const { dbKey, firestoreCol } = this._resolveCollectionNames(collectionKey);
+    if (!Array.isArray(this.database[dbKey])) return false;
+
+    const arr = this.database[dbKey];
+    const idx = arr.findIndex(i => i && String(i.id) === String(itemId));
+    if (idx < 0) return false;
+
+    const item = arr[idx];
+    const previousUpdateTime = item._serverUpdateTime || null;
+    Object.assign(item, fieldsPatch);
+    item.updatedAt = new Date().toISOString();
+
+    const fieldPaths = Object.keys(fieldsPatch);
+    if (!fieldPaths.includes('updatedAt')) fieldPaths.push('updatedAt');
+
+    const cloudSync = this._getCloudSync();
+    if (cloudSync && cloudSync.isEnabled()) {
+      cloudSync.setDocument(firestoreCol, String(itemId), item, {
+        fieldPaths,
+        precondition: previousUpdateTime ? { updateTime: previousUpdateTime } : null
+      }).then(res => {
+        if (res && res._serverUpdateTime) {
+          item._serverUpdateTime = res._serverUpdateTime;
+        }
+      }).catch(err => {
+        console.warn(`Granular field patch ${firestoreCol}/${itemId} note:`, err.message);
+      });
+    }
+
     this.scheduleVaultFlush();
     return true;
   },
@@ -708,6 +771,222 @@ const DBManager = {
     soldItems.forEach(item => {
       item.sno = null;
     });
+  },
+
+  // =========================================================================
+  // Phase 2: Inventory Reservation State Machine
+  // Valid states: 'In Stock' -> 'Reserved' -> 'Issued' -> 'Sold'
+  // =========================================================================
+
+  /**
+   * Check if an inventory item is available to be reserved, issued, or sold.
+   */
+  checkItemAvailability(item, requestingStaff = null) {
+    if (!item) return { available: false, reason: 'Item not found' };
+    const status = item.status || 'In Stock';
+
+    if (status === 'Sold') {
+      return { available: false, reason: 'Item has already been sold' };
+    }
+    if (status === 'Issued') {
+      return { available: false, reason: `Item is currently out on Memo ${item.issuedMemoNumber || ''}`.trim() };
+    }
+    if (status === 'Reserved' && item.reservation) {
+      const expiresAt = new Date(item.reservation.expiresAt || 0).getTime();
+      const now = Date.now();
+      if (expiresAt > now) {
+        if (requestingStaff && item.reservation.staffName === requestingStaff) {
+          return { available: true, selfReserved: true, expiresAt: item.reservation.expiresAt };
+        }
+        return {
+          available: false,
+          reason: `Reserved by ${item.reservation.staffName || 'another staff member'} until ${new Date(expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+          heldBy: item.reservation.staffName,
+          expiresAt: item.reservation.expiresAt
+        };
+      }
+      // Reservation has expired
+      return { available: true, expiredReservation: true };
+    }
+    return { available: true };
+  },
+
+  /**
+   * Atomically reserve an item with a time-limited hold (default 10 minutes).
+   */
+  async reserveItem(collectionKey, itemId, staffName = 'Staff', durationMinutes = 10, memoRef = null) {
+    if (!this.database) return { success: false, reason: 'Database not loaded' };
+    const { dbKey } = this._resolveCollectionNames(collectionKey);
+    const arr = this.database[dbKey];
+    if (!Array.isArray(arr)) return { success: false, reason: 'Collection not found' };
+
+    const idx = arr.findIndex(i => i && String(i.id) === String(itemId));
+    if (idx < 0) return { success: false, reason: 'Item not found' };
+
+    const item = arr[idx];
+    const availability = this.checkItemAvailability(item, staffName);
+    if (!availability.available) {
+      return { success: false, reason: availability.reason, heldBy: availability.heldBy, expiresAt: availability.expiresAt };
+    }
+
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + Math.max(1, durationMinutes) * 60000).toISOString();
+    const reservation = {
+      staffName: staffName || 'Staff',
+      reservedAt: now.toISOString(),
+      expiresAt,
+      memoRef: memoRef || null
+    };
+
+    const fieldsPatch = {
+      status: 'Reserved',
+      reservation,
+      updatedAt: now.toISOString()
+    };
+
+    await this.patchItem(collectionKey, itemId, fieldsPatch);
+
+    // Record immutable audit event in stock ledger
+    this.recordStockEvent({
+      itemId: String(itemId),
+      sku: item.sku || null,
+      eventType: 'RESERVED',
+      staffName: staffName || 'Staff',
+      notes: `Reserved for ${durationMinutes} min${memoRef ? ` (Ref: ${memoRef})` : ''}`
+    });
+
+    return { success: true, item, expiresAt };
+  },
+
+  /**
+   * Release an active reservation back to 'In Stock'.
+   */
+  async releaseReservation(collectionKey, itemId, staffName = null) {
+    if (!this.database) return { success: false, reason: 'Database not loaded' };
+    const { dbKey } = this._resolveCollectionNames(collectionKey);
+    const arr = this.database[dbKey];
+    if (!Array.isArray(arr)) return { success: false, reason: 'Collection not found' };
+
+    const idx = arr.findIndex(i => i && String(i.id) === String(itemId));
+    if (idx < 0) return { success: false, reason: 'Item not found' };
+
+    const item = arr[idx];
+    if (item.status !== 'Reserved') {
+      return { success: true, alreadyReleased: true };
+    }
+
+    const fieldsPatch = {
+      status: 'In Stock',
+      reservation: null,
+      updatedAt: new Date().toISOString()
+    };
+
+    await this.patchItem(collectionKey, itemId, fieldsPatch);
+
+    this.recordStockEvent({
+      itemId: String(itemId),
+      sku: item.sku || null,
+      eventType: 'RESERVATION_RELEASED',
+      staffName: staffName || (item.reservation && item.reservation.staffName) || 'System',
+      notes: 'Reservation released back to In Stock'
+    });
+
+    return { success: true };
+  },
+
+  // =========================================================================
+  // Phase 4: Event-Sourced Carat & Stock Ledger
+  // =========================================================================
+
+  /**
+   * Record an immutable stock transition or carat adjustment event.
+   */
+  recordStockEvent({ itemId = null, sku = null, pudiaNumber = null, eventType, caratsDelta = 0, piecesDelta = 0, referenceId = null, staffName = 'Staff', notes = null }) {
+    if (!this.database) return null;
+    if (!Array.isArray(this.database.stockLedger)) {
+      this.database.stockLedger = [];
+    }
+
+    const event = {
+      id: `led_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+      timestamp: new Date().toISOString(),
+      eventType: eventType || 'NOTE',
+      itemId: itemId ? String(itemId) : null,
+      sku: sku ? String(sku) : null,
+      pudiaNumber: pudiaNumber ? String(pudiaNumber) : null,
+      caratsDelta: Number(Number(caratsDelta || 0).toFixed(3)),
+      piecesDelta: parseInt(piecesDelta || 0, 10),
+      referenceId: referenceId ? String(referenceId) : null,
+      staffName: staffName || 'Staff',
+      notes: notes || null
+    };
+
+    this.database.stockLedger.unshift(event);
+
+    // Keep bounded in local file to avoid indefinite ballooning (keep latest 5,000 events)
+    if (this.database.stockLedger.length > 5000) {
+      this.database.stockLedger.length = 5000;
+    }
+
+    // Direct push to Firestore in background
+    const cloudSync = this._getCloudSync();
+    if (cloudSync && cloudSync.isEnabled()) {
+      cloudSync.setDocument('mava_catalog_stock_ledger', event.id, event).catch(err => {
+        console.warn(`Stock ledger push ${event.id} note:`, err.message);
+      });
+    }
+
+    this.scheduleVaultFlush();
+    return event;
+  },
+
+  /**
+   * Retrieve the complete chronological ledger for a specific jewelry item or SKU.
+   */
+  getItemLedger(itemIdOrSku) {
+    if (!this.database || !Array.isArray(this.database.stockLedger) || !itemIdOrSku) return [];
+    const target = String(itemIdOrSku).toLowerCase();
+    return this.database.stockLedger.filter(ev =>
+      (ev.itemId && String(ev.itemId).toLowerCase() === target) ||
+      (ev.sku && String(ev.sku).toLowerCase() === target)
+    );
+  },
+
+  /**
+   * Retrieve the complete chronological carat deduction/return ledger for an emerald parcel.
+   */
+  getPudiaLedger(pudiaNumber) {
+    if (!this.database || !Array.isArray(this.database.stockLedger) || !pudiaNumber) return [];
+    const target = String(pudiaNumber).toLowerCase();
+    return this.database.stockLedger.filter(ev =>
+      ev.pudiaNumber && String(ev.pudiaNumber).toLowerCase() === target
+    );
+  },
+
+  /**
+   * Reconcile gemstone carats mathematically by summing all ledger events.
+   */
+  reconcileCaratBalance(pudiaNumber, currentLotWeight = null) {
+    const events = this.getPudiaLedger(pudiaNumber);
+    let netDeltas = 0;
+    for (const ev of events) {
+      netDeltas += Number(ev.caratsDelta || 0);
+    }
+    netDeltas = Number(netDeltas.toFixed(3));
+
+    let lotWeight = currentLotWeight;
+    if (lotWeight === null && this.database && Array.isArray(this.database.emeralds)) {
+      const pudia = this.database.emeralds.find(e => e && String(e.pudiaNumber || e.color || e.id).toLowerCase() === String(pudiaNumber).toLowerCase());
+      if (pudia) lotWeight = Number(pudia.weight || pudia.carats || 0);
+    }
+
+    return {
+      pudiaNumber,
+      eventCount: events.length,
+      netDeltas,
+      currentLotWeight: lotWeight,
+      isConserved: lotWeight !== null ? Math.abs(netDeltas) <= Number(lotWeight) : true
+    };
   },
 
   /**
