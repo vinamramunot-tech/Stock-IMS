@@ -725,10 +725,15 @@ datalist option {
   background: rgba(46, 204, 113, 0.08);
   border: 1px solid rgba(46, 204, 113, 0.3);
   border-radius: 20px;
+  /* Fix: Reserve enough width for the longest status label ('Offline (Local Safe)')
+     so the badge never reflows the header when the text changes during sync. */
+  min-width: 148px;
   padding: 5px 12px;
   cursor: pointer;
   user-select: none;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+  /* Prevent any size change from propagating to the header layout */
+  flex-shrink: 0;
 }
 
 .cloud-header-status:hover {
