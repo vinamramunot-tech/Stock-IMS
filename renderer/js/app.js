@@ -342,6 +342,14 @@ const App = {
         this.renderJewelryPhotos();
         break;
       case 'tab-jewelry-memos':
+        // Pull latest memos from Firestore first so mobile-created memos appear immediately
+        if (window.CloudSync && window.CloudSync.isEnabled() && !window.CloudSync.syncInProgress) {
+          window.CloudSync.syncAll(window.DBManager.database, { forceFull: true }).then((res) => {
+            if (res && res.updated && window.JewelryMemoController) {
+              JewelryMemoController.renderMemoList();
+            }
+          }).catch(() => {});
+        }
         if (window.JewelryMemoController) JewelryMemoController.renderMemoList();
         break;
       case 'tab-jewelry-sales':

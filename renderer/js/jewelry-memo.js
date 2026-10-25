@@ -136,15 +136,39 @@ const JewelryMemoController = {
     this.renderMemoList();
   },
 
-  getNextMemoNumber() {
-
-    const memos = DBManager.getJewelryMemos();
-    if (memos.length === 0) return 'JM-001';
-    const nums = memos.map(m => {
+  /**
+   * Returns the next sequential memo number by checking BOTH the local DB and
+   * Firestore cloud, so memos created on other devices (e.g. mobile) that have
+   * not yet synced locally are never skipped or duplicated.
+   * Falls back to local-only calculation if offline or CloudSync is unavailable.
+   */
+  async getNextMemoNumber() {
+    // 1. Local max
+    const localMemos = DBManager.getJewelryMemos();
+    const localNums = localMemos.map(m => {
       const match = (m.memoNumber || '').match(/JM-(\d+)/);
       return match ? parseInt(match[1], 10) : 0;
     });
-    const next = Math.max(...nums) + 1;
+    const localMax = localNums.length > 0 ? Math.max(...localNums) : 0;
+
+    // 2. Cloud max — query Firestore for the highest memo number seen in the cloud
+    let cloudMax = 0;
+    try {
+      if (window.CloudSync && window.CloudSync.isEnabled()) {
+        const cloudMemos = await window.CloudSync.listDocuments('mava_catalog_jewelry_memos');
+        if (Array.isArray(cloudMemos)) {
+          const cloudNums = cloudMemos.map(m => {
+            const match = (m.memoNumber || '').match(/JM-(\d+)/);
+            return match ? parseInt(match[1], 10) : 0;
+          });
+          cloudMax = cloudNums.length > 0 ? Math.max(...cloudNums) : 0;
+        }
+      }
+    } catch (e) {
+      console.warn('getNextMemoNumber: cloud check failed, using local count only.', e.message);
+    }
+
+    const next = Math.max(localMax, cloudMax) + 1;
     return `JM-${String(next).padStart(3, '0')}`;
   },
 
@@ -693,7 +717,8 @@ const JewelryMemoController = {
     }
 
     const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
-    const memoNumber = this.getNextMemoNumber();
+    // Await cloud-checked memo number to avoid duplicate numbers with mobile-created memos
+    const memoNumber = await this.getNextMemoNumber();
 
     const memoItems = this.selectedItems.map(item => {
       const evalItem = Calc.evaluateItem(item, goldRate);
