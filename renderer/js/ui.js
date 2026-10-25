@@ -76,10 +76,14 @@ const UI = {
     msgEl.textContent = message;
 
     if (isError) {
-      toast.style.backgroundColor = 'var(--danger-red)';
+      toast.style.backgroundColor = '#d32f2f';
+      toast.style.color = '#ffffff';
     } else {
-      toast.style.backgroundColor = 'var(--border-dark)';
+      toast.style.backgroundColor = '#16161c';
+      toast.style.color = '#ffffff';
     }
+    toast.style.border = '1px solid rgba(212, 175, 55, 0.6)';
+    toast.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.4)';
 
     toast.classList.remove('hidden');
 
