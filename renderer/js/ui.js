@@ -98,17 +98,31 @@ const UI = {
   },
 
   // Custom generic confirm dialog to bypass Tauri v2 native blocking
-  confirm(message, callback) {
+  confirm(message, callback, options = {}) {
     const modal = document.getElementById('modal-generic-confirm');
     if (!modal) return;
 
+    const titleEl = document.getElementById('generic-confirm-title') || modal.querySelector('.modal-header h3');
+    if (titleEl) {
+      titleEl.textContent = options.title || 'Confirm Action';
+    }
+
     const msgEl = document.getElementById('generic-confirm-msg');
-    if (msgEl) msgEl.textContent = message;
+    if (msgEl) {
+      msgEl.textContent = message;
+    }
 
     // Explicitly bind all buttons using onclick to overwrite any existing handlers and ensure they work
     const btnCancel = modal.querySelector('.btn-secondary');
     const btnConfirm = modal.querySelector('.btn-danger');
     const btnClose = modal.querySelector('.btn-close');
+
+    if (btnConfirm) {
+      btnConfirm.textContent = options.confirmText || 'Confirm';
+    }
+    if (btnCancel) {
+      btnCancel.textContent = options.cancelText || 'Cancel';
+    }
 
     const closeAndCleanup = () => {
       this.closeModal('modal-generic-confirm');

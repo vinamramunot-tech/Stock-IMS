@@ -1208,16 +1208,23 @@ const StoneController = {
       return;
     }
 
-    UI.confirm(`Are you sure you want to delete ${stone.type} Packet #${stone.color} from stock?`, async () => {
-      try {
-        await DBManager.deleteItem('mava_catalog_stones', stone.id);
-        DBManager.addLog("DELETE", stone.id, `${stone.type} #${stone.color}`, `Deleted loose stone stock`, []);
-        UI.showToast("Stock item deleted.");
-        App.refreshAllDisplays();
-      } catch (err) {
-        UI.showToast(err.message, true);
+    UI.confirm(
+      `Are you sure you want to delete ${stone.type} Packet #${stone.color} from stock?\n\nThis will permanently delete this loose stone packet from inventory. This action cannot be undone.`,
+      async () => {
+        try {
+          await DBManager.deleteItem('mava_catalog_stones', stone.id);
+          DBManager.addLog("DELETE", stone.id, `${stone.type} #${stone.color}`, `Deleted loose stone stock`, []);
+          UI.showToast("Stock item deleted.");
+          App.refreshAllDisplays();
+        } catch (err) {
+          UI.showToast(err.message, true);
+        }
+      },
+      {
+        title: 'Delete Stone Packet',
+        confirmText: 'Delete'
       }
-    });
+    );
   },
 
   async handleDeleteGroup(groupName) {

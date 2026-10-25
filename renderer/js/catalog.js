@@ -1159,10 +1159,20 @@ const Catalog = {
     }
     this._lastGridFingerprint = fingerprint;
 
+    // Lock container minHeight and preserve scroll position before clearing to prevent viewport jump
+    const mainWorkArea = document.querySelector('.workspace-main');
+    const prevScrollTop = mainWorkArea ? mainWorkArea.scrollTop : (window.scrollY || document.documentElement.scrollTop);
+    const prevHeight = gridContainer.offsetHeight;
+
+    if (prevHeight > 0) {
+      gridContainer.style.minHeight = `${prevHeight}px`;
+    }
+
     // Clear grid
     gridContainer.innerHTML = '';
 
     if (filtered.length === 0) {
+      gridContainer.style.minHeight = '';
       gridContainer.classList.add('hidden');
       emptyState.classList.remove('hidden');
       return;
@@ -1175,11 +1185,27 @@ const Catalog = {
     this.itemSnoMap = itemSnoMap;
     this.currentRenderedIndex = 0;
 
-    // Render first chunk (30 items) immediately for sub-16ms initial paint
-    this.renderNextCatalogBatch(30);
+    // Render enough initial items to cover the previous scroll position so scrollTop is never clamped
+    const initialBatch = prevScrollTop > 0 ? Math.min(filtered.length, Math.max(30, Math.ceil(prevScrollTop / 40) + 12)) : 30;
+    this.renderNextCatalogBatch(initialBatch);
 
     // Setup intersection observer for progressive scroll loading
     this.initCatalogLazyObserver();
+
+    // Restore scroll position cleanly without jumping or flickering
+    if (prevScrollTop > 0) {
+      if (mainWorkArea) mainWorkArea.scrollTop = prevScrollTop;
+      window.scrollTo(0, prevScrollTop);
+      requestAnimationFrame(() => {
+        if (mainWorkArea) mainWorkArea.scrollTop = prevScrollTop;
+        window.scrollTo(0, prevScrollTop);
+        setTimeout(() => {
+          gridContainer.style.minHeight = '';
+        }, 120);
+      });
+    } else {
+      gridContainer.style.minHeight = '';
+    }
 
     // Update Bulk action bar visibility and status
     this.updateBulkSelectionUI(filtered);
@@ -1260,6 +1286,7 @@ const Catalog = {
 
   createProductCard(item, serialNumber, filtered) {
     const card = document.createElement('div');
+    card.setAttribute('data-id', item.id);
 
     const status = item.status || 'In Stock';
     let statusClass = 'stock';
@@ -1604,20 +1631,66 @@ const Catalog = {
       return;
     }
 
-    UI.confirm(`Are you absolutely sure you want to delete "${item.name}" (SKU: ${item.sku}) from stock? This cannot be undone.`, async () => {
-      try {
-        DBManager.addLog("DELETE", item.id, item.name, `Deleted jewelry item: ${item.name}`, []);
+    UI.confirm(
+      `Are you absolutely sure you want to delete "${item.name}" (SKU: ${item.sku}) from stock?\n\nThis will permanently remove this piece from inventory. This action cannot be undone.`,
+      async () => {
+        // 1. Locate card element in DOM for smooth in-place removal
+        const card = document.querySelector(`.product-card[data-id="${item.id}"]`) ||
+                     document.querySelector(`.catalog-item-select[data-item-id="${item.id}"]`)?.closest('.product-card');
 
-        // Fast granular cloud delete + in-memory removal + debounced flush
-        await DBManager.deleteItem('mava_catalog_items', item.id);
-        DBManager.resequenceJewelrySno();
+        try {
+          // 2. Add smooth exit animation class to card (no screen refresh, zero scroll jump)
+          if (card) {
+            card.classList.add('item-deleting');
+          }
 
-        App.refreshAllDisplays();
-        UI.showToast("Item deleted from stock.");
-      } catch (err) {
-        UI.showToast(err.message, true);
+          // 3. Database & storage deletion + resequencing in memory
+          DBManager.addLog("DELETE", item.id, item.name, `Deleted jewelry item: ${item.name}`, []);
+          await DBManager.deleteItem('mava_catalog_items', item.id);
+          DBManager.resequenceJewelrySno();
+
+          // 4. Update in-memory collections without destroying the DOM
+          if (Array.isArray(this.currentFilteredItems)) {
+            this.currentFilteredItems = this.currentFilteredItems.filter(i => i.id !== item.id);
+          }
+          if (this.selectedItemIds) {
+            this.selectedItemIds.delete(item.id);
+          }
+          this._lastGridFingerprint = '';
+
+          // 5. Remove card element from DOM after exit animation completes
+          if (card) {
+            setTimeout(() => {
+              if (card && card.parentNode) {
+                card.remove();
+              }
+              const gridContainer = document.getElementById('catalog-grid');
+              const emptyState = document.getElementById('catalog-empty-state');
+              if (gridContainer && (!gridContainer.querySelector('.product-card') || (this.currentFilteredItems && this.currentFilteredItems.length === 0))) {
+                gridContainer.classList.add('hidden');
+                if (emptyState) emptyState.classList.remove('hidden');
+              }
+              this.updateBulkSelectionUI(this.currentFilteredItems || []);
+            }, 280);
+          } else {
+            this.renderCatalogGrid(true);
+          }
+
+          // 6. Update dashboard counts and valuation metrics in background
+          this.renderDashboard();
+
+          // 7. High-contrast feedback toast
+          UI.showToast(`"${item.name || item.sku}" deleted from stock.`);
+        } catch (err) {
+          if (card) card.classList.remove('item-deleting');
+          UI.showToast(err.message, true);
+        }
+      },
+      {
+        title: 'Delete Jewelry Piece',
+        confirmText: 'Delete'
       }
-    });
+    );
   },
 
   // ==================== PRINT FUNCTIONALITY ====================
@@ -3747,32 +3820,58 @@ const Catalog = {
       return;
     }
 
-    UI.confirm(`Are you sure you want to delete all ${count} selected jewelry piece(s) from stock?`, async () => {
-      try {
-        const idsToDelete = Array.from(this.selectedItemIds);
-        const initialCount = DBManager.database.items.length;
-        DBManager.database.items = DBManager.database.items.filter(item => !this.selectedItemIds.has(item.id));
-        const deletedCount = initialCount - DBManager.database.items.length;
+    UI.confirm(
+      `Are you sure you want to delete all ${count} selected jewelry piece(s) from stock?\n\nThis will remove all ${count} pieces permanently. This action cannot be undone.`,
+      async () => {
+        try {
+          const idsToDelete = Array.from(this.selectedItemIds);
 
-        // Propagate deletions to Firestore
-        if (window.DBManager) {
-          idsToDelete.forEach(id => DBManager.deleteItem('mava_catalog_items', id));
+          // Animate out selected cards in-place smoothly
+          idsToDelete.forEach(id => {
+            const card = document.querySelector(`.product-card[data-id="${id}"]`) ||
+                         document.querySelector(`.catalog-item-select[data-item-id="${id}"]`)?.closest('.product-card');
+            if (card) card.classList.add('item-deleting');
+          });
+
+          const initialCount = DBManager.database.items.length;
+          DBManager.database.items = DBManager.database.items.filter(item => !this.selectedItemIds.has(item.id));
+          const deletedCount = initialCount - DBManager.database.items.length;
+
+          // Propagate deletions to Firestore
+          if (window.DBManager) {
+            idsToDelete.forEach(id => DBManager.deleteItem('mava_catalog_items', id));
+          }
+
+          // Resequence remaining active items
+          DBManager.resequenceJewelrySno();
+
+          // Log deletion
+          DBManager.addLog("DELETE", "bulk_delete", "Multiple Pieces", `Bulk deleted ${deletedCount} jewelry piece(s) from stock`, []);
+          UI.showToast(`Successfully deleted ${deletedCount} stock item(s).`);
+
+          this.selectedItemIds.clear();
+
+          // Remove cards from DOM after animation and update view
+          setTimeout(() => {
+            idsToDelete.forEach(id => {
+              const card = document.querySelector(`.product-card[data-id="${id}"]`) ||
+                           document.querySelector(`.catalog-item-select[data-item-id="${id}"]`)?.closest('.product-card');
+              if (card && card.parentNode) card.remove();
+            });
+            this.renderCatalogGrid(true);
+            this.renderDashboard();
+          }, 280);
+
+          await DBManager.saveVault();
+        } catch (err) {
+          UI.showToast("Failed to complete bulk deletion: " + err.message, true);
         }
-
-        // Resequence remaining active items
-        DBManager.resequenceJewelrySno();
-
-        // Log deletion
-        DBManager.addLog("DELETE", "bulk_delete", "Multiple Pieces", `Bulk deleted ${deletedCount} jewelry piece(s) from stock`, []);
-        UI.showToast(`Successfully deleted ${deletedCount} stock item(s).`);
-
-        this.selectedItemIds.clear();
-        App.refreshAllDisplays();
-        await DBManager.saveVault();
-      } catch (err) {
-        UI.showToast("Failed to complete bulk deletion: " + err.message, true);
+      },
+      {
+        title: 'Bulk Delete Pieces',
+        confirmText: 'Delete All'
       }
-    });
+    );
   },
 
   // ==================== EXCEL IMPORT & DUPLICATE VERIFICATION ====================

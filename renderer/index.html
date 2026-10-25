@@ -3115,15 +3115,22 @@
 
   <!-- ==================== CONFIRM DIALOG: GENERIC ACTION ==================== -->
   <div id="modal-generic-confirm" class="modal-overlay hidden">
-    <div class="modal-card mini dangerous-card">
-      <div class="modal-header">
-        <h3>Confirm Action</h3>
-        <button type="button" class="btn-close modal-close-trigger">&times;</button>
+    <div class="modal-card mini dangerous-card modal-confirm-card">
+      <div class="modal-header modal-confirm-header">
+        <div class="modal-confirm-header-content">
+          <div class="modal-confirm-icon-pulse danger">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+          </div>
+          <h3 id="generic-confirm-title">Confirm Action</h3>
+        </div>
+        <button type="button" class="btn-close modal-close-trigger" aria-label="Close dialog">&times;</button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body modal-confirm-body">
         <p class="modal-instructions font-bold" id="generic-confirm-msg">Are you sure you want to proceed?</p>
       </div>
-      <div class="modal-footer">
+      <div class="modal-footer modal-confirm-footer">
         <button type="button" class="btn btn-secondary modal-close-trigger">Cancel</button>
         <button type="button" id="btn-generic-confirm-action" class="btn btn-danger">Confirm</button>
       </div>

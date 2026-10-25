@@ -2135,18 +2135,25 @@ const EmeraldController = {
     const weight = this.getEmeraldWeight(emerald);
     const shapes = this.getEmeraldShapes(emerald).join(', ') || 'Emerald';
 
-    UI.confirm(`Are you absolutely sure you want to delete this ${shapes} (${weight}ct) from emerald stock? This cannot be undone.`, async () => {
-      try {
-        DBManager.addLog("DELETE", emerald.id, "Emerald", `Deleted emerald stock entry (${shapes}, ${weight}ct)`, []);
+    UI.confirm(
+      `Are you absolutely sure you want to delete this ${shapes} (${weight}ct) from emerald stock?\n\nThis will permanently remove this emerald entry. This action cannot be undone.`,
+      async () => {
+        try {
+          DBManager.addLog("DELETE", emerald.id, "Emerald", `Deleted emerald stock entry (${shapes}, ${weight}ct)`, []);
 
-        await DBManager.deleteItem('mava_catalog_emeralds', emerald.id);
+          await DBManager.deleteItem('mava_catalog_emeralds', emerald.id);
 
-        UI.showToast("Emerald deleted from stock.");
-        App.refreshAllDisplays();
-      } catch (err) {
-        UI.showToast(err.message, true);
+          UI.showToast("Emerald deleted from stock.");
+          App.refreshAllDisplays();
+        } catch (err) {
+          UI.showToast(err.message, true);
+        }
+      },
+      {
+        title: 'Delete Emerald',
+        confirmText: 'Delete'
       }
-    });
+    );
   },
 
   async handleDeleteEmeraldGroup(groupName) {
