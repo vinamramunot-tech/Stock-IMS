@@ -27,6 +27,12 @@ test('Mini-ERP Real-Time, Reservation Locking, Presence & Ledger Suite', async (
       realtimeStreamEnabled: false // manually managed in tests
     });
 
+    // Mock network operations to guarantee tests never write to live production Firestore
+    CloudSync.setDocument = async (col, id, data) => data;
+    CloudSync.deleteDocument = async () => true;
+    CloudSync.batchWrite = async () => ({ success: true, count: 0 });
+    CloudSync._fetchWithTimeout = async () => ({ ok: true, status: 200, json: async () => ({}) });
+
     DBManager.database = {
       items: [],
       emeralds: [],

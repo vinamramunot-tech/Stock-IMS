@@ -2059,14 +2059,6 @@
                 </svg>
                 Export Excel
               </button>
-              <button type="button" id="btn-import-excel-jewelry-catalog" class="btn btn-secondary" data-client-hide
-                style="height: 42px; margin-left: 6px;">
-                <svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align: middle; margin-right: 6px;">
-                  <path fill="currentColor" d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z" />
-                </svg>
-                Import Excel
-              </button>
-              <input type="file" id="input-import-excel-file" accept=".xlsx, .xls" style="display: none;" />
               <button type="button" id="btn-add-jewelry-piece-main" class="btn btn-primary" data-client-hide
                 style="height: 42px; margin-left: 8px;">
                 + Add Piece
@@ -2081,6 +2073,18 @@
               <span id="bulk-select-count" class="btn btn-secondary" data-client-hide
                 style="height: 42px; display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; color: var(--text-muted); cursor: default; padding: 0 14px; pointer-events: none; border-color: var(--border-light); margin-left: 6px; box-sizing: border-box;">0
                 Selected</span>
+              <button type="button" id="btn-bulk-send-to-memo" class="btn btn-secondary" data-client-hide
+                style="height: 42px; font-size: 11px; font-weight: 600; margin-left: 6px; box-sizing: border-box; display: inline-flex; align-items: center; gap: 6px; color: var(--text-gold-dark); border-color: var(--text-gold-dark);"
+                disabled title="Issue selected items on a new jewelry memo">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                  <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+                <span id="btn-bulk-send-to-memo-text">Send to Memo</span>
+              </button>
               <button type="button" id="btn-bulk-delete" class="btn btn-danger" data-client-hide
                 style="height: 42px; font-size: 11px; font-weight: 600; margin-left: 6px; box-sizing: border-box;"
                 disabled>Delete Selected</button>
@@ -4115,6 +4119,52 @@
     </div>
   </div>
 
+  <!-- ==================== MODAL: SEND CATALOG ITEMS TO MEMO ==================== -->
+  <div id="modal-catalog-send-to-memo" class="modal-overlay hidden">
+    <div class="modal-card normal" style="max-width: 680px;">
+      <div class="modal-header">
+        <h3 id="catalog-send-to-memo-title">Issue Selected Pieces to Memo</h3>
+        <button type="button" class="btn-close modal-close-trigger-catalog-memo">&times;</button>
+      </div>
+      <div class="modal-body form-modal-body">
+        <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 6px; padding: 10px 14px; margin-bottom: 14px; font-size: 12px; color: var(--text-main);">
+          💡 <strong>Quoted Prices Notice:</strong> Customers are often quoted different prices than our stock valuations. Review or enter the specific price quoted to the client for each piece below before issuing the memo.
+        </div>
+
+        <div style="border: 1px solid var(--border-light); border-radius: 6px; max-height: 280px; overflow-y: auto; background: var(--bg-card);">
+          <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+            <thead>
+              <tr style="background: var(--bg-base); position: sticky; top: 0; z-index: 2;">
+                <th style="padding: 8px 10px; text-align: center; width: 44px;">Photo</th>
+                <th style="padding: 8px 10px; text-align: left;">SKU & Piece Name</th>
+                <th style="padding: 8px 10px; text-align: right; width: 130px;">Stock Valuation</th>
+                <th style="padding: 8px 10px; text-align: right; width: 170px;">Quoted Memo Price (₹)</th>
+              </tr>
+            </thead>
+            <tbody id="catalog-send-to-memo-tbody"></tbody>
+          </table>
+        </div>
+
+        <div style="margin-top: 14px; display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px;">
+          <div>
+            <span style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Selected Pieces: </span>
+            <strong id="catalog-send-to-memo-count" style="color: var(--text-main);">0</strong>
+          </div>
+          <div>
+            <span style="font-size: 11px; text-transform: uppercase; color: var(--text-gold-dark); font-weight: 700;">Total Quoted Value: </span>
+            <strong id="catalog-send-to-memo-total" style="font-size: 15px; color: var(--text-gold-dark); font-weight: 800;">₹0.00</strong>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button type="button" class="btn btn-secondary modal-close-trigger-catalog-memo">Cancel</button>
+        <button type="button" id="btn-proceed-catalog-send-to-memo" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 6px;">
+          Proceed to Issue Memo &rarr;
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- ==================== MODAL: CREATE JEWELRY MEMO ==================== -->
   <div id="modal-create-jewelry-memo" class="modal-overlay hidden">
     <div class="modal-card normal" style="max-width:650px;">
@@ -4198,7 +4248,7 @@
                   <th style="padding:6px 10px;text-align:left;">SKU</th>
                   <th style="padding:6px 10px;text-align:left;">Piece Name</th>
                   <th style="padding:6px 10px;text-align:left;">Category</th>
-                  <th style="padding:6px 10px;text-align:right;">Selling Price</th>
+                  <th style="padding:6px 10px;text-align:right;">Quoted Price (₹)</th>
                   <th style="padding:6px 10px;text-align:center;width:60px;">Action</th>
                 </tr>
               </thead>
@@ -4351,13 +4401,26 @@
         <input type="hidden" id="jewelry-sale-item-id">
 
         <div
-          style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px 16px; margin-bottom: 16px;">
+          style="background: var(--bg-base); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px 16px; margin-bottom: 12px;">
           <div
             style="font-size: 10px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em;">
             Piece Selected</div>
           <div style="font-size: 16px; font-weight: 700; color: var(--text-main); margin-top: 2px;"
             id="jewelry-sale-piece-name">—</div>
           <div style="font-size: 12px; color: var(--text-muted);" id="jewelry-sale-piece-sku">—</div>
+        </div>
+
+        <!-- Reference Stock & Memo Price Banner -->
+        <div id="jewelry-sale-price-reference-banner"
+          style="background: rgba(212,175,55,0.08); border: 1px solid rgba(212,175,55,0.3); border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Stock Valuation:</span>
+            <span id="jewelry-sale-ref-stock-price" style="font-size: 13px; font-weight: 700; color: var(--text-main); margin-left: 4px;">₹—</span>
+          </div>
+          <div id="jewelry-sale-ref-memo-wrapper" style="display: none;">
+            <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Quoted on Memo:</span>
+            <span id="jewelry-sale-ref-memo-price" style="font-size: 13px; font-weight: 700; color: var(--text-gold-dark); margin-left: 4px;">₹—</span>
+          </div>
         </div>
 
         <div class="form-grid-row">
@@ -4397,9 +4460,10 @@
           </div>
           <div class="form-col-4">
             <div class="input-group">
-              <label for="jewelry-sale-final-price">Sold Price (₹) <span class="required">*</span></label>
+              <label for="jewelry-sale-final-price" style="color:var(--text-gold-dark);font-weight:700;">Finished Sale Price (₹) <span class="required">*</span></label>
               <input type="number" id="jewelry-sale-final-price" step="0.01" min="0" inputmode="decimal" placeholder="0.00" required
-                style="width:100%;height:38px;padding:6px 10px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-gold-dark);font-weight:700;font-size:14px;">
+                style="width:100%;height:38px;padding:6px 10px;border:1px solid var(--text-gold-dark);border-radius:4px;background:var(--bg-base);color:var(--text-gold-dark);font-weight:700;font-size:14px;"
+                title="Agreed finalized sale price with customer">
             </div>
           </div>
         </div>
@@ -4482,7 +4546,7 @@
 
         <div
           style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin:16px 0 8px 0;">
-          CONFIRM / ADJUST SELLING PRICE PER PIECE
+          CONFIRM / ADJUST FINISHED SALE PRICE PER PIECE
         </div>
 
         <div
@@ -4494,7 +4558,7 @@
                 <th style="padding:6px 10px;text-align:left;">SKU / Name</th>
                 <th style="padding:6px 10px;text-align:left;">Category</th>
                 <th style="padding:6px 10px;text-align:right;">Mfg Cost (₹)</th>
-                <th style="padding:6px 10px;text-align:right;width:140px;">Selling Price (₹)</th>
+                <th style="padding:6px 10px;text-align:right;width:150px;">Finished Price (₹)</th>
                 <th style="padding:6px 10px;text-align:right;">Profit</th>
               </tr>
             </thead>

@@ -885,6 +885,36 @@
     },
 
     /**
+     * Identifies phantom or test items that should never enter production inventory
+     */
+    isCorruptOrPhantom(item, id = '') {
+      if (!item) return true;
+      const itemId = String(id || item.id || '');
+      const sku = String(item.sku || '');
+      const name = String(item.name || item.personName || item.customerName || item.pudiaNumber || item.memoNumber || item.saleNumber || '');
+
+      // Explicit phantom items from historical unmocked test runs: piece_100/200/300 with no catalog name
+      if (itemId === 'piece_100' || itemId === 'piece_200' || itemId === 'piece_300') {
+        if (!name.trim()) return true;
+      }
+
+      // Phantom test ledger records
+      if (itemId.startsWith('led_MG-100') || itemId.startsWith('led_MG-200') || itemId.startsWith('led_MG-300')) {
+        return true;
+      }
+
+      // Items without both name and sku are corrupted/phantom
+      if (!name.trim() && !sku.trim()) return true;
+
+      // Unidentified reserved items without basic piece details
+      if (item.status === 'Reserved' && !name.trim() && (!item.metals || item.metals.length === 0)) {
+        if (itemId.startsWith('piece_')) return true;
+      }
+
+      return false;
+    },
+
+    /**
      * Safe bidirectional merge between local database array and remote records.
      * ZERO data loss: Never deletes local records missing from remote during normal sync.
      * Resolves conflicts by comparing `updatedAt` / `createdAt` timestamps.
@@ -911,7 +941,7 @@
         if (!remoteItem || !remoteItem[idKey]) continue;
         const rKey = String(remoteItem[idKey]);
         if (deletedIds && deletedIds.has(rKey)) continue;
-        if ((rKey === 'item_1' && !remoteItem.name && !remoteItem.customerName) || (remoteItem.sku === 'MG-01' && !remoteItem.name && !remoteItem.customerName)) continue;
+        if (this.isCorruptOrPhantom(remoteItem, rKey)) continue;
 
         // Check for match either by primary idKey OR by clientMutationId (idempotent matching)
         let localIndex = localMap.get(rKey);
@@ -1136,7 +1166,7 @@
                   if (!remoteItem || !remoteItem[col.idKey]) continue;
                   const rId = String(remoteItem[col.idKey]);
                   if (colDeletedIds.has(rId)) continue;
-                  if ((rId === 'item_1' && !remoteItem.name && !remoteItem.customerName) || (remoteItem.sku === 'MG-01' && !remoteItem.name && !remoteItem.customerName)) continue;
+                  if (this.isCorruptOrPhantom(remoteItem, rId)) continue;
 
                   const idx = localList.findIndex(l => l && String(l[col.idKey]) === rId);
                   if (idx >= 0) {

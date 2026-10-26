@@ -193,6 +193,30 @@ const JewelryMemoController = {
     UI.openModal('modal-create-jewelry-memo');
   },
 
+  /**
+   * Pre-loads selected catalog items with quoted client prices into a new memo draft
+   * and opens the Create Memo modal.
+   * @param {Array<object>} items - Catalog item objects containing _memoSellingPrice
+   */
+  openCreateMemoWithItems(items) {
+    if (window.App && typeof window.App.switchTab === 'function') {
+      window.App.switchTab('tab-jewelry-memos');
+    }
+    this.editingMemoId = null;
+    this.resetCreateMemoForm();
+    this.selectedItems = Array.isArray(items) ? items : [];
+    const titleEl = document.getElementById('jewelry-memo-modal-title');
+    if (titleEl) titleEl.textContent = 'Issue Finished Jewelry Memo';
+    const saveBtn = document.getElementById('btn-save-jewelry-memo');
+    if (saveBtn) saveBtn.textContent = 'Issue Memo';
+    const pickerEl = document.getElementById('jewelry-memo-create-item-picker');
+    if (pickerEl) pickerEl.style.display = '';
+    this.filterCreateJewelry();
+    this.renderSelectedItemsTable();
+    UI.openModal('modal-create-jewelry-memo');
+    UI.showToast(`Loaded ${this.selectedItems.length} piece(s) with quoted prices into memo draft.`);
+  },
+
   openEditMemoModal(memoId) {
     const memo = DBManager.getJewelryMemos().find(m => m.id === memoId);
     if (!memo) return;
@@ -429,12 +453,30 @@ const JewelryMemoController = {
 
     const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
     const evalItem = Calc.evaluateItem(item, goldRate);
+    const stockPrice = Math.round(evalItem ? evalItem.sellingPrice : 0);
+
     const itemCopy = JSON.parse(JSON.stringify(item));
-    itemCopy._memoSellingPrice = evalItem.sellingPrice;
+    itemCopy._memoSellingPrice = stockPrice;
 
     this.selectedItems.push(itemCopy);
     this.filterCreateJewelry();
     this.renderSelectedItemsTable();
+
+    // Ask user for the quoted client price
+    if (window.UI && typeof UI.prompt === 'function') {
+      const promptTitle = "Quoted Price to Client";
+      const promptMsg = `Enter the quoted price for this client for:\n${item.sku || 'N/A'} — ${item.name || 'Piece'}\n\nStock Valuation: ₹${stockPrice.toLocaleString('en-IN')}`;
+      UI.prompt(promptTitle, promptMsg, String(stockPrice), (enteredVal) => {
+        if (enteredVal !== null && enteredVal !== undefined && enteredVal !== '') {
+          const parsed = parseFloat(enteredVal);
+          if (!isNaN(parsed) && parsed >= 0) {
+            itemCopy._memoSellingPrice = parsed;
+            this.updateSelectedTotals();
+            this.renderSelectedItemsTable();
+          }
+        }
+      });
+    }
   },
 
   renderSelectedItemsTable() {
@@ -454,9 +496,18 @@ const JewelryMemoController = {
     // Render active / open items with editable selling price and Remove button
     this.selectedItems.forEach((item, index) => {
       const evalItem = Calc.evaluateItem(item, goldRate);
+      const stockVal = Math.round(evalItem ? evalItem.sellingPrice : 0);
+      const currentPrice = item._memoSellingPrice !== undefined ? item._memoSellingPrice : stockVal;
+      const diff = currentPrice - stockVal;
+      let diffHtml = '';
+      if (Math.abs(diff) >= 1) {
+        const sign = diff > 0 ? '+' : '-';
+        const color = diff > 0 ? '#22c55e' : '#f59e0b';
+        diffHtml = ` <span style="font-size:10px;font-weight:700;color:${color};">(${sign}₹${Math.round(Math.abs(diff)).toLocaleString('en-IN')})</span>`;
+      }
+
       const commVal = typeof item.commission === 'object' ? Number(item.commission.value || 0) : Number(item.commission || 0);
       const commHtml = commVal > 0 ? `<div style="font-size:10px;color:var(--text-muted);font-weight:400;margin-top:2px;">Comm: ₹${commVal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>` : '';
-      const currentPrice = item._memoSellingPrice !== undefined ? item._memoSellingPrice : evalItem.sellingPrice;
       const tr = document.createElement('tr');
       const imgHtml = item.image
         ? `<img src="${item.image}" alt="${UI.escapeHtml(item.name)}" style="width:36px;height:36px;object-fit:cover;border-radius:4px;border:1px solid var(--border-light);cursor:pointer;" class="memo-thumb-img">`
@@ -470,8 +521,9 @@ const JewelryMemoController = {
         <td style="padding:6px 10px;text-align:right;">
           <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;">
             <span style="font-size:12px;color:var(--text-muted);font-weight:600;">₹</span>
-            <input type="number" step="0.01" min="0" class="memo-draft-item-price" data-index="${index}" value="${currentPrice}" style="width:115px;height:28px;text-align:right;padding:2px 6px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-gold-dark);font-weight:700;font-size:12px;" title="Custom selling price for this client">
+            <input type="number" step="0.01" min="0" class="memo-draft-item-price" data-index="${index}" value="${currentPrice}" style="width:125px;height:28px;text-align:right;padding:2px 6px;border:1px solid var(--text-gold-dark);border-radius:4px;background:var(--bg-base);color:var(--text-gold-dark);font-weight:700;font-size:12px;" title="Quoted price for this client">
           </div>
+          <div class="memo-draft-diff-container" style="font-size:10px;color:var(--text-muted);margin-top:2px;">Stock: ₹${stockVal.toLocaleString('en-IN')}${diffHtml}</div>
           ${commHtml}
         </td>
         <td style="padding:8px 12px;text-align:center;">
@@ -483,12 +535,23 @@ const JewelryMemoController = {
       if (thumbImg) thumbImg.addEventListener('click', () => App.openJewelryDetailModal(item));
 
       const priceInp = tr.querySelector('.memo-draft-item-price');
+      const diffContainer = tr.querySelector('.memo-draft-diff-container');
       if (priceInp) {
         priceInp.addEventListener('input', (e) => {
           const val = parseFloat(e.target.value);
           if (!isNaN(val) && this.selectedItems[index]) {
             this.selectedItems[index]._memoSellingPrice = val;
             this.updateSelectedTotals();
+            if (diffContainer) {
+              const newDiff = val - stockVal;
+              if (Math.abs(newDiff) >= 1) {
+                const sign = newDiff > 0 ? '+' : '-';
+                const color = newDiff > 0 ? '#22c55e' : '#f59e0b';
+                diffContainer.innerHTML = `Stock: ₹${stockVal.toLocaleString('en-IN')} <span style="font-size:10px;font-weight:700;color:${color};">(${sign}₹${Math.round(Math.abs(newDiff)).toLocaleString('en-IN')})</span>`;
+              } else {
+                diffContainer.textContent = `Stock: ₹${stockVal.toLocaleString('en-IN')}`;
+              }
+            }
           }
         });
       }
@@ -1328,6 +1391,22 @@ Thank you,
       repCostEl.dataset.replacementCost = replacementCost;
     }
 
+    // Populate Reference Stock Price & Quoted Memo Price banner
+    const stockPrice = Math.round(evalItem ? evalItem.sellingPrice : 0);
+    const refStockEl = document.getElementById('jewelry-sale-ref-stock-price');
+    if (refStockEl) {
+      refStockEl.textContent = `₹${stockPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+    }
+
+    const memoWrapper = document.getElementById('jewelry-sale-ref-memo-wrapper');
+    const memoPriceEl = document.getElementById('jewelry-sale-ref-memo-price');
+    if (memoItem && memoItem.sellingPrice !== undefined) {
+      if (memoWrapper) memoWrapper.style.display = '';
+      if (memoPriceEl) memoPriceEl.textContent = `₹${Number(memoItem.sellingPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+    } else {
+      if (memoWrapper) memoWrapper.style.display = 'none';
+    }
+
     const initialPrice = memoItem ? memoItem.sellingPrice : (evalItem ? evalItem.sellingPrice : 0);
     document.getElementById('jewelry-sale-final-price').value = initialPrice;
     document.getElementById('jewelry-sale-date').value = new Date().toISOString().split('T')[0];
@@ -1335,6 +1414,24 @@ Thank you,
 
     this.updateSaleProfitCalculation();
     UI.openModal('modal-complete-jewelry-sale');
+
+    // Prompt user what price the piece was finished / negotiated at
+    const pieceLabel = (mainItem?.sku ? mainItem.sku + ' — ' : '') + (mainItem?.name || memoItem?.name || 'Piece');
+    const memoHint = (memoItem && memoItem.sellingPrice !== undefined) ? `\nQuoted on Memo: ₹${Number(memoItem.sellingPrice).toLocaleString('en-IN')}` : '';
+    const promptMsg = `What price was this piece finished / finalized at with the customer?\n\nPiece: ${pieceLabel}\nStock Valuation: ₹${stockPrice.toLocaleString('en-IN')}${memoHint}`;
+
+    UI.prompt("Finished Sale Price", promptMsg, String(initialPrice), (enteredPrice) => {
+      if (enteredPrice !== null && enteredPrice !== undefined && enteredPrice !== '') {
+        const parsed = parseFloat(enteredPrice);
+        if (!isNaN(parsed) && parsed >= 0) {
+          const finalPriceInp = document.getElementById('jewelry-sale-final-price');
+          if (finalPriceInp) {
+            finalPriceInp.value = parsed;
+            this.updateSaleProfitCalculation();
+          }
+        }
+      }
+    });
   },
 
   updateSaleProfitCalculation() {
@@ -1713,9 +1810,10 @@ Thank you,
           <td style="padding:6px 10px;color:var(--text-muted);">${UI.escapeHtml(memoItem.category || mainItem?.category || '—')}</td>
           <td style="padding:6px 10px;text-align:right;font-weight:600;color:var(--text-main);">₹${mfgCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
           <td style="padding:6px 10px;text-align:right;">
-            <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;">
+            <div style="font-size:10px;color:var(--text-muted);font-weight:600;">Quoted: ₹${Number(memoItem.sellingPrice || 0).toLocaleString('en-IN')}</div>
+            <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:2px;">
               <span style="font-size:11px;color:var(--text-muted);font-weight:600;">₹</span>
-              <input type="number" step="0.01" min="0" class="batch-sale-item-price" value="${initialSellingPrice}" style="width:115px;height:28px;text-align:right;padding:2px 6px;border:1px solid var(--border-light);border-radius:4px;background:var(--bg-base);color:var(--text-gold-dark);font-weight:700;font-size:12px;" title="Custom selling price for this client">
+              <input type="number" step="0.01" min="0" class="batch-sale-item-price" value="${initialSellingPrice}" style="width:115px;height:28px;text-align:right;padding:2px 6px;border:1px solid var(--text-gold-dark);border-radius:4px;background:var(--bg-base);color:var(--text-gold-dark);font-weight:700;font-size:12px;" title="Finished Price negotiated with customer">
             </div>
           </td>
           <td style="padding:6px 10px;text-align:right;font-weight:700;" class="batch-sale-item-profit">₹0.00</td>

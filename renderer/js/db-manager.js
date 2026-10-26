@@ -482,7 +482,38 @@ const DBManager = {
       }
     }
 
-    // 5. Automatically heal and reconcile jewelrySales array from sold items and memos
+    // 5. Purge corrupted and phantom items from catalog items
+    if (Array.isArray(db.items)) {
+      db.items = db.items.filter(item => {
+        if (!item) return false;
+        const name = String(item.name || '').trim();
+        const sku = String(item.sku || '').trim();
+        const id = String(item.id || '').trim();
+        if (!name && !sku) return false;
+        if (id === 'item_1' || id === 'piece_101' || id === 'piece_100' || id === 'piece_200' || id === 'piece_300' || id === 'item_test_event') {
+          if (!name || name.toLowerCase().includes('test')) return false;
+        }
+        if (id.startsWith('piece_100') || id.startsWith('piece_200') || id.startsWith('piece_300')) return false;
+        if (sku === 'MG-01' || sku === 'MG-100' || sku === 'MG-200' || sku === 'MG-300' || sku === 'SKU-101') {
+          if (!name || name.toLowerCase().includes('test')) return false;
+        }
+        if (item.status === 'Reserved' && !name && !sku) return false;
+        return true;
+      });
+    }
+
+    // 6. Purge test entries from stock ledger
+    if (Array.isArray(db.stockLedger)) {
+      db.stockLedger = db.stockLedger.filter(entry => {
+        if (!entry) return false;
+        const sku = String(entry.sku || '').trim();
+        if (sku === 'MG-100' || sku === 'MG-200' || sku === 'MG-300' || sku === 'MG-01' || sku === 'SKU-101') return false;
+        if (sku.toLowerCase().includes('test')) return false;
+        return true;
+      });
+    }
+
+    // 7. Automatically heal and reconcile jewelrySales array from sold items and memos
     this.healJewelrySales(db);
   },
 
@@ -713,9 +744,15 @@ const DBManager = {
     // Emit reactive event
     this.emit(`${dbKey}:saved`, { item, id: item.id, collection: firestoreCol });
 
-    // Direct Firestore patch in background (only this single record!)
+    // Direct Firestore patch in background (only if not a phantom/test item)
+    const isPhantomTestItem = (dbKey === 'items') && (
+      (!item.name && !item.sku) ||
+      (String(item.id || '').startsWith('piece_100') || String(item.id || '').startsWith('piece_200') || String(item.id || '').startsWith('piece_300')) ||
+      (String(item.sku || '') === 'MG-100' || String(item.sku || '') === 'MG-200' || String(item.sku || '') === 'MG-300' || String(item.sku || '') === 'MG-01')
+    );
+
     const cloudSync = this._getCloudSync();
-    if (cloudSync && cloudSync.isEnabled()) {
+    if (cloudSync && cloudSync.isEnabled() && !isPhantomTestItem) {
       const opts = {};
       if (item._serverUpdateTime) {
         opts.precondition = { updateTime: item._serverUpdateTime };
@@ -762,8 +799,12 @@ const DBManager = {
     const fieldPaths = Object.keys(fieldsPatch);
     if (!fieldPaths.includes('updatedAt')) fieldPaths.push('updatedAt');
 
+    const isPhantomTestPatch = (dbKey === 'items') && (
+      String(itemId).startsWith('piece_100') || String(itemId).startsWith('piece_200') || String(itemId).startsWith('piece_300') || String(itemId) === 'piece_101'
+    );
+
     const cloudSync = this._getCloudSync();
-    if (cloudSync && cloudSync.isEnabled()) {
+    if (cloudSync && cloudSync.isEnabled() && !isPhantomTestPatch) {
       cloudSync.setDocument(firestoreCol, String(itemId), item, {
         fieldPaths,
         precondition: previousUpdateTime ? { updateTime: previousUpdateTime } : null
@@ -1253,9 +1294,10 @@ const DBManager = {
       this.database.stockLedger.length = 5000;
     }
 
-    // Direct push to Firestore in background
+    // Direct push to Firestore in background (skip test events)
+    const isTestSku = sku && (sku === 'MG-100' || sku === 'MG-200' || sku === 'MG-300' || sku === 'MG-01' || sku === 'SKU-101' || sku.toLowerCase().includes('test'));
     const cloudSync = this._getCloudSync();
-    if (cloudSync && cloudSync.isEnabled()) {
+    if (cloudSync && cloudSync.isEnabled() && !isTestSku) {
       cloudSync.setDocument('mava_catalog_stock_ledger', event.id, event).catch(err => {
         console.warn(`Stock ledger push ${event.id} note:`, err.message);
       });

@@ -71,6 +71,17 @@ const Catalog = {
       bulkDeleteBtn.addEventListener('click', () => this.handleBulkDelete());
     }
 
+    // Bulk Send to Memo Button Listener
+    const bulkMemoBtn = document.getElementById('btn-bulk-send-to-memo');
+    if (bulkMemoBtn) {
+      bulkMemoBtn.addEventListener('click', () => this.handleSendSelectedToMemo());
+    }
+
+    // Catalog Send to Memo Modal close listeners
+    document.querySelectorAll('.modal-close-trigger-catalog-memo').forEach(btn => {
+      btn.addEventListener('click', () => UI.closeModal('modal-catalog-send-to-memo'));
+    });
+
     // Bulk Unselect Button Listener
     const bulkUnselectBtn = document.getElementById('btn-bulk-unselect');
     if (bulkUnselectBtn) {
@@ -3801,10 +3812,151 @@ const Catalog = {
       bulkDeleteBtn.disabled = (selectedCount === 0);
     }
 
+    const bulkMemoBtn = document.getElementById('btn-bulk-send-to-memo');
+    const bulkMemoText = document.getElementById('btn-bulk-send-to-memo-text');
+    if (bulkMemoBtn) {
+      bulkMemoBtn.disabled = (selectedCount === 0);
+    }
+    if (bulkMemoText) {
+      bulkMemoText.textContent = selectedCount > 0 ? `Send to Memo (${selectedCount})` : 'Send to Memo';
+    }
+
     const shareBtn = document.getElementById('btn-share-presentation');
     if (shareBtn) {
       shareBtn.disabled = (selectedCount === 0);
     }
+  },
+
+  handleSendSelectedToMemo() {
+    const count = this.selectedItemIds.size;
+    if (count === 0) {
+      UI.showToast("Please select at least one jewelry piece to send to memo.", true);
+      return;
+    }
+
+    const allItems = this.getAllCatalogItems();
+    const selectedItems = allItems.filter(i => this.selectedItemIds.has(i.id));
+
+    // Check if any selected items are already Sold
+    const soldItems = selectedItems.filter(i => i.status === 'Sold');
+    if (soldItems.length > 0) {
+      const soldSkus = soldItems.map(i => i.sku || 'N/A').slice(0, 3).join(', ') + (soldItems.length > 3 ? '...' : '');
+      UI.showToast(`Cannot issue to memo: ${soldItems.length} selected piece(s) (${soldSkus}) are already SOLD.`, true);
+      return;
+    }
+
+    // Check if any selected items are already Issued on memo
+    const issuedItems = selectedItems.filter(i => i.status === 'Issued');
+    if (issuedItems.length > 0) {
+      const issuedSkus = issuedItems.map(i => i.sku || 'N/A').slice(0, 3).join(', ') + (issuedItems.length > 3 ? '...' : '');
+      UI.showToast(`Cannot issue to memo: ${issuedItems.length} selected piece(s) (${issuedSkus}) are already out on memo.`, true);
+      return;
+    }
+
+    this.openCatalogSendToMemoModal(selectedItems);
+  },
+
+  openCatalogSendToMemoModal(items) {
+    const modal = document.getElementById('modal-catalog-send-to-memo');
+    if (!modal) return;
+
+    const tbody = document.getElementById('catalog-send-to-memo-tbody');
+    const countEl = document.getElementById('catalog-send-to-memo-count');
+    const totalEl = document.getElementById('catalog-send-to-memo-total');
+    const proceedBtn = document.getElementById('btn-proceed-catalog-send-to-memo');
+
+    if (countEl) countEl.textContent = String(items.length);
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
+
+    const updateTotals = () => {
+      let total = 0;
+      tbody.querySelectorAll('.catalog-memo-quoted-price').forEach(inp => {
+        const val = parseFloat(inp.value);
+        if (!isNaN(val) && val >= 0) total += val;
+      });
+      if (totalEl) {
+        totalEl.textContent = `₹${total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+      }
+    };
+
+    items.forEach(item => {
+      const evalItem = Calc.evaluateItem(item, goldRate);
+      const stockPrice = Math.round(evalItem ? evalItem.sellingPrice : 0);
+
+      const tr = document.createElement('tr');
+      tr.dataset.itemId = item.id;
+      tr.style.borderBottom = '1px solid var(--border-light)';
+
+      const imgHtml = item.image
+        ? `<img src="${item.image}" alt="${UI.escapeHtml(item.name || '')}" style="width:36px;height:36px;object-fit:cover;border-radius:4px;border:1px solid var(--border-light);">`
+        : `<div style="width:36px;height:36px;border-radius:4px;border:1px solid var(--border-light);background:var(--bg-base);display:flex;align-items:center;justify-content:center;color:var(--text-muted);opacity:0.6;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>`;
+
+      tr.innerHTML = `
+        <td style="padding:8px 10px;text-align:center;">${imgHtml}</td>
+        <td style="padding:8px 10px;">
+          <div style="font-weight:700;color:var(--text-main);">${UI.escapeHtml(item.sku || 'No SKU')}</div>
+          <div style="font-size:11px;color:var(--text-muted);">${UI.escapeHtml(item.name || 'Untitled')} (${UI.escapeHtml(item.category || 'Piece')})</div>
+        </td>
+        <td style="padding:8px 10px;text-align:right;font-weight:600;color:var(--text-main);">
+          ₹${stockPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+        </td>
+        <td style="padding:8px 10px;text-align:right;">
+          <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;">
+            <span style="font-size:12px;color:var(--text-muted);font-weight:600;">₹</span>
+            <input type="number" step="0.01" min="0" class="catalog-memo-quoted-price" data-id="${item.id}" value="${stockPrice}"
+              style="width:130px;height:32px;text-align:right;padding:4px 8px;border:1px solid var(--text-gold-dark);border-radius:4px;background:var(--bg-base);color:var(--text-gold-dark);font-weight:700;font-size:13px;"
+              title="Quoted Memo Price to customer">
+          </div>
+        </td>
+      `;
+
+      const inp = tr.querySelector('.catalog-memo-quoted-price');
+      if (inp) {
+        inp.addEventListener('input', updateTotals);
+      }
+
+      tbody.appendChild(tr);
+    });
+
+    updateTotals();
+
+    if (proceedBtn) {
+      proceedBtn.onclick = () => {
+        const itemsToSend = [];
+        tbody.querySelectorAll('tr').forEach(tr => {
+          const id = tr.dataset.itemId;
+          const originalItem = items.find(i => String(i.id) === String(id));
+          if (!originalItem) return;
+
+          const priceInp = tr.querySelector('.catalog-memo-quoted-price');
+          const quotedVal = priceInp ? parseFloat(priceInp.value) : NaN;
+          const evalItem = Calc.evaluateItem(originalItem, goldRate);
+          const stockPrice = Math.round(evalItem ? evalItem.sellingPrice : 0);
+
+          const itemCopy = JSON.parse(JSON.stringify(originalItem));
+          itemCopy._memoSellingPrice = (!isNaN(quotedVal) && quotedVal >= 0) ? quotedVal : stockPrice;
+          itemsToSend.push(itemCopy);
+        });
+
+        UI.closeModal('modal-catalog-send-to-memo');
+
+        // Clear catalog selection
+        this.selectedItemIds.clear();
+        this.updateBulkSelectionUI(this.getAllCatalogItems());
+        this.renderCatalogGrid();
+
+        if (window.JewelryMemoController && typeof window.JewelryMemoController.openCreateMemoWithItems === 'function') {
+          window.JewelryMemoController.openCreateMemoWithItems(itemsToSend);
+        } else {
+          UI.showToast("Jewelry Memo Controller not available.", true);
+        }
+      };
+    }
+
+    UI.openModal('modal-catalog-send-to-memo');
   },
 
   async handleBulkDelete() {

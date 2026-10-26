@@ -24,6 +24,11 @@ test('World-Class Architecture Patterns Suite (Pillars 1 to 6)', async (t) => {
   t.beforeEach(() => {
     mockStorage.clear();
     DBManager._subscribers = new Map();
+    CloudSync.setDocument = async (col, id, data) => data;
+    CloudSync.deleteDocument = async () => true;
+    CloudSync.batchWrite = async () => ({ success: true, count: 0 });
+    CloudSync._fetchWithTimeout = async () => ({ ok: true, status: 200, json: async () => ({}) });
+
     DBManager.database = {
       items: [],
       emeralds: [],
