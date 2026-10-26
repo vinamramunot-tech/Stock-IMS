@@ -3658,8 +3658,11 @@ html.vault-locked #biometric-lock-screen {
   pointer-events: auto !important;
 }
 
-/* ==================== HIGH-CONTRAST CONFIRMATION DIALOG ==================== */
-#modal-generic-confirm {
+/* ==================== HIGH-CONTRAST CONFIRMATION & PROMPT DIALOGS ==================== */
+#modal-generic-confirm,
+#modal-erase-confirm,
+#modal-clear-logs-confirm,
+#modal-generic-prompt {
   align-items: center !important;
   justify-content: center !important;
   backdrop-filter: blur(12px) !important;
@@ -3669,7 +3672,10 @@ html.vault-locked #biometric-lock-screen {
   z-index: 1400 !important;
 }
 
-#modal-generic-confirm .modal-confirm-card {
+#modal-generic-confirm .modal-confirm-card,
+#modal-erase-confirm .modal-confirm-card,
+#modal-clear-logs-confirm .modal-confirm-card,
+#modal-generic-prompt .modal-confirm-card {
   background: linear-gradient(160deg, #1e1e24 0%, #121216 100%) !important;
   border: 1px solid rgba(239, 68, 68, 0.45) !important;
   border-radius: 20px !important;
@@ -3683,7 +3689,15 @@ html.vault-locked #biometric-lock-screen {
   flex-direction: column !important;
 }
 
-#modal-generic-confirm .modal-confirm-card::before {
+#modal-generic-prompt .modal-confirm-card {
+  border: 1px solid rgba(212, 175, 55, 0.45) !important;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.85), 0 0 28px rgba(212, 175, 55, 0.18) !important;
+}
+
+#modal-generic-confirm .modal-confirm-card::before,
+#modal-erase-confirm .modal-confirm-card::before,
+#modal-clear-logs-confirm .modal-confirm-card::before,
+#modal-generic-prompt .modal-confirm-card::before {
   display: none !important;
 }
 
@@ -3698,7 +3712,7 @@ html.vault-locked #biometric-lock-screen {
   }
 }
 
-#modal-generic-confirm .modal-confirm-header {
+.modal-confirm-header {
   background: rgba(255, 255, 255, 0.03) !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
   padding: 18px 22px !important;
@@ -3731,7 +3745,10 @@ html.vault-locked #biometric-lock-screen {
   box-shadow: 0 0 16px rgba(239, 68, 68, 0.25);
 }
 
-#modal-generic-confirm #generic-confirm-title {
+#modal-generic-confirm #generic-confirm-title,
+#modal-erase-confirm h3,
+#modal-clear-logs-confirm h3,
+#modal-generic-prompt #generic-prompt-title {
   margin: 0 !important;
   font-size: 18px !important;
   font-weight: 700 !important;
@@ -3739,7 +3756,7 @@ html.vault-locked #biometric-lock-screen {
   letter-spacing: 0.01em !important;
 }
 
-#modal-generic-confirm .btn-close {
+.modal-confirm-card .btn-close {
   color: rgba(255, 255, 255, 0.55) !important;
   font-size: 26px !important;
   line-height: 1 !important;
@@ -3750,11 +3767,11 @@ html.vault-locked #biometric-lock-screen {
   padding: 4px !important;
 }
 
-#modal-generic-confirm .btn-close:hover {
+.modal-confirm-card .btn-close:hover {
   color: #ffffff !important;
 }
 
-#modal-generic-confirm .modal-confirm-body {
+.modal-confirm-body {
   padding: 22px 24px !important;
   background: transparent !important;
   flex-grow: 1 !important;
@@ -3771,7 +3788,7 @@ html.vault-locked #biometric-lock-screen {
   margin: 0 !important;
 }
 
-#modal-generic-confirm .modal-confirm-footer {
+.modal-confirm-footer {
   background: rgba(14, 14, 18, 0.95) !important;
   border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
   padding: 14px 22px calc(14px + env(safe-area-inset-bottom, 0px)) 22px !important;
@@ -3782,7 +3799,7 @@ html.vault-locked #biometric-lock-screen {
   flex-shrink: 0 !important;
 }
 
-#modal-generic-confirm .btn-secondary {
+.modal-confirm-card .btn-secondary {
   background: rgba(255, 255, 255, 0.08) !important;
   color: #f3f3f3 !important;
   border: 1px solid rgba(255, 255, 255, 0.18) !important;
@@ -3796,13 +3813,13 @@ html.vault-locked #biometric-lock-screen {
   text-align: center !important;
 }
 
-#modal-generic-confirm .btn-secondary:hover {
+.modal-confirm-card .btn-secondary:hover {
   background: rgba(255, 255, 255, 0.16) !important;
   border-color: rgba(255, 255, 255, 0.3) !important;
   color: #ffffff !important;
 }
 
-#modal-generic-confirm .btn-danger {
+.modal-confirm-card .btn-danger {
   background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
   color: #ffffff !important;
   border: 1px solid rgba(239, 68, 68, 0.6) !important;
@@ -3818,16 +3835,26 @@ html.vault-locked #biometric-lock-screen {
   text-align: center !important;
 }
 
-#modal-generic-confirm .btn-danger:hover {
+.modal-confirm-card .btn-danger:hover {
   background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
   box-shadow: 0 6px 24px rgba(239, 68, 68, 0.65) !important;
   transform: translateY(-1px) !important;
 }
 
+.modal-confirm-card .btn-danger:disabled {
+  opacity: 0.4 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
 /* ==================== SMOOTH IN-PLACE CATALOG DELETION TRANSITIONS ==================== */
 .product-card.item-deleting,
 .pudia-block.item-deleting,
-.stone-pack-card.item-deleting {
+.emerald-pudia-block.item-deleting,
+.emerald-flat-card.item-deleting,
+.stone-pack-card.item-deleting,
+tr.item-deleting {
   opacity: 0 !important;
   transform: scale(0.9) translateY(-10px) !important;
   filter: blur(4px) !important;

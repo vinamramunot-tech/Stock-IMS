@@ -922,9 +922,16 @@ const MemoController = {
     }
     this._lastEmeraldMemoFingerprint = memoFingerprint;
 
+    // Preserve scroll position and lock tbody height to avoid scroll jump
+    const scrollParent = tbody.closest('.scrollable-table') || tbody.closest('.table-container') || window;
+    const prevScroll = scrollParent === window ? (window.scrollY || document.documentElement.scrollTop) : scrollParent.scrollTop;
+    const prevHeight = tbody.offsetHeight;
+    if (prevHeight > 0) tbody.style.minHeight = prevHeight + 'px';
+
     tbody.innerHTML = '';
 
     if (filtered.length === 0) {
+      tbody.style.minHeight = '';
       tbody.closest('table').classList.add('hidden');
       if (emptyEl) emptyEl.classList.remove('hidden');
       return;
@@ -999,6 +1006,15 @@ const MemoController = {
       if (deleteBtn) deleteBtn.addEventListener('click', () => this.deleteMemo(memo.id));
 
       tbody.appendChild(tr);
+    });
+
+    requestAnimationFrame(() => {
+      tbody.style.minHeight = '';
+      if (scrollParent === window) {
+        window.scrollTo({ top: prevScroll, behavior: 'instant' });
+      } else {
+        scrollParent.scrollTop = prevScroll;
+      }
     });
   },
 

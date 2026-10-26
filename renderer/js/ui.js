@@ -97,10 +97,56 @@ const UI = {
     }, 3000);
   },
 
-  // Custom generic confirm dialog to bypass Tauri v2 native blocking
-  confirm(message, callback, options = {}) {
+  // OS-Native confirmation dialog with high-contrast DOM fallback
+  async confirm(message, callback, options = {}) {
+    // 1. Desktop Tauri native macOS/Windows NSAlert sheet
+    if (window.__TAURI__ && window.__TAURI__.core && typeof window.__TAURI__.core.invoke === 'function') {
+      try {
+        const confirmed = await window.__TAURI__.core.invoke('native_confirm', {
+          title: options.title || 'Confirm Action',
+          message: String(message || ''),
+          confirmText: options.confirmText || 'Confirm',
+          cancelText: options.cancelText || 'Cancel'
+        });
+        if (confirmed && callback) {
+          callback();
+        }
+        return confirmed;
+      } catch (err) {
+        console.warn('Tauri native confirm fallback:', err);
+      }
+    }
+
+    // 2. Mobile iOS native UIAlertController via Capacitor
+    if (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) {
+      const plugin = window.Capacitor.Plugins && window.Capacitor.Plugins.NativeDialog;
+      if (plugin && typeof plugin.confirm === 'function') {
+        try {
+          const res = await plugin.confirm({
+            title: options.title || 'Confirm Action',
+            message: String(message || ''),
+            confirmText: options.confirmText || 'Confirm',
+            cancelText: options.cancelText || 'Cancel',
+            destructive: true
+          });
+          const confirmed = !!(res && res.confirmed);
+          if (confirmed && callback) {
+            callback();
+          }
+          return confirmed;
+        } catch (err) {
+          console.warn('Capacitor native confirm fallback:', err);
+        }
+      }
+    }
+
+    // 3. Fallback: High-contrast modal in DOM
     const modal = document.getElementById('modal-generic-confirm');
-    if (!modal) return;
+    if (!modal) {
+      const confirmed = window.confirm ? window.confirm(message) : true;
+      if (confirmed && callback) callback();
+      return confirmed;
+    }
 
     const titleEl = document.getElementById('generic-confirm-title') || modal.querySelector('.modal-header h3');
     if (titleEl) {
@@ -139,7 +185,6 @@ const UI = {
     if (btnConfirm) {
       btnConfirm.onclick = () => {
         closeAndCleanup();
-        // Use a small timeout to let the modal close smoothly before executing potentially heavy callbacks
         setTimeout(() => {
           if (callback) callback();
         }, 50);
@@ -149,13 +194,95 @@ const UI = {
     this.openModal('modal-generic-confirm');
   },
 
-  // Custom generic prompt dialog to bypass WKWebView prompt blocking
-  prompt(title, message, defaultValue = '', callback) {
+  // OS-Native alert dialog with toast / window fallback
+  async alert(message, options = {}) {
+    // 1. Desktop Tauri native alert
+    if (window.__TAURI__ && window.__TAURI__.core && typeof window.__TAURI__.core.invoke === 'function') {
+      try {
+        await window.__TAURI__.core.invoke('native_alert', {
+          title: options.title || 'Mava Gems',
+          message: String(message || '')
+        });
+        return;
+      } catch (err) {
+        console.warn('Tauri native alert fallback:', err);
+      }
+    }
+
+    // 2. Mobile iOS native UIAlertController via Capacitor
+    if (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) {
+      const plugin = window.Capacitor.Plugins && window.Capacitor.Plugins.NativeDialog;
+      if (plugin && typeof plugin.alert === 'function') {
+        try {
+          await plugin.alert({
+            title: options.title || 'Mava Gems',
+            message: String(message || ''),
+            buttonText: options.buttonText || 'OK'
+          });
+          return;
+        } catch (err) {
+          console.warn('Capacitor native alert fallback:', err);
+        }
+      }
+    }
+
+    // 3. Fallback: Toast or window.alert
+    if (window.alert) {
+      window.alert(message);
+    } else {
+      this.showToast(message);
+    }
+  },
+
+  // OS-Native prompt dialog with high-contrast DOM fallback
+  async prompt(title, message, defaultValue = '', callback) {
+    // 1. Desktop Tauri native macOS prompt via osascript
+    if (window.__TAURI__ && window.__TAURI__.core && typeof window.__TAURI__.core.invoke === 'function') {
+      try {
+        const val = await window.__TAURI__.core.invoke('native_prompt', {
+          title: title || 'Input Required',
+          message: message || '',
+          defaultValue: defaultValue || ''
+        });
+        if (val !== null && val !== undefined) {
+          if (callback) callback(val);
+          return val;
+        }
+        return null;
+      } catch (err) {
+        console.warn('Tauri native prompt fallback:', err);
+      }
+    }
+
+    // 2. Mobile iOS native UIAlertController text input via Capacitor
+    if (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) {
+      const plugin = window.Capacitor.Plugins && window.Capacitor.Plugins.NativeDialog;
+      if (plugin && typeof plugin.prompt === 'function') {
+        try {
+          const res = await plugin.prompt({
+            title: title || 'Input Required',
+            message: message || '',
+            defaultValue: defaultValue || '',
+            confirmText: 'OK',
+            cancelText: 'Cancel'
+          });
+          if (res && !res.cancelled && res.value !== null && res.value !== undefined) {
+            if (callback) callback(res.value);
+            return res.value;
+          }
+          return null;
+        } catch (err) {
+          console.warn('Capacitor native prompt fallback:', err);
+        }
+      }
+    }
+
+    // 3. Fallback: High-contrast modal in DOM
     const modal = document.getElementById('modal-generic-prompt');
     if (!modal) {
       const res = window.prompt ? window.prompt(message, defaultValue) : defaultValue;
       if (res !== null && callback) callback(res);
-      return;
+      return res;
     }
 
     const titleEl = document.getElementById('generic-prompt-title');

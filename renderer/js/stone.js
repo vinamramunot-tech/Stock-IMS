@@ -857,9 +857,23 @@ const StoneController = {
     }
     this._lastStoneFingerprint = stoneFingerprint;
 
+    // Initialize accordion tracking sets if not present
+    this._expandedGroups = this._expandedGroups || new Set();
+    this._expandedTypes = this._expandedTypes || new Set();
+    this._expandedGrades = this._expandedGrades || new Set();
+    this._expandedPacks = this._expandedPacks || new Set();
+
+    // Preserve scroll position and lock container height to prevent screen jump
+    const activeScroll = window.scrollY || document.documentElement.scrollTop;
+    const prevGridHeight = gridContainer.offsetHeight;
+    if (prevGridHeight > 0) {
+      gridContainer.style.minHeight = prevGridHeight + 'px';
+    }
+
     gridContainer.innerHTML = '';
 
     if (filtered.length === 0) {
+      gridContainer.style.minHeight = '';
       gridContainer.classList.add('hidden');
       emptyState.classList.remove('hidden');
       return;
@@ -943,6 +957,7 @@ const StoneController = {
     const fragment = document.createDocumentFragment();
 
     groupsArray.forEach(group => {
+      const isGroupOpen = this._expandedGroups.has(group.name);
       const groupCard = document.createElement('div');
       groupCard.className = 'stone-group-card';
       groupCard.style.cssText = 'background-color: var(--bg-card); border: 1px solid var(--border-light); border-radius: 4px; overflow: hidden; margin-bottom: 15px;';
@@ -954,7 +969,7 @@ const StoneController = {
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <div>
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
-              <span class="group-expand-icon" style="font-family: monospace; font-size: 12px; width: 12px; color: var(--text-muted); flex-shrink: 0;">▶</span>
+              <span class="group-expand-icon" style="font-family: monospace; font-size: 12px; width: 12px; color: var(--text-muted); flex-shrink: 0;">${isGroupOpen ? '▼' : '▶'}</span>
               <span style="font-weight: 700; font-size: 15px; color: var(--text-main); font-family: var(--font-serif);">${UI.escapeHtml(group.name)}</span>
             </div>
             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-left: 22px;">
@@ -976,11 +991,13 @@ const StoneController = {
       groupCard.appendChild(groupHeader);
 
       const groupBody = document.createElement('div');
-      groupBody.className = 'stone-group-body hidden';
+      groupBody.className = isGroupOpen ? 'stone-group-body' : 'stone-group-body hidden';
       groupBody.style.cssText = 'padding: 10px 16px; border-top: 1px solid var(--border-light); background-color: var(--bg-base); display: flex; flex-direction: column; gap: 10px;';
 
       // Render Types
       Object.values(group.types).sort((a,b) => a.name.localeCompare(b.name)).forEach(type => {
+        const typeKey = `${group.name}:::${type.name}`;
+        const isTypeOpen = this._expandedTypes.has(typeKey);
         const typeBlock = document.createElement('div');
         typeBlock.style.cssText = 'border-radius: 4px; border: 1px solid var(--border-light); background-color: var(--bg-card); overflow: hidden;';
 
@@ -988,7 +1005,7 @@ const StoneController = {
         typeHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 8px 12px; background-color: var(--bg-card);';
         typeHeader.innerHTML = `
           <div style="display: flex; align-items: center; gap: 8px;">
-            <span class="type-expand-icon" style="font-family: monospace; font-size: 11px; width: 11px; color: var(--text-muted);">▶</span>
+            <span class="type-expand-icon" style="font-family: monospace; font-size: 11px; width: 11px; color: var(--text-muted);">${isTypeOpen ? '▼' : '▶'}</span>
             <span style="font-weight: 600; font-size: 13px; color: var(--text-main); text-transform: uppercase;">${type.name}</span>
           </div>
           <div style="font-size: 11px; color: var(--text-muted); display: flex; gap: 10px;">
@@ -999,11 +1016,13 @@ const StoneController = {
         typeBlock.appendChild(typeHeader);
 
         const typeBody = document.createElement('div');
-        typeBody.className = 'type-body hidden';
+        typeBody.className = isTypeOpen ? 'type-body' : 'type-body hidden';
         typeBody.style.cssText = 'padding: 8px; border-top: 1px solid var(--border-light); background-color: var(--bg-base); display: flex; flex-direction: column; gap: 8px;';
 
         // Render Grades
         Object.values(type.grades).sort((a,b) => a.name.localeCompare(b.name)).forEach(grade => {
+          const gradeKey = `${group.name}:::${type.name}:::${grade.name}`;
+          const isGradeOpen = this._expandedGrades.has(gradeKey);
           const gradeBlock = document.createElement('div');
           gradeBlock.style.cssText = 'border-radius: 4px; border: 1px solid var(--border-light); background-color: var(--bg-card); overflow: hidden;';
 
@@ -1011,7 +1030,7 @@ const StoneController = {
           gradeHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 6px 10px; background-color: var(--bg-card);';
           gradeHeader.innerHTML = `
             <div style="display: flex; align-items: center; gap: 6px;">
-              <span class="grade-expand-icon" style="font-family: monospace; font-size: 10px; width: 10px; color: var(--text-muted);">▶</span>
+              <span class="grade-expand-icon" style="font-family: monospace; font-size: 10px; width: 10px; color: var(--text-muted);">${isGradeOpen ? '▼' : '▶'}</span>
               <span style="font-weight: 600; font-size: 12px; color: var(--text-main);">Clarity/Grade: <strong>${grade.name}</strong></span>
             </div>
             <div style="font-size: 11px; color: var(--text-muted); display: flex; gap: 10px;">
@@ -1022,12 +1041,15 @@ const StoneController = {
           gradeBlock.appendChild(gradeHeader);
 
           const gradeBody = document.createElement('div');
-          gradeBody.className = 'grade-body hidden';
+          gradeBody.className = isGradeOpen ? 'grade-body' : 'grade-body hidden';
           gradeBody.style.cssText = 'padding: 8px; border-top: 1px solid var(--border-light); background-color: var(--bg-base); display: flex; flex-direction: column; gap: 8px;';
 
           // Packets
           grade.items.forEach(item => {
+            const isPackOpen = this._expandedPacks.has(item.id);
             const packBlock = document.createElement('div');
+            packBlock.className = 'stone-pack-card';
+            packBlock.setAttribute('data-id', item.id);
             packBlock.style.cssText = 'border-radius: 4px; border: 1px solid var(--border-light); background-color: var(--bg-card); overflow: hidden;';
 
             const packHeader = document.createElement('div');
@@ -1039,7 +1061,7 @@ const StoneController = {
 
             packHeader.innerHTML = `
               <div style="display: flex; align-items: center; gap: 6px;">
-                <span class="pack-expand-icon" style="font-family: monospace; font-size: 9px; width: 9px; color: var(--text-muted);">▶</span>
+                <span class="pack-expand-icon" style="font-family: monospace; font-size: 9px; width: 9px; color: var(--text-muted);">${isPackOpen ? '▼' : '▶'}</span>
                 <span style="font-weight: 600; font-size: 12px; color: var(--text-main);">Packet No: <strong style="color: var(--text-gold-dark);">#${item.color || 'N/A'}</strong></span>
               </div>
               <div style="font-size: 11px; color: var(--text-muted); display: flex; gap: 10px; flex-wrap: wrap;">
@@ -1052,7 +1074,7 @@ const StoneController = {
             packBlock.appendChild(packHeader);
 
             const packBody = document.createElement('div');
-            packBody.className = 'pack-body hidden';
+            packBody.className = isPackOpen ? 'pack-body' : 'pack-body hidden';
             packBody.style.cssText = 'padding: 10px; border-top: 1px dashed var(--border-light); background-color: var(--bg-base);';
 
             let sizesTableHtml = '';
@@ -1104,6 +1126,8 @@ const StoneController = {
             packHeader.addEventListener('click', () => {
               const collapsed = packBody.classList.toggle('hidden');
               packHeader.querySelector('.pack-expand-icon').textContent = collapsed ? '▶' : '▼';
+              if (collapsed) this._expandedPacks.delete(item.id);
+              else this._expandedPacks.add(item.id);
             });
 
             gradeBody.appendChild(packBlock);
@@ -1113,6 +1137,8 @@ const StoneController = {
           gradeHeader.addEventListener('click', () => {
             const collapsed = gradeBody.classList.toggle('hidden');
             gradeHeader.querySelector('.grade-expand-icon').textContent = collapsed ? '▶' : '▼';
+            if (collapsed) this._expandedGrades.delete(gradeKey);
+            else this._expandedGrades.add(gradeKey);
           });
           typeBody.appendChild(gradeBlock);
         });
@@ -1121,6 +1147,8 @@ const StoneController = {
         typeHeader.addEventListener('click', () => {
           const collapsed = typeBody.classList.toggle('hidden');
           typeHeader.querySelector('.type-expand-icon').textContent = collapsed ? '▶' : '▼';
+          if (collapsed) this._expandedTypes.delete(typeKey);
+          else this._expandedTypes.add(typeKey);
         });
         groupBody.appendChild(typeBlock);
       });
@@ -1129,12 +1157,21 @@ const StoneController = {
       groupHeader.addEventListener('click', () => {
         const collapsed = groupBody.classList.toggle('hidden');
         groupHeader.querySelector('.group-expand-icon').textContent = collapsed ? '▶' : '▼';
+        if (collapsed) this._expandedGroups.delete(group.name);
+        else this._expandedGroups.add(group.name);
       });
 
       fragment.appendChild(groupCard);
     });
 
     gridContainer.appendChild(fragment);
+
+    requestAnimationFrame(() => {
+      gridContainer.style.minHeight = '';
+      if (activeScroll > 0) {
+        window.scrollTo({ top: activeScroll, behavior: 'instant' });
+      }
+    });
   },
 
   async handleSaveStone() {
@@ -1215,7 +1252,34 @@ const StoneController = {
           await DBManager.deleteItem('mava_catalog_stones', stone.id);
           DBManager.addLog("DELETE", stone.id, `${stone.type} #${stone.color}`, `Deleted loose stone stock`, []);
           UI.showToast("Stock item deleted.");
-          App.refreshAllDisplays();
+
+          // Smooth in-place DOM removal
+          const packEl = document.querySelector(`.stone-pack-card[data-id="${stone.id}"]`);
+          if (packEl) {
+            packEl.classList.add('item-deleting');
+            setTimeout(() => {
+              const gradeBody = packEl.closest('.grade-body');
+              const typeBody = packEl.closest('.type-body');
+              const groupCard = packEl.closest('.stone-group-card');
+              packEl.remove();
+
+              if (gradeBody && gradeBody.querySelectorAll('.stone-pack-card').length === 0) {
+                const gb = gradeBody.closest('.grade-block') || gradeBody.parentElement;
+                if (gb && gb !== typeBody) gb.remove();
+              }
+              if (typeBody && typeBody.querySelectorAll('.stone-pack-card').length === 0) {
+                const tb = typeBody.closest('.type-block') || typeBody.parentElement;
+                if (tb && tb !== groupCard) tb.remove();
+              }
+              if (groupCard && groupCard.querySelectorAll('.stone-pack-card').length === 0) {
+                groupCard.remove();
+              }
+
+              StoneController.renderMetrics();
+            }, 280);
+          } else {
+            StoneController.renderStonesList(true);
+          }
         } catch (err) {
           UI.showToast(err.message, true);
         }

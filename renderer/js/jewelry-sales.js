@@ -326,9 +326,17 @@ const JewelrySalesController = {
     const tbody = document.getElementById('jewelry-sales-list-tbody');
     const emptyEl = document.getElementById('jewelry-sales-empty-state');
     if (!tbody) return;
+
+    // Preserve scroll position and lock tbody height to avoid scroll jump
+    const scrollParent = tbody.closest('.scrollable-table') || tbody.closest('.table-container') || window;
+    const prevScroll = scrollParent === window ? (window.scrollY || document.documentElement.scrollTop) : scrollParent.scrollTop;
+    const prevHeight = tbody.offsetHeight;
+    if (prevHeight > 0) tbody.style.minHeight = prevHeight + 'px';
+
     tbody.innerHTML = '';
 
     if (filtered.length === 0) {
+      tbody.style.minHeight = '';
       tbody.closest('table').classList.add('hidden');
       if (emptyEl) emptyEl.classList.remove('hidden');
       return;
@@ -370,6 +378,7 @@ const JewelrySalesController = {
       const repColor = repProfit >= 0 ? 'var(--info-color, #38bdf8)' : '#ef4444';
 
       const tr = document.createElement('tr');
+      tr.setAttribute('data-sale-id', sale.id);
       tr.innerHTML = `
         <td style="font-size:11.5px;color:var(--text-main);font-weight:600;">${dateFmt}</td>
         <td style="font-weight:700;color:var(--text-main);font-size:12px;">${UI.escapeHtml(sale.sku)}</td>
@@ -443,6 +452,15 @@ const JewelrySalesController = {
     });
 
     tbody.appendChild(fragment);
+
+    requestAnimationFrame(() => {
+      tbody.style.minHeight = '';
+      if (scrollParent === window) {
+        window.scrollTo({ top: prevScroll, behavior: 'instant' });
+      } else {
+        scrollParent.scrollTop = prevScroll;
+      }
+    });
   },
 
   openEditSaleModal(saleRecord) {
@@ -597,9 +615,20 @@ const JewelrySalesController = {
 
       try {
         await DBManager.saveVault();
-        App.refreshAllDisplays();
-        this.renderSalesList();
         UI.showToast(`Piece ${sku} successfully returned to stock with all specifications restored!`);
+
+        // Smooth in-place row removal without jarring screen reloads
+        const tbody = document.getElementById('jewelry-sales-list-tbody');
+        const row = tbody ? tbody.querySelector(`tr[data-sale-id="${saleRecord.id}"]`) : null;
+        if (row) {
+          row.classList.add('item-deleting');
+          setTimeout(() => {
+            row.remove();
+            this.renderSalesList();
+          }, 280);
+        } else {
+          this.renderSalesList();
+        }
       } catch (err) {
         UI.showToast("Error returning sale: " + err.message, true);
       }

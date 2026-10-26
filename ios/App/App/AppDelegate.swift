@@ -14,6 +14,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         DispatchQueue.main.async { [weak self] in
             if let bridgeVC = self?.activeKeyWindow?.rootViewController as? CAPBridgeViewController {
                 bridgeVC.bridge?.registerPluginInstance(BiometricAuthPlugin())
+                bridgeVC.bridge?.registerPluginInstance(NativeDialogPlugin())
             }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
@@ -169,6 +170,7 @@ public class ViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
         super.capacitorDidLoad()
         bridge?.registerPluginInstance(BiometricAuthPlugin())
+        bridge?.registerPluginInstance(NativeDialogPlugin())
     }
 }
 
@@ -268,5 +270,96 @@ public class BiometricAuthPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc public func isFaceIdEnabled(_ call: CAPPluginCall) {
         let enabled = UserDefaults.standard.bool(forKey: "face_id_enabled")
         call.resolve(["enabled": enabled])
+    }
+}
+
+// =============================================================================
+// NATIVE IOS DIALOG & ALERT CONTROLLER PLUGIN FOR CAPACITOR
+// =============================================================================
+
+@objc(NativeDialogPlugin)
+public class NativeDialogPlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "NativeDialogPlugin"
+    public let jsName = "NativeDialog"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "confirm", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "alert", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "prompt", returnType: CAPPluginReturnPromise)
+    ]
+
+    @objc public func confirm(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            guard let viewController = self?.bridge?.viewController else {
+                call.resolve(["confirmed": false])
+                return
+            }
+
+            let title = call.getString("title") ?? "Confirm Action"
+            let message = call.getString("message") ?? ""
+            let confirmText = call.getString("confirmText") ?? "Confirm"
+            let cancelText = call.getString("cancelText") ?? "Cancel"
+            let isDestructive = call.getBool("destructive") ?? true
+
+            let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: cancelText, style: .cancel, handler: { _ in
+                call.resolve(["confirmed": false])
+            }))
+            alert.addAction(UIAlertAction(title: confirmText, style: isDestructive ? .destructive : .default, handler: { _ in
+                call.resolve(["confirmed": true])
+            }))
+
+            viewController.present(alert, animated: true)
+        }
+    }
+
+    @objc public func alert(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            guard let viewController = self?.bridge?.viewController else {
+                call.resolve()
+                return
+            }
+
+            let title = call.getString("title") ?? "Notification"
+            let message = call.getString("message") ?? ""
+            let buttonText = call.getString("buttonText") ?? "OK"
+
+            let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: buttonText, style: .default, handler: { _ in
+                call.resolve()
+            }))
+
+            viewController.present(alert, animated: true)
+        }
+    }
+
+    @objc public func prompt(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            guard let viewController = self?.bridge?.viewController else {
+                call.resolve(["value": "", "cancelled": true])
+                return
+            }
+
+            let title = call.getString("title") ?? "Input Required"
+            let message = call.getString("message") ?? ""
+            let defaultValue = call.getString("defaultValue") ?? ""
+            let confirmText = call.getString("confirmText") ?? "OK"
+            let cancelText = call.getString("cancelText") ?? "Cancel"
+
+            let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+            alert.addTextField { textField in
+                textField.text = defaultValue
+            }
+
+            alert.addAction(UIAlertAction(title: cancelText, style: .cancel, handler: { _ in
+                call.resolve(["value": "", "cancelled": true])
+            }))
+
+            alert.addAction(UIAlertAction(title: confirmText, style: .default, handler: { _ in
+                let val = alert.textFields?.first?.text ?? ""
+                call.resolve(["value": val, "cancelled": false])
+            }))
+
+            viewController.present(alert, animated: true)
+        }
     }
 }

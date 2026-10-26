@@ -1542,11 +1542,24 @@ const EmeraldController = {
     }
     this._lastEmeraldFingerprint = emeraldFingerprint;
 
+    // Initialize accordion state tracking sets if not present
+    this._expandedGroups = this._expandedGroups || new Set();
+    this._expandedGrades = this._expandedGrades || new Set();
+    this._expandedPudias = this._expandedPudias || new Set();
+
+    // Preserve scroll position and lock container height to prevent screen jump
+    const activeScroll = window.scrollY || document.documentElement.scrollTop;
+    const prevGridHeight = gridContainer.offsetHeight;
+    if (prevGridHeight > 0) {
+      gridContainer.style.minHeight = prevGridHeight + 'px';
+    }
+
     // Clear both containers
     gridContainer.innerHTML = '';
     flatContainer.innerHTML = '';
 
     if (filtered.length === 0) {
+      gridContainer.style.minHeight = '';
       gridContainer.classList.add('hidden');
       flatContainer.classList.add('hidden');
       emptyState.classList.remove('hidden');
@@ -1652,6 +1665,7 @@ const EmeraldController = {
 
     // Render Group Cards Accordion
     groupsArray.forEach(group => {
+      const isGroupOpen = this._expandedGroups.has(group.name);
       const groupCard = document.createElement('div');
       groupCard.className = 'emerald-group-card';
       groupCard.style.cssText = 'background-color: var(--bg-card); border: 1px solid var(--border-light); border-radius: 4px; overflow: hidden; transition: border-color var(--transition-fast);';
@@ -1662,7 +1676,7 @@ const EmeraldController = {
 
       const groupHeaderHtml = `
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
-          <span class="group-expand-icon" style="font-family: monospace; font-size: 13px; width: 14px; color: var(--text-muted); flex-shrink: 0;">▶</span>
+          <span class="group-expand-icon" style="font-family: monospace; font-size: 13px; width: 14px; color: var(--text-muted); flex-shrink: 0;">${isGroupOpen ? '▼' : '▶'}</span>
           <span style="font-weight: 700; font-size: 15px; color: var(--text-main); font-family: var(--font-serif);">${UI.escapeHtml(group.name)}</span>
         </div>
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-left: 24px;">
@@ -1676,12 +1690,14 @@ const EmeraldController = {
       groupCard.appendChild(groupHeader);
 
       const groupBody = document.createElement('div');
-      groupBody.className = 'emerald-group-body hidden';
+      groupBody.className = isGroupOpen ? 'emerald-group-body' : 'emerald-group-body hidden';
       groupBody.style.cssText = 'padding: 10px 20px 20px 20px; border-top: 1px solid var(--border-light); background-color: var(--bg-base); display: flex; flex-direction: column; gap: 12px;';
 
       // Render Grades
       const sortedGrades = Object.values(group.grades).sort((a, b) => a.name.localeCompare(b.name));
       sortedGrades.forEach(grade => {
+        const gradeKey = `${group.name}:::${grade.name}`;
+        const isGradeOpen = this._expandedGrades.has(gradeKey);
         const gradeBlock = document.createElement('div');
         gradeBlock.className = 'emerald-grade-block';
         gradeBlock.style.cssText = 'border-radius: 4px; overflow: hidden; border: 1px solid var(--border-light); background-color: var(--bg-card);';
@@ -1691,13 +1707,13 @@ const EmeraldController = {
         gradeHeader.style.cssText = 'display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 10px 15px; user-select: none; background-color: var(--bg-card);';
 
         const gradeTitleCol = `<div style="display: flex; align-items: center; gap: 12px;">
-          <span class="grade-expand-icon" style="font-family: monospace; font-size: 12px; width: 12px; color: var(--text-muted);">▶</span>
+          <span class="grade-expand-icon" style="font-family: monospace; font-size: 12px; width: 12px; color: var(--text-muted);">${isGradeOpen ? '▼' : '▶'}</span>
           <span style="font-weight: 600; font-size: 14px; color: var(--text-main);">Grade: <strong style="color: var(--text-gold-dark); font-family: var(--font-serif);">${UI.escapeHtml(grade.name)}</strong></span>
         </div>`;
 
         const gradeStatsCol = `<div style="display: flex; align-items: center; gap: 15px; font-size: 12px; color: var(--text-muted);">
           <span>Weight: <strong style="color: var(--text-main);">${grade.totalWeight.toFixed(2)} cts</strong></span>
-          <span class="cost-price-data">Value: <strong style="color: var(--text-gold-dark);">₹${grade.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
+          <span class="cost-price-data" style="background-color: var(--bg-base); padding: 2px 8px; border-radius: 10px; font-size: 11px; color: var(--text-muted);">Value: <strong style="color: var(--text-gold-dark);">₹${grade.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
           <span style="background-color: var(--bg-base); padding: 1px 6px; border-radius: 10px; font-size: 10px; font-weight: 600; color: var(--text-main);">${grade.items.length} items</span>
           <button type="button" class="btn btn-danger btn-small btn-delete-grade" data-client-hide style="padding: 2px 6px; font-size: 10px;" title="Delete Entire Grade">Delete</button>
         </div>`;
@@ -1706,13 +1722,14 @@ const EmeraldController = {
         gradeBlock.appendChild(gradeHeader);
 
         const gradeBody = document.createElement('div');
-        gradeBody.className = 'emerald-grade-body hidden';
+        gradeBody.className = isGradeOpen ? 'emerald-grade-body' : 'emerald-grade-body hidden';
         gradeBody.style.cssText = 'padding: 10px 15px; border-top: 1px solid var(--border-light); background-color: var(--bg-base); display: flex; flex-direction: column; gap: 10px;';
 
         // Render Pudias
         grade.items.forEach(item => {
           const pudiaBlock = document.createElement('div');
           pudiaBlock.className = 'emerald-pudia-block';
+          pudiaBlock.setAttribute('data-id', item.id);
           pudiaBlock.style.cssText = 'border-radius: 4px; overflow: hidden; border: 1px solid var(--border-light); background-color: var(--bg-card);';
 
           const totalWeight = this.getEmeraldWeight(item);
@@ -1728,8 +1745,9 @@ const EmeraldController = {
           const memoCarats = window.MemoController ? MemoController.getOpenMemoCaratsForEmerald(item.id) : 0;
           const inCompanyWeight = Math.max(0, Number((totalWeight - memoCarats).toFixed(3)));
 
+          const isPudiaOpen = this._expandedPudias.has(item.id);
           const pudiaTitleCol = `<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-            <span class="pudia-expand-icon" style="font-family: monospace; font-size: 10px; width: 10px; color: var(--text-muted);">▶</span>
+            <span class="pudia-expand-icon" style="font-family: monospace; font-size: 10px; width: 10px; color: var(--text-muted);">${isPudiaOpen ? '▼' : '▶'}</span>
             <span style="font-weight: 600; font-size: 13px; color: var(--text-main);">Pudia Number: <strong style="color: var(--text-gold-dark);">#${item.color || 'N/A'}</strong></span>
             ${memoCarats > 0 ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;letter-spacing:0.05em;background:rgba(212,175,55,0.15);color:var(--text-gold-dark);border:1px solid rgba(212,175,55,0.35);" title="${memoCarats.toFixed(2)} cts currently out on memo">🏷️ ON MEMO (${memoCarats.toFixed(2)} cts)</span>` : ''}
           </div>`;
@@ -1760,7 +1778,7 @@ const EmeraldController = {
           pudiaBlock.appendChild(pudiaHeader);
 
           const pudiaBody = document.createElement('div');
-          pudiaBody.className = 'emerald-pudia-body hidden';
+          pudiaBody.className = isPudiaOpen ? 'emerald-pudia-body' : 'emerald-pudia-body hidden';
           pudiaBody.style.cssText = 'padding: 15px; border-top: 1px dashed var(--border-light); background-color: var(--bg-base);';
 
           // Build sizes table HTML
@@ -1904,6 +1922,11 @@ const EmeraldController = {
           pudiaHeader.addEventListener('click', () => {
             const isCollapsed = pudiaBody.classList.toggle('hidden');
             pudiaHeader.querySelector('.pudia-expand-icon').textContent = isCollapsed ? '▶' : '▼';
+            if (isCollapsed) {
+              this._expandedPudias.delete(item.id);
+            } else {
+              this._expandedPudias.add(item.id);
+            }
           });
 
           gradeBody.appendChild(pudiaBlock);
@@ -1920,6 +1943,11 @@ const EmeraldController = {
           }
           const isCollapsed = gradeBody.classList.toggle('hidden');
           gradeHeader.querySelector('.grade-expand-icon').textContent = isCollapsed ? '▶' : '▼';
+          if (isCollapsed) {
+            this._expandedGrades.delete(gradeKey);
+          } else {
+            this._expandedGrades.add(gradeKey);
+          }
         });
 
         groupBody.appendChild(gradeBlock);
@@ -1936,12 +1964,24 @@ const EmeraldController = {
         }
         const isCollapsed = groupBody.classList.toggle('hidden');
         groupHeader.querySelector('.group-expand-icon').textContent = isCollapsed ? '▶' : '▼';
+        if (isCollapsed) {
+          this._expandedGroups.delete(group.name);
+        } else {
+          this._expandedGroups.add(group.name);
+        }
       });
 
       fragment.appendChild(groupCard);
     });
 
     gridContainer.appendChild(fragment);
+
+    requestAnimationFrame(() => {
+      gridContainer.style.minHeight = '';
+      if (activeScroll > 0) {
+        window.scrollTo({ top: activeScroll, behavior: 'instant' });
+      }
+    });
   },
 
   async handleSaveEmerald() {
@@ -2144,7 +2184,32 @@ const EmeraldController = {
           await DBManager.deleteItem('mava_catalog_emeralds', emerald.id);
 
           UI.showToast("Emerald deleted from stock.");
-          App.refreshAllDisplays();
+
+          // Smooth in-place DOM removal without refreshing entire screen or collapsing accordions
+          const pudiaEl = document.querySelector(`.emerald-pudia-block[data-id="${emerald.id}"]`);
+          const flatCardEl = document.querySelector(`.flat-pudia-card[data-id="${emerald.id}"]`);
+          const targetEl = pudiaEl || flatCardEl;
+
+          if (targetEl) {
+            targetEl.classList.add('item-deleting');
+            setTimeout(() => {
+              const gradeBody = targetEl.closest('.emerald-grade-body');
+              const groupCard = targetEl.closest('.emerald-group-card');
+              targetEl.remove();
+
+              if (gradeBody && gradeBody.querySelectorAll('.emerald-pudia-block').length === 0) {
+                const gradeBlock = gradeBody.closest('.emerald-grade-block');
+                if (gradeBlock) gradeBlock.remove();
+              }
+              if (groupCard && groupCard.querySelectorAll('.emerald-pudia-block').length === 0) {
+                groupCard.remove();
+              }
+
+              EmeraldController.renderEmeraldMetrics();
+            }, 280);
+          } else {
+            EmeraldController.renderEmeraldGrid(true);
+          }
         } catch (err) {
           UI.showToast(err.message, true);
         }
@@ -3747,6 +3812,7 @@ const EmeraldController = {
   createFlatPudiaCard(item, isMultiplierEnabled, globalMultiplier) {
     const card = document.createElement('div');
     card.className = 'flat-pudia-card';
+    card.setAttribute('data-id', item.id);
 
     const totalWeight = this.getEmeraldWeight(item);
     const totalPieces = this.getEmeraldPieces(item);

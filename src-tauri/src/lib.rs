@@ -20,7 +20,7 @@ use aes::cipher::{block_padding::Pkcs7, typenum::{U16, U32}, BlockDecryptMut, Bl
 use sha2::{Digest, Sha256};
 use rand::Rng;
 #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-use rfd::FileDialog;
+use rfd::{FileDialog, MessageDialog, MessageButtons, MessageDialogResult};
 #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 use tauri::Emitter;
 use tauri::{AppHandle, Manager};
@@ -369,6 +369,77 @@ fn import_backup_dialog() -> Option<String> {
     }
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     {
+        None
+    }
+}
+
+#[tauri::command]
+fn native_confirm(
+    title: Option<String>,
+    message: String,
+    _confirm_text: Option<String>,
+    _cancel_text: Option<String>,
+) -> bool {
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    {
+        let dialog_title = title.unwrap_or_else(|| "Confirm Action".to_string());
+        let res = MessageDialog::new()
+            .set_title(&dialog_title)
+            .set_description(&message)
+            .set_buttons(MessageButtons::OkCancel)
+            .show();
+        matches!(res, MessageDialogResult::Ok | MessageDialogResult::Yes)
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    {
+        false
+    }
+}
+
+#[tauri::command]
+fn native_alert(title: Option<String>, message: String) {
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    {
+        let dialog_title = title.unwrap_or_else(|| "Notification".to_string());
+        MessageDialog::new()
+            .set_title(&dialog_title)
+            .set_description(&message)
+            .set_buttons(MessageButtons::Ok)
+            .show();
+    }
+}
+
+#[tauri::command]
+fn native_prompt(
+    title: Option<String>,
+    message: String,
+    default_value: Option<String>,
+) -> Option<String> {
+    #[cfg(target_os = "macos")]
+    {
+        use std::process::Command;
+        let t = title.unwrap_or_else(|| "Input Required".to_string()).replace('"', "\\\"");
+        let m = message.replace('"', "\\\"");
+        let d = default_value.unwrap_or_default().replace('"', "\\\"");
+        let script = format!(
+            "text returned of (display dialog \"{}\" default answer \"{}\" with title \"{}\" buttons {{\"Cancel\", \"OK\"}} default button \"OK\")",
+            m, d, t
+        );
+        let output = Command::new("osascript")
+            .arg("-e")
+            .arg(&script)
+            .output();
+        if let Ok(out) = output {
+            if out.status.success() {
+                let res = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                return Some(res);
+            }
+        }
+        None
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (title, message, default_value);
         None
     }
 }
@@ -925,7 +996,10 @@ pub fn run() {
             import_db_file,
             save_file_dialog,
             save_pdf_file,
-            convert_heic_to_jpeg
+            convert_heic_to_jpeg,
+            native_confirm,
+            native_alert,
+            native_prompt
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

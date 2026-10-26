@@ -3092,21 +3092,26 @@
 
   <!-- ==================== CONFIRM DIALOG: ERASE VAULT ==================== -->
   <div id="modal-erase-confirm" class="modal-overlay hidden">
-    <div class="modal-card mini dangerous-card">
-      <div class="modal-header">
-        <h3>Erase Secure Vault?</h3>
-        <button type="button" class="btn-close modal-close-trigger">&times;</button>
+    <div class="modal-card mini dangerous-card modal-confirm-card">
+      <div class="modal-header modal-confirm-header">
+        <div class="modal-confirm-header-content">
+          <div class="modal-confirm-icon-pulse danger">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+          </div>
+          <h3 style="margin: 0; font-size: 18px; font-weight: 700; color: #ffffff;">Erase Secure Vault?</h3>
+        </div>
+        <button type="button" class="btn-close modal-close-trigger" aria-label="Close dialog">&times;</button>
       </div>
-      <div class="modal-body">
-        <p class="modal-instructions font-bold">WARNING: This operation will permanently delete your stock data file
-          from your drive.</p>
-        <p class="modal-instructions">Please type <span class="code">ERASE</span> below to confirm this destructive
-          operation.</p>
-        <div class="input-group mt-15">
-          <input type="text" id="erase-confirm-input" placeholder="Type ERASE">
+      <div class="modal-body modal-confirm-body">
+        <p class="modal-instructions font-bold" style="color: #ef4444 !important; font-size: 14px; margin-bottom: 8px;">WARNING: This operation will permanently delete your stock database file.</p>
+        <p class="modal-instructions" style="color: #d1d5db !important; font-size: 13.5px; line-height: 1.5; margin-bottom: 14px;">Please type <span class="code" style="background: rgba(239,68,68,0.2); color: #fca5a5; padding: 2px 6px; border-radius: 4px; font-weight: 700;">ERASE</span> below to confirm this destructive operation.</p>
+        <div class="input-group" style="margin-top: 10px;">
+          <input type="text" id="erase-confirm-input" placeholder="Type ERASE" class="filter-input" style="width: 100%; height: 42px; font-size: 15px; border-radius: 8px; padding: 0 12px; box-sizing: border-box; text-transform: uppercase;">
         </div>
       </div>
-      <div class="modal-footer">
+      <div class="modal-footer modal-confirm-footer">
         <button type="button" class="btn btn-secondary modal-close-trigger">Cancel</button>
         <button type="button" id="btn-erase-vault-confirm" class="btn btn-danger" disabled>Erase Vault Database</button>
       </div>
@@ -3139,50 +3144,63 @@
 
   <!-- ==================== PROMPT DIALOG: GENERIC INPUT ==================== -->
   <div id="modal-generic-prompt" class="modal-overlay hidden">
-    <div class="modal-card mini">
-      <div class="modal-header">
-        <h3 id="generic-prompt-title">New Database</h3>
-        <button type="button" class="btn-close modal-close-trigger">&times;</button>
+    <div class="modal-card mini modal-confirm-card">
+      <div class="modal-header modal-confirm-header">
+        <div class="modal-confirm-header-content">
+          <div class="modal-confirm-icon-pulse" style="background: rgba(212, 175, 55, 0.16); color: #d4af37; border: 1px solid rgba(212, 175, 55, 0.35);">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/>
+            </svg>
+          </div>
+          <h3 id="generic-prompt-title" style="margin: 0; font-size: 18px; font-weight: 700; color: #ffffff;">New Database</h3>
+        </div>
+        <button type="button" class="btn-close modal-close-trigger" aria-label="Close dialog">&times;</button>
       </div>
-      <div class="modal-body">
-        <p class="modal-instructions font-bold" id="generic-prompt-msg">Enter a name for your new database file:</p>
-        <div style="margin-top: 14px;">
+      <div class="modal-body modal-confirm-body">
+        <p class="modal-instructions font-bold" id="generic-prompt-msg" style="color: #f1f1f5 !important; font-size: 14.5px; margin-bottom: 12px;">Enter a name for your new database file:</p>
+        <div style="margin-top: 8px;">
           <input type="text" id="generic-prompt-input" class="filter-input"
             style="width: 100%; height: 44px; font-size: 15px; border-radius: 8px; padding: 0 12px; box-sizing: border-box;"
             placeholder="mava_gems_stock.db" value="mava_gems_stock.db">
         </div>
       </div>
-      <div class="modal-footer">
+      <div class="modal-footer modal-confirm-footer">
         <button type="button" id="btn-generic-prompt-cancel"
           class="btn btn-secondary modal-close-trigger">Cancel</button>
-        <button type="button" id="btn-generic-prompt-confirm" class="btn btn-primary">Create Database</button>
+        <button type="button" id="btn-generic-prompt-confirm" class="btn btn-primary" style="background: linear-gradient(135deg, #d4af37 0%, #b8860b 100%) !important; color: #000000 !important; font-weight: 700; border: none !important;">Create Database</button>
       </div>
     </div>
   </div>
 
   <!-- ==================== CONFIRM DIALOG: CLEAR LOGS ==================== -->
   <div id="modal-clear-logs-confirm" class="modal-overlay hidden">
-    <div class="modal-card mini dangerous-card">
-      <div class="modal-header">
-        <h3>Clear Activity History?</h3>
-        <button type="button" class="btn-close modal-close-trigger">&times;</button>
+    <div class="modal-card mini dangerous-card modal-confirm-card">
+      <div class="modal-header modal-confirm-header">
+        <div class="modal-confirm-header-content">
+          <div class="modal-confirm-icon-pulse danger">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+          </div>
+          <h3 style="margin: 0; font-size: 18px; font-weight: 700; color: #ffffff;">Clear Activity History?</h3>
+        </div>
+        <button type="button" class="btn-close modal-close-trigger" aria-label="Close dialog">&times;</button>
       </div>
-      <div class="modal-body">
-        <p class="modal-instructions font-bold">Select the scope of activity logs to permanently erase:</p>
+      <div class="modal-body modal-confirm-body">
+        <p class="modal-instructions font-bold" style="color: #f1f1f5 !important; font-size: 14.5px; margin-bottom: 12px;">Select the scope of activity logs to permanently erase:</p>
         <div style="margin-top: 10px;">
-          <label style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Clear
-            Scope:</label>
+          <label style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: rgba(255,255,255,0.7);">Clear Scope:</label>
           <select id="clear-logs-scope-select" class="filter-select"
-            style="width: 100%; margin-top: 4px; height: 38px;">
+            style="width: 100%; margin-top: 6px; height: 40px; border-radius: 8px;">
             <option value="current">Active Selected Suite Only</option>
             <option value="all">All Suites (Entire Vault History)</option>
           </select>
         </div>
-        <p class="modal-instructions" style="margin-top: 10px; font-size: 12px; color: var(--text-muted);">
+        <p class="modal-instructions" style="margin-top: 12px; font-size: 12.5px; color: #ef4444 !important; font-weight: 500;">
           Cleared log entries cannot be recovered.
         </p>
       </div>
-      <div class="modal-footer">
+      <div class="modal-footer modal-confirm-footer">
         <button type="button" class="btn btn-secondary modal-close-trigger">Cancel</button>
         <button type="button" id="btn-clear-logs-confirm" class="btn btn-danger">Clear History</button>
       </div>
