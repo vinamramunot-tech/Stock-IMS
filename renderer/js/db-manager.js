@@ -10,12 +10,12 @@ const DBManager = {
       goldRate24kt: {
         ratePerGram: 0,
         effectiveDate: new Date().toISOString().split('T')[0],
-        updatedAt: new Date().toISOString()
+        updatedAt: '1970-01-01T00:00:00.000Z'
       },
       usdToInr: {
         rate: 0,
         effectiveDate: new Date().toISOString().split('T')[0],
-        updatedAt: new Date().toISOString()
+        updatedAt: '1970-01-01T00:00:00.000Z'
       }
     },
     items: [],
@@ -302,12 +302,12 @@ const DBManager = {
         goldRate24kt: {
           ratePerGram: 0,
           effectiveDate: new Date().toISOString().split('T')[0],
-          updatedAt: new Date().toISOString()
+          updatedAt: '1970-01-01T00:00:00.000Z'
         },
         usdToInr: {
           rate: 0,
           effectiveDate: new Date().toISOString().split('T')[0],
-          updatedAt: new Date().toISOString()
+          updatedAt: '1970-01-01T00:00:00.000Z'
         }
       },
       items: [],

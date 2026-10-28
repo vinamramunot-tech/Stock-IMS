@@ -1083,23 +1083,80 @@
       let anyUpdates = false;
 
       try {
-        // 1. Sync Settings Document first
+        // 1. Sync Settings Document with intelligent deep merge and zero-rate protection
         try {
           const remoteSettings = await this.getDocument(`${prefix}_meta`, 'settings');
           if (remoteSettings) {
+            const localGold = localDb.settings?.goldRate24kt || {};
+            const remoteGold = remoteSettings?.goldRate24kt || {};
+            const localUsd = localDb.settings?.usdToInr || {};
+            const remoteUsd = remoteSettings?.usdToInr || {};
+
+            const localGoldRate = Number(localGold.ratePerGram || 0);
+            const remoteGoldRate = Number(remoteGold.ratePerGram || 0);
+            const localUsdRate = Number(localUsd.rate || 0);
+            const remoteUsdRate = Number(remoteUsd.rate || 0);
+
+            let mergedGold = { ...localGold };
+            if (remoteGoldRate > 0 && localGoldRate <= 0) {
+              // Local has default/zero placeholder rate, remote has real rate: adopt remote unconditionally
+              mergedGold = { ...remoteGold };
+            } else if (localGoldRate > 0 && remoteGoldRate <= 0) {
+              // Local has real rate, remote is missing rate: keep local
+              mergedGold = { ...localGold };
+            } else if (remoteGoldRate > 0 && localGoldRate > 0) {
+              // Both have rates: newer timestamp wins
+              const localGTime = new Date(localGold.updatedAt || 0).getTime();
+              const remoteGTime = new Date(remoteGold.updatedAt || 0).getTime();
+              mergedGold = remoteGTime > localGTime ? { ...remoteGold } : { ...localGold };
+            }
+
+            let mergedUsd = { ...localUsd };
+            if (remoteUsdRate > 0 && localUsdRate <= 0) {
+              mergedUsd = { ...remoteUsd };
+            } else if (localUsdRate > 0 && remoteUsdRate <= 0) {
+              mergedUsd = { ...localUsd };
+            } else if (remoteUsdRate > 0 && localUsdRate > 0) {
+              const localUTime = new Date(localUsd.updatedAt || 0).getTime();
+              const remoteUTime = new Date(remoteUsd.updatedAt || 0).getTime();
+              mergedUsd = remoteUTime > localUTime ? { ...remoteUsd } : { ...localUsd };
+            }
+
             const localSettingsTime = new Date(localDb.settings?.updatedAt || 0).getTime();
             const remoteSettingsTime = new Date(remoteSettings.updatedAt || 0).getTime();
-            if (remoteSettingsTime > localSettingsTime) {
-              const mergedSettings = { ...localDb.settings, ...remoteSettings };
-              if (JSON.stringify(localDb.settings) !== JSON.stringify(mergedSettings)) {
-                localDb.settings = mergedSettings;
-                anyUpdates = true;
-              }
-            } else if (localSettingsTime > remoteSettingsTime) {
+
+            const mergedSettings = {
+              ...localDb.settings,
+              ...remoteSettings,
+              goldRate24kt: mergedGold,
+              usdToInr: mergedUsd,
+              updatedAt: new Date(Math.max(
+                localSettingsTime,
+                remoteSettingsTime,
+                new Date(mergedGold.updatedAt || 0).getTime(),
+                new Date(mergedUsd.updatedAt || 0).getTime()
+              )).toISOString()
+            };
+
+            if (JSON.stringify(localDb.settings) !== JSON.stringify(mergedSettings)) {
+              localDb.settings = mergedSettings;
+              anyUpdates = true;
+            }
+
+            // Only push local settings to cloud if local actually has valid rates and remote was missing them,
+            // or if local is strictly newer and NOT sending zeroes
+            const localHasValidRates = localGoldRate > 0 || localUsdRate > 0;
+            const remoteMissingRates = remoteGoldRate <= 0 || remoteUsdRate <= 0;
+            if (localHasValidRates && (remoteMissingRates || localSettingsTime > remoteSettingsTime)) {
               await this.setDocument(`${prefix}_meta`, 'settings', localDb.settings);
             }
           } else if (localDb.settings) {
-            await this.setDocument(`${prefix}_meta`, 'settings', localDb.settings);
+            // Only push if local has valid, non-zero rates
+            const hasRates = Number(localDb.settings.goldRate24kt?.ratePerGram || 0) > 0 ||
+                             Number(localDb.settings.usdToInr?.rate || 0) > 0;
+            if (hasRates) {
+              await this.setDocument(`${prefix}_meta`, 'settings', localDb.settings);
+            }
           }
         } catch (settingsErr) {
           console.warn('Settings cloud sync note:', settingsErr.message);
