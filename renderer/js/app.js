@@ -342,14 +342,6 @@ const App = {
         this.renderJewelryPhotos();
         break;
       case 'tab-jewelry-memos':
-        // Pull latest memos from Firestore first so mobile-created memos appear immediately
-        if (window.CloudSync && window.CloudSync.isEnabled() && !window.CloudSync.syncInProgress) {
-          window.CloudSync.syncAll(window.DBManager.database, { forceFull: true }).then((res) => {
-            if (res && res.updated && window.JewelryMemoController) {
-              JewelryMemoController.renderMemoList();
-            }
-          }).catch(() => {});
-        }
         if (window.JewelryMemoController) JewelryMemoController.renderMemoList();
         break;
       case 'tab-jewelry-sales':
@@ -391,6 +383,12 @@ const App = {
       case 'tab-logs':
         this.renderActivityLogs();
         break;
+      case 'tab-settings':
+      case 'tab-vault':
+        if (window.BiometricAuth && typeof window.BiometricAuth.updateSettingsUI === 'function') {
+          window.BiometricAuth.updateSettingsUI();
+        }
+        break;
       default:
         break;
     }
@@ -401,17 +399,24 @@ const App = {
    */
   refreshAllDisplays() {
     const activeTab = this.activeTab || 'tab-catalog';
+    const allTabIds = [
+      'tab-jewelry-analyzer', 'tab-catalog', 'tab-jewelry-photos', 'tab-jewelry-memos', 'tab-jewelry-sales',
+      'tab-emerald-catalog', 'tab-emerald-photos', 'tab-emerald-analysis', 'tab-memos',
+      'tab-stone-catalog', 'tab-jewel-stone-memos', 'tab-sales', 'tab-emerald-sales', 'tab-logs',
+      'tab-settings', 'tab-vault'
+    ];
 
     // 1. If an active interactive modal is open, do not disrupt the user's active workflow
-    const openModals = document.querySelectorAll('.modal:not(.hidden)');
+    const openModals = document.querySelectorAll('.modal-overlay:not(.hidden), .modal:not(.hidden), .mobile-menu-overlay:not(.hidden)');
     let hasInteractiveModal = false;
     openModals.forEach(m => {
-      if (m.classList.contains('active') || (m.style && m.style.display && m.style.display !== 'none')) {
+      if (m.classList.contains('active') || (m.style && m.style.display && m.style.display !== 'none') || !m.classList.contains('hidden')) {
         hasInteractiveModal = true;
       }
     });
 
     if (hasInteractiveModal) {
+      allTabIds.forEach(id => this.dirtyTabs.add(id));
       this.dirtyTabs.add(activeTab);
       return;
     }
@@ -427,12 +432,6 @@ const App = {
     this.renderTab(activeTab);
 
     // 4. Mark all other tabs as dirty so they only render when clicked
-    const allTabIds = [
-      'tab-jewelry-analyzer', 'tab-catalog', 'tab-jewelry-photos', 'tab-jewelry-memos', 'tab-jewelry-sales',
-      'tab-emerald-catalog', 'tab-emerald-photos', 'tab-emerald-analysis', 'tab-memos',
-      'tab-stone-catalog', 'tab-jewel-stone-memos', 'tab-sales', 'tab-emerald-sales', 'tab-logs'
-    ];
-
     allTabIds.forEach(id => {
       if (id !== activeTab) {
         this.dirtyTabs.add(id);

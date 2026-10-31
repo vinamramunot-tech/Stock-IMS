@@ -806,7 +806,7 @@ const StoneController = {
     } else if (sortVal === 'newest') {
       arr.sort((a, b) => UI.itemTimestamp(b) - UI.itemTimestamp(a));
     } else {
-      arr.sort((a, b) => Number(a.color || 0) - Number(b.color || 0));
+      arr.sort((a, b) => String(a.color ?? '').localeCompare(String(b.color ?? ''), undefined, { numeric: true, sensitivity: 'base' }));
     }
   },
 
@@ -849,8 +849,11 @@ const StoneController = {
     const sortVal = document.getElementById('stone-sort-items')?.value || '';
 
     // Fingerprint check to prevent redundant DOM destruction and screen flickering
+    const memoMap = window.JewelStoneMemoController && typeof JewelStoneMemoController.buildMemoCaratsMap === 'function'
+      ? JewelStoneMemoController.buildMemoCaratsMap()
+      : {};
     const stoneFingerprint = `${sortVal}|${filtered.length}|` +
-      filtered.map(s => `${s.id}_${s.updatedAt || ''}_${s.weight || ''}_${s.pricePerCarat || ''}_${s.status || ''}_${s.group || ''}_${s.type || ''}`).join(';');
+      filtered.map(s => `${s.id}_${s.updatedAt || ''}_${this.getStoneWeight(s)}_${this.getStonePieces(s)}_${Number((memoMap[s.id] || 0).toFixed(3))}_${s.pricePerCarat || ''}_${s.status || ''}_${s.group || ''}_${s.type || ''}_${s.lustreGrade || ''}`).join(';');
 
     if (!force && this._lastStoneFingerprint === stoneFingerprint && gridContainer.children.length > 0) {
       return;
@@ -1057,15 +1060,23 @@ const StoneController = {
             
             const totalW = this.getStoneWeight(item);
             const totalP = this.getStonePieces(item);
+            const memoW = window.JewelStoneMemoController
+              ? JewelStoneMemoController.getOpenMemoCaratsForStone(item.id)
+              : 0;
+            const availW = Math.max(0, Number((totalW - memoW).toFixed(3)));
             const value = totalW * (item.pricePerCarat || 0);
+            const memoBadgeHtml = memoW > 0.001
+              ? `<span style="padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700;background:rgba(212,175,55,0.16);color:var(--text-gold-dark);border:1px solid rgba(212,175,55,0.35);">ON MEMO: ${memoW.toFixed(3)} cts</span>`
+              : '';
 
             packHeader.innerHTML = `
-              <div style="display: flex; align-items: center; gap: 6px;">
+              <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                 <span class="pack-expand-icon" style="font-family: monospace; font-size: 9px; width: 9px; color: var(--text-muted);">${isPackOpen ? '▼' : '▶'}</span>
                 <span style="font-weight: 600; font-size: 12px; color: var(--text-main);">Packet No: <strong style="color: var(--text-gold-dark);">#${item.color || 'N/A'}</strong></span>
+                ${memoBadgeHtml}
               </div>
               <div style="font-size: 11px; color: var(--text-muted); display: flex; gap: 10px; flex-wrap: wrap;">
-                <span>Wt: <strong>${totalW.toFixed(3)} cts</strong></span>
+                <span>Wt: <strong>${totalW.toFixed(3)} cts</strong>${memoW > 0.001 ? ` <span style="font-size:10px;">(Avail: ${availW.toFixed(3)})</span>` : ''}</span>
                 <span>Pcs: <strong>${totalP}</strong></span>
                 <span class="cost-price-data">Rate: <strong>₹${(item.pricePerCarat || 0).toLocaleString()}/ct</strong></span>
                 <span class="cost-price-data">Value: <strong style="color: var(--text-gold-dark);">₹${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
@@ -1197,6 +1208,14 @@ const StoneController = {
     const isEdit = !!document.getElementById('stone-item-id').value;
     const shapes = this.getShapesFromSizes(sizes);
 
+    if (isEdit && window.JewelStoneMemoController) {
+      const openMemoCts = JewelStoneMemoController.getOpenMemoCaratsForStone(id);
+      if (openMemoCts > 0.001 && Number(totalWeight.toFixed(3)) + 0.001 < openMemoCts) {
+        UI.showToast(`Cannot reduce ${type} Packet #${color} weight (${totalWeight.toFixed(3)} cts) below active open-memo carats (${openMemoCts.toFixed(3)} cts).`, true);
+        return;
+      }
+    }
+
     const savedStone = {
       id,
       type,
@@ -1221,6 +1240,27 @@ const StoneController = {
         if (index !== -1) {
           DBManager.database.stones[index] = savedStone;
         }
+        // Propagate updated snapshot metadata to any open jewel stone memos referencing this packet
+        (DBManager.getJewelStoneMemos ? DBManager.getJewelStoneMemos() : []).forEach(memo => {
+          if (memo.status !== 'open') return;
+          let changed = false;
+          (memo.items || []).forEach(it => {
+            if (it.stoneId === savedStone.id) {
+              it.stoneSnapshot = {
+                type: savedStone.type || 'Diamond',
+                group: savedStone.group || '',
+                lustreGrade: savedStone.lustreGrade || '',
+                color: savedStone.color || '',
+                shape: savedStone.shape || ''
+              };
+              changed = true;
+            }
+          });
+          if (changed) {
+            memo.updatedAt = savedStone.updatedAt;
+            DBManager.saveItem('mava_catalog_jewel_stone_memos', memo);
+          }
+        });
         DBManager.addLog("EDIT", savedStone.id, `${savedStone.type} #${savedStone.color}`, summary, changes);
         UI.showToast("Stone details updated successfully!");
       } else {
@@ -1240,7 +1280,7 @@ const StoneController = {
 
   async handleDeleteStone(stone) {
     const memoCarats = window.JewelStoneMemoController ? JewelStoneMemoController.getOpenMemoCaratsForStone(stone.id) : 0;
-    if (memoCarats > 0) {
+    if (memoCarats > 0.001) {
       UI.showToast(`Cannot delete ${stone.type} Packet #${stone.color}: it has ${memoCarats.toFixed(3)} cts on open stone memo(s). Settle or return memo goods before deleting.`, true);
       return;
     }
@@ -1275,10 +1315,12 @@ const StoneController = {
                 groupCard.remove();
               }
 
-              StoneController.renderMetrics();
+              this.renderStoneMetrics();
+              if (window.App && typeof App.refreshAllDisplays === 'function') App.refreshAllDisplays();
             }, 280);
           } else {
-            StoneController.renderStonesList(true);
+            this.renderStoneGrid(true);
+            if (window.App && typeof App.refreshAllDisplays === 'function') App.refreshAllDisplays();
           }
         } catch (err) {
           UI.showToast(err.message, true);
@@ -1315,16 +1357,15 @@ const StoneController = {
           return stGroup === groupName;
         });
         const deletedIds = toDelete.map(st => st.id);
-        const initialCount = DBManager.getStones().length;
-        DBManager.database.stones = DBManager.database.stones.filter(st => {
-          const stGroup = (st.group && st.group.trim()) ? st.group.trim() : "Unassigned Group";
-          return stGroup !== groupName;
-        });
-
-        const deletedCount = initialCount - DBManager.database.stones.length;
+        const deletedCount = deletedIds.length;
 
         if (window.DBManager) {
           deletedIds.forEach(id => DBManager.deleteItem('mava_catalog_stones', id));
+        } else {
+          DBManager.database.stones = DBManager.database.stones.filter(st => {
+            const stGroup = (st.group && st.group.trim()) ? st.group.trim() : "Unassigned Group";
+            return stGroup !== groupName;
+          });
         }
         DBManager.addLog("DELETE", "group_" + groupName, groupName, `Deleted entire stone group "${groupName}" containing ${deletedCount} packets`, []);
         UI.showToast(`Group "${groupName}" deleted along with ${deletedCount} packets.`);

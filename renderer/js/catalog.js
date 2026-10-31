@@ -1509,20 +1509,26 @@ const Catalog = {
       return;
     }
 
+    const liveExisting = isEdit ? (DBManager.getItem(UI.activeItemState.id) || UI.activeItemState) : null;
+    const oldSku = liveExisting ? (liveExisting.sku || UI.activeItemState.sku || '') : '';
+    const preservedStatus = isEdit ? (liveExisting.status || 'In Stock') : 'In Stock';
+
     // Assign S.No (or read custom user-specified S.No)
     const activeItems = allItems.filter(i => i.status !== 'Sold');
     const customSnoInput = document.getElementById('item-sno')?.value;
     let sno = (customSnoInput !== undefined && customSnoInput !== null && customSnoInput.trim() !== '') ? Number(customSnoInput) : null;
-    if (!sno || isNaN(sno) || sno <= 0) {
+    if (preservedStatus === 'Sold') {
+      sno = null;
+    } else if (!sno || isNaN(sno) || sno <= 0) {
       if (isEdit) {
-        sno = UI.activeItemState.sno || this.getItemSno(UI.activeItemState, activeItems);
+        sno = liveExisting.sno || UI.activeItemState.sno || this.getItemSno(liveExisting, activeItems);
       } else {
         const maxSno = activeItems.reduce((max, it) => Math.max(max, it.sno || 0), 0);
         sno = (maxSno > 0) ? maxSno + 1 : (activeItems.length + 1);
       }
     }
 
-    // Reconstruct updated / new item
+    // Reconstruct updated / new item (preserving full lifecycle state on edit)
     const savedItem = {
       id: isEdit ? UI.activeItemState.id : 'item_' + Date.now(),
       sno,
@@ -1547,9 +1553,23 @@ const Catalog = {
         value: Number(document.getElementById('item-commission').value || 0),
         isManual: UI.activeItemState.commission ? UI.activeItemState.commission.isManual : false
       },
-      createdAt: isEdit ? UI.activeItemState.createdAt : new Date().toISOString(),
+      status: preservedStatus,
+      createdAt: isEdit ? (liveExisting.createdAt || UI.activeItemState.createdAt) : new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
+
+    if (isEdit && liveExisting) {
+      const lifecycleFields = [
+        'issuedTo', 'issuedBroker', 'issuedMemoNumber', 'activeMemoId',
+        'soldPrice', 'soldDate', 'soldTo', 'soldBroker', 'activeSaleId',
+        'reservation', 'mfgCostPrice', 'statusChangedAt', '_serverUpdateTime'
+      ];
+      for (const field of lifecycleFields) {
+        if (liveExisting[field] !== undefined) {
+          savedItem[field] = liveExisting[field];
+        }
+      }
+    }
 
     // Gather components
     // Additional Metals
@@ -1625,6 +1645,56 @@ const Catalog = {
       // Fast granular cloud patch + in-memory store + debounced flush
       await DBManager.saveItem('mava_catalog_items', savedItem);
 
+      // Propagate identity updates (SKU, name, category, image) to linked Memos and Sales
+      if (isEdit) {
+        const oldSkuNorm = String(oldSku || '').trim().toLowerCase();
+        const newSkuNorm = String(savedItem.sku || '').trim().toLowerCase();
+        const memos = DBManager.getJewelryMemos() || [];
+        for (const memo of memos) {
+          if (!memo || !Array.isArray(memo.items)) continue;
+          let memoChanged = false;
+          for (const mi of memo.items) {
+            if (!mi) continue;
+            const matchId = mi.itemId && String(mi.itemId) === String(savedItem.id);
+            const matchSku = !mi.itemId && mi.sku && (String(mi.sku).trim().toLowerCase() === oldSkuNorm || String(mi.sku).trim().toLowerCase() === newSkuNorm);
+            if (matchId || matchSku) {
+              if (!mi.itemId) { mi.itemId = savedItem.id; memoChanged = true; }
+              if (mi.sku !== savedItem.sku) { mi.sku = savedItem.sku; memoChanged = true; }
+              if (mi.name !== savedItem.name) { mi.name = savedItem.name; memoChanged = true; }
+              if (mi.category !== savedItem.category) { mi.category = savedItem.category; memoChanged = true; }
+              if (savedItem.image && mi.image !== savedItem.image) { mi.image = savedItem.image; memoChanged = true; }
+            }
+          }
+          if (memoChanged) {
+            await DBManager.saveItem('mava_catalog_jewelry_memos', memo);
+          }
+        }
+
+        const sales = DBManager.getJewelrySales() || [];
+        for (const sale of sales) {
+          if (!sale) continue;
+          const matchId = sale.itemId && String(sale.itemId) === String(savedItem.id);
+          const matchSku = !sale.itemId && sale.sku && (String(sale.sku).trim().toLowerCase() === oldSkuNorm || String(sale.sku).trim().toLowerCase() === newSkuNorm);
+          if (matchId || matchSku) {
+            let saleChanged = false;
+            if (!sale.itemId) { sale.itemId = savedItem.id; saleChanged = true; }
+            if (sale.sku !== savedItem.sku) { sale.sku = savedItem.sku; saleChanged = true; }
+            if (sale.name !== savedItem.name) { sale.name = savedItem.name; saleChanged = true; }
+            if (sale.category !== savedItem.category) { sale.category = savedItem.category; saleChanged = true; }
+            if (sale.itemSnapshot && typeof sale.itemSnapshot === 'object') {
+              sale.itemSnapshot.sku = savedItem.sku;
+              sale.itemSnapshot.name = savedItem.name;
+              sale.itemSnapshot.category = savedItem.category;
+              if (savedItem.image) sale.itemSnapshot.image = savedItem.image;
+              saleChanged = true;
+            }
+            if (saleChanged) {
+              await DBManager.saveItem('mava_catalog_jewelry_sales', sale);
+            }
+          }
+        }
+      }
+
       // Resequence jewelry serial numbers to ensure unbroken 1..N order
       DBManager.resequenceJewelrySno();
 
@@ -1637,8 +1707,24 @@ const Catalog = {
   },
 
   async handleDeleteItem(item) {
-    if (item.status === 'Issued') {
+    if (item.status === 'Issued' || item.status === 'On Memo') {
       UI.showToast(`Cannot delete "${item.name}" (SKU: ${item.sku}) because it is currently out on Memo (${item.issuedMemoNumber || 'active'}). Return or settle the piece on memo first.`, true);
+      return;
+    }
+    const openMemoHoldingItem = (DBManager.getJewelryMemos() || []).find(m =>
+      m && m.status !== 'closed' && (m.items || []).some(mi =>
+        mi && mi.status === 'open' && (
+          (mi.itemId && String(mi.itemId) === String(item.id)) ||
+          (mi.sku && item.sku && String(mi.sku).trim().toLowerCase() === String(item.sku).trim().toLowerCase())
+        )
+      )
+    );
+    if (openMemoHoldingItem) {
+      UI.showToast(`Cannot delete "${item.name}" (SKU: ${item.sku}) because it is currently open on Memo ${openMemoHoldingItem.memoNumber || 'active'}. Return or settle the memo first.`, true);
+      return;
+    }
+    if (item.status === 'Sold' || DBManager.getSaleByItemId(item.id) || (item.sku && DBManager.getSaleBySku(item.sku))) {
+      UI.showToast(`Cannot delete "${item.name}" (SKU: ${item.sku}) because it has a recorded sale. Return/reverse the sale in Sales Ledger first.`, true);
       return;
     }
 
@@ -3846,7 +3932,7 @@ const Catalog = {
     }
 
     // Check if any selected items are already Issued on memo
-    const issuedItems = selectedItems.filter(i => i.status === 'Issued');
+    const issuedItems = selectedItems.filter(i => i.status === 'Issued' || i.status === 'On Memo');
     if (issuedItems.length > 0) {
       const issuedSkus = issuedItems.map(i => i.sku || 'N/A').slice(0, 3).join(', ') + (issuedItems.length > 3 ? '...' : '');
       UI.showToast(`Cannot issue to memo: ${issuedItems.length} selected piece(s) (${issuedSkus}) are already out on memo.`, true);
@@ -3963,12 +4049,18 @@ const Catalog = {
     const count = this.selectedItemIds.size;
     if (count === 0) return;
 
-    // Guard: Check if any selected items are currently out on Memo
-    const selectedItems = (DBManager.getItems() || []).filter(i => this.selectedItemIds.has(i.id));
-    const issuedItems = selectedItems.filter(i => i.status === 'Issued');
+    // Guard: Check if any selected items are currently out on Memo or already Sold
+    const selectedItems = this.getAllCatalogItems().filter(i => this.selectedItemIds.has(i.id));
+    const issuedItems = selectedItems.filter(i => i.status === 'Issued' || i.status === 'On Memo');
     if (issuedItems.length > 0) {
       const issuedSkus = issuedItems.map(i => i.sku).slice(0, 3).join(', ') + (issuedItems.length > 3 ? '...' : '');
       UI.showToast(`Cannot delete: ${issuedItems.length} selected item(s) (${issuedSkus}) are currently out on Memo. Return them from memo before deleting.`, true);
+      return;
+    }
+    const soldItems = selectedItems.filter(i => i.status === 'Sold' || DBManager.getSaleByItemId(i.id) || (i.sku && DBManager.getSaleBySku(i.sku)));
+    if (soldItems.length > 0) {
+      const soldSkus = soldItems.map(i => i.sku).slice(0, 3).join(', ') + (soldItems.length > 3 ? '...' : '');
+      UI.showToast(`Cannot delete: ${soldItems.length} selected item(s) (${soldSkus}) have recorded sales. Return/reverse their sales in Sales Ledger first.`, true);
       return;
     }
 
@@ -3986,13 +4078,11 @@ const Catalog = {
           });
 
           const initialCount = DBManager.database.items.length;
-          DBManager.database.items = DBManager.database.items.filter(item => !this.selectedItemIds.has(item.id));
-          const deletedCount = initialCount - DBManager.database.items.length;
-
-          // Propagate deletions to Firestore
-          if (window.DBManager) {
-            idsToDelete.forEach(id => DBManager.deleteItem('mava_catalog_items', id));
+          // Propagate deletions via DBManager.deleteItem first so indexes and Firestore tombstones stay synchronized
+          for (const id of idsToDelete) {
+            await DBManager.deleteItem('mava_catalog_items', id);
           }
+          const deletedCount = initialCount - DBManager.database.items.length;
 
           // Resequence remaining active items
           DBManager.resequenceJewelrySno();
@@ -4929,6 +5019,7 @@ const Catalog = {
     };
 
     let importedCount = 0;
+    const importedRecords = [];
     const now = new Date().toISOString();
 
     selectedItems.forEach((item, index) => {
@@ -4974,12 +5065,15 @@ const Catalog = {
       // Add log & push to db
       DBManager.addLog("ADD", finalItem.id, finalItem.name, `Imported piece from Excel: ${finalItem.name} (SKU: ${finalItem.sku})`, []);
       DBManager.database.items.push(finalItem);
-      if (window.DBManager) DBManager.saveItem('mava_catalog_items', finalItem);
+      importedRecords.push(finalItem);
       importedCount++;
     });
 
-    // Resequence jewelry serial numbers after import
+    // Resequence jewelry serial numbers after import before syncing items to cloud
     DBManager.resequenceJewelrySno();
+    importedRecords.forEach(rec => {
+      DBManager.saveItem('mava_catalog_items', rec);
+    });
 
     try {
       UI.closeModal('modal-import-excel-preview');

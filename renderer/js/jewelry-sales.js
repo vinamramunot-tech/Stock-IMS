@@ -540,70 +540,100 @@ const JewelrySalesController = {
     const name = saleRecord.name || 'Jewelry Piece';
 
     UI.confirm(`Are you sure you want to return "${name}" (${sku}) back to In Stock inventory?\n\nThis will reverse the sale ledger entry and restore all original specifications and valuations back into active stock.`, async () => {
+      const nowIso = new Date().toISOString();
       if (!DBManager.database.items) DBManager.database.items = [];
-      let mainItem = DBManager.database.items.find(i => i.id === saleRecord.itemId || i.sku === saleRecord.sku);
+      let mainItem = DBManager.database.items.find(i =>
+        (saleRecord.itemId && i.id === saleRecord.itemId) ||
+        (saleRecord.sku && i.sku && i.sku.trim().toLowerCase() === saleRecord.sku.trim().toLowerCase())
+      );
+
+      const clearLifecycleFields = (item) => {
+        item.status = 'In Stock';
+        item.soldPrice = null;
+        item.soldDate = null;
+        item.soldTo = null;
+        item.soldBroker = null;
+        item.activeSaleId = null;
+        item.issuedTo = null;
+        item.issuedBroker = null;
+        item.issuedMemoNumber = null;
+        item.activeMemoId = null;
+        item.reservation = null;
+        item.statusChangedAt = nowIso;
+        item.updatedAt = nowIso;
+      };
 
       if (mainItem && (mainItem.id === 'item_1' || !mainItem.name || mainItem.id === 'piece_101')) {
-        DBManager.database.items = DBManager.database.items.filter(i => i.id !== mainItem.id);
-        if (window.DBManager) DBManager.deleteItem('mava_catalog_items', mainItem.id);
+        if (window.DBManager) {
+          await DBManager.deleteItem('mava_catalog_items', mainItem.id);
+        } else {
+          DBManager.database.items = DBManager.database.items.filter(i => i.id !== mainItem.id);
+        }
         mainItem = null;
       } else if (mainItem) {
-        mainItem.status = 'In Stock';
-        delete mainItem.soldPrice;
-        delete mainItem.soldDate;
-        delete mainItem.soldTo;
-        delete mainItem.soldBroker;
-        mainItem.updatedAt = new Date().toISOString();
+        clearLifecycleFields(mainItem);
       } else if (saleRecord.itemSnapshot) {
         // Re-inflate item from preserved snapshot if missing
         mainItem = JSON.parse(JSON.stringify(saleRecord.itemSnapshot));
-        mainItem.status = 'In Stock';
-        delete mainItem.soldPrice;
-        delete mainItem.soldDate;
-        delete mainItem.soldTo;
-        delete mainItem.soldBroker;
-        mainItem.updatedAt = new Date().toISOString();
+        clearLifecycleFields(mainItem);
         DBManager.database.items.push(mainItem);
       }
 
-      // If linked to a memo, update item status in memo
-      if (saleRecord.memoId) {
-        const memos = DBManager.database.jewelryMemos || [];
-        const memo = memos.find(m => m.id === saleRecord.memoId);
-        if (memo && memo.items) {
-          const mItem = memo.items.find(it => it.itemId === saleRecord.itemId || it.sku === saleRecord.sku);
-          if (mItem) {
+      // Update any linked memo items (matched by memoId OR by itemId/SKU where item was marked sold)
+      const memos = DBManager.database.jewelryMemos || [];
+      const updatedMemos = [];
+      for (const memo of memos) {
+        if (!memo || !Array.isArray(memo.items)) continue;
+        const isTargetMemo = (saleRecord.memoId && memo.id === saleRecord.memoId);
+        let memoChanged = false;
+        for (const mItem of memo.items) {
+          if (!mItem) continue;
+          const matchesPiece = (saleRecord.itemId && mItem.itemId && String(mItem.itemId) === String(saleRecord.itemId)) ||
+                               (saleRecord.sku && mItem.sku && mItem.sku.trim().toLowerCase() === saleRecord.sku.trim().toLowerCase());
+          if (matchesPiece && (isTargetMemo || mItem.status === 'sold')) {
             mItem.status = 'returned';
+            mItem.soldPrice = null;
+            memoChanged = true;
           }
-          // If all items are returned/closed, ensure memo is updated
+        }
+        if (memoChanged) {
           const hasOpen = memo.items.some(it => it.status === 'open');
           if (!hasOpen) {
             memo.status = 'closed';
-            memo.closedAt = memo.closedAt || new Date().toISOString();
+            memo.closedAt = memo.closedAt || nowIso;
           }
+          memo.updatedAt = nowIso;
+          updatedMemos.push(memo);
         }
       }
 
-      // Remove the sale record from jewelrySales
-      if (DBManager.database.jewelrySales) {
-        DBManager.database.jewelrySales = DBManager.database.jewelrySales.filter(s => s.id !== saleRecord.id && s.itemId !== saleRecord.itemId);
-      }
+      // Collect ALL matching sale records (canonical + any duplicates) BEFORE deleting so indexes and cloud tombstones clean up every copy
+      const matchingSales = (DBManager.database.jewelrySales || []).filter(s =>
+        s && (
+          s.id === saleRecord.id ||
+          (saleRecord.itemId && s.itemId && String(s.itemId) === String(saleRecord.itemId)) ||
+          (saleRecord.sku && s.sku && s.sku.trim().toLowerCase() === saleRecord.sku.trim().toLowerCase())
+        )
+      );
+      const saleIdsToDelete = matchingSales.length > 0
+        ? Array.from(new Set(matchingSales.map(s => s.id).filter(Boolean)))
+        : (saleRecord.id ? [saleRecord.id] : []);
+
+      // Resequence active inventory serial numbers BEFORE pushing restored mainItem to cloud
+      DBManager.resequenceJewelrySno();
 
       if (window.DBManager) {
-        DBManager.deleteItem('mava_catalog_jewelry_sales', saleRecord.id);
-        if (mainItem) DBManager.saveItem('mava_catalog_items', mainItem);
-        if (saleRecord.memoId) {
-          const memos = DBManager.database.jewelryMemos || [];
-          const memo = memos.find(m => m.id === saleRecord.memoId);
-          if (memo) {
-            memo.updatedAt = new Date().toISOString();
-            DBManager.saveItem('mava_catalog_jewelry_memos', memo);
-          }
+        for (const sid of saleIdsToDelete) {
+          await DBManager.deleteItem('mava_catalog_jewelry_sales', sid);
         }
+        if (mainItem) await DBManager.saveItem('mava_catalog_items', mainItem);
+        for (const memo of updatedMemos) {
+          await DBManager.saveItem('mava_catalog_jewelry_memos', memo);
+        }
+      } else if (DBManager.database.jewelrySales) {
+        const delSet = new Set(saleIdsToDelete);
+        DBManager.database.jewelrySales = DBManager.database.jewelrySales.filter(s => !delSet.has(s.id));
       }
-
-      // Resequence active inventory serial numbers
-      DBManager.resequenceJewelrySno();
 
       DBManager.addLog(
         "RETURN",
@@ -625,9 +655,11 @@ const JewelrySalesController = {
           setTimeout(() => {
             row.remove();
             this.renderSalesList();
+            if (window.App && typeof App.refreshAllDisplays === 'function') App.refreshAllDisplays();
           }, 280);
         } else {
           this.renderSalesList();
+          if (window.App && typeof App.refreshAllDisplays === 'function') App.refreshAllDisplays();
         }
       } catch (err) {
         UI.showToast("Error returning sale: " + err.message, true);

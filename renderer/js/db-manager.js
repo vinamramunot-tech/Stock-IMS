@@ -26,6 +26,7 @@ const DBManager = {
     jewelStoneMemos: [],
     jewelryMemos: [],
     jewelrySales: [],
+    sales: [],
     logs: [],
     stockLedger: []
   },
@@ -123,10 +124,19 @@ const DBManager = {
 
   _indexItem(item) {
     if (!item) return;
-    if (item.id) this._indexes.itemsById.set(String(item.id), item);
+    if (item.id) {
+      const prev = this._indexes.itemsById.get(String(item.id));
+      if (prev && prev.sku && prev.sku !== item.sku) {
+        this._indexes.itemsBySku.delete(prev.sku.trim().toLowerCase());
+      }
+      this._indexes.itemsById.set(String(item.id), item);
+    }
     if (item.sku) this._indexes.itemsBySku.set(item.sku.trim().toLowerCase(), item);
     
     const status = item.status || 'In Stock';
+    for (const [st, set] of this._indexes.itemsByStatus.entries()) {
+      if (st !== status) set.delete(item);
+    }
     if (!this._indexes.itemsByStatus.has(status)) {
       this._indexes.itemsByStatus.set(status, new Set());
     }
@@ -258,13 +268,13 @@ const DBManager = {
           item.activeSaleId = null;
           item.activeMemoId = null;
           item.reservation = null;
-          delete item.soldPrice;
-          delete item.soldDate;
-          delete item.soldTo;
-          delete item.soldBroker;
-          delete item.issuedMemoNumber;
-          delete item.issuedTo;
-          delete item.issuedBroker;
+          item.soldPrice = null;
+          item.soldDate = null;
+          item.soldTo = null;
+          item.soldBroker = null;
+          item.issuedMemoNumber = null;
+          item.issuedTo = null;
+          item.issuedBroker = null;
           break;
       }
 
@@ -318,6 +328,7 @@ const DBManager = {
       jewelStoneMemos: [],
       jewelryMemos: [],
       jewelrySales: [],
+      sales: [],
       logs: [],
       stockLedger: []
     };
@@ -380,7 +391,9 @@ const DBManager = {
       if (!db.jewelStoneMemos) db.jewelStoneMemos = db.stoneMemos || [];
       if (!db.jewelryMemos) db.jewelryMemos = [];
       if (!db.jewelrySales) db.jewelrySales = [];
+      if (!db.sales) db.sales = [];
       if (!db.logs) db.logs = [];
+      if (!db.stockLedger) db.stockLedger = [];
 
       // Heal any misallocated memos/logs across arrays
       this.healVaultData(db);
@@ -452,6 +465,22 @@ const DBManager = {
       }
     }
 
+    // 2b. Migrate any legacy loose stone memos from stoneMemos into jewelStoneMemos (deduped by id)
+    if (Array.isArray(db.stoneMemos) && db.stoneMemos.length > 0) {
+      const seenJsmIds = new Set(db.jewelStoneMemos.map(m => m && m.id).filter(Boolean));
+      for (const sm of db.stoneMemos) {
+        if (!sm) continue;
+        if (sm.id) {
+          if (!seenJsmIds.has(sm.id)) {
+            seenJsmIds.add(sm.id);
+            db.jewelStoneMemos.push(sm);
+          }
+        } else {
+          db.jewelStoneMemos.push(sm);
+        }
+      }
+    }
+
     // 3. Deduplicate jewelry memos by id
     const seenMemoIds = new Set();
     const dedupedJM = [];
@@ -493,7 +522,7 @@ const DBManager = {
         if (id === 'item_1' || id === 'piece_101' || id === 'piece_100' || id === 'piece_200' || id === 'piece_300' || id === 'item_test_event') {
           if (!name || name.toLowerCase().includes('test')) return false;
         }
-        if (id.startsWith('piece_100') || id.startsWith('piece_200') || id.startsWith('piece_300')) return false;
+        if ((id === 'piece_100' && sku === 'MG-100') || (id === 'piece_200' && sku === 'MG-200') || (id === 'piece_300' && sku === 'MG-300')) return false;
         if (sku === 'MG-01' || sku === 'MG-100' || sku === 'MG-200' || sku === 'MG-300' || sku === 'SKU-101') {
           if (!name || name.toLowerCase().includes('test')) return false;
         }
@@ -518,8 +547,16 @@ const DBManager = {
   },
 
   /**
+   * Bidirectional lifecycle reconciliation across Catalog items, Jewelry Memos, and Jewelry Sales.
+   */
+  healJewelryLifecycle(db) {
+    return this.healJewelrySales(db);
+  },
+
+  /**
    * Reconciles finished jewelry sales records with items marked as Sold and closed memo records.
-   * Ensures that any item sold directly or via a memo is never missing from the jewelrySales ledger.
+   * Ensures that any item sold directly or via a memo is never missing from the jewelrySales ledger,
+   * and eliminates duplicate sales, zombie sales, orphaned open memos, and stranded Issued statuses.
    */
   healJewelrySales(db) {
     if (!db || typeof db !== 'object') return;
@@ -530,20 +567,214 @@ const DBManager = {
     const goldRate = (db.settings && db.settings.goldRate24kt) ? Number(db.settings.goldRate24kt.ratePerGram || 0) : 0;
     const items = db.items;
     const memos = db.jewelryMemos;
-    // 1. Purge corrupted/test sales & deduplicate existing sales
-    const seenSaleKeys = new Set();
+
+    const itemById = new Map();
+    const itemBySku = new Map();
+    for (const it of items) {
+      if (!it) continue;
+      if (it.id) itemById.set(String(it.id), it);
+      if (it.sku) itemBySku.set(String(it.sku).trim().toLowerCase(), it);
+    }
+
+    const resolveCatalogItem = (refId, refSku) => {
+      if (refId && itemById.has(String(refId))) return itemById.get(String(refId));
+      if (refSku && itemBySku.has(String(refSku).trim().toLowerCase())) {
+        return itemBySku.get(String(refSku).trim().toLowerCase());
+      }
+      return null;
+    };
+
+    // 0. Normalize memos, settle memo items whose catalog item is Sold, and index active open memo claims
+    const openMemoMap = new Map();
+    const openHeaderOnlyMemoNumbers = new Set();
+    const openHeaderOnlyMemoIds = new Set();
+
+    const registerOpenClaim = (key, entry) => {
+      const prev = openMemoMap.get(key);
+      if (!prev) {
+        openMemoMap.set(key, entry);
+        return;
+      }
+      if (prev.memoItem === entry.memoItem) return;
+      if (entry.memoTime >= prev.memoTime) {
+        prev.memoItem.status = 'returned';
+        openMemoMap.set(key, entry);
+      } else {
+        entry.memoItem.status = 'returned';
+      }
+    };
+
+    for (const m of memos) {
+      if (!m) continue;
+      if (!Array.isArray(m.items) || m.items.length === 0) {
+        if (m.status !== 'closed') {
+          if (m.memoNumber) openHeaderOnlyMemoNumbers.add(String(m.memoNumber).trim().toUpperCase());
+          if (m.id) openHeaderOnlyMemoIds.add(String(m.id));
+        }
+        continue;
+      }
+      const memoTime = new Date(m.updatedAt || m.createdAt || m.date || 0).getTime() || 0;
+      for (const mi of m.items) {
+        if (!mi) continue;
+        const catItem = resolveCatalogItem(mi.itemId, mi.sku);
+        if (catItem) {
+          if (!mi.itemId && catItem.id) mi.itemId = catItem.id;
+          if (!mi.sku && catItem.sku) mi.sku = catItem.sku;
+        }
+        if (!mi.status) {
+          mi.status = m.status === 'closed' ? 'returned' : 'open';
+        }
+        if (catItem && catItem.status === 'Sold' && mi.status === 'open') {
+          mi.status = 'sold';
+          if ((mi.soldPrice === undefined || mi.soldPrice === null) && catItem.soldPrice) {
+            mi.soldPrice = Number(catItem.soldPrice);
+          }
+        }
+        if (m.status !== 'closed' && mi.status === 'open') {
+          const entry = { memo: m, memoItem: mi, memoTime };
+          if (mi.itemId) registerOpenClaim(`id:${String(mi.itemId)}`, entry);
+          if (mi.sku) registerOpenClaim(`sku:${String(mi.sku).trim().toLowerCase()}`, entry);
+        }
+      }
+    }
+
+    const closeResolvedMemos = () => {
+      for (const m of memos) {
+        if (!m || !Array.isArray(m.items) || m.items.length === 0) continue;
+        if (m.status !== 'closed' && m.items.every(mi => mi && mi.status !== 'open')) {
+          m.status = 'closed';
+          if (!m.closedAt) m.closedAt = new Date().toISOString();
+        }
+      }
+    };
+    closeResolvedMemos();
+
+    // 1. Purge corrupted/test sales & deduplicate existing sales across BOTH itemId and SKU
+    const saleByItemId = new Map();
+    const saleBySku = new Map();
     const uniqueSales = [];
+    const purgedSaleIds = new Set();
+
+    const getSaleScore = (s) => {
+      const canonicalBonus = (s.itemId && s.id === `jsale_${s.itemId}`) ? 1e15 : 0;
+      const ts = new Date(s.updatedAt || s.createdAt || s.saleDate || 0).getTime() || 0;
+      return canonicalBonus + ts;
+    };
+
+    const mergeMissingSaleFields = (target, source) => {
+      for (const k of Object.keys(source)) {
+        if ((target[k] === undefined || target[k] === null || target[k] === '' || target[k] === '—') &&
+            source[k] !== undefined && source[k] !== null && source[k] !== '') {
+          target[k] = source[k];
+        }
+      }
+    };
+
     for (const s of db.jewelrySales) {
       if (!s) continue;
       if ((s.id === 'item_1' && !s.name) || (s.sku === 'MG-01' && !s.name)) continue;
-      const key = s.itemId ? `item_${s.itemId}` : (s.sku ? `sku_${s.sku.toLowerCase()}` : `id_${s.id}`);
-      if (!seenSaleKeys.has(key)) {
-        seenSaleKeys.add(key);
+
+      const catItem = resolveCatalogItem(s.itemId, s.sku);
+      if (catItem) {
+        if (!s.itemId && catItem.id) s.itemId = catItem.id;
+        if (!s.sku && catItem.sku) s.sku = catItem.sku;
+      }
+
+      const idKey = s.itemId ? String(s.itemId) : null;
+      const skuKey = s.sku ? String(s.sku).trim().toLowerCase() : null;
+      const existing = (idKey && saleByItemId.get(idKey)) || (skuKey && saleBySku.get(skuKey)) || null;
+
+      if (existing) {
+        if (getSaleScore(s) > getSaleScore(existing)) {
+          mergeMissingSaleFields(s, existing);
+          const idx = uniqueSales.indexOf(existing);
+          if (idx >= 0) uniqueSales[idx] = s;
+          if (s.itemId) saleByItemId.set(String(s.itemId), s);
+          if (s.sku) saleBySku.set(String(s.sku).trim().toLowerCase(), s);
+          if (existing.id && existing.id !== s.id) purgedSaleIds.add(String(existing.id));
+        } else {
+          mergeMissingSaleFields(existing, s);
+          if (existing.itemId) saleByItemId.set(String(existing.itemId), existing);
+          if (existing.sku) saleBySku.set(String(existing.sku).trim().toLowerCase(), existing);
+          if (s.id && s.id !== existing.id) purgedSaleIds.add(String(s.id));
+        }
+      } else {
         uniqueSales.push(s);
+        if (idKey) saleByItemId.set(idKey, s);
+        if (skuKey) saleBySku.set(skuKey, s);
       }
     }
-    db.jewelrySales = uniqueSales;
+
+    // 1b. Reconcile surviving sales against catalog item statuses (purge zombie sales or restore wiped Sold status)
+    const reconciledSales = [];
+    for (const s of uniqueSales) {
+      const catItem = resolveCatalogItem(s.itemId, s.sku);
+      if (catItem && catItem.status !== 'Sold') {
+        const hasOpenMemo = (catItem.id && openMemoMap.has(`id:${String(catItem.id)}`)) ||
+                            (catItem.sku && openMemoMap.has(`sku:${String(catItem.sku).trim().toLowerCase()}`));
+        const itemStatusTime = catItem.statusChangedAt ? (new Date(catItem.statusChangedAt).getTime() || 0) : 0;
+        const saleTime = new Date(s.updatedAt || s.createdAt || s.saleDate || 0).getTime() || 0;
+
+        if (hasOpenMemo || (itemStatusTime > 0 && itemStatusTime > saleTime)) {
+          if (s.id) purgedSaleIds.add(String(s.id));
+          continue;
+        }
+        // Catalog item lost its Sold status (e.g. legacy Catalog edit) while valid unreversed sale exists
+        catItem.status = 'Sold';
+        if (!catItem.soldPrice && s.soldPrice) catItem.soldPrice = Number(s.soldPrice);
+        if (!catItem.soldDate && s.saleDate) catItem.soldDate = s.saleDate;
+        if (!catItem.soldTo && s.customerName) catItem.soldTo = s.customerName;
+        if (!catItem.soldBroker && s.brokerName && s.brokerName !== '—') catItem.soldBroker = s.brokerName;
+        catItem.activeSaleId = s.id || null;
+        catItem.sno = null;
+      }
+      reconciledSales.push(s);
+    }
+
+    db.jewelrySales = reconciledSales;
     const sales = db.jewelrySales;
+
+    if (purgedSaleIds.size > 0 && this.database === db) {
+      const cloudSync = this._getCloudSync();
+      if (cloudSync && cloudSync.isEnabled()) {
+        const { firestoreCol } = this._resolveCollectionNames('jewelrySales');
+        for (const dupId of purgedSaleIds) {
+          cloudSync.deleteDocument(firestoreCol, dupId).catch(() => {});
+        }
+      }
+    }
+
+    // 1c. Reconcile non-Sold catalog items against active open memos (fix stranded Issued & wiped Issued statuses)
+    for (const item of items) {
+      if (!item || item.status === 'Sold') continue;
+      const openEntry = (item.id && openMemoMap.get(`id:${String(item.id)}`)) ||
+                        (item.sku && openMemoMap.get(`sku:${String(item.sku).trim().toLowerCase()}`)) ||
+                        null;
+      if (openEntry) {
+        const itemStatusTime = item.statusChangedAt ? (new Date(item.statusChangedAt).getTime() || 0) : 0;
+        if ((!item.status || item.status === 'In Stock') && itemStatusTime > 0 && openEntry.memoTime > 0 && itemStatusTime > openEntry.memoTime) {
+          openEntry.memoItem.status = 'returned';
+        } else if (item.status !== 'Issued' && item.status !== 'On Memo') {
+          item.status = 'Issued';
+          item.activeMemoId = openEntry.memo.id || null;
+          item.issuedMemoNumber = openEntry.memo.memoNumber || item.issuedMemoNumber || null;
+          item.issuedTo = openEntry.memo.personName || item.issuedTo || null;
+          item.issuedBroker = openEntry.memo.brokerName || item.issuedBroker || null;
+        }
+      } else if (item.status === 'Issued' || item.status === 'On Memo') {
+        const matchedHeaderOnly = (item.issuedMemoNumber && openHeaderOnlyMemoNumbers.has(String(item.issuedMemoNumber).trim().toUpperCase())) ||
+                                  (item.activeMemoId && openHeaderOnlyMemoIds.has(String(item.activeMemoId)));
+        if (!matchedHeaderOnly) {
+          item.status = 'In Stock';
+          item.activeMemoId = null;
+          item.issuedMemoNumber = null;
+          item.issuedTo = null;
+          item.issuedBroker = null;
+          item.reservation = null;
+        }
+      }
+    }
+    closeResolvedMemos();
 
     const soldItems = items.filter(i => {
       if (!i || i.status !== 'Sold') return false;
@@ -559,7 +790,8 @@ const DBManager = {
       let memoInfo = null;
       for (const m of memos) {
         const mi = (m.items || []).find(it => (it.itemId && it.itemId === item.id) || (it.sku && item.sku && it.sku.toLowerCase() === item.sku.toLowerCase()));
-        if (mi && mi.status === 'sold') {
+        if (mi && (mi.status === 'sold' || mi.status === 'open')) {
+          if (mi.status === 'open') mi.status = 'sold';
           memoInfo = { memo: m, memoItem: mi };
           if ((mi.soldPrice === undefined || mi.soldPrice === null) && item.soldPrice) {
             mi.soldPrice = item.soldPrice;
@@ -593,6 +825,7 @@ const DBManager = {
       const monthlyProfitPct = Number((marginPct / monthsElapsed).toFixed(2));
 
       if (!sale) {
+        const nowIso = new Date().toISOString();
         const safeSaleId = item.id ? `jsale_${item.id}` : ('jsale_' + (item.sku ? item.sku.toLowerCase().replace(/[^a-z0-9_-]/g, '') : Date.now()));
         sale = {
           id: safeSaleId,
@@ -621,7 +854,8 @@ const DBManager = {
           goldCommodityGain,
           monthlyProfitPct,
           notes: item.notes || '',
-          createdAt: item.updatedAt || new Date().toISOString()
+          createdAt: item.updatedAt || nowIso,
+          updatedAt: nowIso
         };
         sales.push(sale);
       } else {
@@ -637,6 +871,7 @@ const DBManager = {
         if (!sale.goldCommodityGain) sale.goldCommodityGain = goldCommodityGain;
       }
     });
+    closeResolvedMemos();
 
     // Chronological order & sequential numbering
     sales.sort((a, b) => {
@@ -661,31 +896,35 @@ const DBManager = {
    */
   _resolveCollectionNames(key) {
     const rawKey = String(key || '').trim();
+    const cloudSync = this._getCloudSync();
+    const prefix = (cloudSync && cloudSync.config && cloudSync.config.collectionPrefix)
+      ? cloudSync.config.collectionPrefix
+      : 'mava_catalog';
     const map = {
-      items: { dbKey: 'items', firestoreCol: 'mava_catalog_items' },
-      mava_catalog_items: { dbKey: 'items', firestoreCol: 'mava_catalog_items' },
-      emeralds: { dbKey: 'emeralds', firestoreCol: 'mava_catalog_emeralds' },
-      mava_catalog_emeralds: { dbKey: 'emeralds', firestoreCol: 'mava_catalog_emeralds' },
-      stones: { dbKey: 'stones', firestoreCol: 'mava_catalog_stones' },
-      mava_catalog_stones: { dbKey: 'stones', firestoreCol: 'mava_catalog_stones' },
-      jewelryMemos: { dbKey: 'jewelryMemos', firestoreCol: 'mava_catalog_jewelry_memos' },
-      mava_catalog_jewelry_memos: { dbKey: 'jewelryMemos', firestoreCol: 'mava_catalog_jewelry_memos' },
-      jewelStoneMemos: { dbKey: 'jewelStoneMemos', firestoreCol: 'mava_catalog_jewel_stone_memos' },
-      mava_catalog_jewel_stone_memos: { dbKey: 'jewelStoneMemos', firestoreCol: 'mava_catalog_jewel_stone_memos' },
-      jewelrySales: { dbKey: 'jewelrySales', firestoreCol: 'mava_catalog_jewelry_sales' },
-      mava_catalog_jewelry_sales: { dbKey: 'jewelrySales', firestoreCol: 'mava_catalog_jewelry_sales' },
-      emeraldMemos: { dbKey: 'memos', firestoreCol: 'mava_catalog_emerald_memos' },
-      mava_catalog_emerald_memos: { dbKey: 'memos', firestoreCol: 'mava_catalog_emerald_memos' },
-      memos: { dbKey: 'memos', firestoreCol: 'mava_catalog_emerald_memos' },
-      emeraldSales: { dbKey: 'sales', firestoreCol: 'mava_catalog_emerald_sales' },
-      mava_catalog_emerald_sales: { dbKey: 'sales', firestoreCol: 'mava_catalog_emerald_sales' },
-      sales: { dbKey: 'sales', firestoreCol: 'mava_catalog_emerald_sales' },
-      stockLedger: { dbKey: 'stockLedger', firestoreCol: 'mava_catalog_stock_ledger' },
-      mava_catalog_stock_ledger: { dbKey: 'stockLedger', firestoreCol: 'mava_catalog_stock_ledger' }
+      items: { dbKey: 'items', firestoreCol: `${prefix}_items` },
+      mava_catalog_items: { dbKey: 'items', firestoreCol: `${prefix}_items` },
+      emeralds: { dbKey: 'emeralds', firestoreCol: `${prefix}_emeralds` },
+      mava_catalog_emeralds: { dbKey: 'emeralds', firestoreCol: `${prefix}_emeralds` },
+      stones: { dbKey: 'stones', firestoreCol: `${prefix}_stones` },
+      mava_catalog_stones: { dbKey: 'stones', firestoreCol: `${prefix}_stones` },
+      jewelryMemos: { dbKey: 'jewelryMemos', firestoreCol: `${prefix}_jewelry_memos` },
+      mava_catalog_jewelry_memos: { dbKey: 'jewelryMemos', firestoreCol: `${prefix}_jewelry_memos` },
+      jewelStoneMemos: { dbKey: 'jewelStoneMemos', firestoreCol: `${prefix}_jewel_stone_memos` },
+      mava_catalog_jewel_stone_memos: { dbKey: 'jewelStoneMemos', firestoreCol: `${prefix}_jewel_stone_memos` },
+      jewelrySales: { dbKey: 'jewelrySales', firestoreCol: `${prefix}_jewelry_sales` },
+      mava_catalog_jewelry_sales: { dbKey: 'jewelrySales', firestoreCol: `${prefix}_jewelry_sales` },
+      emeraldMemos: { dbKey: 'memos', firestoreCol: `${prefix}_emerald_memos` },
+      mava_catalog_emerald_memos: { dbKey: 'memos', firestoreCol: `${prefix}_emerald_memos` },
+      memos: { dbKey: 'memos', firestoreCol: `${prefix}_emerald_memos` },
+      emeraldSales: { dbKey: 'sales', firestoreCol: `${prefix}_emerald_sales` },
+      mava_catalog_emerald_sales: { dbKey: 'sales', firestoreCol: `${prefix}_emerald_sales` },
+      sales: { dbKey: 'sales', firestoreCol: `${prefix}_emerald_sales` },
+      stockLedger: { dbKey: 'stockLedger', firestoreCol: `${prefix}_stock_ledger` },
+      mava_catalog_stock_ledger: { dbKey: 'stockLedger', firestoreCol: `${prefix}_stock_ledger` }
     };
     if (map[rawKey]) return map[rawKey];
-    const dbKey = rawKey.replace(/^mava_catalog_/, '');
-    const firestoreCol = rawKey.startsWith('mava_catalog_') ? rawKey : `mava_catalog_${rawKey}`;
+    const dbKey = rawKey.replace(new RegExp(`^${prefix}_`), '').replace(/^mava_catalog_/, '');
+    const firestoreCol = rawKey.startsWith(`${prefix}_`) ? rawKey : `${prefix}_${dbKey}`;
     return { dbKey, firestoreCol };
   },
 
@@ -830,21 +1069,40 @@ const DBManager = {
     if (!Array.isArray(this.database[dbKey])) return false;
 
     const existing = this.database[dbKey].find(i => i && String(i.id) === String(itemId));
-    if (dbKey === 'items' && existing) {
-      this._unindexItem(existing);
-    } else if (dbKey === 'jewelrySales' && existing) {
-      if (existing.itemId) this._indexes.salesByItemId.delete(String(existing.itemId));
-      if (existing.sku) this._indexes.salesBySku.delete(existing.sku.trim().toLowerCase());
-    } else if (dbKey === 'jewelryMemos' && existing) {
-      if (existing.id) this._indexes.memosById.delete(String(existing.id));
-      if (existing.memoNumber) this._indexes.memosByNumber.delete(existing.memoNumber.trim().toUpperCase());
+    if (dbKey === 'items') {
+      if (existing) {
+        this._unindexItem(existing);
+      } else {
+        this._indexes.itemsById.delete(String(itemId));
+      }
+    } else if (dbKey === 'jewelrySales') {
+      if (existing) {
+        if (existing.itemId) this._indexes.salesByItemId.delete(String(existing.itemId));
+        if (existing.sku) this._indexes.salesBySku.delete(existing.sku.trim().toLowerCase());
+      } else {
+        this._indexes.salesByItemId.delete(String(itemId));
+        for (const [k, v] of this._indexes.salesByItemId.entries()) {
+          if (v && String(v.id) === String(itemId)) this._indexes.salesByItemId.delete(k);
+        }
+        for (const [k, v] of this._indexes.salesBySku.entries()) {
+          if (v && String(v.id) === String(itemId)) this._indexes.salesBySku.delete(k);
+        }
+      }
+    } else if (dbKey === 'jewelryMemos') {
+      if (existing) {
+        if (existing.id) this._indexes.memosById.delete(String(existing.id));
+        if (existing.memoNumber) this._indexes.memosByNumber.delete(existing.memoNumber.trim().toUpperCase());
+      } else {
+        this._indexes.memosById.delete(String(itemId));
+      }
     }
 
     this.database[dbKey] = this.database[dbKey].filter(i => i && String(i.id) !== String(itemId));
     this.emit(`${dbKey}:deleted`, { id: itemId, collection: firestoreCol });
 
-    if (typeof window !== 'undefined' && window.CloudSync && window.CloudSync.isEnabled()) {
-      window.CloudSync.deleteDocument(firestoreCol, String(itemId)).catch(err => {
+    const cloudSync = this._getCloudSync();
+    if (cloudSync && cloudSync.isEnabled()) {
+      cloudSync.deleteDocument(firestoreCol, String(itemId)).catch(err => {
         console.warn(`Granular delete ${firestoreCol}/${itemId} note:`, err.message);
       });
     }
@@ -864,8 +1122,10 @@ const DBManager = {
     }
     this.database.settings.updatedAt = new Date().toISOString();
 
-    if (typeof window !== 'undefined' && window.CloudSync && window.CloudSync.isEnabled()) {
-      window.CloudSync.setDocument('mava_catalog_meta', 'settings', this.database.settings).catch(err => {
+    const cloudSync = this._getCloudSync();
+    if (cloudSync && cloudSync.isEnabled()) {
+      const prefix = (cloudSync.config && cloudSync.config.collectionPrefix) ? cloudSync.config.collectionPrefix : 'mava_catalog';
+      cloudSync.setDocument(`${prefix}_meta`, 'settings', this.database.settings).catch(err => {
         console.warn('Granular settings push note:', err.message);
       });
     }
@@ -1025,6 +1285,9 @@ const DBManager = {
     if (this.database.logs.length > 2000) {
       this.database.logs.pop();
     }
+    if (this.isLoaded) {
+      this.scheduleVaultFlush();
+    }
   },
 
   /**
@@ -1154,7 +1417,7 @@ const DBManager = {
     if (status === 'Sold') {
       return { available: false, reason: 'Item has already been sold' };
     }
-    if (status === 'Issued') {
+    if (status === 'Issued' || status === 'On Memo') {
       return { available: false, reason: `Item is currently out on Memo ${item.issuedMemoNumber || ''}`.trim() };
     }
     if (status === 'Reserved' && item.reservation) {
@@ -1276,6 +1539,7 @@ const DBManager = {
     const event = {
       id: `led_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
       timestamp: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       eventType: eventType || 'NOTE',
       itemId: itemId ? String(itemId) : null,
       sku: sku ? String(sku) : null,
@@ -1298,7 +1562,8 @@ const DBManager = {
     const isTestSku = sku && (sku === 'MG-100' || sku === 'MG-200' || sku === 'MG-300' || sku === 'MG-01' || sku === 'SKU-101' || sku.toLowerCase().includes('test'));
     const cloudSync = this._getCloudSync();
     if (cloudSync && cloudSync.isEnabled() && !isTestSku) {
-      cloudSync.setDocument('mava_catalog_stock_ledger', event.id, event).catch(err => {
+      const { firestoreCol } = this._resolveCollectionNames('stockLedger');
+      cloudSync.setDocument(firestoreCol, event.id, event).catch(err => {
         console.warn(`Stock ledger push ${event.id} note:`, err.message);
       });
     }

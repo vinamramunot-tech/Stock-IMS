@@ -255,6 +255,7 @@ const Startup = {
       ws.style.display = '';
     }
 
+    if (window.DBManager) DBManager._isBooting = true;
     try {
       let activePath = 'mava_gems_stock.db';
       if (window.electronAPI && typeof window.electronAPI.getLastDbPath === 'function') {
@@ -287,6 +288,8 @@ const Startup = {
       } catch (e) {
         console.error("Critical boot recovery failure:", e);
       }
+    } finally {
+      if (window.DBManager) DBManager._isBooting = false;
     }
   },
 

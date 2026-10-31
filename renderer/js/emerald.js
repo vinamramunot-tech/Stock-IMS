@@ -850,7 +850,7 @@ const EmeraldController = {
         <div class="form-col-6" style="flex: 1; min-width: 200px;">
           <div class="input-group">
             <label>Pudia Number <span class="required">*</span></label>
-            <input type="number" class="pudia-color-input" placeholder="e.g. 7" required>
+            <input type="text" inputmode="numeric" class="pudia-color-input" placeholder="e.g. 7 or 7A" required>
           </div>
         </div>
         <div class="form-col-6" style="flex: 1; min-width: 200px;">
@@ -970,7 +970,11 @@ const EmeraldController = {
 
     // Load custom data if provided
     if (data) {
-      card.querySelector('.pudia-color-input').value = data.color || '';
+      if (data.color !== undefined && data.color !== null) {
+        card.querySelector('.pudia-color-input').value = String(data.color);
+      } else {
+        card.querySelector('.pudia-color-input').value = '';
+      }
       card.querySelector('.pudia-price-input').value = data.pricePerCarat || '';
       card.querySelector('.pudia-lustre-input').value = data.lustreGrade || '';
       card.querySelector('.pudia-pair-select').value = data.pair || 'No';
@@ -1376,9 +1380,10 @@ const EmeraldController = {
   getEmeraldPieces(e) {
     if (!e) return 0;
     if (e.sizes && e.sizes.length > 0) {
-      return e.sizes.reduce((sum, s) => sum + Number(s.pieces || 0), 0);
+      const sizeSum = e.sizes.reduce((sum, s) => sum + Number(s.pieces || 0), 0);
+      if (sizeSum > 0) return sizeSum;
     }
-    return 0;
+    return Number(e.pieces || 0);
   },
 
   getFilteredEmeralds() {
@@ -1459,13 +1464,13 @@ const EmeraldController = {
     } else if (sortVal === 'price-low') {
       arr.sort((a, b) => (a.pricePerCarat || 0) - (b.pricePerCarat || 0));
     } else if (sortVal === 'color-high') {
-      arr.sort((a, b) => Number(b.color || 0) - Number(a.color || 0));
+      arr.sort((a, b) => String(b.color ?? '').localeCompare(String(a.color ?? ''), undefined, { numeric: true, sensitivity: 'base' }));
     } else if (sortVal === 'color-low') {
-      arr.sort((a, b) => Number(a.color || 0) - Number(b.color || 0));
+      arr.sort((a, b) => String(a.color ?? '').localeCompare(String(b.color ?? ''), undefined, { numeric: true, sensitivity: 'base' }));
     } else if (sortVal === 'newest') {
       arr.sort((a, b) => UI.itemTimestamp(b) - UI.itemTimestamp(a));
     } else {
-      arr.sort((a, b) => (a.group || '').localeCompare(b.group || '') || Number(a.color || 0) - Number(b.color || 0));
+      arr.sort((a, b) => (a.group || '').localeCompare(b.group || '') || String(a.color ?? '').localeCompare(String(b.color ?? ''), undefined, { numeric: true, sensitivity: 'base' }));
     }
   },
 
@@ -1531,8 +1536,12 @@ const EmeraldController = {
     const sortVal = document.getElementById('emerald-sort-items')?.value || '';
 
     // Fingerprint check to prevent redundant DOM destruction and screen flickering
-    const emeraldFingerprint = `${this.currentViewMode}|${isMultiplierEnabled}|${globalMultiplier}|${sortVal}|${filtered.length}|` +
-      filtered.map(e => `${e.id}_${e.updatedAt || ''}_${e.weight || ''}_${e.rate || ''}_${e.status || ''}_${e.group || ''}_${e.shape || ''}`).join(';');
+    const usdRate = DBManager.getSettings().usdToInr ? DBManager.getSettings().usdToInr.rate : 0;
+    const memoMap = window.MemoController && typeof MemoController.buildMemoCaratsMap === 'function'
+      ? MemoController.buildMemoCaratsMap()
+      : {};
+    const emeraldFingerprint = `${this.currentViewMode}|${isMultiplierEnabled}|${globalMultiplier}|${usdRate}|${sortVal}|${filtered.length}|` +
+      filtered.map(e => `${e.id}_${e.updatedAt || ''}_${this.getEmeraldWeight(e)}_${this.getEmeraldPieces(e)}_${Number((memoMap[e.id] || 0).toFixed(3))}_${e.pricePerCarat || ''}_${e.status || ''}_${e.group || ''}_${e.lustreGrade || ''}_${e.shape || ''}_${e.color ?? ''}`).join(';');
 
     const hasRenderedChildren = (this.currentViewMode === 'grid' && flatContainer.children.length > 0) ||
                                 (this.currentViewMode !== 'grid' && gridContainer.children.length > 0);
@@ -2017,7 +2026,11 @@ const EmeraldController = {
       if (validationError) return;
 
       const pudiaIndexStr = `Pudia #${idx + 1}`;
-      const color = Number(card.querySelector('.pudia-color-input').value || 0);
+      const rawColor = (card.querySelector('.pudia-color-input').value || '').trim();
+      const numericColor = Number(rawColor);
+      const color = (rawColor !== '' && !Number.isNaN(numericColor) && String(numericColor) === rawColor)
+        ? numericColor
+        : rawColor;
       const pricePerCarat = Number(Number(card.querySelector('.pudia-price-input').value || 0).toFixed(2));
       const lustreGrade = stockType === 'Single Pieces' ? '' : card.querySelector('.pudia-lustre-input').value.trim();
       const pair = card.querySelector('.pudia-pair-select').value;
@@ -2051,7 +2064,7 @@ const EmeraldController = {
         validationError = `${pudiaIndexStr}: Each size row must have a Shape, MM, Pcs (>0), and Weight (>0).`;
         return;
       }
-      if (isNaN(color) || color <= 0) {
+      if (!rawColor || (!Number.isNaN(numericColor) && numericColor <= 0)) {
         validationError = `${pudiaIndexStr}: Please specify a valid Pudia Number.`;
         return;
       }
@@ -2064,17 +2077,27 @@ const EmeraldController = {
         return;
       }
 
+      if (isEdit && window.MemoController) {
+        const editingId = document.getElementById('emerald-item-id').value;
+        const openMemoCts = MemoController.getOpenMemoCaratsForEmerald(editingId);
+        if (openMemoCts > 0.001 && Number(totalWeight.toFixed(3)) + 0.001 < openMemoCts) {
+          validationError = `${pudiaIndexStr}: Cannot reduce weight (${totalWeight.toFixed(2)} cts) below active open-memo carats (${openMemoCts.toFixed(2)} cts).`;
+          return;
+        }
+      }
+
+      const normColor = String(color ?? '').trim().toUpperCase();
       const dbDuplicates = DBManager.getEmeralds().filter(e => {
         // Must match the new group and new color (pudia number)
         const isSameGroupAndColor = (e.group || 'Default').toLowerCase() === group.toLowerCase() &&
-          Number(e.color || 0) === Number(color || 0);
+          String(e.color ?? '').trim().toUpperCase() === normColor;
         if (!isSameGroupAndColor) return false;
 
         // If we are editing, exclude the item currently being edited
         if (isEdit && this.activeEmeraldState) {
           const isSameItem = (e.id && this.activeEmeraldState.id && String(e.id) === String(this.activeEmeraldState.id)) ||
             ((e.group || 'Default').toLowerCase() === (this.activeEmeraldState.group || 'Default').toLowerCase() &&
-              Number(e.color || 0) === Number(this.activeEmeraldState.color || 0));
+              String(e.color ?? '').trim().toUpperCase() === String(this.activeEmeraldState.color ?? '').trim().toUpperCase());
           if (isSameItem) return false;
         }
 
@@ -2085,7 +2108,7 @@ const EmeraldController = {
         return;
       }
 
-      const batchDuplicates = savedPudias.filter(p => p.color === color);
+      const batchDuplicates = savedPudias.filter(p => String(p.color ?? '').trim().toUpperCase() === normColor);
       if (batchDuplicates.length > 0) {
         validationError = `${pudiaIndexStr}: Duplicate Pudia Number #${color} in the current batch.`;
         return;
@@ -2143,6 +2166,28 @@ const EmeraldController = {
         const changes = Logs.diffItem(this.activeEmeraldState, updatedPudia);
         const shapes = updatedPudia.shape.split(', ').filter(Boolean);
         const summary = Logs.buildSummary(changes, `Updated Emerald: ${shapes.join(', ')} (${updatedPudia.weight}ct)`);
+
+        // Propagate updated snapshot metadata to any open emerald memos referencing this Pudia
+        (DBManager.getMemos ? DBManager.getMemos() : []).forEach(memo => {
+          if (memo.status !== 'open') return;
+          let changed = false;
+          (memo.items || []).forEach(it => {
+            if (it.emeraldId === updatedPudia.id) {
+              it.emeraldSnapshot = {
+                group: updatedPudia.group || '',
+                lustreGrade: updatedPudia.lustreGrade || '',
+                color: updatedPudia.color ?? '',
+                shape: updatedPudia.shape || '',
+                stockType: updatedPudia.stockType || ''
+              };
+              changed = true;
+            }
+          });
+          if (changed) {
+            memo.updatedAt = updatedPudia.updatedAt;
+            DBManager.saveItem('mava_catalog_emerald_memos', memo);
+          }
+        });
 
         DBManager.addLog("EDIT", updatedPudia.id, `Emerald (${shapes.join(', ')})`, summary, changes);
         await DBManager.saveItem('mava_catalog_emeralds', updatedPudia);
@@ -2222,11 +2267,12 @@ const EmeraldController = {
   },
 
   async handleDeleteEmeraldGroup(groupName) {
+    const resolveGroup = (e) => (e.group && e.group.trim()) ? e.group.trim() : 'Unassigned Group';
     const emeralds = DBManager.getEmeralds();
-    const inGroup = emeralds.filter(e => (e.group || 'Default') === groupName);
+    const inGroup = emeralds.filter(e => resolveGroup(e) === groupName);
     const onMemo = inGroup.filter(e => {
       const mc = window.MemoController ? MemoController.getOpenMemoCaratsForEmerald(e.id) : 0;
-      return mc > 0;
+      return mc > 0.001;
     });
 
     if (onMemo.length > 0) {
@@ -2237,14 +2283,14 @@ const EmeraldController = {
 
     UI.confirm(`Are you absolutely sure you want to delete ALL emeralds in the group "${groupName}"? This cannot be undone.`, async () => {
       try {
-        const toDelete = DBManager.database.emeralds.filter(e => (e.group || 'Default') === groupName);
+        const toDelete = DBManager.database.emeralds.filter(e => resolveGroup(e) === groupName);
         const deletedIds = toDelete.map(e => e.id);
-        const initialCount = DBManager.database.emeralds.length;
-        DBManager.database.emeralds = DBManager.database.emeralds.filter(e => (e.group || 'Default') !== groupName);
-        const deletedCount = initialCount - DBManager.database.emeralds.length;
+        const deletedCount = deletedIds.length;
 
         if (window.DBManager) {
           deletedIds.forEach(id => DBManager.deleteItem('mava_catalog_emeralds', id));
+        } else {
+          DBManager.database.emeralds = DBManager.database.emeralds.filter(e => resolveGroup(e) !== groupName);
         }
 
         DBManager.addLog("DELETE", `group_${groupName}`, "Emerald Group", `Deleted emerald group "${groupName}" (${deletedCount} items)`, []);
@@ -2258,15 +2304,16 @@ const EmeraldController = {
   },
 
   async handleDeleteEmeraldGrade(groupName, gradeName) {
+    const resolveGroup = (e) => (e.group && e.group.trim()) ? e.group.trim() : 'Unassigned Group';
+    const resolveGrade = (e) => e.stockType === 'Single Pieces'
+      ? 'Single Pieces'
+      : ((e.lustreGrade && e.lustreGrade.trim()) ? e.lustreGrade.trim() : 'Unassigned Grade');
+
     const emeralds = DBManager.getEmeralds();
-    const inGrade = emeralds.filter(e => {
-      const eGroup = e.group || 'Default';
-      const eGrade = e.grade || 'Default';
-      return (eGroup === groupName && eGrade === gradeName);
-    });
+    const inGrade = emeralds.filter(e => resolveGroup(e) === groupName && resolveGrade(e) === gradeName);
     const onMemo = inGrade.filter(e => {
       const mc = window.MemoController ? MemoController.getOpenMemoCaratsForEmerald(e.id) : 0;
-      return mc > 0;
+      return mc > 0.001;
     });
 
     if (onMemo.length > 0) {
@@ -2277,22 +2324,14 @@ const EmeraldController = {
 
     UI.confirm(`Are you absolutely sure you want to delete ALL emeralds in the grade "${gradeName}" (Group: "${groupName}")? This cannot be undone.`, async () => {
       try {
-        const toDelete = DBManager.database.emeralds.filter(e => {
-          const eGroup = e.group || 'Default';
-          const eGrade = e.grade || 'Default';
-          return (eGroup === groupName && eGrade === gradeName);
-        });
+        const toDelete = DBManager.database.emeralds.filter(e => resolveGroup(e) === groupName && resolveGrade(e) === gradeName);
         const deletedIds = toDelete.map(e => e.id);
-        const initialCount = DBManager.database.emeralds.length;
-        DBManager.database.emeralds = DBManager.database.emeralds.filter(e => {
-          const eGroup = e.group || 'Default';
-          const eGrade = e.grade || 'Default';
-          return !(eGroup === groupName && eGrade === gradeName);
-        });
-        const deletedCount = initialCount - DBManager.database.emeralds.length;
+        const deletedCount = deletedIds.length;
 
         if (window.DBManager) {
           deletedIds.forEach(id => DBManager.deleteItem('mava_catalog_emeralds', id));
+        } else {
+          DBManager.database.emeralds = DBManager.database.emeralds.filter(e => !(resolveGroup(e) === groupName && resolveGrade(e) === gradeName));
         }
 
         DBManager.addLog("DELETE", `grade_${groupName}_${gradeName}`, "Emerald Grade", `Deleted emerald grade "${gradeName}" from group "${groupName}" (${deletedCount} items)`, []);
@@ -4524,7 +4563,11 @@ const EmeraldController = {
 
     await DBManager.saveVault();
     UI.closeModal('modal-merge-pudias');
-    this.renderEmeraldGrid();
+    if (window.App && typeof App.refreshAllDisplays === 'function') {
+      App.refreshAllDisplays();
+    } else {
+      this.renderEmeraldGrid(true);
+    }
     UI.showToast(`Successfully merged ${selected.length} lots into Pudia #${destColor} (${totalCarats.toFixed(2)} cts)!`);
   }
 };

@@ -19,6 +19,9 @@ const JewelryMemoController = {
    * @param {string} memoId - Required when isDelete=true.
    */
   _pushToCloud(memo, isDelete = false, memoId = null) {
+    // If DBManager is active, DBManager.saveItem / deleteItem already performs
+    // granular cloud sync with optimistic concurrency and deduplication.
+    if (typeof window !== 'undefined' && window.DBManager) return;
     if (!window.CloudSync || !window.CloudSync.isEnabled()) return;
     const col = 'mava_catalog_jewelry_memos';
     try {
@@ -143,13 +146,14 @@ const JewelryMemoController = {
    * Falls back to local-only calculation if offline or CloudSync is unavailable.
    */
   async getNextMemoNumber() {
-    // 1. Local max
+    // 1. Local max + persisted monotonic sequence counter
     const localMemos = DBManager.getJewelryMemos();
     const localNums = localMemos.map(m => {
       const match = (m.memoNumber || '').match(/JM-(\d+)/);
       return match ? parseInt(match[1], 10) : 0;
     });
     const localMax = localNums.length > 0 ? Math.max(...localNums) : 0;
+    const settingsMax = Number((DBManager.getSettings && DBManager.getSettings().lastJewelryMemoSeq) || 0);
 
     // 2. Cloud max — query Firestore for the highest memo number seen in the cloud
     let cloudMax = 0;
@@ -168,7 +172,7 @@ const JewelryMemoController = {
       console.warn('getNextMemoNumber: cloud check failed, using local count only.', e.message);
     }
 
-    const next = Math.max(localMax, cloudMax) + 1;
+    const next = Math.max(localMax, cloudMax, settingsMax) + 1;
     return `JM-${String(next).padStart(3, '0')}`;
   },
 
@@ -439,6 +443,11 @@ const JewelryMemoController = {
     const item = DBManager.getItems().find(i => i.id === itemId);
     if (!item) return;
 
+    if (this.selectedItems.some(s => String(s.id) === String(item.id))) {
+      UI.showToast(`SKU "${item.sku}" is already added to this memo draft.`, true);
+      return;
+    }
+
     if (item.status === 'Sold') {
       UI.showToast(`Cannot add to memo: SKU "${item.sku}" was already SOLD to ${item.soldTo || 'client'} on ${item.soldDate || 'past date'}.`, true);
       return;
@@ -446,7 +455,7 @@ const JewelryMemoController = {
     const editingMemo = this.editingMemoId
       ? DBManager.getJewelryMemos().find(m => m.id === this.editingMemoId)
       : null;
-    if (item.status === 'Issued' && (!editingMemo || item.issuedMemoNumber !== editingMemo.memoNumber)) {
+    if ((item.status === 'Issued' || item.status === 'On Memo') && (!editingMemo || item.issuedMemoNumber !== editingMemo.memoNumber)) {
       UI.showToast(`Cannot add to memo: SKU "${item.sku}" is currently OUT ON MEMO ${item.issuedMemoNumber || ''} to ${item.issuedTo || 'client'}.`, true);
       return;
     }
@@ -628,6 +637,12 @@ const JewelryMemoController = {
       const memo = DBManager.getJewelryMemos().find(m => m.id === this.editingMemoId);
       if (!memo) { UI.showToast('Memo not found.', true); return; }
 
+      const hasLockedItems = Array.isArray(this.lockedMemoItems) && this.lockedMemoItems.length > 0;
+      if (this.selectedItems.length === 0 && !hasLockedItems) {
+        UI.showToast('A memo must contain at least one jewelry piece. Add a piece or delete the memo instead.', true);
+        return;
+      }
+
       const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
 
       // Diff: what changed vs what was originally open
@@ -640,7 +655,7 @@ const JewelryMemoController = {
       const unavailableAdded = [];
       for (const item of addedItems) {
         const liveItem = (DBManager.getItems() || []).find(i => i.id === item.id);
-        if (!liveItem || liveItem.status === 'Sold' || liveItem.status === 'Issued') {
+        if (!liveItem || liveItem.status === 'Sold' || liveItem.status === 'Issued' || liveItem.status === 'On Memo') {
           unavailableAdded.push(item.sku || 'Piece');
         }
       }
@@ -648,6 +663,8 @@ const JewelryMemoController = {
         UI.showToast(`Cannot add items: ${unavailableAdded.join(', ')} are no longer available in stock.`, true);
         return;
       }
+
+      const nowIso = new Date().toISOString();
 
       // Process removals: revert catalog item to In Stock, remove from memo.items
       removedIds.forEach(id => {
@@ -657,7 +674,9 @@ const JewelryMemoController = {
           mainItem.issuedTo = null;
           mainItem.issuedBroker = null;
           mainItem.issuedMemoNumber = null;
-          mainItem.updatedAt = new Date().toISOString();
+          mainItem.activeMemoId = null;
+          mainItem.statusChangedAt = nowIso;
+          mainItem.updatedAt = nowIso;
         }
         memo.items = memo.items.filter(mi => mi.itemId !== id);
       });
@@ -683,9 +702,15 @@ const JewelryMemoController = {
           mainItem.issuedTo = personName;
           mainItem.issuedBroker = brokerName || '—';
           mainItem.issuedMemoNumber = memo.memoNumber;
-          mainItem.updatedAt = new Date().toISOString();
+          mainItem.activeMemoId = memo.id;
+          mainItem.statusChangedAt = nowIso;
+          mainItem.updatedAt = nowIso;
         }
       });
+
+      if (removedIds.length > 0) {
+        DBManager.resequenceJewelrySno();
+      }
 
       // Update selling prices and issuedTo / issuedBroker on existing open items
       memo.items.filter(mi => mi.status === 'open').forEach(mi => {
@@ -697,22 +722,30 @@ const JewelryMemoController = {
         if (mainItem) {
           mainItem.issuedTo = personName;
           mainItem.issuedBroker = brokerName || '—';
-          mainItem.updatedAt = new Date().toISOString();
+          mainItem.activeMemoId = memo.id;
+          mainItem.updatedAt = nowIso;
           if (window.DBManager) DBManager.saveItem('mava_catalog_items', mainItem);
         }
       });
 
-      // Recalculate total value from all open memo items
-      memo.totalValue = memo.items
-        .filter(mi => mi.status === 'open')
-        .reduce((sum, mi) => sum + (mi.sellingPrice || 0), 0);
+      // Auto-close memo if all remaining items are already settled (sold/returned)
+      const openRemaining = memo.items.filter(mi => mi.status === 'open');
+      if (memo.items.length > 0 && openRemaining.length === 0) {
+        memo.status = 'closed';
+        if (!memo.closedAt) memo.closedAt = nowIso;
+        memo.totalValue = memo.items.reduce((sum, mi) => sum + (Number(mi.soldPrice ?? mi.sellingPrice) || 0), 0);
+      } else {
+        memo.status = 'open';
+        memo.closedAt = null;
+        memo.totalValue = openRemaining.reduce((sum, mi) => sum + (mi.sellingPrice || 0), 0);
+      }
 
       // Update header fields
       memo.personName = personName;
       memo.brokerName = brokerName || '—';
       memo.date = date;
       memo.notes = notes;
-      memo.updatedAt = new Date().toISOString();
+      memo.updatedAt = nowIso;
 
       if (window.DBManager) {
         DBManager.saveItem('mava_catalog_jewelry_memos', memo);
@@ -732,7 +765,6 @@ const JewelryMemoController = {
         []
       );
 
-      memo.updatedAt = new Date().toISOString();
       this._pushToCloud(memo);
 
       try {
@@ -770,7 +802,7 @@ const JewelryMemoController = {
         unavailableItems.push(`${sel.sku || 'Piece'} (deleted)`);
       } else if (liveItem.status === 'Sold') {
         unavailableItems.push(`${sel.sku || liveItem.name} (already Sold)`);
-      } else if (liveItem.status === 'Issued') {
+      } else if (liveItem.status === 'Issued' || liveItem.status === 'On Memo') {
         unavailableItems.push(`${sel.sku || liveItem.name} (already on Memo ${liveItem.issuedMemoNumber || ''})`);
       }
     }
@@ -782,6 +814,14 @@ const JewelryMemoController = {
     const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
     // Await cloud-checked memo number to avoid duplicate numbers with mobile-created memos
     const memoNumber = await this.getNextMemoNumber();
+    const seqMatch = String(memoNumber || '').match(/JM-(\d+)/);
+    if (seqMatch && window.DBManager && typeof DBManager.saveSettings === 'function') {
+      const seqNum = parseInt(seqMatch[1], 10);
+      const prevSeq = Number((DBManager.getSettings && DBManager.getSettings().lastJewelryMemoSeq) || 0);
+      if (seqNum > prevSeq) {
+        DBManager.saveSettings({ lastJewelryMemoSeq: seqNum });
+      }
+    }
 
     const memoItems = this.selectedItems.map(item => {
       const evalItem = Calc.evaluateItem(item, goldRate);
@@ -801,6 +841,7 @@ const JewelryMemoController = {
     });
 
     const totalValue = memoItems.reduce((sum, item) => sum + item.sellingPrice, 0);
+    const createdNow = new Date().toISOString();
 
     const memo = {
       id: 'jewelry_memo_' + Date.now(),
@@ -809,8 +850,8 @@ const JewelryMemoController = {
       brokerName: brokerName || '—',
       date,
       status: 'open', // open | closed
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: createdNow,
+      updatedAt: createdNow,
       closedAt: null,
       notes,
       items: memoItems,
@@ -823,16 +864,21 @@ const JewelryMemoController = {
       if (item) {
         item.status = 'Issued';
         item.issuedTo = personName;
-        item.issuedBroker = brokerName;
+        item.issuedBroker = brokerName || '—';
         item.issuedMemoNumber = memoNumber;
-        item.updatedAt = new Date().toISOString();
+        item.activeMemoId = memo.id;
+        item.statusChangedAt = createdNow;
+        item.updatedAt = createdNow;
         if (window.DBManager) DBManager.saveItem('mava_catalog_items', item);
       }
     });
 
     if (!DBManager.database.jewelryMemos) DBManager.database.jewelryMemos = [];
-    DBManager.database.jewelryMemos.push(memo);
-    if (window.DBManager) DBManager.saveItem('mava_catalog_jewelry_memos', memo);
+    if (window.DBManager) {
+      DBManager.saveItem('mava_catalog_jewelry_memos', memo);
+    } else {
+      DBManager.database.jewelryMemos.push(memo);
+    }
 
     DBManager.addLog(
       'ADD', memo.id, `Jewelry Memo ${memoNumber}`,
@@ -915,7 +961,7 @@ const JewelryMemoController = {
 
     // Fingerprint check to prevent redundant DOM destruction and screen flickering
     const memoFingerprint = `${filterVal}|${query}|${filtered.length}|` +
-      filtered.map(m => `${m.id}_${m.updatedAt || ''}_${m.status}_${m.totalValue}_${(m.items || []).length}`).join(';');
+      filtered.map(m => `${m.id}_${m.updatedAt || ''}_${m.status}_${m.totalValue}_${(m.items || []).map(it => `${it.itemId || it.sku}:${it.status}:${it.soldPrice || it.sellingPrice || 0}`).join(',')}`).join(';');
 
     if (!force && this._lastMemoFingerprint === memoFingerprint && tbody.children.length > 0) {
       return;
@@ -1231,26 +1277,43 @@ Thank you,
       `Are you sure you want to permanently delete Memo ${memo.memoNumber}?\n\nThis will remove the memo record and restore any unsold pieces back to "In Stock" inventory.`,
       async () => {
         let restoredCount = 0;
+        const restoredItems = [];
+        const nowIso = new Date().toISOString();
 
         // Restore items attached to this memo back to In Stock if not sold
         (memo.items || []).forEach(memoItem => {
-          const mainItem = DBManager.database.items.find(i => i.id === memoItem.itemId || i.sku === memoItem.sku);
+          const mainItem = DBManager.database.items.find(i =>
+            (memoItem.itemId && i.id === memoItem.itemId) ||
+            (memoItem.sku && i.sku && i.sku.trim().toLowerCase() === memoItem.sku.trim().toLowerCase())
+          );
           if (mainItem) {
             if (memoItem.status === 'open') {
               mainItem.status = 'In Stock';
-              delete mainItem.issuedTo;
-              delete mainItem.issuedBroker;
-              delete mainItem.issuedMemoNumber;
-              mainItem.updatedAt = new Date().toISOString();
-              if (window.DBManager) DBManager.saveItem('mava_catalog_items', mainItem);
+              mainItem.issuedTo = null;
+              mainItem.issuedBroker = null;
+              mainItem.issuedMemoNumber = null;
+              mainItem.activeMemoId = null;
+              mainItem.statusChangedAt = nowIso;
+              mainItem.updatedAt = nowIso;
+              restoredItems.push(mainItem);
               restoredCount++;
             }
           }
         });
 
-        // Delete memo from storage
-        DBManager.database.jewelryMemos = (DBManager.database.jewelryMemos || []).filter(m => m.id !== memoId);
-        if (window.DBManager) DBManager.deleteItem('mava_catalog_jewelry_memos', memoId);
+        if (restoredItems.length > 0) {
+          DBManager.resequenceJewelrySno();
+          if (window.DBManager) {
+            restoredItems.forEach(mi => DBManager.saveItem('mava_catalog_items', mi));
+          }
+        }
+
+        // Delete memo from storage (via DBManager.deleteItem first so indexes and cloud tombstones stay clean)
+        if (window.DBManager) {
+          await DBManager.deleteItem('mava_catalog_jewelry_memos', memoId);
+        } else {
+          DBManager.database.jewelryMemos = (DBManager.database.jewelryMemos || []).filter(m => m.id !== memoId);
+        }
 
         DBManager.addLog(
           'DELETE',
@@ -1285,26 +1348,40 @@ Thank you,
     if (!item || item.status !== 'open') return;
 
     UI.confirm(`Take SKU: ${item.sku} back to inventory stock?`, async () => {
+      const nowIso = new Date().toISOString();
       item.status = 'returned';
 
       // Revert piece in main inventory back to 'In Stock'
-      const mainItem = DBManager.database.items.find(i => i.id === item.itemId);
+      const mainItem = DBManager.database.items.find(i =>
+        (item.itemId && i.id === item.itemId) ||
+        (item.sku && i.sku && i.sku.trim().toLowerCase() === item.sku.trim().toLowerCase())
+      );
       if (mainItem) {
         mainItem.status = 'In Stock';
         mainItem.issuedTo = null;
         mainItem.issuedBroker = null;
         mainItem.issuedMemoNumber = null;
-        mainItem.updatedAt = new Date().toISOString();
-        if (window.DBManager) DBManager.saveItem('mava_catalog_items', mainItem);
+        mainItem.activeMemoId = null;
+        mainItem.statusChangedAt = nowIso;
+        mainItem.updatedAt = nowIso;
+      }
+
+      DBManager.resequenceJewelrySno();
+      if (mainItem && window.DBManager) {
+        DBManager.saveItem('mava_catalog_items', mainItem);
       }
 
       // Check if all items in memo are resolved
       const allDone = memo.items.every(it => it.status !== 'open');
       if (allDone) {
         memo.status = 'closed';
-        memo.closedAt = new Date().toISOString();
+        memo.closedAt = nowIso;
+      } else {
+        memo.totalValue = memo.items
+          .filter(it => it.status === 'open')
+          .reduce((sum, it) => sum + (Number(it.sellingPrice) || 0), 0);
       }
-      memo.updatedAt = new Date().toISOString();
+      memo.updatedAt = nowIso;
       if (window.DBManager) DBManager.saveItem('mava_catalog_jewelry_memos', memo);
 
       DBManager.addLog(
@@ -1313,7 +1390,6 @@ Thank you,
         []
       );
 
-      memo.updatedAt = new Date().toISOString();
       this._pushToCloud(memo);
 
       try {
@@ -1343,15 +1419,42 @@ Thank you,
 
     if (directItem) {
       mainItem = directItem;
-      document.getElementById('jewelry-sale-memo-id').value = '';
-      document.getElementById('jewelry-sale-item-index').value = '-1';
+      // Auto-detect if this piece is currently open on an active memo so selling directly settles that memo cleanly
+      let linkedMemo = null;
+      let linkedIdx = -1;
+      for (const m of (DBManager.getJewelryMemos() || [])) {
+        if (!m || m.status === 'closed' || !Array.isArray(m.items)) continue;
+        const idx = m.items.findIndex(it =>
+          it && it.status === 'open' && (
+            (it.itemId && String(it.itemId) === String(mainItem.id)) ||
+            (it.sku && mainItem.sku && String(it.sku).trim().toLowerCase() === String(mainItem.sku).trim().toLowerCase())
+          )
+        );
+        if (idx >= 0) {
+          linkedMemo = m;
+          linkedIdx = idx;
+          break;
+        }
+      }
+
+      if (linkedMemo && linkedIdx >= 0) {
+        memo = linkedMemo;
+        memoItem = linkedMemo.items[linkedIdx];
+        document.getElementById('jewelry-sale-memo-id').value = linkedMemo.id;
+        document.getElementById('jewelry-sale-item-index').value = String(linkedIdx);
+      } else {
+        document.getElementById('jewelry-sale-memo-id').value = '';
+        document.getElementById('jewelry-sale-item-index').value = '-1';
+      }
       document.getElementById('jewelry-sale-item-id').value = mainItem.id;
 
       document.getElementById('jewelry-sale-piece-name').textContent = mainItem.name || 'Unnamed Piece';
       document.getElementById('jewelry-sale-piece-sku').textContent = `SKU: ${mainItem.sku || 'N/A'} | Category: ${mainItem.category || 'Jewelry'}`;
 
-      document.getElementById('jewelry-sale-customer-name').value = mainItem.issuedTo || '';
-      document.getElementById('jewelry-sale-broker-name').value = (mainItem.issuedBroker && mainItem.issuedBroker !== '—') ? mainItem.issuedBroker : '';
+      const defaultCustomer = (memo && memo.personName) || mainItem.issuedTo || '';
+      const rawBroker = (memo && memo.brokerName) || mainItem.issuedBroker || '';
+      document.getElementById('jewelry-sale-customer-name').value = defaultCustomer;
+      document.getElementById('jewelry-sale-broker-name').value = (rawBroker && rawBroker !== '—') ? rawBroker : '';
     } else {
       memo = DBManager.getJewelryMemos().find(m => m.id === memoId);
       if (!memo) return;
@@ -1514,8 +1617,17 @@ Thank you,
 
     if (saleId) {
       // ── Updating an existing sale record ──────────────────────────────
-      let existingSale = DBManager.database.jewelrySales.find(s => s.id === saleId || s.itemId === itemId);
+      const nowIso = new Date().toISOString();
+      const targetItemId = mainItem ? mainItem.id : itemId;
+      let existingSale = DBManager.database.jewelrySales.find(s =>
+        s && (
+          s.id === saleId ||
+          (targetItemId && s.itemId === targetItemId) ||
+          (pieceSku && pieceSku !== 'N/A' && s.sku && s.sku.trim().toLowerCase() === pieceSku.trim().toLowerCase())
+        )
+      );
       if (existingSale) {
+        if (!existingSale.itemId && targetItemId) existingSale.itemId = targetItemId;
         existingSale.soldPrice = finalSoldPrice;
         existingSale.mfgCost = mfgCost;
         existingSale.replacementCost = replacementCost;
@@ -1526,22 +1638,28 @@ Thank you,
         existingSale.replacementProfit = replacementProfit;
         existingSale.replacementMarginPct = replacementMarginPct;
         existingSale.goldCommodityGain = goldCommodityGain;
+        existingSale.daysElapsed = daysElapsed;
+        existingSale.monthsElapsed = monthsElapsed;
         existingSale.monthlyProfitPct = monthlyProfitPct;
         existingSale.customerName = customerName;
         existingSale.brokerName = brokerName || '—';
         existingSale.saleDate = saleDate;
         existingSale.notes = notes;
+        existingSale.updatedAt = nowIso;
       } else {
+        const deterministicId = targetItemId
+          ? `jsale_${targetItemId}`
+          : (saleId.startsWith('legacy_') ? `jsale_${String(pieceSku || Date.now()).toLowerCase().replace(/[^a-z0-9_-]/g, '')}` : saleId);
         existingSale = {
-          id: saleId.startsWith('legacy_') ? ('jsale_' + Date.now()) : saleId,
+          id: deterministicId,
           saleNumber: 'JS-' + String(DBManager.database.jewelrySales.length + 1).padStart(4, '0'),
           saleDate,
           mfgDate,
           daysElapsed,
           monthsElapsed,
           memoId: memoId || null,
-          memoNumber: '—',
-          itemId: mainItem ? mainItem.id : itemId,
+          memoNumber: (mainItem && mainItem.issuedMemoNumber) || '—',
+          itemId: targetItemId,
           sku: pieceSku,
           name: pieceName,
           category: pieceCategory,
@@ -1559,30 +1677,63 @@ Thank you,
           goldCommodityGain,
           monthlyProfitPct,
           notes,
-          createdAt: new Date().toISOString()
+          itemSnapshot: mainItem ? JSON.parse(JSON.stringify(mainItem)) : null,
+          createdAt: nowIso,
+          updatedAt: nowIso
         };
+      }
+
+      const targetMemoId = memoId || existingSale.memoId || null;
+      const memo = (DBManager.getJewelryMemos() || []).find(m => {
+        if (!m || !Array.isArray(m.items)) return false;
+        if (targetMemoId && m.id === targetMemoId) return true;
+        return m.items.some(it =>
+          it && (it.status === 'sold' || it.status === 'open') && (
+            (targetItemId && it.itemId === targetItemId) ||
+            (pieceSku && pieceSku !== 'N/A' && it.sku && it.sku.trim().toLowerCase() === pieceSku.trim().toLowerCase())
+          )
+        );
+      });
+
+      if (memo && Array.isArray(memo.items)) {
+        const mItem = memo.items.find(it =>
+          it && (
+            (targetItemId && it.itemId === targetItemId) ||
+            (pieceSku && pieceSku !== 'N/A' && it.sku && it.sku.trim().toLowerCase() === pieceSku.trim().toLowerCase())
+          )
+        );
+        if (mItem) {
+          mItem.status = 'sold';
+          mItem.soldPrice = finalSoldPrice;
+          if (!existingSale.memoId) existingSale.memoId = memo.id;
+          if (!existingSale.memoNumber || existingSale.memoNumber === '—') existingSale.memoNumber = memo.memoNumber;
+        }
+        const allDone = memo.items.every(it => it.status !== 'open');
+        if (allDone && memo.status !== 'closed') {
+          memo.status = 'closed';
+          memo.closedAt = nowIso;
+        }
+        memo.updatedAt = nowIso;
+        if (window.DBManager) await DBManager.saveItem('mava_catalog_jewelry_memos', memo);
+        this._pushToCloud(memo);
+      }
+
+      if (window.DBManager) {
+        await DBManager.saveItem('mava_catalog_jewelry_sales', existingSale);
+      } else if (!DBManager.database.jewelrySales.includes(existingSale)) {
         DBManager.database.jewelrySales.push(existingSale);
       }
 
       if (mainItem) {
         mainItem.status = 'Sold';
+        mainItem.sno = null;
         mainItem.soldPrice = finalSoldPrice;
         mainItem.soldDate = saleDate;
         mainItem.soldTo = customerName;
         mainItem.soldBroker = brokerName;
-        mainItem.updatedAt = new Date().toISOString();
-      }
-
-      if (memoId) {
-        const memo = DBManager.getJewelryMemos().find(m => m.id === memoId);
-        if (memo && memo.items) {
-          const mItem = memo.items.find(it => it.itemId === itemId || it.sku === pieceSku);
-          if (mItem) {
-            mItem.soldPrice = finalSoldPrice;
-          }
-          memo.updatedAt = new Date().toISOString();
-          this._pushToCloud(memo);
-        }
+        mainItem.activeSaleId = existingSale.id;
+        mainItem.updatedAt = nowIso;
+        if (window.DBManager) await DBManager.saveItem('mava_catalog_items', mainItem);
       }
 
       DBManager.addLog(
@@ -1606,15 +1757,54 @@ Thank you,
     }
 
     // ── Creating a new sale record ────────────────────────────────────
+    const nowIso = new Date().toISOString();
+    const saleTargetId = mainItem ? mainItem.id : (itemId || pieceSku || Date.now());
+    const canonicalSaleId = `jsale_${saleTargetId}`;
+
+    // Remove any non-canonical duplicate sale records for the same piece so there is strictly 1 sale per piece
+    const staleDuplicates = (DBManager.database.jewelrySales || []).filter(s =>
+      s && s.id !== canonicalSaleId && (
+        (saleTargetId && s.itemId && String(s.itemId) === String(saleTargetId)) ||
+        (pieceSku && pieceSku !== 'N/A' && s.sku && s.sku.trim().toLowerCase() === pieceSku.trim().toLowerCase())
+      )
+    );
+    for (const dup of staleDuplicates) {
+      if (window.DBManager) {
+        await DBManager.deleteItem('mava_catalog_jewelry_sales', dup.id);
+      } else {
+        DBManager.database.jewelrySales = DBManager.database.jewelrySales.filter(x => x.id !== dup.id);
+      }
+    }
+
+    // Auto-resolve open memo if piece was sold directly while out on an open memo
+    let resolvedMemo = memoId ? DBManager.getJewelryMemos().find(m => m.id === memoId) : null;
+    let resolvedIndex = index;
+    if (!resolvedMemo) {
+      for (const m of (DBManager.getJewelryMemos() || [])) {
+        if (!m || m.status === 'closed' || !Array.isArray(m.items)) continue;
+        const foundIdx = m.items.findIndex(it =>
+          it && it.status === 'open' && (
+            (saleTargetId && it.itemId && String(it.itemId) === String(saleTargetId)) ||
+            (pieceSku && pieceSku !== 'N/A' && it.sku && it.sku.trim().toLowerCase() === pieceSku.trim().toLowerCase())
+          )
+        );
+        if (foundIdx >= 0) {
+          resolvedMemo = m;
+          resolvedIndex = foundIdx;
+          break;
+        }
+      }
+    }
+
     const saleRecord = {
-      id: 'jsale_' + Date.now(),
+      id: canonicalSaleId,
       saleNumber: 'JS-' + String(DBManager.database.jewelrySales.length + 1).padStart(4, '0'),
       saleDate,
       mfgDate,
       daysElapsed,
       monthsElapsed,
-      memoId: memoId || null,
-      memoNumber: '—',
+      memoId: resolvedMemo ? resolvedMemo.id : (memoId || null),
+      memoNumber: resolvedMemo ? resolvedMemo.memoNumber : '—',
       itemId: mainItem ? mainItem.id : itemId,
       sku: pieceSku,
       name: pieceName,
@@ -1622,44 +1812,56 @@ Thank you,
       customerName,
       brokerName: brokerName || '—',
       mfgCost,
+      replacementCost,
       soldPrice: finalSoldPrice,
       profit,
+      mfgProfit: profit,
       marginPct,
+      mfgMarginPct: marginPct,
+      replacementProfit,
+      replacementMarginPct,
+      goldCommodityGain,
       monthlyProfitPct,
       notes,
       itemSnapshot: mainItem ? JSON.parse(JSON.stringify(mainItem)) : null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      createdAt: nowIso,
+      updatedAt: nowIso
     };
 
-    if (memoId) {
-      const memo = DBManager.getJewelryMemos().find(m => m.id === memoId);
-      if (memo) {
-        saleRecord.memoNumber = memo.memoNumber;
-        const memoItem = memo.items[index];
-        if (memoItem) {
-          memoItem.status = 'sold';
-          memoItem.soldPrice = finalSoldPrice;
-          pieceName = memoItem.name;
-          pieceSku = memoItem.sku;
-          pieceCategory = memoItem.category;
-          saleRecord.name = pieceName;
-          saleRecord.sku = pieceSku;
-          saleRecord.category = pieceCategory;
-        }
-
-        const allDone = memo.items.every(it => it.status !== 'open');
-        if (allDone) {
-          memo.status = 'closed';
-          memo.closedAt = new Date().toISOString();
-        }
-        memo.updatedAt = new Date().toISOString();
-        if (window.DBManager) DBManager.saveItem('mava_catalog_jewelry_memos', memo);
-        this._pushToCloud(memo);
+    if (resolvedMemo) {
+      saleRecord.memoNumber = resolvedMemo.memoNumber;
+      const memoItem = (resolvedIndex >= 0 && resolvedMemo.items[resolvedIndex])
+        ? resolvedMemo.items[resolvedIndex]
+        : (resolvedMemo.items || []).find(it =>
+            it && (
+              (saleTargetId && it.itemId && String(it.itemId) === String(saleTargetId)) ||
+              (pieceSku && pieceSku !== 'N/A' && it.sku && it.sku.trim().toLowerCase() === pieceSku.trim().toLowerCase())
+            )
+          );
+      if (memoItem) {
+        memoItem.status = 'sold';
+        memoItem.soldPrice = finalSoldPrice;
+        pieceName = memoItem.name || pieceName;
+        pieceSku = memoItem.sku || pieceSku;
+        pieceCategory = memoItem.category || pieceCategory;
+        saleRecord.name = pieceName;
+        saleRecord.sku = pieceSku;
+        saleRecord.category = pieceCategory;
       }
+
+      const allDone = resolvedMemo.items.every(it => it.status !== 'open');
+      if (allDone) {
+        resolvedMemo.status = 'closed';
+        resolvedMemo.closedAt = nowIso;
+      } else {
+        resolvedMemo.totalValue = resolvedMemo.items
+          .filter(it => it.status === 'open')
+          .reduce((sum, it) => sum + (Number(it.sellingPrice) || 0), 0);
+      }
+      resolvedMemo.updatedAt = nowIso;
+      if (window.DBManager) DBManager.saveItem('mava_catalog_jewelry_memos', resolvedMemo);
     }
 
-    DBManager.database.jewelrySales.push(saleRecord);
     if (window.DBManager) DBManager.saveItem('mava_catalog_jewelry_sales', saleRecord);
 
     // Mark item as Sold in main catalog
@@ -1670,12 +1872,16 @@ Thank you,
       mainItem.soldDate = saleDate;
       mainItem.soldTo = customerName;
       mainItem.soldBroker = brokerName;
-      mainItem.updatedAt = new Date().toISOString();
-      if (window.DBManager) DBManager.saveItem('mava_catalog_items', mainItem);
+      mainItem.activeSaleId = saleRecord.id;
+      mainItem.statusChangedAt = nowIso;
+      mainItem.updatedAt = nowIso;
     }
 
-    // Resequence remaining active inventory serial numbers
+    // Resequence remaining active inventory serial numbers before pushing sold item
     DBManager.resequenceJewelrySno();
+    if (mainItem && window.DBManager) {
+      DBManager.saveItem('mava_catalog_items', mainItem);
+    }
 
     DBManager.addLog(
       'EDIT',
@@ -1690,7 +1896,7 @@ Thank you,
       UI.showToast(`Sale recorded for SKU: ${pieceSku} to ${customerName}!`);
       App.refreshAllDisplays();
       if (window.JewelrySalesController) window.JewelrySalesController.renderSalesList();
-      if (memoId) this.openMemoDetail(memoId);
+      if (memoId && resolvedMemo) this.openMemoDetail(resolvedMemo.id);
       await DBManager.saveVault();
     } catch (err) {
       UI.showToast(err.message, true);
@@ -1710,28 +1916,38 @@ Thank you,
 
     // Action: Returned
     UI.confirm(`Are you sure you want to return ALL remaining pieces from Memo ${memo.memoNumber} back to In Stock inventory?`, async () => {
+      const nowIso = new Date().toISOString();
+      const returnedMainItems = [];
       (memo.items || []).forEach(item => {
         if (item.status === 'open') {
           item.status = 'returned';
 
-          const mainItem = DBManager.database.items.find(i => i.id === item.itemId || i.sku === item.sku);
+          const mainItem = DBManager.database.items.find(i =>
+            (item.itemId && i.id === item.itemId) ||
+            (item.sku && i.sku && i.sku.trim().toLowerCase() === item.sku.trim().toLowerCase())
+          );
           if (mainItem) {
             mainItem.status = 'In Stock';
             mainItem.issuedTo = null;
             mainItem.issuedBroker = null;
             mainItem.issuedMemoNumber = null;
-            mainItem.updatedAt = new Date().toISOString();
-            if (window.DBManager) DBManager.saveItem('mava_catalog_items', mainItem);
+            mainItem.activeMemoId = null;
+            mainItem.statusChangedAt = nowIso;
+            mainItem.updatedAt = nowIso;
+            returnedMainItems.push(mainItem);
           }
         }
       });
 
-      // Resequence remaining active inventory serial numbers
+      // Resequence remaining active inventory serial numbers before syncing items
       DBManager.resequenceJewelrySno();
+      if (window.DBManager) {
+        returnedMainItems.forEach(mi => DBManager.saveItem('mava_catalog_items', mi));
+      }
 
       memo.status = 'closed';
-      memo.closedAt = new Date().toISOString();
-      memo.updatedAt = new Date().toISOString();
+      memo.closedAt = nowIso;
+      memo.updatedAt = nowIso;
       if (window.DBManager) DBManager.saveItem('mava_catalog_jewelry_memos', memo);
 
       DBManager.addLog(
@@ -1740,7 +1956,6 @@ Thank you,
         []
       );
 
-      memo.updatedAt = new Date().toISOString();
       this._pushToCloud(memo);
 
       try {
@@ -1911,6 +2126,9 @@ Thank you,
 
     let soldCount = 0;
     let totalSaleVal = 0;
+    const nowIso = new Date().toISOString();
+    const goldRate = DBManager.getSettings().goldRate24kt ? Number(DBManager.getSettings().goldRate24kt.ratePerGram || 0) : 0;
+    const soldMainItems = [];
 
     rows.forEach(tr => {
       const itemId = tr.dataset.itemId;
@@ -1924,20 +2142,20 @@ Thank you,
       memoItem.status = 'sold';
       memoItem.soldPrice = finalSoldPrice;
 
-      const mainItem = DBManager.database.items.find(i => i.id === itemId || i.sku === memoItem.sku);
-      if (mainItem) {
-        mainItem.status = 'Sold';
-        mainItem.sno = null;
-        mainItem.soldPrice = finalSoldPrice;
-        mainItem.soldDate = saleDate;
-        mainItem.soldTo = customerName;
-        mainItem.soldBroker = brokerName;
-        mainItem.updatedAt = new Date().toISOString();
-        if (window.DBManager) DBManager.saveItem('mava_catalog_items', mainItem);
-      }
+      const mainItem = DBManager.database.items.find(i =>
+        (itemId && i.id === itemId) ||
+        (memoItem.sku && i.sku && i.sku.trim().toLowerCase() === memoItem.sku.trim().toLowerCase())
+      );
+      const targetId = (mainItem && mainItem.id) || memoItem.itemId || memoItem.sku || (Date.now() + '_' + Math.random().toString(36).substr(2, 4));
+      const canonicalSaleId = `jsale_${targetId}`;
 
+      const evalItem = (mainItem && typeof Calc !== 'undefined' && Calc.evaluateItem) ? Calc.evaluateItem(mainItem, goldRate) : null;
+      const replacementCost = (evalItem && evalItem.marketCostPrice) ? evalItem.marketCostPrice : mfgCost;
       const profit = finalSoldPrice - mfgCost;
       const marginPct = mfgCost > 0 ? (profit / mfgCost) * 100 : 0;
+      const replacementProfit = finalSoldPrice - replacementCost;
+      const replacementMarginPct = replacementCost > 0 ? (replacementProfit / replacementCost) * 100 : 0;
+      const goldCommodityGain = replacementCost - mfgCost;
       const mfgDate = (mainItem && mainItem.mfgDate)
         ? mainItem.mfgDate
         : (mainItem && mainItem.createdAt ? mainItem.createdAt.split('T')[0] : saleDate);
@@ -1949,7 +2167,7 @@ Thank you,
       const monthlyProfitPct = Number((marginPct / monthsElapsed).toFixed(2));
 
       const saleRecord = {
-        id: 'jsale_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+        id: canonicalSaleId,
         saleNumber: 'JS-' + String(DBManager.database.jewelrySales.length + 1).padStart(4, '0'),
         saleDate,
         mfgDate,
@@ -1957,40 +2175,66 @@ Thank you,
         monthsElapsed,
         memoId: memo.id,
         memoNumber: memo.memoNumber,
-        itemId: memoItem.itemId,
-        sku: memoItem.sku,
-        name: memoItem.name,
-        category: memoItem.category,
+        itemId: (mainItem && mainItem.id) || memoItem.itemId,
+        sku: memoItem.sku || (mainItem && mainItem.sku),
+        name: memoItem.name || (mainItem && mainItem.name),
+        category: memoItem.category || (mainItem && mainItem.category),
         customerName,
         brokerName: brokerName || '—',
         mfgCost,
+        replacementCost,
         soldPrice: finalSoldPrice,
         profit,
+        mfgProfit: profit,
         marginPct,
+        mfgMarginPct: marginPct,
+        replacementProfit,
+        replacementMarginPct,
+        goldCommodityGain,
         monthlyProfitPct,
         notes: notes || memo.notes || '',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        itemSnapshot: mainItem ? JSON.parse(JSON.stringify(mainItem)) : null,
+        createdAt: nowIso,
+        updatedAt: nowIso
       };
-      DBManager.database.jewelrySales.push(saleRecord);
       if (window.DBManager) DBManager.saveItem('mava_catalog_jewelry_sales', saleRecord);
+
+      if (mainItem) {
+        mainItem.status = 'Sold';
+        mainItem.sno = null;
+        mainItem.soldPrice = finalSoldPrice;
+        mainItem.soldDate = saleDate;
+        mainItem.soldTo = customerName;
+        mainItem.soldBroker = brokerName;
+        mainItem.activeSaleId = saleRecord.id;
+        mainItem.statusChangedAt = nowIso;
+        mainItem.updatedAt = nowIso;
+        soldMainItems.push(mainItem);
+      }
 
       soldCount++;
       totalSaleVal += finalSoldPrice;
     });
 
+    // Resequence remaining active inventory serial numbers before syncing sold items
+    DBManager.resequenceJewelrySno();
+    if (window.DBManager) {
+      soldMainItems.forEach(mi => DBManager.saveItem('mava_catalog_items', mi));
+    }
+
     // Check if all items in memo are resolved
     const allDone = (memo.items || []).every(it => it.status !== 'open');
     if (allDone) {
       memo.status = 'closed';
-      memo.closedAt = new Date().toISOString();
+      memo.closedAt = nowIso;
+    } else {
+      memo.totalValue = (memo.items || [])
+        .filter(it => it.status === 'open')
+        .reduce((sum, it) => sum + (Number(it.sellingPrice) || 0), 0);
     }
-    memo.updatedAt = new Date().toISOString();
+    memo.updatedAt = nowIso;
     if (window.DBManager) DBManager.saveItem('mava_catalog_jewelry_memos', memo);
     this._pushToCloud(memo);
-
-    // Resequence remaining active inventory serial numbers
-    DBManager.resequenceJewelrySno();
 
     DBManager.addLog(
       'EDIT', memo.id, `Jewelry Memo ${memo.memoNumber}`,

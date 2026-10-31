@@ -812,15 +812,34 @@
     // Database reads and writes
     readVault: async (customPath) => {
       const fileName = (customPath || 'mava_gems_stock.db').split('/').pop() || 'mava_gems_stock.db';
+      const isDefaultVault = !customPath || fileName === 'mava_gems_stock.db';
 
-      // 1. Check IndexedDB cache first (unlimited quota, persistent on iOS)
+      // 1. Desktop Tauri IPC first (macOS / Windows) — disk .db file is authoritative on desktop
+      const core = getTauriCore();
+      if (core) {
+        try {
+          const res = await safeInvoke('read_vault', { custom_path: customPath, customPath }, 6000);
+          if (res && res.exists && res.data) {
+            const jsonStr = await parseVaultPayload(res.data);
+            if (jsonStr) {
+              try { await idbSet("vault_" + fileName, jsonStr); } catch (_) {}
+              return { exists: true, data: jsonStr, path: res.path || customPath || fileName };
+            }
+            return res;
+          }
+          if (res && res.exists === false && !isDefaultVault) {
+            return { exists: false, data: null, path: customPath || fileName };
+          }
+        } catch (e) {
+          console.warn("readVault IPC failed, checking storage fallback:", e.message);
+        }
+      }
+
+      // 2. Check IndexedDB cache (unlimited quota, primary persistent store on iOS/Web)
       try {
         let idbData = await idbGet("vault_" + fileName);
-        if (!idbData && fileName !== 'mava_gems_stock.db') {
-          idbData = await idbGet("vault_mava_gems_stock.db");
-        }
-        if (!idbData) {
-          idbData = await idbGet("lastActiveDbPayload");
+        if (!idbData && isDefaultVault) {
+          idbData = await idbGet("vault_mava_gems_stock.db") || await idbGet("lastActiveDbPayload");
         }
         if (idbData) {
           const jsonStr = await parseVaultPayload(idbData);
@@ -832,7 +851,7 @@
         console.warn("idbGet note:", idbErr);
       }
 
-      // 2. Capacitor Native Filesystem (iOS Documents)
+      // 3. Capacitor Native Filesystem (iOS Documents)
       const fs = getCapacitorPlugin('Filesystem');
       if (fs) {
         try {
@@ -852,22 +871,9 @@
         }
       }
 
-      // 3. Desktop Tauri IPC (macOS / Windows)
-      const core = getTauriCore();
-      if (core) {
-        try {
-          const res = await safeInvoke('read_vault', { custom_path: customPath, customPath }, 6000);
-          if (res && res.exists) {
-            return res;
-          }
-        } catch (e) {
-          console.warn("readVault IPC failed, checking storage fallback:", e.message);
-        }
-      }
-
       // 4. LocalStorage fallback
       const key = "mock_db_" + fileName;
-      const data = localStorage.getItem(key) || localStorage.getItem("mock_db_" + customPath);
+      const data = localStorage.getItem(key) || (customPath ? localStorage.getItem("mock_db_" + customPath) : null);
       if (data) {
         const jsonStr = await parseVaultPayload(data);
         if (jsonStr) {

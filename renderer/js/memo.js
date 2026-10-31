@@ -20,6 +20,9 @@ const MemoController = {
    * @param {string} memoId - Required when isDelete=true.
    */
   _pushToCloud(memo, isDelete = false, memoId = null) {
+    // If DBManager is active, DBManager.saveItem / deleteItem already performs
+    // granular cloud sync with optimistic concurrency and deduplication.
+    if (typeof window !== 'undefined' && window.DBManager) return;
     if (!window.CloudSync || !window.CloudSync.isEnabled()) return;
     const col = 'mava_catalog_emerald_memos';
     try {
@@ -159,13 +162,60 @@ const MemoController = {
    */
   getNextMemoNumber() {
     const memos = DBManager.getMemos();
-    if (memos.length === 0) return 'M-001';
+    const settings = (window.DBManager && typeof DBManager.getSettings === 'function')
+      ? DBManager.getSettings()
+      : ((DBManager.database && DBManager.database.settings) || {});
+    const lastSeq = Number(settings.lastEmeraldMemoSeq || 0);
     const nums = memos.map(m => {
       const match = (m.memoNumber || '').match(/M-(\d+)/);
       return match ? parseInt(match[1], 10) : 0;
     });
-    const next = Math.max(...nums) + 1;
+    const maxExisting = nums.length > 0 ? Math.max(...nums) : 0;
+    const next = Math.max(lastSeq, maxExisting) + 1;
     return `M-${String(next).padStart(3, '0')}`;
+  },
+
+  /**
+   * Distributes an integer count across buckets proportionally using largest-remainder
+   * so the sum of returned integers strictly equals targetTotal.
+   */
+  _distributeIntegersProportionally(weights, targetTotal, caps = null) {
+    const n = weights.length;
+    const result = new Array(n).fill(0);
+    if (n === 0 || targetTotal <= 0) return result;
+
+    const totalWeight = weights.reduce((s, w) => s + Math.max(0, Number(w || 0)), 0);
+    const remainders = [];
+    let allocated = 0;
+
+    for (let i = 0; i < n; i++) {
+      const w = totalWeight > 0 ? Math.max(0, Number(weights[i] || 0)) : 1;
+      const denom = totalWeight > 0 ? totalWeight : n;
+      const exact = (w / denom) * targetTotal;
+      const cap = caps ? Math.max(0, Number(caps[i] || 0)) : Infinity;
+      const floored = Math.min(cap, Math.floor(exact));
+      result[i] = floored;
+      allocated += floored;
+      remainders.push({ idx: i, rem: exact - Math.floor(exact), cap });
+    }
+
+    let leftover = targetTotal - allocated;
+    if (leftover > 0) {
+      remainders.sort((a, b) => b.rem - a.rem || a.idx - b.idx);
+      let progress = true;
+      while (leftover > 0 && progress) {
+        progress = false;
+        for (const entry of remainders) {
+          if (leftover <= 0) break;
+          if (result[entry.idx] < entry.cap) {
+            result[entry.idx] += 1;
+            leftover -= 1;
+            progress = true;
+          }
+        }
+      }
+    }
+    return result;
   },
 
   /**
@@ -177,21 +227,47 @@ const MemoController = {
 
     const currentWeight = EmeraldController.getEmeraldWeight(emerald);
     const newWeight = Math.max(0, Number((currentWeight - caratsToDeduct).toFixed(3)));
+    const pcsToDeduct = Math.max(0, Math.round(Number(piecesToDeduct || 0)));
 
-    if (emerald.sizes && emerald.sizes.length > 0 && currentWeight > 0) {
-      const ratio = newWeight / currentWeight;
-      emerald.sizes.forEach(s => {
-        s.weight = Number((Number(s.weight || 0) * ratio).toFixed(3));
-        if (piecesToDeduct > 0) {
-          s.pieces = Math.max(0, (s.pieces || 0) - Math.floor(piecesToDeduct / emerald.sizes.length));
+    if (Array.isArray(emerald.sizes) && emerald.sizes.length > 0) {
+      if (currentWeight > 0 && newWeight > 0) {
+        const ratio = newWeight / currentWeight;
+        emerald.sizes.forEach(s => {
+          s.weight = Number((Number(s.weight || 0) * ratio).toFixed(3));
+        });
+        const sumWeights = emerald.sizes.reduce((sum, s) => sum + Number(s.weight || 0), 0);
+        const diff = Number((newWeight - sumWeights).toFixed(3));
+        if (Math.abs(diff) >= 0.001) {
+          let targetRow = emerald.sizes[emerald.sizes.length - 1];
+          for (let i = emerald.sizes.length - 1; i >= 0; i--) {
+            if (Number(emerald.sizes[i].weight || 0) + diff >= 0) {
+              targetRow = emerald.sizes[i];
+              break;
+            }
+          }
+          targetRow.weight = Math.max(0, Number((Number(targetRow.weight || 0) + diff).toFixed(3)));
         }
-      });
+      } else {
+        emerald.sizes.forEach(s => { s.weight = 0; });
+      }
+
+      const sizePieces = emerald.sizes.map(s => Math.max(0, Math.round(Number(s.pieces || 0))));
+      const totalSizePieces = sizePieces.reduce((a, b) => a + b, 0);
+      if (pcsToDeduct > 0 && totalSizePieces > 0) {
+        const actualDeduct = Math.min(totalSizePieces, pcsToDeduct);
+        const deductions = this._distributeIntegersProportionally(sizePieces, actualDeduct, sizePieces);
+        emerald.sizes.forEach((s, idx) => {
+          s.pieces = Math.max(0, sizePieces[idx] - deductions[idx]);
+        });
+        emerald.pieces = emerald.sizes.reduce((sum, s) => sum + Math.max(0, Number(s.pieces || 0)), 0);
+      } else if (pcsToDeduct > 0) {
+        emerald.pieces = Math.max(0, Number(emerald.pieces || 0) - pcsToDeduct);
+      }
+    } else if (pcsToDeduct > 0) {
+      emerald.pieces = Math.max(0, Number(emerald.pieces || 0) - pcsToDeduct);
     }
 
     emerald.weight = newWeight;
-    if (piecesToDeduct > 0) {
-      emerald.pieces = Math.max(0, (emerald.pieces || 0) - piecesToDeduct);
-    }
     emerald.updatedAt = new Date().toISOString();
   },
 
@@ -204,33 +280,103 @@ const MemoController = {
 
     const currentWeight = EmeraldController.getEmeraldWeight(emerald);
     const restoredWeight = Number((currentWeight + caratsToRestore).toFixed(3));
+    const pcsToRestore = Math.max(0, Math.round(Number(piecesToRestore || 0)));
 
-    if (emerald.sizes && emerald.sizes.length > 0) {
+    if (Array.isArray(emerald.sizes) && emerald.sizes.length > 0) {
+      const count = emerald.sizes.length;
       if (currentWeight > 0) {
         const ratio = restoredWeight / currentWeight;
         emerald.sizes.forEach(s => {
           s.weight = Number((Number(s.weight || 0) * ratio).toFixed(3));
-          if (piecesToRestore > 0) {
-            s.pieces = (s.pieces || 0) + Math.max(1, Math.floor(piecesToRestore / emerald.sizes.length));
-          }
         });
       } else {
         // Emerald was completely at 0 cts. Distribute restored weight across size rows.
-        const count = emerald.sizes.length;
         const perSizeWeight = Number((caratsToRestore / count).toFixed(3));
-        const perSizePieces = Math.max(1, Math.floor((piecesToRestore || 0) / count));
         emerald.sizes.forEach(s => {
           s.weight = perSizeWeight;
-          s.pieces = (s.pieces || 0) + perSizePieces;
         });
       }
+      const sumWeights = emerald.sizes.reduce((sum, s) => sum + Number(s.weight || 0), 0);
+      const diff = Number((restoredWeight - sumWeights).toFixed(3));
+      if (Math.abs(diff) >= 0.001) {
+        const lastRow = emerald.sizes[count - 1];
+        lastRow.weight = Math.max(0, Number((Number(lastRow.weight || 0) + diff).toFixed(3)));
+      }
+
+      if (pcsToRestore > 0) {
+        const sizePieces = emerald.sizes.map(s => Math.max(0, Math.round(Number(s.pieces || 0))));
+        const totalSizePieces = sizePieces.reduce((a, b) => a + b, 0);
+        const basisWeights = totalSizePieces > 0
+          ? sizePieces
+          : emerald.sizes.map(s => Math.max(0, Number(s.weight || 0)));
+        const additions = this._distributeIntegersProportionally(basisWeights, pcsToRestore);
+        emerald.sizes.forEach((s, idx) => {
+          s.pieces = sizePieces[idx] + additions[idx];
+        });
+        emerald.pieces = emerald.sizes.reduce((sum, s) => sum + Math.max(0, Number(s.pieces || 0)), 0);
+      }
+    } else if (pcsToRestore > 0) {
+      emerald.pieces = Number(emerald.pieces || 0) + pcsToRestore;
     }
 
     emerald.weight = restoredWeight;
-    if (piecesToRestore > 0) {
-      emerald.pieces = (emerald.pieces || 0) + piecesToRestore;
-    }
     emerald.updatedAt = new Date().toISOString();
+  },
+
+  /**
+   * Restores stock to an existing emerald parcel, or recreates the parcel from
+   * item.emeraldSnapshot if the source parcel was previously deleted.
+   */
+  _restoreOrRecreateEmerald(item, caratsToRestore, piecesToRestore) {
+    if (!item || caratsToRestore <= 0) return null;
+    if (!DBManager.database.emeralds) DBManager.database.emeralds = [];
+    let emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
+    if (emerald) {
+      this.restoreStockToEmerald(emerald, caratsToRestore, piecesToRestore);
+      if (window.DBManager) DBManager.saveItem('mava_catalog_emeralds', emerald);
+      return emerald;
+    }
+    const snap = item.emeraldSnapshot || {};
+    const nowIso = new Date().toISOString();
+    emerald = {
+      id: item.emeraldId || ('em_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)),
+      group: snap.group || 'Restored Parcel',
+      lustreGrade: snap.lustreGrade || '',
+      color: snap.color || '',
+      shape: snap.shape || '',
+      stockType: snap.stockType || 'Pudia',
+      weight: Number(Number(caratsToRestore || 0).toFixed(3)),
+      pieces: Math.max(0, Math.round(Number(piecesToRestore || 0))),
+      sizes: [],
+      notes: 'Auto-restored from reversed/deleted memo',
+      createdAt: nowIso,
+      updatedAt: nowIso
+    };
+    if (window.DBManager) {
+      DBManager.saveItem('mava_catalog_emeralds', emerald);
+    } else {
+      DBManager.database.emeralds.push(emerald);
+    }
+    return emerald;
+  },
+
+  /**
+   * Returns total pieces currently OUT on open memos for a given emerald ID.
+   */
+  getOpenMemoPiecesForEmerald(emeraldId, excludeMemoId = null) {
+    const memos = DBManager.getMemos();
+    let total = 0;
+    memos.forEach(memo => {
+      if (memo.status === 'open' && memo.id !== excludeMemoId) {
+        (memo.items || []).forEach(item => {
+          if (item.emeraldId === emeraldId) {
+            const remPcs = (item.pieces || 0) - (item.returnedPieces || 0) - (item.soldPieces || 0);
+            if (remPcs > 0) total += remPcs;
+          }
+        });
+      }
+    });
+    return total;
   },
 
   /**
@@ -486,15 +632,37 @@ const MemoController = {
     }
 
     const emeralds = DBManager.getEmeralds();
-    const memoCaratsMap = this.buildMemoCaratsMap();
+    const curMemo = this.editingMemoId ? DBManager.getMemos().find(m => m.id === this.editingMemoId) : null;
+
+    const computeAvailForEmerald = (e) => {
+      const totalCts = EmeraldController.getEmeraldWeight(e);
+      let openMemoCts = this.getOpenMemoCaratsForEmerald(e.id);
+      if (curMemo && curMemo.status === 'open') {
+        (curMemo.items || []).forEach(it => {
+          if (it.emeraldId === e.id) {
+            const rem = (it.carats || 0) - (it.returnedCarats || 0) - (it.soldCarats || 0);
+            if (rem > 0) openMemoCts = Math.max(0, openMemoCts - rem);
+          }
+        });
+      }
+      const stagedCts = this.selectedItems
+        .filter(si => si.emeraldId === e.id)
+        .reduce((sum, si) => sum + Math.max(0, (si.carats || 0) - (si.returnedCarats || 0) - (si.soldCarats || 0)), 0);
+      const availCts = Math.max(0, Number((totalCts - openMemoCts - stagedCts).toFixed(3)));
+
+      const totalPcs = EmeraldController.getEmeraldPieces(e);
+      const openMemoPcs = this.getOpenMemoPiecesForEmerald(e.id, this.editingMemoId || null);
+      const stagedPcs = this.selectedItems
+        .filter(si => si.emeraldId === e.id)
+        .reduce((sum, si) => sum + Math.max(0, (si.pieces || 0) - (si.returnedPieces || 0) - (si.soldPieces || 0)), 0);
+      const availPcs = totalPcs > 0 ? Math.max(0, totalPcs - openMemoPcs - stagedPcs) : 0;
+
+      return { availCts, availPcs, totalPcs };
+    };
 
     const filtered = emeralds.filter(e => {
-      if (this.selectedItems.some(item => item.emeraldId === e.id)) {
-        return false;
-      }
-
-      const availCts = EmeraldController.getEmeraldWeight(e);
-      if (availCts <= 0) return false;
+      const { availCts } = computeAvailForEmerald(e);
+      if (availCts <= 0.001) return false;
 
       if (groupVal && e.group !== groupVal) {
         return false;
@@ -522,23 +690,7 @@ const MemoController = {
     }
 
     filtered.forEach(e => {
-      const totalCts = EmeraldController.getEmeraldWeight(e);
-      let openMemoCts = this.getOpenMemoCaratsForEmerald(e.id);
-      if (this.editingMemoId) {
-        const curMemo = DBManager.getMemos().find(m => m.id === this.editingMemoId);
-        if (curMemo && curMemo.status === 'open') {
-          (curMemo.items || []).forEach(it => {
-            if (it.emeraldId === e.id) {
-              const rem = (it.carats || 0) - (it.returnedCarats || 0) - (it.soldCarats || 0);
-              if (rem > 0) openMemoCts = Math.max(0, openMemoCts - rem);
-            }
-          });
-        }
-      }
-      const stagedCts = this.selectedItems
-        .filter(si => si.emeraldId === e.id)
-        .reduce((sum, si) => sum + (si.carats || 0), 0);
-      const availCts = Math.max(0, Number((totalCts - openMemoCts - stagedCts).toFixed(3)));
+      const { availCts, availPcs } = computeAvailForEmerald(e);
 
       const div = document.createElement('div');
       div.className = 'pudia-picker-row';
@@ -573,11 +725,11 @@ const MemoController = {
         const caratsInp = document.getElementById('memo-create-carats');
         const piecesInp = document.getElementById('memo-create-pieces');
 
-        if (lbl) lbl.textContent = `(Available: ${availCts.toFixed(2)} cts)`;
+        if (lbl) lbl.textContent = `(Available: ${availCts.toFixed(2)} cts${availPcs > 0 ? ` · ${availPcs} pcs` : ''})`;
         caratsInp.max = availCts;
         caratsInp.value = availCts;
-        // Use getEmeraldPieces() which correctly sums across all size rows
-        piecesInp.value = EmeraldController.getEmeraldPieces(e) || '';
+        // Pre-fill remaining available pieces across all size rows
+        piecesInp.value = availPcs || '';
       });
 
       listContainer.appendChild(div);
@@ -597,7 +749,7 @@ const MemoController = {
     }
 
     const inputCarats = Number(caratsInp.value || 0);
-    const inputPieces = Number(piecesInp.value || 0);
+    const inputPieces = Math.max(0, Math.round(Number(piecesInp ? (piecesInp.value || 0) : 0)));
 
     const emerald = DBManager.getEmeralds().find(e => e.id === emeraldId);
     if (!emerald) return;
@@ -617,8 +769,15 @@ const MemoController = {
     }
     const stagedCts = this.selectedItems
       .filter(si => si.emeraldId === emerald.id)
-      .reduce((sum, si) => sum + (si.carats || 0), 0);
+      .reduce((sum, si) => sum + Math.max(0, (si.carats || 0) - (si.returnedCarats || 0) - (si.soldCarats || 0)), 0);
     const maxCts = Math.max(0, Number((totalCts - openMemoCts - stagedCts).toFixed(3)));
+
+    const totalPcs = EmeraldController.getEmeraldPieces(emerald);
+    const openMemoPcs = this.getOpenMemoPiecesForEmerald(emerald.id, this.editingMemoId || null);
+    const stagedPcs = this.selectedItems
+      .filter(si => si.emeraldId === emerald.id)
+      .reduce((sum, si) => sum + Math.max(0, (si.pieces || 0) - (si.returnedPieces || 0) - (si.soldPieces || 0)), 0);
+    const maxPcs = totalPcs > 0 ? Math.max(0, totalPcs - openMemoPcs - stagedPcs) : 0;
 
     if (inputCarats <= 0) {
       UI.showToast('Please enter a valid amount of carats.', true);
@@ -630,26 +789,37 @@ const MemoController = {
       return;
     }
 
-    this.selectedItems.push({
-      emeraldId,
-      emeraldSnapshot: {
-        group: emerald.group || '',
-        lustreGrade: emerald.lustreGrade || '',
-        color: emerald.color || '',
-        shape: emerald.shape || '',
-        stockType: emerald.stockType || ''
-      },
-      carats: Number(inputCarats.toFixed(3)),
-      pieces: inputPieces,
-      returnedCarats: 0,
-      soldCarats: 0,
-      returnedPieces: 0,
-      soldPieces: 0
-    });
+    if (totalPcs > 0 && inputPieces > maxPcs) {
+      UI.showToast(`Cannot issue more than available pieces (${maxPcs} pcs).`, true);
+      return;
+    }
+
+    const existingRow = this.selectedItems.find(si => si.emeraldId === emeraldId);
+    if (existingRow) {
+      existingRow.carats = Number(((existingRow.carats || 0) + inputCarats).toFixed(3));
+      existingRow.pieces = (existingRow.pieces || 0) + inputPieces;
+    } else {
+      this.selectedItems.push({
+        emeraldId,
+        emeraldSnapshot: {
+          group: emerald.group || '',
+          lustreGrade: emerald.lustreGrade || '',
+          color: emerald.color || '',
+          shape: emerald.shape || '',
+          stockType: emerald.stockType || ''
+        },
+        carats: Number(inputCarats.toFixed(3)),
+        pieces: inputPieces,
+        returnedCarats: 0,
+        soldCarats: 0,
+        returnedPieces: 0,
+        soldPieces: 0
+      });
+    }
 
     this.activeCreateSelectedId = null;
     caratsInp.value = '';
-    piecesInp.value = '';
+    if (piecesInp) piecesInp.value = '';
     const lbl = document.getElementById('memo-create-avail-carats-lbl');
     if (lbl) lbl.textContent = '(Available: —)';
 
@@ -747,32 +917,104 @@ const MemoController = {
       const memo = DBManager.getMemos().find(m => m.id === this.editingMemoId);
       if (!memo) { UI.showToast('Memo not found.', true); return; }
 
+      if (this.selectedItems.length === 0 && (!this.lockedMemoItems || this.lockedMemoItems.length === 0)) {
+        UI.showToast('Memo must have at least one Pudia. Delete the memo instead if cancelling all items.', true);
+        return;
+      }
+
       // Diff: what changed vs what was originally open
-      const newOpenEmeraldIds   = new Set(this.selectedItems.map(i => i.emeraldId));
+      const selectedByEmeraldId = new Map();
+      this.selectedItems.forEach(i => {
+        selectedByEmeraldId.set(i.emeraldId, i);
+      });
+      const newOpenEmeraldIds   = new Set(selectedByEmeraldId.keys());
       const originalEmeraldIds  = new Set(this.originalOpenEmeraldIds);
       const removedEmeraldIds   = [...originalEmeraldIds].filter(id => !newOpenEmeraldIds.has(id));
       const addedItems          = this.selectedItems.filter(i => !originalEmeraldIds.has(i.emeraldId));
 
-      // Process removals: just remove from memo.items (no stock changes — carats not deducted on issuance)
-      removedEmeraldIds.forEach(emeraldId => {
-        memo.items = memo.items.filter(mi => mi.emeraldId !== emeraldId);
+      // Validate that no existing open item was reduced below its already-settled (sold + returned) carats
+      for (const mi of (memo.items || [])) {
+        const remBefore = (mi.carats || 0) - (mi.returnedCarats || 0) - (mi.soldCarats || 0);
+        if (remBefore > 0.001 && selectedByEmeraldId.has(mi.emeraldId)) {
+          const updated = selectedByEmeraldId.get(mi.emeraldId);
+          const settledCts = Number(((mi.soldCarats || 0) + (mi.returnedCarats || 0)).toFixed(3));
+          if (Number(updated.carats || 0) + 0.001 < settledCts) {
+            UI.showToast(`Cannot reduce Pudia #${(mi.emeraldSnapshot && mi.emeraldSnapshot.color) || 'N/A'} below settled amount (${settledCts.toFixed(2)} cts).`, true);
+            return;
+          }
+        }
+      }
+
+      // Process updates & removals on open items while preserving any partially settled history
+      const nextMemoItems = [];
+      (memo.items || []).forEach(mi => {
+        const remBefore = (mi.carats || 0) - (mi.returnedCarats || 0) - (mi.soldCarats || 0);
+        if (remBefore <= 0.001) {
+          // Locked / already resolved item: keep unchanged
+          nextMemoItems.push(mi);
+          return;
+        }
+        if (selectedByEmeraldId.has(mi.emeraldId)) {
+          const updated = selectedByEmeraldId.get(mi.emeraldId);
+          const settledCts = Number(((mi.soldCarats || 0) + (mi.returnedCarats || 0)).toFixed(3));
+          const settledPcs = (mi.soldPieces || 0) + (mi.returnedPieces || 0);
+          mi.carats = Number(Math.max(settledCts, Number(updated.carats || 0)).toFixed(3));
+          mi.pieces = Math.max(settledPcs, Math.round(Number(updated.pieces || 0)));
+          if (updated.emeraldSnapshot) mi.emeraldSnapshot = updated.emeraldSnapshot;
+          nextMemoItems.push(mi);
+        } else {
+          // Item removed from open list: preserve settled portion if partial sale/return already occurred
+          const settledCts = Number(((mi.soldCarats || 0) + (mi.returnedCarats || 0)).toFixed(3));
+          const settledPcs = (mi.soldPieces || 0) + (mi.returnedPieces || 0);
+          if (settledCts > 0.001) {
+            mi.carats = settledCts;
+            mi.pieces = settledPcs;
+            nextMemoItems.push(mi);
+          }
+        }
       });
 
-      // Process additions: append new items to memo.items (new items from handleAddItemToSelected have correct structure)
+      // Process additions: append new items to memo.items
       addedItems.forEach(item => {
-        memo.items.push(item);
+        nextMemoItems.push(item);
       });
+
+      if (nextMemoItems.length === 0) {
+        UI.showToast('Memo must have at least one Pudia.', true);
+        return;
+      }
+
+      memo.items = nextMemoItems;
 
       // Update header fields
+      const nowIso = new Date().toISOString();
       memo.brokerName = brokerName;
       memo.clientName = clientName || null;
       memo.date = date;
       memo.notes = notes;
-      memo.updatedAt = new Date().toISOString();
 
-      // Recalculate totalCarats from all memo.items
+      // Recalculate totalCarats and lifecycle status from all memo.items
       memo.totalCarats = Number(memo.items.reduce((sum, i) => sum + (i.carats || 0), 0).toFixed(3));
+      const totalRemAfterEdit = memo.items.reduce((sum, i) => {
+        return sum + Math.max(0, (i.carats || 0) - (i.returnedCarats || 0) - (i.soldCarats || 0));
+      }, 0);
+      if (totalRemAfterEdit <= 0.001) {
+        const totalSoldAfter = memo.items.reduce((s, i) => s + (i.soldCarats || 0), 0);
+        const totalRetAfter = memo.items.reduce((s, i) => s + (i.returnedCarats || 0), 0);
+        if (totalSoldAfter > 0.001) {
+          memo.status = totalRetAfter > 0.001 ? 'closed' : 'sold';
+          memo.outcomeType = totalRetAfter > 0.001 ? 'partial-sale' : 'complete-sale';
+        } else {
+          memo.status = 'closed';
+          memo.outcomeType = 'full-return';
+        }
+        memo.closedAt = memo.closedAt || nowIso;
+      } else {
+        memo.status = 'open';
+        memo.closedAt = null;
+      }
 
+      memo.updatedAt = nowIso;
       if (window.DBManager) DBManager.saveItem('mava_catalog_emerald_memos', memo);
 
       DBManager.addLog(
@@ -781,7 +1023,6 @@ const MemoController = {
         []
       );
 
-      memo.updatedAt = new Date().toISOString();
       this._pushToCloud(memo);
 
       try {
@@ -810,7 +1051,22 @@ const MemoController = {
 
     const totalCarats = Number(this.selectedItems.reduce((s, i) => s + i.carats, 0).toFixed(3));
     const memoNumber  = this.getNextMemoNumber();
+    const seqMatch = (memoNumber || '').match(/M-(\d+)/);
+    if (seqMatch && window.DBManager) {
+      const seqNum = parseInt(seqMatch[1], 10);
+      const settings = typeof DBManager.getSettings === 'function'
+        ? DBManager.getSettings()
+        : ((DBManager.database && DBManager.database.settings) || {});
+      if (seqNum > Number(settings.lastEmeraldMemoSeq || 0)) {
+        if (typeof DBManager.saveSettings === 'function') {
+          DBManager.saveSettings({ ...settings, lastEmeraldMemoSeq: seqNum });
+        } else if (DBManager.database && DBManager.database.settings) {
+          DBManager.database.settings.lastEmeraldMemoSeq = seqNum;
+        }
+      }
+    }
 
+    const nowIso = new Date().toISOString();
     const memo = {
       id: 'memo_' + Date.now(),
       memoNumber,
@@ -818,8 +1074,8 @@ const MemoController = {
       clientName: clientName || null,
       date,
       status: 'open',          // "open" | "returned" | "sold" | "closed"
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: nowIso,
+      updatedAt: nowIso,
       closedAt: null,
       notes,
       items: this.selectedItems,
@@ -827,8 +1083,11 @@ const MemoController = {
     };
 
     if (!DBManager.database.memos) DBManager.database.memos = [];
-    DBManager.database.memos.push(memo);
-    if (window.DBManager) DBManager.saveItem('mava_catalog_emerald_memos', memo);
+    if (window.DBManager) {
+      DBManager.saveItem('mava_catalog_emerald_memos', memo);
+    } else {
+      DBManager.database.memos.push(memo);
+    }
 
     // Note: Stock weight is NOT deducted upon memo issuance (it remains in physical inventory valuation,
     // tagged as ON MEMO in the catalog view until actually sold).
@@ -856,7 +1115,14 @@ const MemoController = {
   renderMemoList(force = false) {
     const memos     = DBManager.getMemos();
     const openMemos = memos.filter(m => m.status === 'open');
-    const totalOnMemo = openMemos.reduce((s, m) => s + (m.totalCarats || 0), 0);
+    const totalOnMemo = openMemos.reduce((s, m) => {
+      if (Array.isArray(m.items) && m.items.length > 0) {
+        return s + m.items.reduce((isum, it) => {
+          return isum + Math.max(0, (it.carats || 0) - (it.returnedCarats || 0) - (it.soldCarats || 0));
+        }, 0);
+      }
+      return s + (m.totalCarats || 0);
+    }, 0);
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -898,11 +1164,13 @@ const MemoController = {
         (m.memoNumber  || '').toLowerCase().includes(query) ||
         (m.clientName  || '').toLowerCase().includes(query) ||
         (m.notes       || '').toLowerCase().includes(query) ||
-        (m.items || []).some(it =>
-          (it.group || '').toLowerCase().includes(query) ||
-          (it.color || '').toString().toLowerCase().includes(query) ||
-          (it.lustreGrade || '').toLowerCase().includes(query)
-        );
+        (m.items || []).some(it => {
+          const snap = it.emeraldSnapshot || {};
+          return ((snap.group || it.group || '').toLowerCase().includes(query)) ||
+            (String(snap.color !== undefined ? snap.color : (it.color || '')).toLowerCase().includes(query)) ||
+            ((snap.lustreGrade || it.lustreGrade || '').toLowerCase().includes(query)) ||
+            ((snap.shape || it.shape || '').toLowerCase().includes(query));
+        });
       return matchStatus && matchSearch;
     });
 
@@ -915,7 +1183,7 @@ const MemoController = {
 
     // Fingerprint check to prevent redundant DOM destruction and screen flickering
     const memoFingerprint = `${filterVal}|${query}|${filtered.length}|` +
-      filtered.map(m => `${m.id}_${m.updatedAt || ''}_${m.status}_${m.totalCarats || 0}_${(m.items || []).length}`).join(';');
+      filtered.map(m => `${m.id}_${m.updatedAt || ''}_${m.status}_${m.totalCarats || 0}_${(m.items || []).map(it => `${it.carats || 0}:${it.soldCarats || 0}:${it.returnedCarats || 0}`).join(',')}`).join(';');
 
     if (!force && this._lastEmeraldMemoFingerprint === memoFingerprint && tbody.children.length > 0) {
       return;
@@ -1360,6 +1628,17 @@ Thank you,
       item.soldCarats = Number(((item.soldCarats || 0) + inputCarats).toFixed(3));
       item.soldPieces = (item.soldPieces || 0) + inputPieces;
 
+      if (!Array.isArray(memo.saleHistory)) memo.saleHistory = [];
+      const activeRate = Number(memo.saleRate || 0);
+      memo.saleHistory.push({
+        date: new Date().toISOString().split('T')[0],
+        carats: Number(inputCarats.toFixed(3)),
+        pieces: inputPieces,
+        rate: activeRate > 0 ? activeRate : null,
+        value: activeRate > 0 ? Math.round(activeRate * inputCarats) : null,
+        notes: ''
+      });
+
       // Permanently deduct sold goods from inventory stock
       const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
       if (emerald) {
@@ -1379,20 +1658,31 @@ Thank you,
       const totalSold = memo.items.reduce((sum, it) => sum + (it.soldCarats || 0), 0);
       if (totalSold <= 0.001) {
         // Delete memo completely since everything has been returned!
-        DBManager.database.memos = DBManager.database.memos.filter(m => m.id !== memo.id);
-        if (window.DBManager) DBManager.deleteItem('mava_catalog_emerald_memos', memo.id);
+        if (window.DBManager) {
+          DBManager.deleteItem('mava_catalog_emerald_memos', memo.id);
+        } else {
+          DBManager.database.memos = DBManager.database.memos.filter(m => m.id !== memo.id);
+        }
         isDeleted = true;
       } else {
         const totalReturned = memo.items.reduce((sum, it) => sum + (it.returnedCarats || 0), 0);
-        if (totalReturned > 0) {
+        if (totalReturned > 0.001) {
           memo.status = 'closed';
+          memo.outcomeType = 'partial-sale';
         } else {
           memo.status = 'sold';
+          memo.outcomeType = 'complete-sale';
         }
         memo.closedAt = new Date().toISOString();
         memo.updatedAt = new Date().toISOString();
         if (window.DBManager) DBManager.saveItem('mava_catalog_emerald_memos', memo);
       }
+    } else {
+      if (actionType === 'sold') {
+        memo.outcomeType = 'partial-sale';
+      }
+      memo.updatedAt = new Date().toISOString();
+      if (window.DBManager) DBManager.saveItem('mava_catalog_emerald_memos', memo);
     }
 
     DBManager.addLog(
@@ -1444,6 +1734,8 @@ Thank you,
       async () => {
         memo.status   = action;
         memo.closedAt = new Date().toISOString();
+        let closedSoldCts = 0;
+        let closedSoldPcs = 0;
 
         (memo.items || []).forEach(item => {
           const rem = Math.max(0, Number((item.carats - (item.returnedCarats || 0) - (item.soldCarats || 0)).toFixed(3)));
@@ -1453,6 +1745,8 @@ Thank you,
           if (action === 'sold') {
             item.soldCarats = Number(((item.soldCarats || 0) + rem).toFixed(3));
             item.soldPieces = (item.soldPieces || 0) + remPcs;
+            closedSoldCts += rem;
+            closedSoldPcs += remPcs;
 
             // Deduct sold goods from emerald inventory stock
             const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
@@ -1466,17 +1760,35 @@ Thank you,
           }
         });
 
+        if (action === 'sold' && closedSoldCts > 0) {
+          if (!Array.isArray(memo.saleHistory)) memo.saleHistory = [];
+          const activeRate = Number(memo.saleRate || 0);
+          memo.saleHistory.push({
+            date: new Date().toISOString().split('T')[0],
+            carats: Number(closedSoldCts.toFixed(3)),
+            pieces: closedSoldPcs,
+            rate: activeRate > 0 ? activeRate : null,
+            value: activeRate > 0 ? Math.round(activeRate * closedSoldCts) : null,
+            notes: ''
+          });
+        }
+
         // After processing remaining items, check if it was fully returned without any sales
         const totalSold = memo.items.reduce((sum, it) => sum + (it.soldCarats || 0), 0);
+        const totalReturned = memo.items.reduce((sum, it) => sum + (it.returnedCarats || 0), 0);
         let isDeleted = false;
 
         if (totalSold <= 0.001) {
           // Delete memo completely
-          DBManager.database.memos = DBManager.database.memos.filter(m => m.id !== memo.id);
-          if (window.DBManager) DBManager.deleteItem('mava_catalog_emerald_memos', memo.id);
+          if (window.DBManager) {
+            DBManager.deleteItem('mava_catalog_emerald_memos', memo.id);
+          } else {
+            DBManager.database.memos = DBManager.database.memos.filter(m => m.id !== memo.id);
+          }
           isDeleted = true;
         } else {
-          memo.status   = action === 'returned' ? 'closed' : action;
+          memo.status   = totalReturned > 0.001 ? 'closed' : 'sold';
+          memo.outcomeType = totalReturned > 0.001 ? 'partial-sale' : 'complete-sale';
           memo.closedAt = new Date().toISOString();
           memo.updatedAt = new Date().toISOString();
           if (window.DBManager) DBManager.saveItem('mava_catalog_emerald_memos', memo);
@@ -1741,6 +2053,7 @@ Thank you,
     const saleNotes = (document.getElementById('outcome-sale-notes').value || '').trim();
 
     let totalSoldCts = 0;
+    let totalSoldPcs = 0;
 
     (memo.items || []).forEach(item => {
       const rem    = Math.max(0, Number((item.carats - (item.returnedCarats || 0) - (item.soldCarats || 0)).toFixed(3)));
@@ -1750,6 +2063,7 @@ Thank you,
       item.soldCarats = Number(((item.soldCarats || 0) + rem).toFixed(3));
       item.soldPieces = (item.soldPieces || 0) + remPcs;
       totalSoldCts   += rem;
+      totalSoldPcs   += remPcs;
 
       // Permanently deduct sold goods from emerald inventory stock
       const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
@@ -1759,10 +2073,23 @@ Thank you,
       }
     });
 
-    memo.status      = 'sold';
+    if (totalSoldCts > 0) {
+      if (!Array.isArray(memo.saleHistory)) memo.saleHistory = [];
+      memo.saleHistory.push({
+        date: saleDate || new Date().toISOString().split('T')[0],
+        carats: Number(totalSoldCts.toFixed(3)),
+        pieces: totalSoldPcs,
+        rate: saleRate > 0 ? saleRate : null,
+        value: saleRate > 0 ? Math.round(saleRate * totalSoldCts) : null,
+        notes: saleNotes || ''
+      });
+    }
+
+    const totalRetAll = (memo.items || []).reduce((s, it) => s + (it.returnedCarats || 0), 0);
+    memo.status      = totalRetAll > 0.001 ? 'closed' : 'sold';
     memo.closedAt    = new Date().toISOString();
     memo.updatedAt   = new Date().toISOString();
-    memo.outcomeType = 'complete-sale';
+    memo.outcomeType = totalRetAll > 0.001 ? 'partial-sale' : 'complete-sale';
     if (saleRate > 0) memo.saleRate = saleRate;
     if (saleDate)     memo.saleDate = saleDate;
     if (saleNotes)    memo.outcomeNotes = saleNotes;
@@ -1821,21 +2148,35 @@ Thank you,
     const saleDate  = document.getElementById('outcome-partial-sale-date').value || '';
     const saleNotes = (document.getElementById('outcome-partial-notes').value || '').trim();
 
-    let totalSoldCts = 0, totalRetCts = 0;
+    let totalSoldCts = 0, totalRetCts = 0, totalSoldPcs = 0;
 
     rowData.forEach(({ idx, soldVal, retVal }) => {
       const item = memo.items[idx];
       if (!item) return;
 
-      if (soldVal > 0) {
-        // Compute proportional pieces to sell (round down to not overshoot)
-        const remCarats = Math.max(0, Number((item.carats - (item.returnedCarats || 0) - (item.soldCarats || 0)).toFixed(3)));
-        const remPcs    = Math.max(0, (item.pieces || 0) - (item.returnedPieces || 0) - (item.soldPieces || 0));
-        const soldPcs   = remCarats > 0 ? Math.floor((soldVal / remCarats) * remPcs) : 0;
+      // Capture original remaining carats and pieces BEFORE mutating item fields
+      const remCarats = Math.max(0, Number((item.carats - (item.returnedCarats || 0) - (item.soldCarats || 0)).toFixed(3)));
+      const remPcs    = Math.max(0, (item.pieces || 0) - (item.returnedPieces || 0) - (item.soldPieces || 0));
+      const isFullRowResolution = Math.abs((soldVal + retVal) - remCarats) <= 0.001;
 
+      let soldPcs = 0;
+      let retPcs  = 0;
+      if (soldVal > 0 && remCarats > 0) {
+        soldPcs = (isFullRowResolution && retVal <= 0)
+          ? remPcs
+          : Math.min(remPcs, Math.floor((soldVal / remCarats) * remPcs));
+      }
+      if (retVal > 0 && remCarats > 0) {
+        retPcs = isFullRowResolution
+          ? Math.max(0, remPcs - soldPcs)
+          : Math.min(Math.max(0, remPcs - soldPcs), Math.floor((retVal / remCarats) * remPcs));
+      }
+
+      if (soldVal > 0) {
         item.soldCarats  = Number(((item.soldCarats || 0) + soldVal).toFixed(3));
         item.soldPieces  = (item.soldPieces || 0) + soldPcs;
         totalSoldCts    += soldVal;
+        totalSoldPcs    += soldPcs;
 
         // Permanently deduct sold goods from emerald inventory stock
         const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
@@ -1846,40 +2187,56 @@ Thank you,
       }
 
       if (retVal > 0) {
-        // Compute proportional pieces to return
-        const remCarats = Math.max(0, Number((item.carats - (item.returnedCarats || 0) - (item.soldCarats || 0)).toFixed(3)));
-        const remPcs    = Math.max(0, (item.pieces || 0) - (item.returnedPieces || 0) - (item.soldPieces || 0));
-        const retPcs    = remCarats > 0 ? Math.floor((retVal / remCarats) * remPcs) : 0;
-
         item.returnedCarats  = Number(((item.returnedCarats || 0) + retVal).toFixed(3));
         item.returnedPieces  = (item.returnedPieces || 0) + retPcs;
         totalRetCts         += retVal;
       }
     });
 
+    if (totalSoldCts > 0) {
+      if (!Array.isArray(memo.saleHistory)) memo.saleHistory = [];
+      memo.saleHistory.push({
+        date: saleDate || new Date().toISOString().split('T')[0],
+        carats: Number(totalSoldCts.toFixed(3)),
+        pieces: totalSoldPcs,
+        rate: saleRate > 0 ? saleRate : null,
+        value: saleRate > 0 ? Math.round(saleRate * totalSoldCts) : null,
+        notes: saleNotes || ''
+      });
+    }
+
     // Check if memo is now fully resolved
     const remaining = memo.items.reduce((sum, it) =>
       sum + Math.max(0, it.carats - (it.returnedCarats || 0) - (it.soldCarats || 0)), 0);
+    const totalSoldAll = memo.items.reduce((s, it) => s + (it.soldCarats || 0), 0);
+    const totalRetAll = memo.items.reduce((s, it) => s + (it.returnedCarats || 0), 0);
+    let isDeleted = false;
 
     if (remaining <= 0.001) {
-      const totalSoldAll = memo.items.reduce((s, it) => s + (it.soldCarats || 0), 0);
       if (totalSoldAll <= 0.001) {
-        DBManager.database.memos = DBManager.database.memos.filter(m => m.id !== memo.id);
-        if (window.DBManager) DBManager.deleteItem('mava_catalog_emerald_memos', memo.id);
+        if (window.DBManager) {
+          DBManager.deleteItem('mava_catalog_emerald_memos', memo.id);
+        } else {
+          DBManager.database.memos = DBManager.database.memos.filter(m => m.id !== memo.id);
+        }
+        isDeleted = true;
       } else {
-        const totalRetAll = memo.items.reduce((s, it) => s + (it.returnedCarats || 0), 0);
         memo.status   = totalRetAll > 0.001 ? 'closed' : 'sold';
         memo.closedAt = new Date().toISOString();
       }
     }
 
-    memo.outcomeType = 'partial-sale';
-    if (saleRate > 0) memo.saleRate = saleRate;
-    if (saleDate)     memo.saleDate = saleDate;
-    if (saleNotes)    memo.outcomeNotes = saleNotes;
-    memo.updatedAt    = new Date().toISOString();
-    if (window.DBManager && DBManager.database.memos.some(m => m.id === memo.id)) {
-      DBManager.saveItem('mava_catalog_emerald_memos', memo);
+    if (!isDeleted) {
+      memo.outcomeType = (remaining <= 0.001 && totalRetAll <= 0.001 && totalSoldAll > 0.001)
+        ? 'complete-sale'
+        : 'partial-sale';
+      if (saleRate > 0) memo.saleRate = saleRate;
+      if (saleDate)     memo.saleDate = saleDate;
+      if (saleNotes)    memo.outcomeNotes = saleNotes;
+      memo.updatedAt    = new Date().toISOString();
+      if (window.DBManager) {
+        DBManager.saveItem('mava_catalog_emerald_memos', memo);
+      }
     }
 
     DBManager.addLog('EDIT', memo.id, `Memo ${memo.memoNumber}`,
@@ -1887,7 +2244,11 @@ Thank you,
 
     try {
       await DBManager.saveVault();
-      this._pushToCloud(memo);
+      if (isDeleted) {
+        this._pushToCloud(null, true, memo.id);
+      } else {
+        this._pushToCloud(memo);
+      }
       UI.closeModal('modal-memo-outcome');
       UI.showToast(`⚖️ Memo ${memo.memoNumber} — Partial outcome recorded. ${totalSoldCts.toFixed(2)} cts sold, ${totalRetCts.toFixed(2)} cts returned.`);
       App.refreshAllDisplays();
@@ -1912,14 +2273,17 @@ Thank you,
 
     if (totalSoldAll <= 0.001) {
       // No prior sales — delete memo entirely
-      DBManager.database.memos = DBManager.database.memos.filter(m => m.id !== memo.id);
-      if (window.DBManager) DBManager.deleteItem('mava_catalog_emerald_memos', memo.id);
+      if (window.DBManager) {
+        DBManager.deleteItem('mava_catalog_emerald_memos', memo.id);
+      } else {
+        DBManager.database.memos = DBManager.database.memos.filter(m => m.id !== memo.id);
+      }
       isDeleted = true;
     } else {
       memo.status      = 'closed';
       memo.closedAt    = new Date().toISOString();
       memo.updatedAt   = new Date().toISOString();
-      memo.outcomeType = 'full-return';
+      memo.outcomeType = 'partial-sale';
       if (notes) memo.outcomeNotes = notes;
       if (window.DBManager) DBManager.saveItem('mava_catalog_emerald_memos', memo);
     }
@@ -1971,12 +2335,8 @@ Thank you,
           const soldPcs = item.soldPieces || 0;
 
           if (soldCts > 0) {
-            // Restore physical stock to emerald inventory
-            const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
-            if (emerald) {
-              this.restoreStockToEmerald(emerald, soldCts, soldPcs);
-              if (window.DBManager) DBManager.saveItem('mava_catalog_emeralds', emerald);
-            }
+            // Restore physical stock to emerald inventory (or recreate parcel if previously deleted)
+            this._restoreOrRecreateEmerald(item, soldCts, soldPcs);
 
             // Convert sold carats to returned carats on the memo item
             item.returnedCarats = Number(((item.returnedCarats || 0) + soldCts).toFixed(3));
@@ -2003,6 +2363,7 @@ Thank you,
 
         memo.saleRate = null;
         memo.saleDate = null;
+        memo.saleHistory = [];
         memo.updatedAt = new Date().toISOString();
         if (window.DBManager) DBManager.saveItem('mava_catalog_emerald_memos', memo);
 
@@ -2039,20 +2400,19 @@ Thank you,
           const soldCarats = item.soldCarats || 0;
           const soldPieces = item.soldPieces || 0;
 
-          // If any carats were sold on this memo, restore them to physical stock (emerald.weight & sizes)
+          // If any carats were sold on this memo, restore them to physical stock (or recreate parcel if deleted)
           if (soldCarats > 0) {
-            const emerald = DBManager.database.emeralds.find(e => e.id === item.emeraldId);
-            if (emerald) {
-              this.restoreStockToEmerald(emerald, soldCarats, soldPieces);
-              if (window.DBManager) DBManager.saveItem('mava_catalog_emeralds', emerald);
-              totalRestoredCarats += soldCarats;
-            }
+            this._restoreOrRecreateEmerald(item, soldCarats, soldPieces);
+            totalRestoredCarats += soldCarats;
           }
         });
 
         // Delete memo from storage
-        DBManager.database.memos = (DBManager.database.memos || []).filter(m => m.id !== memoId);
-        if (window.DBManager) DBManager.deleteItem('mava_catalog_emerald_memos', memoId);
+        if (window.DBManager) {
+          DBManager.deleteItem('mava_catalog_emerald_memos', memoId);
+        } else {
+          DBManager.database.memos = (DBManager.database.memos || []).filter(m => m.id !== memoId);
+        }
 
         DBManager.addLog(
           'DELETE',

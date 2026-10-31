@@ -463,7 +463,11 @@ const UI = {
         if (currentTranslateY > 80) {
           const modalOverlay = card.closest('.modal-overlay');
           if (modalOverlay) {
-            modalOverlay.classList.add('hidden');
+            if (modalOverlay.id) {
+              this.closeModal(modalOverlay.id);
+            } else {
+              modalOverlay.classList.add('hidden');
+            }
             if (window.App && App.triggerHaptic) App.triggerHaptic('light');
           }
         }

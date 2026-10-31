@@ -41,6 +41,41 @@ const SalesController = {
       const totalSoldPcs = (memo.items || []).reduce((s, it) => s + (it.soldPieces || 0), 0);
       const totalRetCts = (memo.items || []).reduce((s, it) => s + (it.returnedCarats || 0), 0);
 
+      let saleValue = null;
+      let displayRate = memo.saleRate || null;
+      if (Array.isArray(memo.saleHistory) && memo.saleHistory.length > 0) {
+        const ratedEntries = memo.saleHistory.filter(h =>
+          (h.value !== null && h.value !== undefined && Number(h.value) > 0) ||
+          (Number(h.rate || 0) > 0 && Number(h.carats || 0) > 0)
+        );
+        if (ratedEntries.length > 0) {
+          const historyVal = ratedEntries.reduce((sum, h) => {
+            const val = (h.value !== null && h.value !== undefined)
+              ? Number(h.value)
+              : Math.round(Number(h.rate || 0) * Number(h.carats || 0));
+            return sum + val;
+          }, 0);
+          const recordedCts = memo.saleHistory.reduce((s, h) => s + Number(h.carats || 0), 0);
+          const unrecordedCts = Math.max(0, Number((totalSoldCts - recordedCts).toFixed(3)));
+          const fallbackExtra = (unrecordedCts > 0.001 && memo.saleRate) ? Math.round(memo.saleRate * unrecordedCts) : 0;
+          saleValue = Math.round(historyVal + fallbackExtra);
+
+          const uniqueRates = new Set(ratedEntries.map(h => Number(h.rate || 0)).filter(r => r > 0));
+          if (uniqueRates.size === 1 && fallbackExtra === 0 && Math.abs(recordedCts - totalSoldCts) <= 0.001) {
+            displayRate = [...uniqueRates][0];
+          } else if (totalSoldCts > 0) {
+            displayRate = Math.round(saleValue / totalSoldCts);
+          }
+        } else if (memo.saleRate) {
+          saleValue = Number((memo.saleRate * totalSoldCts).toFixed(0));
+        }
+      } else if (memo.saleRate) {
+        saleValue = Number((memo.saleRate * totalSoldCts).toFixed(0));
+      }
+
+      const isPartial = memo.status === 'open' || totalRetCts > 0.001 || memo.outcomeType === 'partial-sale';
+      const resolvedOutcome = isPartial ? 'partial-sale' : 'complete-sale';
+
       records.push({
         memoId: memo.id,
         memoNumber: memo.memoNumber,
@@ -48,14 +83,15 @@ const SalesController = {
         clientName: memo.clientName || null,
         issueDate: memo.date,
         closedAt: memo.closedAt || memo.createdAt,
-        outcomeType: memo.outcomeType || (memo.status === 'sold' ? 'complete-sale' : 'partial-sale'),
+        outcomeType: resolvedOutcome,
         status: memo.status,
         soldCts: Number(totalSoldCts.toFixed(3)),
         soldPcs: totalSoldPcs,
         returnedCts: Number(totalRetCts.toFixed(3)),
-        saleRate: memo.saleRate || null,
-        saleValue: memo.saleRate ? Number((memo.saleRate * totalSoldCts).toFixed(0)) : null,
+        saleRate: displayRate,
+        saleValue,
         saleDate: memo.saleDate || null,
+        saleHistory: Array.isArray(memo.saleHistory) ? memo.saleHistory : [],
         notes: memo.outcomeNotes || memo.notes || '',
         itemCount: (memo.items || []).length,
         items: memo.items || []

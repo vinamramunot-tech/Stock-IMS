@@ -36,9 +36,16 @@
     _syncTimeout: null,
     _listeners: [],
     _syncedDocVersions: new Map(),
+    _snapshotCache: null,
     _lastUserActivity: Date.now(),
     _lastSyncAttempt: Date.now(),
     STORAGE_KEY_QUEUE: 'mava_offline_sync_queue',
+    STORAGE_KEY_TOMBSTONES: 'mava_offline_tombstones',
+    STORAGE_KEY_SNAPSHOTS: 'mava_sync_snapshots',
+
+    _isAppBooting() {
+      return Boolean(typeof window !== 'undefined' && window.DBManager && window.DBManager._isBooting);
+    },
 
     /**
      * Initialize CloudSync with stored settings and event bindings
@@ -47,6 +54,7 @@
       this._batchWriteForbidden = false;
       this._syncCount = 0;
       this._syncedDocVersions = new Map();
+      this._snapshotCache = null;
       this._lastUserActivity = Date.now();
       this._lastSyncAttempt = Date.now();
       this.loadConfig();
@@ -168,6 +176,9 @@
         return { booleanValue: value };
       }
       if (typeof value === 'number') {
+        if (Number.isNaN(value) || !Number.isFinite(value)) {
+          return { nullValue: null };
+        }
         if (Number.isInteger(value)) {
           return { integerValue: String(value) };
         }
@@ -175,6 +186,9 @@
       }
       if (typeof value === 'string') {
         return { stringValue: value };
+      }
+      if (value instanceof Date) {
+        return { timestampValue: value.toISOString() };
       }
       if (depth > 32) {
         return { stringValue: '[Max Depth Exceeded]' };
@@ -295,6 +309,244 @@
       const entry = this._syncedDocVersions.get(key);
       if (!entry) return false;
       return entry.localUpdatedAt === localUpdatedAt;
+    },
+
+    /**
+     * Canonical, key-order-independent deep equality check ignoring transient sync metadata
+     * (`_serverUpdateTime`) and `undefined` properties.
+     */
+    _deepEqualIgnoringMeta(a, b, depth = 0) {
+      if (a === b) return true;
+      if (Number.isNaN(a) && Number.isNaN(b)) return true;
+      if (a === null || b === null || a === undefined || b === undefined) return false;
+      if (typeof a !== typeof b) return false;
+      if (typeof a !== 'object') return false;
+      if (depth > 32) return true;
+
+      if (Array.isArray(a) || Array.isArray(b)) {
+        if (!Array.isArray(a) || !Array.isArray(b)) return false;
+        if (a.length !== b.length) return false;
+        for (let i = 0; i < a.length; i++) {
+          if (!this._deepEqualIgnoringMeta(a[i], b[i], depth + 1)) return false;
+        }
+        return true;
+      }
+
+      const keysA = Object.keys(a).filter(k => k !== '_serverUpdateTime' && a[k] !== undefined);
+      const keysB = Object.keys(b).filter(k => k !== '_serverUpdateTime' && b[k] !== undefined);
+      if (keysA.length !== keysB.length) return false;
+      keysA.sort();
+      keysB.sort();
+      for (let i = 0; i < keysA.length; i++) {
+        if (keysA[i] !== keysB[i]) return false;
+        const k = keysA[i];
+        if (!this._deepEqualIgnoringMeta(a[k], b[k], depth + 1)) return false;
+      }
+      return true;
+    },
+
+    /**
+     * Compacts large base64 data URIs into lightweight deterministic hashes so snapshots
+     * fit safely inside localStorage without exceeding quota.
+     */
+    _compactForSnapshot(val, depth = 0) {
+      if (val === null || val === undefined) return val;
+      if (typeof val === 'string') {
+        if (val.length > 512 && val.startsWith('data:')) {
+          return `[__b64_hash__:${val.length}:${val.slice(0, 48)}:${val.slice(-32)}]`;
+        }
+        return val;
+      }
+      if (typeof val !== 'object' || depth > 16) return val;
+      if (Array.isArray(val)) {
+        return val.map(v => this._compactForSnapshot(v, depth + 1));
+      }
+      const out = {};
+      for (const [k, v] of Object.entries(val)) {
+        if (k === '_serverUpdateTime' || v === undefined) continue;
+        out[k] = this._compactForSnapshot(v, depth + 1);
+      }
+      return out;
+    },
+
+    _snapshotFieldEquals(docVal, snapVal) {
+      const normDoc = docVal === undefined ? undefined : this._compactForSnapshot(docVal);
+      const normSnap = snapVal === undefined ? undefined : this._compactForSnapshot(snapVal);
+      if (normDoc === undefined && normSnap === undefined) return true;
+      return this._deepEqualIgnoringMeta(normDoc, normSnap);
+    },
+
+    _loadSnapshotMap() {
+      if (this._snapshotCache && typeof this._snapshotCache === 'object') {
+        return this._snapshotCache;
+      }
+      this._snapshotCache = {};
+      try {
+        if (typeof localStorage !== 'undefined') {
+          const raw = localStorage.getItem(this.STORAGE_KEY_SNAPSHOTS);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+              this._snapshotCache = parsed;
+            }
+          }
+        }
+      } catch (e) {
+        this._snapshotCache = {};
+      }
+      return this._snapshotCache;
+    },
+
+    _persistSnapshotMap() {
+      if (!this._snapshotCache || typeof localStorage === 'undefined') return;
+      try {
+        const keys = Object.keys(this._snapshotCache);
+        // Bound snapshot map to 3,000 entries to keep localStorage fast and compact
+        if (keys.length > 3000) {
+          const toDrop = keys.slice(0, keys.length - 2500);
+          for (const k of toDrop) delete this._snapshotCache[k];
+        }
+        localStorage.setItem(this.STORAGE_KEY_SNAPSHOTS, JSON.stringify(this._snapshotCache));
+      } catch (quotaErr) {
+        try {
+          const keys = Object.keys(this._snapshotCache);
+          const half = Math.ceil(keys.length / 2);
+          for (let i = 0; i < half; i++) delete this._snapshotCache[keys[i]];
+          localStorage.setItem(this.STORAGE_KEY_SNAPSHOTS, JSON.stringify(this._snapshotCache));
+        } catch (_) {}
+      }
+    },
+
+    saveDocSnapshot(docId, doc, collectionName = '') {
+      if (!docId || !doc || typeof doc !== 'object') return;
+      const map = this._loadSnapshotMap();
+      const compacted = this._compactForSnapshot(doc);
+      const idStr = String(docId);
+      if (collectionName) {
+        map[`${collectionName}__${idStr}`] = compacted;
+      }
+      map[`__any__${idStr}`] = compacted;
+      this._persistSnapshotMap();
+    },
+
+    getDocSnapshot(docId, collectionName = '') {
+      if (!docId) return null;
+      const map = this._loadSnapshotMap();
+      const idStr = String(docId);
+      if (collectionName && map[`${collectionName}__${idStr}`]) {
+        return map[`${collectionName}__${idStr}`];
+      }
+      return map[`__any__${idStr}`] || null;
+    },
+
+    removeDocSnapshot(docId, collectionName = '') {
+      if (!docId) return;
+      const map = this._loadSnapshotMap();
+      const idStr = String(docId);
+      let changed = false;
+      if (collectionName && map[`${collectionName}__${idStr}`]) {
+        delete map[`${collectionName}__${idStr}`];
+        changed = true;
+      }
+      if (map[`__any__${idStr}`]) {
+        delete map[`__any__${idStr}`];
+        changed = true;
+      }
+      if (changed) this._persistSnapshotMap();
+    },
+
+    clearSnapshots() {
+      this._snapshotCache = {};
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.removeItem(this.STORAGE_KEY_SNAPSHOTS);
+        }
+      } catch (_) {}
+    },
+
+    /**
+     * 3-way field-level merge using last-synced base snapshot.
+     * Preserves concurrent disjoint field edits across devices (e.g. Device A edits price
+     * while Device B issues on memo), resolving true same-field conflicts via LWW.
+     */
+    mergeDocumentWithSnapshot(localItem, remoteItem, baseSnapshot) {
+      const localTime = new Date((localItem && (localItem.updatedAt || localItem.createdAt)) || 0).getTime();
+      const remoteTime = new Date((remoteItem && (remoteItem.updatedAt || remoteItem.createdAt)) || 0).getTime();
+
+      if (!baseSnapshot || typeof baseSnapshot !== 'object' || !localItem || !remoteItem) {
+        return { mergedDoc: null, usedThreeWay: false, remoteNeedsUpdate: false };
+      }
+
+      const META_KEYS = new Set(['updatedAt', 'createdAt', '_serverUpdateTime']);
+      const allKeys = new Set([
+        ...Object.keys(baseSnapshot),
+        ...Object.keys(localItem),
+        ...Object.keys(remoteItem)
+      ]);
+
+      const localOnlyFields = [];
+      const remoteOnlyFields = [];
+      const sameFieldConflicts = [];
+
+      for (const k of allKeys) {
+        if (META_KEYS.has(k)) continue;
+        const localChanged = !this._snapshotFieldEquals(localItem[k], baseSnapshot[k]);
+        const remoteChanged = !this._snapshotFieldEquals(remoteItem[k], baseSnapshot[k]);
+
+        if (localChanged && !remoteChanged) {
+          localOnlyFields.push(k);
+        } else if (!localChanged && remoteChanged) {
+          remoteOnlyFields.push(k);
+        } else if (localChanged && remoteChanged) {
+          if (!this._deepEqualIgnoringMeta(localItem[k], remoteItem[k])) {
+            sameFieldConflicts.push(k);
+          }
+        }
+      }
+
+      // Activate 3-way merge when local has unique field changes AND remote also diverged from base
+      if (localOnlyFields.length > 0 && (remoteOnlyFields.length > 0 || sameFieldConflicts.length > 0)) {
+        const mergedDoc = remoteTime >= localTime
+          ? { ...localItem, ...remoteItem }
+          : { ...remoteItem, ...localItem };
+
+        for (const k of localOnlyFields) {
+          if (localItem[k] === undefined) {
+            delete mergedDoc[k];
+          } else {
+            mergedDoc[k] = localItem[k];
+          }
+        }
+        for (const k of remoteOnlyFields) {
+          if (remoteItem[k] === undefined) {
+            delete mergedDoc[k];
+          } else {
+            mergedDoc[k] = remoteItem[k];
+          }
+        }
+        for (const k of sameFieldConflicts) {
+          const winner = remoteTime >= localTime ? remoteItem : localItem;
+          if (winner[k] === undefined) {
+            delete mergedDoc[k];
+          } else {
+            mergedDoc[k] = winner[k];
+          }
+        }
+
+        const nextTs = Math.max(Date.now(), localTime + 1, remoteTime + 1);
+        mergedDoc.updatedAt = new Date(nextTs).toISOString();
+        if (remoteItem._serverUpdateTime) {
+          mergedDoc._serverUpdateTime = remoteItem._serverUpdateTime;
+        }
+
+        return {
+          mergedDoc,
+          usedThreeWay: true,
+          remoteNeedsUpdate: true
+        };
+      }
+
+      return { mergedDoc: null, usedThreeWay: false, remoteNeedsUpdate: false };
     },
 
     /**
@@ -424,16 +676,100 @@
         const data = await res.json();
         totalCommitted += (data.writeResults ? data.writeResults.length : chunk.length);
 
-        // Deduplication: Record all successfully batch-written items
+        // Deduplication & 3-Way Merge Snapshots: Record all successfully batch-written items
         chunk.forEach((op, opIdx) => {
-          if (op && op.op !== 'delete' && op.data && op.data.updatedAt) {
-            const serverTime = data.writeResults && data.writeResults[opIdx] ? data.writeResults[opIdx].updateTime : null;
-            this.recordSyncedDoc(op.collection, op.id, op.data.updatedAt, serverTime);
+          if (!op) return;
+          if (op.op === 'delete') {
+            this.removeDocSnapshot(op.id, op.collection);
+            return;
+          }
+          if (op.data) {
+            if (op.data.updatedAt) {
+              const serverTime = data.writeResults && data.writeResults[opIdx] ? data.writeResults[opIdx].updateTime : null;
+              this.recordSyncedDoc(op.collection, op.id, op.data.updatedAt, serverTime);
+            }
+            this.saveDocSnapshot(op.id, op.data, op.collection);
           }
         });
       }
 
       return { success: true, count: totalCommitted };
+    },
+
+    /**
+     * Persistent Offline Tombstones (survives app reload so offline deletes never resurrect)
+     */
+    getPendingTombstones() {
+      try {
+        if (typeof localStorage !== 'undefined') {
+          const raw = localStorage.getItem(this.STORAGE_KEY_TOMBSTONES);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [];
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to read offline tombstones:', e);
+      }
+      return Array.isArray(this._pendingTombstones) ? [...this._pendingTombstones] : [];
+    },
+
+    savePendingTombstones(tombstones) {
+      const clean = Array.isArray(tombstones) ? tombstones : [];
+      this._pendingTombstones = [...clean];
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem(this.STORAGE_KEY_TOMBSTONES, JSON.stringify(clean));
+        }
+      } catch (e) {
+        console.warn('Failed to save offline tombstones:', e);
+      }
+    },
+
+    enqueueTombstone(collection, docId) {
+      if (!collection || !docId) return;
+      const list = this.getPendingTombstones();
+      const idStr = String(docId);
+      const nowIso = new Date().toISOString();
+      const idx = list.findIndex(t => t && t.collection === collection && String(t.docId) === idStr);
+      const entry = { collection, docId: idStr, deletedAt: nowIso };
+      if (idx >= 0) {
+        list[idx] = entry;
+      } else {
+        list.push(entry);
+      }
+      this.savePendingTombstones(list);
+    },
+
+    removePendingTombstone(collection, docId) {
+      if (!collection || !docId) return;
+      const list = this.getPendingTombstones();
+      if (list.length === 0) return;
+      const idStr = String(docId);
+      const next = list.filter(t => !(t && t.collection === collection && String(t.docId) === idStr));
+      if (next.length !== list.length) {
+        this.savePendingTombstones(next);
+      }
+    },
+
+    async flushPendingTombstones() {
+      const pending = this.getPendingTombstones();
+      if (!pending || pending.length === 0) return { flushed: 0 };
+      if (!this.isEnabled()) return { flushed: 0 };
+
+      const remaining = [];
+      let flushed = 0;
+      for (const t of pending) {
+        if (!t || !t.collection || !t.docId) continue;
+        const ok = await this.recordRemoteDeletion(t.collection, t.docId, t.deletedAt);
+        if (ok) {
+          flushed++;
+        } else {
+          remaining.push(t);
+        }
+      }
+      this.savePendingTombstones(remaining);
+      return { flushed, remaining: remaining.length };
     },
 
     /**
@@ -482,6 +818,13 @@
         queue.push(entry);
       }
       this.savePendingQueue(queue);
+
+      if (op === 'delete') {
+        this.enqueueTombstone(collection, id);
+        this.removeDocSnapshot(id, collection);
+      } else {
+        this.removePendingTombstone(collection, id);
+      }
     },
 
     getPendingQueueCount() {
@@ -508,12 +851,31 @@
       if (!this.isEnabled()) return { drained: 0, reason: 'Sync disabled' };
 
       try {
-        const ops = queue.map(q => ({
-          collection: q.collection,
-          id: q.id,
-          op: q.op,
-          data: q.data
-        }));
+        const drainIso = new Date().toISOString();
+        const ops = queue.map(q => {
+          let payload = q.data;
+          if (q.op !== 'delete' && payload && typeof payload === 'object') {
+            const prevUpdatedAt = payload.updatedAt;
+            payload = { ...payload, updatedAt: drainIso };
+            // Keep matching in-memory local record timestamp aligned if untouched since queueing
+            if (typeof window !== 'undefined' && window.DBManager && window.DBManager.database && typeof window.DBManager._resolveCollectionNames === 'function') {
+              const { dbKey } = window.DBManager._resolveCollectionNames(q.collection);
+              const list = dbKey ? window.DBManager.database[dbKey] : null;
+              if (Array.isArray(list)) {
+                const match = list.find(it => it && String(it.id) === String(q.id));
+                if (match && (!prevUpdatedAt || match.updatedAt === prevUpdatedAt)) {
+                  match.updatedAt = drainIso;
+                }
+              }
+            }
+          }
+          return {
+            collection: q.collection,
+            id: q.id,
+            op: q.op,
+            data: payload
+          };
+        });
 
         await this.batchWrite(ops);
         this.clearPendingQueue();
@@ -605,8 +967,12 @@
           try {
             const remoteDoc = await this.getDocument(collectionName, docId);
             if (remoteDoc) {
-              // Intelligent field-level merge: remote as base, local overlaid
-              const mergedData = { ...remoteDoc, ...dataObj };
+              // Use 3-way snapshot merge if base snapshot exists, otherwise overlay local onto remote
+              const baseSnap = this.getDocSnapshot(docId, collectionName);
+              const threeWay = baseSnap ? this.mergeDocumentWithSnapshot(dataObj, remoteDoc, baseSnap) : null;
+              const mergedData = (threeWay && threeWay.usedThreeWay && threeWay.mergedDoc)
+                ? threeWay.mergedDoc
+                : { ...remoteDoc, ...dataObj };
               mergedData.updatedAt = new Date().toISOString();
               const newPrecondition = remoteDoc._serverUpdateTime ? { updateTime: remoteDoc._serverUpdateTime } : null;
               return await this.setDocument(collectionName, docId, mergedData, {
@@ -633,6 +999,7 @@
         }
         const data = await res.json();
         // Remove any old deletion record in the background
+        this.removePendingTombstone(collectionName, docId);
         this.removeRemoteDeletion(collectionName, docId).catch(() => {});
         const converted = this.firestoreDocumentToObject(data);
 
@@ -646,14 +1013,21 @@
           }
         }
 
-        // Deduplication: Record this document version as synced
+        // Deduplication & 3-Way Merge Snapshot: Record this document version as synced
         this.recordSyncedDoc(collectionName, docId, dataObj.updatedAt, data && data.updateTime);
+        if (!Array.isArray(options.fieldPaths) || options.fieldPaths.length === 0) {
+          this.saveDocSnapshot(docId, converted || dataObj, collectionName);
+        }
 
         return converted || dataObj;
       } catch (err) {
         console.warn(`setDocument ${collectionName}/${docId} offline fallback:`, err.message);
         this.enqueueMutation(collectionName, docId, dataObj, 'set');
-        this.updateStatus('offline', 'Offline: Mutation queued for cloud sync');
+        const isAuthErr = /\(401\)/.test(err.message || '');
+        this.updateStatus(
+          isAuthErr ? 'error' : 'offline',
+          isAuthErr ? 'Authentication error (401): Mutation queued locally' : 'Offline: Mutation queued for cloud sync'
+        );
         return dataObj;
       }
     },
@@ -697,7 +1071,16 @@
 
         const res = await this._fetchWithTimeout(url, { method: 'DELETE' });
         if (res.status === 404 || res.ok) {
-          this.recordRemoteDeletion(collectionName, docId).catch(() => {});
+          this.removeDocSnapshot(docId, collectionName);
+          this.recordRemoteDeletion(collectionName, docId).then(ok => {
+            if (ok) {
+              this.removePendingTombstone(collectionName, docId);
+            } else {
+              this.enqueueTombstone(collectionName, docId);
+            }
+          }).catch(() => {
+            this.enqueueTombstone(collectionName, docId);
+          });
           return true;
         }
         const errText = await res.text();
@@ -705,7 +1088,11 @@
       } catch (err) {
         console.warn(`deleteDocument ${collectionName}/${docId} offline fallback:`, err.message);
         this.enqueueMutation(collectionName, docId, null, 'delete');
-        this.updateStatus('offline', 'Offline: Deletion queued for cloud sync');
+        const isAuthErr = /\(401\)/.test(err.message || '');
+        this.updateStatus(
+          isAuthErr ? 'error' : 'offline',
+          isAuthErr ? 'Authentication error (401): Deletion queued locally' : 'Offline: Deletion queued for cloud sync'
+        );
         return true;
       }
     },
@@ -713,7 +1100,7 @@
     /**
      * Record a deletion event in the cloud deletions log
      */
-    async recordRemoteDeletion(collectionName, docId) {
+    async recordRemoteDeletion(collectionName, docId, deletedAtIso = null) {
       try {
         const prefix = this.config.collectionPrefix || 'mava_catalog';
         const delCol = `${prefix}_deletions`;
@@ -721,20 +1108,24 @@
         const baseUrl = this.getBaseUrl();
         const apiKey = this.config.apiKey ? `?key=${encodeURIComponent(this.config.apiKey)}` : '';
         const url = `${baseUrl}/${encodeURIComponent(delCol)}/${encodeURIComponent(delDocId)}${apiKey}`;
+        const ts = deletedAtIso || new Date().toISOString();
 
         const payload = this.objectToFirestoreDocument({
           collection: collectionName,
           docId: String(docId),
-          deletedAt: new Date().toISOString(),
+          deletedAt: ts,
           updatedAt: new Date().toISOString()
         });
 
-        await this._fetchWithTimeout(url, {
+        const res = await this._fetchWithTimeout(url, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-      } catch (_) {}
+        return Boolean(res && res.ok);
+      } catch (_) {
+        return false;
+      }
     },
 
     /**
@@ -863,24 +1254,81 @@
     },
 
     /**
-     * Internal fetch with timeout & cross-environment safety
+     * Internal fetch with timeout, caller AbortSignal chaining, 429/5xx backoff retry, & 401 auth surfacing
      */
     async _fetchWithTimeout(url, options = {}) {
-      const timeout = this.config.timeoutMs || 10000;
-      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-      const id = controller ? setTimeout(() => controller.abort(), timeout) : null;
+      const fetchFn = (typeof window !== 'undefined' && window.fetch) || global.fetch;
+      if (!fetchFn) {
+        throw new Error('Native fetch API is not available in current environment');
+      }
 
-      try {
-        const fetchFn = (typeof window !== 'undefined' && window.fetch) || global.fetch;
-        if (!fetchFn) {
-          throw new Error('Native fetch API is not available in current environment');
+      const timeout = options.timeoutMs || this.config.timeoutMs || 10000;
+      const callerSignal = options.signal || null;
+      const maxRetries = options._noRetry ? 0 : 1;
+      const retryableStatuses = new Set([429, 500, 502, 503, 504]);
+      const isListenStream = typeof url === 'string' && url.includes(':listen');
+
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        if (callerSignal && callerSignal.aborted) {
+          const abortErr = new Error('The operation was aborted');
+          abortErr.name = 'AbortError';
+          throw abortErr;
         }
-        const opt = { ...options };
-        if (controller) opt.signal = controller.signal;
-        const response = await fetchFn(url, opt);
-        return response;
-      } finally {
-        if (id) clearTimeout(id);
+
+        const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const id = controller ? setTimeout(() => controller.abort(), timeout) : null;
+        const onCallerAbort = () => {
+          if (controller) {
+            try { controller.abort(); } catch (_) {}
+          }
+        };
+        if (callerSignal && controller && typeof callerSignal.addEventListener === 'function') {
+          callerSignal.addEventListener('abort', onCallerAbort, { once: true });
+        }
+
+        try {
+          const opt = { ...options };
+          delete opt._noRetry;
+          delete opt._retryDelayMs;
+          delete opt.timeoutMs;
+          if (controller) opt.signal = controller.signal;
+
+          const response = await fetchFn(url, opt);
+
+          if (response && response.status === 401) {
+            this.updateStatus('error', 'Authentication error (401): Cloud credentials rejected');
+            if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+              try {
+                window.dispatchEvent(new CustomEvent('mava:cloud-auth-error', {
+                  detail: { status: 401, url }
+                }));
+              } catch (_) {}
+            }
+            return response;
+          }
+
+          if (response && retryableStatuses.has(response.status) && attempt < maxRetries) {
+            let delayMs = typeof options._retryDelayMs === 'number' ? options._retryDelayMs : 500;
+            if (response.status === 429 && response.headers && typeof response.headers.get === 'function') {
+              const retryAfterRaw = response.headers.get('Retry-After');
+              if (retryAfterRaw && typeof options._retryDelayMs !== 'number') {
+                const parsedSec = Number(retryAfterRaw);
+                if (Number.isFinite(parsedSec) && parsedSec >= 0) {
+                  delayMs = Math.min(2000, Math.max(100, Math.round(parsedSec * 1000)));
+                }
+              }
+            }
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+            continue;
+          }
+
+          return response;
+        } finally {
+          if (id) clearTimeout(id);
+          if (!isListenStream && callerSignal && controller && typeof callerSignal.removeEventListener === 'function') {
+            try { callerSignal.removeEventListener('abort', onCallerAbort); } catch (_) {}
+          }
+        }
       }
     },
 
@@ -888,10 +1336,23 @@
      * Identifies phantom or test items that should never enter production inventory
      */
     isCorruptOrPhantom(item, id = '') {
-      if (!item) return true;
+      if (!item || typeof item !== 'object') return true;
       const itemId = String(id || item.id || '');
       const sku = String(item.sku || '');
-      const name = String(item.name || item.personName || item.customerName || item.pudiaNumber || item.memoNumber || item.saleNumber || '');
+      const name = String(
+        item.name ||
+        item.personName ||
+        item.customerName ||
+        item.manufacturerName ||
+        item.brokerName ||
+        item.clientName ||
+        item.issuedTo ||
+        item.soldTo ||
+        item.pudiaNumber ||
+        item.memoNumber ||
+        item.saleNumber ||
+        ''
+      );
 
       // Explicit phantom items from historical unmocked test runs: piece_100/200/300 with no catalog name
       if (itemId === 'piece_100' || itemId === 'piece_200' || itemId === 'piece_300') {
@@ -903,12 +1364,40 @@
         return true;
       }
 
-      // Items without both name and sku are corrupted/phantom
-      if (!name.trim() && !sku.trim()) return true;
-
       // Unidentified reserved items without basic piece details
       if (item.status === 'Reserved' && !name.trim() && (!item.metals || item.metals.length === 0)) {
         if (itemId.startsWith('piece_')) return true;
+      }
+
+      const hasColor = item.color !== undefined && item.color !== null && String(item.color).trim() !== '';
+
+      // Valid loose stones (diamonds, rubies, etc.) have type and identifying packet/group attributes
+      const isStone = Boolean(item.type && (hasColor || item.packetNumber || item.group || item.weight !== undefined || item.sizes));
+      if (isStone) return false;
+
+      // Valid emerald pudias have pudia number / color (including numeric 0) or group+shape+weight/sizes
+      const isEmerald = Boolean(
+        ((hasColor || item.pudiaNumber) && (item.group || item.weight !== undefined || item.totalCarats !== undefined || item.sizes)) ||
+        (item.group && item.shape && (Number(item.weight) > 0 || (Array.isArray(item.sizes) && item.sizes.length > 0)))
+      );
+      if (isEmerald) return false;
+
+      // Valid stock ledger entries have eventType and standard ledger ID
+      const isLedger = Boolean(item.eventType && itemId.startsWith('led_'));
+      if (isLedger) return false;
+
+      // Future-proofing safety valve: preserve structured domain records with >= 3 meaningful non-meta fields
+      if (!name.trim() && !sku.trim()) {
+        const META_FIELDS = new Set(['id', 'createdAt', 'updatedAt', '_serverUpdateTime', 'clientMutationId', 'status']);
+        let meaningfulCount = 0;
+        for (const [k, v] of Object.entries(item)) {
+          if (META_FIELDS.has(k) || v === undefined || v === null) continue;
+          if (typeof v === 'string' && !v.trim()) continue;
+          if (Array.isArray(v) && v.length === 0) continue;
+          meaningfulCount++;
+        }
+        if (meaningfulCount >= 3) return false;
+        return true;
       }
 
       return false;
@@ -917,10 +1406,10 @@
     /**
      * Safe bidirectional merge between local database array and remote records.
      * ZERO data loss: Never deletes local records missing from remote during normal sync.
-     * Resolves conflicts by comparing `updatedAt` / `createdAt` timestamps.
+     * Resolves conflicts via 3-way snapshot merge (when base snapshot exists) or LWW timestamps.
      * Supports idempotent clientMutationId deduplication (Pillar 3).
      */
-    mergeArray(localArray = [], remoteArray = [], idKey = 'id', deletedIds = new Set()) {
+    mergeArray(localArray = [], remoteArray = [], idKey = 'id', deletedIds = new Set(), collectionName = '') {
       const merged = [...localArray];
       const localMap = new Map();
       const localMutationMap = new Map();
@@ -951,23 +1440,39 @@
 
         if (localIndex !== undefined) {
           const localItem = merged[localIndex];
+          const baseSnap = this.getDocSnapshot(rKey, collectionName);
+          const threeWay = baseSnap ? this.mergeDocumentWithSnapshot(localItem, remoteItem, baseSnap) : null;
 
-          const localTime = new Date(localItem.updatedAt || localItem.createdAt || 0).getTime();
-          const remoteTime = new Date(remoteItem.updatedAt || remoteItem.createdAt || 0).getTime();
-          // Fix: Within a 5s window, treat as a tie and prefer remote (phone edit).
-          // This prevents laptop clock being marginally ahead from discarding mobile updates.
-          const SKEW_MS = 5000;
-
-          if (remoteTime > localTime || (localTime - remoteTime) <= SKEW_MS) {
-            // Remote is newer (or within skew tolerance): merge remote over local
-            const candidate = { ...localItem, ...remoteItem };
-            if (JSON.stringify(localItem) !== JSON.stringify(candidate)) {
-              merged[localIndex] = candidate;
+          if (threeWay && threeWay.usedThreeWay && threeWay.mergedDoc) {
+            if (!this._deepEqualIgnoringMeta(localItem, threeWay.mergedDoc)) {
+              merged[localIndex] = threeWay.mergedDoc;
               updatedRemoteCount++;
+            } else {
+              merged[localIndex] = threeWay.mergedDoc;
+            }
+            if (threeWay.remoteNeedsUpdate) {
+              itemsToUpload.push(threeWay.mergedDoc);
+            } else {
+              this.saveDocSnapshot(rKey, threeWay.mergedDoc, collectionName);
             }
           } else {
-            // Local is clearly newer: keep local, flag for upload to cloud
-            itemsToUpload.push(localItem);
+            const localTime = new Date(localItem.updatedAt || localItem.createdAt || 0).getTime();
+            const remoteTime = new Date(remoteItem.updatedAt || remoteItem.createdAt || 0).getTime();
+
+            if (remoteTime >= localTime) {
+              // Remote is newer (or equal timestamp tie): merge remote over local
+              const candidate = { ...localItem, ...remoteItem };
+              if (!this._deepEqualIgnoringMeta(localItem, candidate)) {
+                merged[localIndex] = candidate;
+                updatedRemoteCount++;
+              } else if (remoteItem._serverUpdateTime && merged[localIndex]) {
+                merged[localIndex]._serverUpdateTime = remoteItem._serverUpdateTime;
+              }
+              this.saveDocSnapshot(rKey, candidate, collectionName);
+            } else {
+              // Local is strictly newer: keep local, flag for upload to cloud
+              itemsToUpload.push(localItem);
+            }
           }
         } else {
           // New record from cloud: add to local inventory
@@ -977,6 +1482,7 @@
           if (remoteItem.clientMutationId) {
             localMutationMap.set(String(remoteItem.clientMutationId), newIdx);
           }
+          this.saveDocSnapshot(rKey, remoteItem, collectionName);
           updatedRemoteCount++;
         }
       }
@@ -1062,9 +1568,18 @@
       const isDelta = Boolean(this.lastSyncTime && !options.forceFull && (this._syncCount % reconInterval !== 0));
       this.updateStatus('syncing', isDelta ? 'Checking cloud for updates...' : 'Syncing full catalog with cloud...');
 
-      // Drain any pending write-ahead mutations before reconciling
+      // Drain any pending write-ahead mutations and persistent tombstones before reconciling
       try {
         await this.drainPendingQueue();
+        await this.flushPendingTombstones();
+        if (this._pendingTombstones && this._pendingTombstones.length > 0) {
+          const pending = [...this._pendingTombstones];
+          this._pendingTombstones = [];
+          for (const t of pending) {
+            const ok = await this.recordRemoteDeletion(t.collection, t.docId, t.deletedAt);
+            if (!ok) this.enqueueTombstone(t.collection, t.docId, t.deletedAt);
+          }
+        }
       } catch (_) {}
 
       const prefix = this.config.collectionPrefix || 'mava_catalog';
@@ -1138,7 +1653,7 @@
               )).toISOString()
             };
 
-            if (JSON.stringify(localDb.settings) !== JSON.stringify(mergedSettings)) {
+            if (!this._deepEqualIgnoringMeta(localDb.settings, mergedSettings)) {
               localDb.settings = mergedSettings;
               anyUpdates = true;
             }
@@ -1162,7 +1677,7 @@
           console.warn('Settings cloud sync note:', settingsErr.message);
         }
 
-        // 2. Sync Deletions across devices
+        // 2. Sync Deletions across devices (combining cloud deletions + any still-unflushed local tombstones)
         const knownDeletions = new Set();
         try {
           let remoteDeletions = [];
@@ -1175,20 +1690,46 @@
             remoteDeletions = await this.listDocuments(`${prefix}_deletions`);
           }
 
-          if (Array.isArray(remoteDeletions) && remoteDeletions.length > 0) {
-            for (const del of remoteDeletions) {
-              if (!del || !del.collection || !del.docId) continue;
-              const fullKey = `${del.collection}__${del.docId}`;
-              knownDeletions.add(fullKey);
+          const localTombstones = this.getPendingTombstones();
+          const combinedDeletionMap = new Map();
+          for (const d of [...(Array.isArray(remoteDeletions) ? remoteDeletions : []), ...localTombstones]) {
+            if (!d || !d.collection || !d.docId) continue;
+            const fullKey = `${d.collection}__${d.docId}`;
+            const existing = combinedDeletionMap.get(fullKey);
+            if (!existing) {
+              combinedDeletionMap.set(fullKey, d);
+            } else {
+              const prevTs = new Date(existing.deletedAt || existing.updatedAt || 0).getTime();
+              const nextTs = new Date(d.deletedAt || d.updatedAt || 0).getTime();
+              if (nextTs >= prevTs) combinedDeletionMap.set(fullKey, d);
+            }
+          }
 
-              const targetCol = collections.find(c => c.name === del.collection);
-              if (targetCol && Array.isArray(localDb[targetCol.key])) {
-                const prevCount = localDb[targetCol.key].length;
-                localDb[targetCol.key] = localDb[targetCol.key].filter(i => i && String(i[targetCol.idKey]) !== String(del.docId));
-                if (localDb[targetCol.key].length !== prevCount) {
-                  anyUpdates = true;
-                }
+          for (const [fullKey, del] of combinedDeletionMap.entries()) {
+            const delTime = new Date(del.deletedAt || del.updatedAt || 0).getTime();
+            const targetCol = collections.find(c => c.name === del.collection);
+
+            if (targetCol && Array.isArray(localDb[targetCol.key])) {
+              const localMatch = localDb[targetCol.key].find(i => i && String(i[targetCol.idKey]) === String(del.docId));
+              const localTime = localMatch ? new Date(localMatch.updatedAt || localMatch.createdAt || 0).getTime() : 0;
+
+              // Timestamp guard: Do NOT delete a local item that was restored or recreated AFTER the deletion event
+              if (localMatch && delTime > 0 && localTime > delTime) {
+                this.removePendingTombstone(del.collection, del.docId);
+                this.removeRemoteDeletion(del.collection, del.docId).catch(() => {});
+                continue;
               }
+
+              knownDeletions.add(fullKey);
+              this.removeDocSnapshot(del.docId, del.collection);
+              const prevCount = localDb[targetCol.key].length;
+              localDb[targetCol.key] = localDb[targetCol.key].filter(i => i && String(i[targetCol.idKey]) !== String(del.docId));
+              if (localDb[targetCol.key].length !== prevCount) {
+                anyUpdates = true;
+              }
+            } else {
+              knownDeletions.add(fullKey);
+              this.removeDocSnapshot(del.docId, del.collection);
             }
           }
         } catch (delSyncErr) {
@@ -1216,6 +1757,7 @@
             // Delta path: Fetch remote documents modified since last sync.
             // Fix: Widen clock-skew buffer to 5 min (was 60s) so phone edits are never missed.
             try {
+              const forceUploadIds = new Set();
               const safeSince = new Date(Math.max(0, new Date(this.lastSyncTime).getTime() - 300000)).toISOString();
               const updatedDocs = await this.queryUpdatedDocuments(col.name, safeSince);
               if (updatedDocs && updatedDocs.length > 0) {
@@ -1225,33 +1767,63 @@
                   if (colDeletedIds.has(rId)) continue;
                   if (this.isCorruptOrPhantom(remoteItem, rId)) continue;
 
-                  const idx = localList.findIndex(l => l && String(l[col.idKey]) === rId);
+                  const idx = localList.findIndex(l => {
+                    if (!l) return false;
+                    if (String(l[col.idKey]) === rId) return true;
+                    if (remoteItem.clientMutationId && l.clientMutationId && String(l.clientMutationId) === String(remoteItem.clientMutationId)) return true;
+                    return false;
+                  });
                   if (idx >= 0) {
-                    const localTime = new Date(localList[idx].updatedAt || localList[idx].createdAt || 0).getTime();
-                    const remoteTime = new Date(remoteItem.updatedAt || remoteItem.createdAt || 0).getTime();
-                    // Fix: Within a 5s tolerance, prefer remote (phone edit) over local to prevent
-                    // client clock skew from silently discarding mobile updates.
-                    const CLOCK_SKEW_TOLERANCE_MS = 5000;
-                    if (remoteTime > localTime || (localTime - remoteTime) <= CLOCK_SKEW_TOLERANCE_MS) {
-                      const mergedItem = { ...localList[idx], ...remoteItem };
-                      if (JSON.stringify(localList[idx]) !== JSON.stringify(mergedItem)) {
-                        localList[idx] = mergedItem;
+                    const baseSnap = this.getDocSnapshot(rId, col.name);
+                    const threeWay = baseSnap ? this.mergeDocumentWithSnapshot(localList[idx], remoteItem, baseSnap) : null;
+
+                    if (threeWay && threeWay.usedThreeWay && threeWay.mergedDoc) {
+                      if (!this._deepEqualIgnoringMeta(localList[idx], threeWay.mergedDoc)) {
+                        localList[idx] = threeWay.mergedDoc;
                         anyUpdates = true;
+                      } else {
+                        localList[idx] = threeWay.mergedDoc;
+                      }
+                      if (threeWay.remoteNeedsUpdate) {
+                        if (this._syncedDocVersions) this._syncedDocVersions.delete(`${col.name}__${rId}`);
+                        forceUploadIds.add(rId);
+                      } else {
+                        this.saveDocSnapshot(rId, threeWay.mergedDoc, col.name);
+                      }
+                    } else {
+                      const localTime = new Date(localList[idx].updatedAt || localList[idx].createdAt || 0).getTime();
+                      const remoteTime = new Date(remoteItem.updatedAt || remoteItem.createdAt || 0).getTime();
+                      if (remoteTime >= localTime) {
+                        const mergedItem = { ...localList[idx], ...remoteItem };
+                        if (!this._deepEqualIgnoringMeta(localList[idx], mergedItem)) {
+                          localList[idx] = mergedItem;
+                          anyUpdates = true;
+                        } else if (remoteItem._serverUpdateTime && localList[idx]) {
+                          localList[idx]._serverUpdateTime = remoteItem._serverUpdateTime;
+                        }
+                        this.saveDocSnapshot(rId, mergedItem, col.name);
+                      } else {
+                        // Local version is strictly newer than stale remote delta: re-push local version
+                        if (this._syncedDocVersions) this._syncedDocVersions.delete(`${col.name}__${rId}`);
+                        forceUploadIds.add(rId);
                       }
                     }
                   } else {
                     localList.push(remoteItem);
+                    this.saveDocSnapshot(rId, remoteItem, col.name);
                     anyUpdates = true;
                   }
                 }
               }
 
-              // PUSH LOCAL DELTA: Scan localList for records created or updated after lastSyncTime
+              // PUSH LOCAL DELTA: Scan localList for records created or updated after lastSyncTime (or flagged for conflict push)
               const lastSyncMs = new Date(this.lastSyncTime).getTime();
               const localDeltaUploads = localList.filter(item => {
                 if (!item || !item[col.idKey]) return false;
                 const rId = String(item[col.idKey]);
                 if (colDeletedIds.has(rId)) return false;
+                if (forceUploadIds.has(rId)) return true;
+
                 const itemTime = new Date(item.updatedAt || item.createdAt || 0).getTime();
                 if (itemTime <= lastSyncMs) return false;
 
@@ -1287,7 +1859,7 @@
               // Fallback to full list for this collection
               try {
                 const remoteList = await this.listDocuments(col.name);
-                const { merged, itemsToUpload, updatedRemoteCount } = this.mergeArray(localList, remoteList, col.idKey, colDeletedIds);
+                const { merged, itemsToUpload, updatedRemoteCount } = this.mergeArray(localList, remoteList, col.idKey, colDeletedIds, col.name);
                 if (updatedRemoteCount > 0 || merged.length !== localList.length) {
                   localDb[col.key] = merged;
                   anyUpdates = true;
@@ -1325,7 +1897,7 @@
               continue;
             }
 
-            const { merged, itemsToUpload, updatedRemoteCount } = this.mergeArray(localList, remoteList, col.idKey, colDeletedIds);
+            const { merged, itemsToUpload, updatedRemoteCount } = this.mergeArray(localList, remoteList, col.idKey, colDeletedIds, col.name);
 
             if (updatedRemoteCount > 0 || merged.length !== localList.length) {
               localDb[col.key] = merged;
@@ -1367,14 +1939,17 @@
         this.lastSyncTime = syncStartTime;
         this.updateStatus('online', `Sync complete (${this.lastSyncLatencyMs}ms)`);
 
-        // If changes were made to local state, heal and persist to physical local disk
+        // If changes were made to local state, heal lifecycle first, then resequence sno, rebuild indexes, and persist
         if (anyUpdates && typeof window !== 'undefined') {
           if (window.DBManager) {
+            if (typeof window.DBManager.healJewelrySales === 'function') {
+              try { window.DBManager.healJewelrySales(localDb); } catch (_) {}
+            }
             if (typeof window.DBManager.resequenceJewelrySno === 'function') {
               try { window.DBManager.resequenceJewelrySno(); } catch (_) {}
             }
-            if (typeof window.DBManager.healJewelrySales === 'function') {
-              try { window.DBManager.healJewelrySales(localDb); } catch (_) {}
+            if (typeof window.DBManager._rebuildIndexes === 'function') {
+              try { window.DBManager._rebuildIndexes(); } catch (_) {}
             }
             if (typeof window.DBManager.scheduleVaultFlush === 'function') {
               window.DBManager.scheduleVaultFlush(500);
@@ -1392,7 +1967,11 @@
         return { success: true, updated: anyUpdates, timestamp: this.lastSyncTime };
       } catch (err) {
         console.warn('Cloud sync error (local database safely protected):', err.message);
-        this.updateStatus('offline', `Offline / Local Vault Protected (${err.message})`);
+        const isAuthErr = /\(401\)/.test(err.message || '');
+        this.updateStatus(
+          isAuthErr ? 'error' : 'offline',
+          isAuthErr ? `Authentication error (401): ${err.message}` : `Offline / Local Vault Protected (${err.message})`
+        );
         return { success: false, error: err.message };
       } finally {
         this.syncInProgress = false;
@@ -1411,6 +1990,10 @@
       if (this._syncTimeout) clearTimeout(this._syncTimeout);
 
       this._syncTimeout = setTimeout(async () => {
+        if (this._isAppBooting()) {
+          this.queueSync(Math.max(400, delayMs));
+          return;
+        }
         if (typeof window !== 'undefined' && window.DBManager && window.DBManager.database) {
           await this.syncAll(window.DBManager.database);
         }
@@ -1436,6 +2019,7 @@
         this._listenersBound = true;
         window.addEventListener('focus', () => {
           onActivity();
+          if (this._isAppBooting()) return;
           if (this.isEnabled() && !this.syncInProgress) {
             // Fix: Drain the offline write-ahead queue first so any memo saves that
             // the iPhone queued while offline are flushed before the reconciliation read.
@@ -1444,6 +2028,7 @@
         });
         window.addEventListener('online', () => {
           onActivity();
+          if (this._isAppBooting()) return;
           this.drainPendingQueue().then(() => {
             this.queueSync(200);
           });
@@ -1452,6 +2037,7 @@
           document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
               onActivity();
+              if (this._isAppBooting()) return;
               if (this.isEnabled() && !this.syncInProgress) {
                 // Fix: Also drain queue on tab/window becoming visible (covers browser-embedded view)
                 this.drainPendingQueue().then(() => this.queueSync(200)).catch(() => this.queueSync(200));
@@ -1478,21 +2064,14 @@
       }
 
       // 2. Active & Adaptive recurring interval
+      // Note: Even when :listen is active on `${prefix}_items`, keep 15s delta sync running
+      // so memos, sales, emeralds, stones, settings, and deletions stay synchronized promptly.
       if (typeof setInterval === 'undefined') return;
       if (this._autoSyncInterval) clearInterval(this._autoSyncInterval);
       const baseInterval = Math.max(10000, this.config.autoSyncIntervalMs || 15000);
 
       this._autoSyncInterval = setInterval(() => {
-        if (!this.isEnabled() || this.syncInProgress) return;
-
-        // Redundant Polling Optimization: When real-time push streaming is connected,
-        // skip the aggressive 15s poll and only run a light 5-minute heartbeat check
-        if (this.isRealtimeConnected()) {
-          const now = Date.now();
-          if (now - this._lastSyncAttempt < 300000) {
-            return;
-          }
-        }
+        if (!this.isEnabled() || this.syncInProgress || this._isAppBooting()) return;
 
         const now = Date.now();
         const isIdle = this.isIdle();
@@ -1522,7 +2101,57 @@
     realtime: {
       connected: false,
       abortController: null,
-      reconnectTimeout: null
+      reconnectTimeout: null,
+      _manuallyStopped: false
+    },
+
+    /**
+     * Extracts complete top-level JSON objects from a chunked HTTP stream buffer.
+     * Supports both NDJSON and Firestore REST's multi-line `[ {...}, {...} ]` JSON array stream.
+     */
+    _extractJsonObjectsFromBuffer(buffer) {
+      const objects = [];
+      if (!buffer) return { objects, remaining: '' };
+
+      let inString = false;
+      let escaped = false;
+      let depth = 0;
+      let objStart = -1;
+
+      for (let i = 0; i < buffer.length; i++) {
+        const ch = buffer[i];
+        if (inString) {
+          if (escaped) {
+            escaped = false;
+          } else if (ch === '\\') {
+            escaped = true;
+          } else if (ch === '"') {
+            inString = false;
+          }
+          continue;
+        }
+
+        if (ch === '"') {
+          inString = true;
+        } else if (ch === '{') {
+          if (depth === 0) objStart = i;
+          depth++;
+        } else if (ch === '}') {
+          if (depth > 0) {
+            depth--;
+            if (depth === 0 && objStart >= 0) {
+              const slice = buffer.slice(objStart, i + 1);
+              try {
+                objects.push(JSON.parse(slice));
+              } catch (_) {}
+              objStart = -1;
+            }
+          }
+        }
+      }
+
+      const remaining = (depth > 0 && objStart >= 0) ? buffer.slice(objStart) : '';
+      return { objects, remaining };
     },
 
     async startRealtimeListener() {
@@ -1532,19 +2161,13 @@
       const { projectId, databaseId, apiKey, collectionPrefix } = this.config;
       if (!projectId || !apiKey) return;
 
-      const prefix = collectionPrefix || 'mava_catalog';
-      const collectionsToWatch = [
-        `${prefix}_items`,
-        `${prefix}_emeralds`,
-        `${prefix}_stones`,
-        `${prefix}_jewelry_memos`,
-        `${prefix}_emerald_memos`,
-        `${prefix}_jewel_stone_memos`,
-        `${prefix}_jewelry_sales`,
-        `${prefix}_emerald_sales`,
-        `${prefix}_stock_ledger`
-      ];
+      this.realtime._manuallyStopped = false;
+      if (this.realtime.reconnectTimeout) {
+        clearTimeout(this.realtime.reconnectTimeout);
+        this.realtime.reconnectTimeout = null;
+      }
 
+      const prefix = collectionPrefix || 'mava_catalog';
       const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
       this.realtime.abortController = controller;
 
@@ -1552,11 +2175,12 @@
         const url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/${encodeURIComponent(databaseId)}/documents:listen?key=${encodeURIComponent(apiKey)}`;
 
         const targetBody = {
+          database: `projects/${projectId}/databases/${databaseId}`,
           addTarget: {
             query: {
               parent: `projects/${projectId}/databases/${databaseId}/documents`,
               structuredQuery: {
-                from: collectionsToWatch.map(c => ({ collectionId: c }))
+                from: [{ collectionId: `${prefix}_items` }]
               }
             },
             targetId: 1
@@ -1594,25 +2218,22 @@
               buffer += Buffer.from(value).toString('utf8');
             }
 
-            const lines = buffer.split('\n');
-            buffer = lines.pop();
-
-            for (const line of lines) {
-              const clean = line.trim();
-              if (!clean) continue;
-              try {
-                const message = JSON.parse(clean);
-                this.handleRealtimeMessage(message);
-              } catch (_) {}
+            const extracted = this._extractJsonObjectsFromBuffer(buffer);
+            buffer = extracted.remaining;
+            for (const message of extracted.objects) {
+              this.handleRealtimeMessage(message);
             }
           }
         }
-      } catch (err) {
+      } catch (_) {
+        // Reconnect handled uniformly in finally
+      } finally {
         this.realtime.connected = false;
         this.realtime.abortController = null;
-        if (this.isEnabled() && typeof setTimeout !== 'undefined') {
+        if (this.isEnabled() && this.config.realtimeStreamEnabled && !this.realtime._manuallyStopped && typeof setTimeout !== 'undefined') {
+          if (this.realtime.reconnectTimeout) clearTimeout(this.realtime.reconnectTimeout);
           this.realtime.reconnectTimeout = setTimeout(() => {
-            if (!this.realtime.connected) {
+            if (!this.realtime.connected && !this.realtime._manuallyStopped) {
               this.startRealtimeListener().catch(() => {});
             }
           }, 15000);
@@ -1624,6 +2245,7 @@
     },
 
     stopRealtimeListener() {
+      this.realtime._manuallyStopped = true;
       this.realtime.connected = false;
       if (this.realtime.abortController) {
         try { this.realtime.abortController.abort(); } catch (_) {}
@@ -1669,6 +2291,10 @@
       if (typeof window === 'undefined' || !window.DBManager || !window.DBManager.database) {
         return;
       }
+      if (this._isAppBooting()) {
+        this.queueSync(500);
+        return;
+      }
       const localDb = window.DBManager.database;
       const { dbKey } = window.DBManager._resolveCollectionNames(collectionName);
       if (!dbKey || !Array.isArray(localDb[dbKey])) return;
@@ -1678,26 +2304,66 @@
 
       let changed = false;
       if (isDelete) {
+        this.removeDocSnapshot(docId, collectionName);
         if (idx >= 0) {
           arr.splice(idx, 1);
           changed = true;
         }
       } else if (dataObj) {
+        if (this.isCorruptOrPhantom(dataObj, docId)) return;
         if (idx >= 0) {
           const existing = arr[idx];
-          const merged = { ...existing, ...dataObj };
-          if (JSON.stringify(existing) !== JSON.stringify(merged)) {
-            arr[idx] = merged;
-            changed = true;
+          const baseSnap = this.getDocSnapshot(docId, collectionName);
+          const threeWay = baseSnap ? this.mergeDocumentWithSnapshot(existing, dataObj, baseSnap) : null;
+
+          if (threeWay && threeWay.usedThreeWay && threeWay.mergedDoc) {
+            if (!this._deepEqualIgnoringMeta(existing, threeWay.mergedDoc)) {
+              arr[idx] = threeWay.mergedDoc;
+              changed = true;
+            } else {
+              arr[idx] = threeWay.mergedDoc;
+            }
+            if (threeWay.remoteNeedsUpdate) {
+              this.queueSync(400);
+            } else {
+              this.saveDocSnapshot(docId, threeWay.mergedDoc, collectionName);
+            }
+          } else {
+            const localTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
+            const remoteTime = new Date(dataObj.updatedAt || dataObj.createdAt || 0).getTime();
+            if (remoteTime >= localTime) {
+              const merged = { ...existing, ...dataObj };
+              if (!this._deepEqualIgnoringMeta(existing, merged)) {
+                arr[idx] = merged;
+                changed = true;
+              } else if (dataObj._serverUpdateTime && arr[idx]) {
+                arr[idx]._serverUpdateTime = dataObj._serverUpdateTime;
+              }
+              this.saveDocSnapshot(docId, merged, collectionName);
+            }
           }
         } else {
           arr.push(dataObj);
+          this.saveDocSnapshot(docId, dataObj, collectionName);
           changed = true;
         }
       }
 
       if (changed) {
-        window.DBManager.scheduleVaultFlush(500);
+        if (window.DBManager) {
+          if (typeof window.DBManager.healJewelrySales === 'function') {
+            try { window.DBManager.healJewelrySales(localDb); } catch (_) {}
+          }
+          if (typeof window.DBManager.resequenceJewelrySno === 'function') {
+            try { window.DBManager.resequenceJewelrySno(); } catch (_) {}
+          }
+          if (typeof window.DBManager._rebuildIndexes === 'function') {
+            try { window.DBManager._rebuildIndexes(); } catch (_) {}
+          }
+          if (typeof window.DBManager.scheduleVaultFlush === 'function') {
+            window.DBManager.scheduleVaultFlush(500);
+          }
+        }
         if (typeof window.dispatchEvent === 'function') {
           window.dispatchEvent(new CustomEvent('mava:record-updated', {
             detail: { collection: collectionName, id: docId, isDelete, data: dataObj }

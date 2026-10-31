@@ -16,6 +16,9 @@ const JewelStoneMemoController = {
    * @param {string} memoId - Required when isDelete=true.
    */
   _pushToCloud(memo, isDelete = false, memoId = null) {
+    // If DBManager is active, DBManager.saveItem / deleteItem already performs
+    // granular cloud sync with optimistic concurrency and deduplication.
+    if (typeof window !== 'undefined' && window.DBManager) return;
     if (!window.CloudSync || !window.CloudSync.isEnabled()) return;
     const col = 'mava_catalog_jewel_stone_memos';
     try {
@@ -120,13 +123,123 @@ const JewelStoneMemoController = {
 
   getNextMemoNumber() {
     const memos = DBManager.getJewelStoneMemos();
-    if (memos.length === 0) return 'JSM-001';
+    const settings = (window.DBManager && typeof DBManager.getSettings === 'function')
+      ? DBManager.getSettings()
+      : ((DBManager.database && DBManager.database.settings) || {});
+    const lastSeq = Number(settings.lastJewelStoneMemoSeq || 0);
     const nums = memos.map(m => {
       const match = (m.memoNumber || '').match(/(?:SM|JSM)-(\d+)/);
       return match ? parseInt(match[1], 10) : 0;
     });
-    const next = Math.max(...nums) + 1;
+    const maxExisting = nums.length > 0 ? Math.max(...nums) : 0;
+    const next = Math.max(lastSeq, maxExisting) + 1;
     return `JSM-${String(next).padStart(3, '0')}`;
+  },
+
+  getOpenMemoPiecesForStone(stoneId) {
+    const memos = DBManager.getJewelStoneMemos();
+    let total = 0;
+    memos.forEach(memo => {
+      if (memo.status === 'open') {
+        (memo.items || []).forEach(item => {
+          if (item.stoneId === stoneId) {
+            const remPcs = (item.pieces || 0) - (item.returnedPieces || 0) - (item.mountedPieces || 0);
+            if (remPcs > 0) total += remPcs;
+          }
+        });
+      }
+    });
+    return total;
+  },
+
+  _distributeIntegersProportionally(weights, targetTotal, caps = null) {
+    const n = weights.length;
+    const result = new Array(n).fill(0);
+    if (n === 0 || targetTotal <= 0) return result;
+
+    const totalWeight = weights.reduce((s, w) => s + Math.max(0, Number(w || 0)), 0);
+    const remainders = [];
+    let allocated = 0;
+
+    for (let i = 0; i < n; i++) {
+      const w = totalWeight > 0 ? Math.max(0, Number(weights[i] || 0)) : 1;
+      const denom = totalWeight > 0 ? totalWeight : n;
+      const exact = (w / denom) * targetTotal;
+      const cap = caps ? Math.max(0, Number(caps[i] || 0)) : Infinity;
+      const floored = Math.min(cap, Math.floor(exact));
+      result[i] = floored;
+      allocated += floored;
+      remainders.push({ idx: i, rem: exact - Math.floor(exact), cap });
+    }
+
+    let leftover = targetTotal - allocated;
+    if (leftover > 0) {
+      remainders.sort((a, b) => b.rem - a.rem || a.idx - b.idx);
+      let progress = true;
+      while (leftover > 0 && progress) {
+        progress = false;
+        for (const entry of remainders) {
+          if (leftover <= 0) break;
+          if (result[entry.idx] < entry.cap) {
+            result[entry.idx] += 1;
+            leftover -= 1;
+            progress = true;
+          }
+        }
+      }
+    }
+    return result;
+  },
+
+  deductStockFromStone(stone, caratsToDeduct, piecesToDeduct) {
+    if (!stone || caratsToDeduct <= 0) return;
+
+    const curW = StoneController.getStoneWeight(stone);
+    const newW = Math.max(0, Number((curW - caratsToDeduct).toFixed(3)));
+    const pcsToDeduct = Math.max(0, Math.round(Number(piecesToDeduct || 0)));
+
+    if (Array.isArray(stone.sizes) && stone.sizes.length > 0) {
+      if (curW > 0 && newW > 0) {
+        const ratio = newW / curW;
+        stone.sizes.forEach(s => {
+          s.weight = Number((Number(s.weight || 0) * ratio).toFixed(3));
+        });
+        const sumWeights = stone.sizes.reduce((sum, s) => sum + Number(s.weight || 0), 0);
+        const diff = Number((newW - sumWeights).toFixed(3));
+        if (Math.abs(diff) >= 0.001) {
+          let targetRow = stone.sizes[stone.sizes.length - 1];
+          for (let i = stone.sizes.length - 1; i >= 0; i--) {
+            if (Number(stone.sizes[i].weight || 0) + diff >= 0) {
+              targetRow = stone.sizes[i];
+              break;
+            }
+          }
+          targetRow.weight = Math.max(0, Number((Number(targetRow.weight || 0) + diff).toFixed(3)));
+        }
+      } else {
+        stone.sizes.forEach(s => { s.weight = 0; });
+      }
+
+      const sizePieces = stone.sizes.map(s => Math.max(0, Math.round(Number(s.pieces || 0))));
+      const totalSizePieces = sizePieces.reduce((a, b) => a + b, 0);
+      if (pcsToDeduct > 0 && totalSizePieces > 0) {
+        const actualDeduct = Math.min(totalSizePieces, pcsToDeduct);
+        const deductions = this._distributeIntegersProportionally(sizePieces, actualDeduct, sizePieces);
+        stone.sizes.forEach((s, idx) => {
+          s.pieces = Math.max(0, sizePieces[idx] - deductions[idx]);
+        });
+        if (stone.pieces !== undefined) {
+          stone.pieces = stone.sizes.reduce((sum, s) => sum + Math.max(0, Number(s.pieces || 0)), 0);
+        }
+      } else if (pcsToDeduct > 0) {
+        stone.pieces = Math.max(0, Number(stone.pieces || 0) - pcsToDeduct);
+      }
+    } else if (pcsToDeduct > 0) {
+      stone.pieces = Math.max(0, Number(stone.pieces || 0) - pcsToDeduct);
+    }
+
+    stone.weight = newW;
+    stone.updatedAt = new Date().toISOString();
   },
 
   getOpenMemoCaratsForStone(stoneId) {
@@ -271,13 +384,26 @@ const JewelStoneMemoController = {
     const stones = DBManager.getStones();
     const memoCaratsMap = this.buildMemoCaratsMap();
 
-    const filtered = stones.filter(st => {
-      if (this.selectedItems.some(item => item.stoneId === st.id)) return false;
-
+    const computeAvailForStone = (st) => {
       const totalCts = StoneController.getStoneWeight(st);
       const memoCts = Number((memoCaratsMap[st.id] || 0).toFixed(3));
-      const availCts = Math.max(0, Number((totalCts - memoCts).toFixed(3)));
-      if (availCts <= 0) return false;
+      const stagedCts = this.selectedItems
+        .filter(si => si.stoneId === st.id)
+        .reduce((sum, si) => sum + (si.carats || 0), 0);
+      const availCts = Math.max(0, Number((totalCts - memoCts - stagedCts).toFixed(3)));
+
+      const totalPcs = StoneController.getStonePieces(st);
+      const openMemoPcs = this.getOpenMemoPiecesForStone(st.id);
+      const stagedPcs = this.selectedItems
+        .filter(si => si.stoneId === st.id)
+        .reduce((sum, si) => sum + (si.pieces || 0), 0);
+      const availPcs = totalPcs > 0 ? Math.max(0, totalPcs - openMemoPcs - stagedPcs) : 0;
+      return { availCts, availPcs, totalPcs };
+    };
+
+    const filtered = stones.filter(st => {
+      const { availCts } = computeAvailForStone(st);
+      if (availCts <= 0.001) return false;
 
       if (typeVal && st.type !== typeVal) return false;
       if (groupVal && st.group !== groupVal) return false;
@@ -299,9 +425,7 @@ const JewelStoneMemoController = {
     }
 
     filtered.forEach(st => {
-      const totalCts = StoneController.getStoneWeight(st);
-      const memoCts = Number((memoCaratsMap[st.id] || 0).toFixed(3));
-      const availCts = Math.max(0, Number((totalCts - memoCts).toFixed(3)));
+      const { availCts, availPcs } = computeAvailForStone(st);
 
       const div = document.createElement('div');
       div.className = 'pudia-picker-row';
@@ -331,10 +455,10 @@ const JewelStoneMemoController = {
         const caratsInp = document.getElementById('jewel-stone-memo-create-carats');
         const piecesInp = document.getElementById('jewel-stone-memo-create-pieces');
 
-        if (lbl) lbl.textContent = `(Available: ${availCts.toFixed(3)} cts)`;
+        if (lbl) lbl.textContent = `(Available: ${availCts.toFixed(3)} cts${availPcs > 0 ? ` · ${availPcs} pcs` : ''})`;
         caratsInp.max = availCts;
         caratsInp.value = availCts;
-        piecesInp.value = StoneController.getStonePieces(st) || '';
+        piecesInp.value = availPcs || '';
       });
 
       listContainer.appendChild(div);
@@ -353,7 +477,7 @@ const JewelStoneMemoController = {
     }
 
     const inputCarats = Number(caratsInp.value || 0);
-    const inputPieces = Number(piecesInp.value || 0);
+    const inputPieces = Math.max(0, Math.round(Number(piecesInp ? (piecesInp.value || 0) : 0)));
 
     const stone = DBManager.getStones().find(st => st.id === stoneId);
     if (!stone) return;
@@ -361,7 +485,17 @@ const JewelStoneMemoController = {
     const memoCaratsMap = this.buildMemoCaratsMap();
     const totalCts = StoneController.getStoneWeight(stone);
     const memoCts = Number((memoCaratsMap[stone.id] || 0).toFixed(3));
-    const maxCts = Math.max(0, Number((totalCts - memoCts).toFixed(3)));
+    const stagedCts = this.selectedItems
+      .filter(si => si.stoneId === stone.id)
+      .reduce((sum, si) => sum + (si.carats || 0), 0);
+    const maxCts = Math.max(0, Number((totalCts - memoCts - stagedCts).toFixed(3)));
+
+    const totalPcs = StoneController.getStonePieces(stone);
+    const openMemoPcs = this.getOpenMemoPiecesForStone(stone.id);
+    const stagedPcs = this.selectedItems
+      .filter(si => si.stoneId === stone.id)
+      .reduce((sum, si) => sum + (si.pieces || 0), 0);
+    const maxPcs = totalPcs > 0 ? Math.max(0, totalPcs - openMemoPcs - stagedPcs) : 0;
 
     if (inputCarats <= 0) {
       UI.showToast('Please enter a valid weight in carats.', true);
@@ -373,26 +507,37 @@ const JewelStoneMemoController = {
       return;
     }
 
-    this.selectedItems.push({
-      stoneId,
-      stoneSnapshot: {
-        type: stone.type || 'Diamond',
-        group: stone.group || '',
-        lustreGrade: stone.lustreGrade || '',
-        color: stone.color || '',
-        shape: stone.shape || ''
-      },
-      carats: Number(inputCarats.toFixed(3)),
-      pieces: inputPieces,
-      returnedCarats: 0,
-      mountedCarats: 0,
-      returnedPieces: 0,
-      mountedPieces: 0
-    });
+    if (totalPcs > 0 && inputPieces > maxPcs) {
+      UI.showToast(`Cannot issue more than available pieces (${maxPcs} pcs).`, true);
+      return;
+    }
+
+    const existingRow = this.selectedItems.find(si => si.stoneId === stoneId);
+    if (existingRow) {
+      existingRow.carats = Number(((existingRow.carats || 0) + inputCarats).toFixed(3));
+      existingRow.pieces = (existingRow.pieces || 0) + inputPieces;
+    } else {
+      this.selectedItems.push({
+        stoneId,
+        stoneSnapshot: {
+          type: stone.type || 'Diamond',
+          group: stone.group || '',
+          lustreGrade: stone.lustreGrade || '',
+          color: stone.color || '',
+          shape: stone.shape || ''
+        },
+        carats: Number(inputCarats.toFixed(3)),
+        pieces: inputPieces,
+        returnedCarats: 0,
+        mountedCarats: 0,
+        returnedPieces: 0,
+        mountedPieces: 0
+      });
+    }
 
     this.activeCreateSelectedId = null;
     caratsInp.value = '';
-    piecesInp.value = '';
+    if (piecesInp) piecesInp.value = '';
     const lbl = document.getElementById('jewel-stone-memo-create-avail-carats-lbl');
     if (lbl) lbl.textContent = '(Available: —)';
 
@@ -464,15 +609,30 @@ const JewelStoneMemoController = {
 
     const totalCarats = Number(this.selectedItems.reduce((s, i) => s + i.carats, 0).toFixed(3));
     const memoNumber = this.getNextMemoNumber();
+    const seqMatch = (memoNumber || '').match(/(?:SM|JSM)-(\d+)/);
+    if (seqMatch && window.DBManager) {
+      const seqNum = parseInt(seqMatch[1], 10);
+      const settings = typeof DBManager.getSettings === 'function'
+        ? DBManager.getSettings()
+        : ((DBManager.database && DBManager.database.settings) || {});
+      if (seqNum > Number(settings.lastJewelStoneMemoSeq || 0)) {
+        if (typeof DBManager.saveSettings === 'function') {
+          DBManager.saveSettings({ ...settings, lastJewelStoneMemoSeq: seqNum });
+        } else if (DBManager.database && DBManager.database.settings) {
+          DBManager.database.settings.lastJewelStoneMemoSeq = seqNum;
+        }
+      }
+    }
 
+    const nowIso = new Date().toISOString();
     const memo = {
       id: 'jewel_stone_memo_' + Date.now(),
       memoNumber,
       manufacturerName,
       date,
       status: 'open', // open | closed
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: nowIso,
+      updatedAt: nowIso,
       closedAt: null,
       notes,
       items: this.selectedItems,
@@ -480,8 +640,11 @@ const JewelStoneMemoController = {
     };
 
     if (!DBManager.database.jewelStoneMemos) DBManager.database.jewelStoneMemos = [];
-    DBManager.database.jewelStoneMemos.push(memo);
-    if (window.DBManager) DBManager.saveItem('mava_catalog_jewel_stone_memos', memo);
+    if (window.DBManager) {
+      DBManager.saveItem('mava_catalog_jewel_stone_memos', memo);
+    } else {
+      DBManager.database.jewelStoneMemos.push(memo);
+    }
 
     DBManager.addLog(
       'ADD', memo.id, `Jewel Stone Memo ${memoNumber}`,
@@ -504,7 +667,14 @@ const JewelStoneMemoController = {
   renderMemoList(force = false) {
     const memos = DBManager.getJewelStoneMemos();
     const openMemos = memos.filter(m => m.status === 'open');
-    const totalOnMemo = openMemos.reduce((s, m) => s + (m.totalCarats || 0), 0);
+    const totalOnMemo = openMemos.reduce((s, m) => {
+      if (Array.isArray(m.items) && m.items.length > 0) {
+        return s + m.items.reduce((isum, it) => {
+          return isum + Math.max(0, (it.carats || 0) - (it.returnedCarats || 0) - (it.mountedCarats || 0));
+        }, 0);
+      }
+      return s + (m.totalCarats || 0);
+    }, 0);
 
     const elCount = document.getElementById('metric-jewel-stone-open-count');
     const elCts = document.getElementById('metric-jewel-stone-carats');
@@ -528,11 +698,14 @@ const JewelStoneMemoController = {
         (m.manufacturerName || '').toLowerCase().includes(query) ||
         (m.memoNumber || '').toLowerCase().includes(query) ||
         (m.notes || '').toLowerCase().includes(query) ||
-        (m.items || []).some(it =>
-          (it.stoneType || it.type || '').toLowerCase().includes(query) ||
-          (it.group || '').toLowerCase().includes(query) ||
-          (it.lotNumber || it.color || '').toString().toLowerCase().includes(query)
-        );
+        (m.items || []).some(it => {
+          const snap = it.stoneSnapshot || {};
+          return ((snap.type || it.stoneType || it.type || '').toLowerCase().includes(query)) ||
+            ((snap.group || it.group || '').toLowerCase().includes(query)) ||
+            ((snap.lustreGrade || it.lustreGrade || '').toLowerCase().includes(query)) ||
+            ((snap.shape || it.shape || '').toLowerCase().includes(query)) ||
+            (String(snap.color !== undefined ? snap.color : (it.lotNumber || it.color || '')).toLowerCase().includes(query));
+        });
       return matchStatus && matchSearch;
     });
 
@@ -544,7 +717,7 @@ const JewelStoneMemoController = {
 
     // Fingerprint check to prevent redundant DOM destruction and screen flickering
     const memoFingerprint = `${filterVal}|${query}|${filtered.length}|` +
-      filtered.map(m => `${m.id}_${m.updatedAt || ''}_${m.status}_${m.totalCarats || 0}_${(m.items || []).length}`).join(';');
+      filtered.map(m => `${m.id}_${m.updatedAt || ''}_${m.status}_${m.totalCarats || 0}_${(m.items || []).map(it => `${it.carats || 0}:${it.mountedCarats || 0}:${it.returnedCarats || 0}`).join(',')}`).join(';');
 
     if (!force && this._lastStoneMemoFingerprint === memoFingerprint && tbody.children.length > 0) {
       return;
@@ -838,21 +1011,7 @@ const JewelStoneMemoController = {
       // Permanently deduct from loose stone stock
       const stone = DBManager.database.stones.find(st => st.id === item.stoneId);
       if (stone) {
-        const curW = StoneController.getStoneWeight(stone);
-        const newW = Math.max(0, Number((curW - inputCarats).toFixed(3)));
-
-        if (stone.sizes && stone.sizes.length > 0 && curW > 0) {
-          const ratio = newW / curW;
-          stone.sizes.forEach(s => {
-            s.weight = Number((Number(s.weight || 0) * ratio).toFixed(3));
-            if (s.pieces > 0 && item.pieces > 0) {
-              const pRatio = Math.max(0, (StoneController.getStonePieces(stone) - inputPieces) / StoneController.getStonePieces(stone));
-              s.pieces = Math.round(s.pieces * pRatio);
-            }
-          });
-        }
-        stone.weight = newW;
-        stone.updatedAt = new Date().toISOString();
+        this.deductStockFromStone(stone, inputCarats, inputPieces);
         if (window.DBManager) DBManager.saveItem('mava_catalog_stones', stone);
       }
     }
@@ -866,8 +1025,11 @@ const JewelStoneMemoController = {
     if (totalRemaining <= 0.001) {
       const totalMounted = memo.items.reduce((sum, it) => sum + (it.mountedCarats || 0), 0);
       if (totalMounted <= 0.001) {
-        DBManager.database.jewelStoneMemos = DBManager.database.jewelStoneMemos.filter(m => m.id !== memo.id);
-        if (window.DBManager) DBManager.deleteItem('mava_catalog_jewel_stone_memos', memo.id);
+        if (window.DBManager) {
+          DBManager.deleteItem('mava_catalog_jewel_stone_memos', memo.id);
+        } else {
+          DBManager.database.jewelStoneMemos = DBManager.database.jewelStoneMemos.filter(m => m.id !== memo.id);
+        }
         isDeleted = true;
       } else {
         memo.status = 'closed';
@@ -937,21 +1099,7 @@ const JewelStoneMemoController = {
 
             const stone = DBManager.database.stones.find(st => st.id === item.stoneId);
             if (stone) {
-              const curW = StoneController.getStoneWeight(stone);
-              const newW = Math.max(0, Number((curW - rem).toFixed(3)));
-
-              if (stone.sizes && stone.sizes.length > 0 && curW > 0) {
-                const ratio = newW / curW;
-                stone.sizes.forEach(s => {
-                  s.weight = Number((Number(s.weight || 0) * ratio).toFixed(3));
-                  if (s.pieces > 0 && remPcs > 0) {
-                    const pRatio = Math.max(0, (StoneController.getStonePieces(stone) - remPcs) / StoneController.getStonePieces(stone));
-                    s.pieces = Math.round(s.pieces * pRatio);
-                  }
-                });
-              }
-              stone.weight = newW;
-              stone.updatedAt = new Date().toISOString();
+              this.deductStockFromStone(stone, rem, remPcs);
               if (window.DBManager) DBManager.saveItem('mava_catalog_stones', stone);
             }
           } else {
@@ -964,8 +1112,11 @@ const JewelStoneMemoController = {
         let isDeleted = false;
 
         if (totalMounted <= 0.001) {
-          DBManager.database.jewelStoneMemos = DBManager.database.jewelStoneMemos.filter(m => m.id !== memo.id);
-          if (window.DBManager) DBManager.deleteItem('mava_catalog_jewel_stone_memos', memo.id);
+          if (window.DBManager) {
+            DBManager.deleteItem('mava_catalog_jewel_stone_memos', memo.id);
+          } else {
+            DBManager.database.jewelStoneMemos = DBManager.database.jewelStoneMemos.filter(m => m.id !== memo.id);
+          }
           isDeleted = true;
         } else {
           memo.status = 'closed';
