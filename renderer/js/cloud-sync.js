@@ -42,6 +42,7 @@
     STORAGE_KEY_QUEUE: 'mava_offline_sync_queue',
     STORAGE_KEY_TOMBSTONES: 'mava_offline_tombstones',
     STORAGE_KEY_SNAPSHOTS: 'mava_sync_snapshots',
+    STORAGE_KEY_LAST_SYNC: 'mava_last_sync_timestamp',
 
     _isAppBooting() {
       return Boolean(typeof window !== 'undefined' && window.DBManager && window.DBManager._isBooting);
@@ -58,6 +59,14 @@
       this._lastUserActivity = Date.now();
       this._lastSyncAttempt = Date.now();
       this.loadConfig();
+      try {
+        if (typeof localStorage !== 'undefined') {
+          const savedLastSync = localStorage.getItem(this.STORAGE_KEY_LAST_SYNC);
+          if (savedLastSync && !isNaN(new Date(savedLastSync).getTime())) {
+            this.lastSyncTime = savedLastSync;
+          }
+        }
+      } catch (_) {}
       if (customConfig && typeof customConfig === 'object') {
         this.config = { ...this.config, ...customConfig };
       }
@@ -1736,11 +1745,11 @@
           console.warn('Deletions sync note:', delSyncErr.message);
         }
 
-        // 3. Sync inventory collections (Delta or Full)
+        // 3. Sync inventory collections in parallel chunks for maximum launch & active throughput
         let failedCount = 0;
         let lastErr = null;
 
-        for (const col of collections) {
+        const syncSingleCollection = async (col) => {
           if (!Array.isArray(localDb[col.key])) {
             localDb[col.key] = [];
           }
@@ -1755,7 +1764,7 @@
 
           if (isDelta) {
             // Delta path: Fetch remote documents modified since last sync.
-            // Fix: Widen clock-skew buffer to 5 min (was 60s) so phone edits are never missed.
+            // Widen clock-skew buffer to 5 min so edits from other devices are never missed.
             try {
               const forceUploadIds = new Set();
               const safeSince = new Date(Math.max(0, new Date(this.lastSyncTime).getTime() - 300000)).toISOString();
@@ -1894,7 +1903,7 @@
               console.warn(`Could not list remote ${col.name}:`, listErr.message);
               failedCount++;
               lastErr = listErr;
-              continue;
+              return;
             }
 
             const { merged, itemsToUpload, updatedRemoteCount } = this.mergeArray(localList, remoteList, col.idKey, colDeletedIds, col.name);
@@ -1928,6 +1937,13 @@
               }
             }
           }
+        };
+
+        // Run sync in parallel batches of 3 collections to minimize network latency while avoiding socket saturation
+        const PARALLEL_BATCH_SIZE = 3;
+        for (let i = 0; i < collections.length; i += PARALLEL_BATCH_SIZE) {
+          const colBatch = collections.slice(i, i + PARALLEL_BATCH_SIZE);
+          await Promise.all(colBatch.map(col => syncSingleCollection(col)));
         }
 
         if (failedCount === collections.length) {
@@ -1937,6 +1953,11 @@
         const endTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
         this.lastSyncLatencyMs = Math.max(1, Math.round(endTime - startTime));
         this.lastSyncTime = syncStartTime;
+        try {
+          if (typeof localStorage !== 'undefined') {
+            localStorage.setItem(this.STORAGE_KEY_LAST_SYNC, this.lastSyncTime);
+          }
+        } catch (_) {}
         this.updateStatus('online', `Sync complete (${this.lastSyncLatencyMs}ms)`);
 
         // If changes were made to local state, heal lifecycle first, then resequence sno, rebuild indexes, and persist

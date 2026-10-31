@@ -477,8 +477,9 @@ const Calc = {
    * @param {Object} itemData - Raw, un-saved or parsed item state
    * @param {number} goldRate24kt - Global 24KT rate per gram (used for Market Cost Price & Selling Price)
    * @param {number} [mfgGoldRate24kt] - 24KT rate per gram on Date of Mfg (used for Home Cost Price)
+   * @param {Object} [options] - Optional overrides (e.g., { profitPercentage }) applied without mutating itemData
    */
-  evaluateItem(itemData, goldRate24kt, mfgGoldRate24kt) {
+  evaluateItem(itemData, goldRate24kt, mfgGoldRate24kt, options = {}) {
     const netMetals = this.getNetMetals(itemData);
 
     const globalRate = Number(goldRate24kt || 0);
@@ -585,7 +586,14 @@ const Calc = {
     const emeraldDiscountFactor = Math.max(0, emeraldDiscountPct) / 100;
     const homeCostPrice = Number((marketCostPrice - (emeraldTotal * emeraldDiscountFactor)).toFixed(2));
 
-    const profitPct = Number(itemData?.profitPercentage !== undefined ? itemData.profitPercentage : 40);
+    const hasOverrideProfit = options &&
+      options.profitPercentage !== undefined &&
+      options.profitPercentage !== null &&
+      options.profitPercentage !== '' &&
+      Number.isFinite(Number(options.profitPercentage));
+    const profitPct = hasOverrideProfit
+      ? Number(options.profitPercentage)
+      : Number(itemData?.profitPercentage !== undefined ? itemData.profitPercentage : 40);
     const sellingPrice = Number((((marketCostPrice - emeraldTotal) * (1 + profitPct / 100)) + emeraldTotal).toFixed(2));
 
     const totalGrossWeight = Number((itemData?.grossWeight > 0 ? Number(itemData.grossWeight) : netMetals.reduce((sum, m) => sum + Number(m.grossWeight || 0), 0)).toFixed(3));
@@ -608,6 +616,7 @@ const Calc = {
       homeCostPrice: homeCostPrice,
       emeraldTotal: emeraldTotal,
       emeraldDiscountPercentage: emeraldDiscountPct,
+      profitPercentage: profitPct,
       sellingPrice: sellingPrice,
       hasEmerald: emeraldTotal > 0,
       totalGrossWeight: totalGrossWeight,

@@ -2031,6 +2031,26 @@
                 Reset
               </button>
 
+              <div id="catalog-custom-profit-toolbar" data-client-hide
+                style="display: inline-flex; align-items: center; gap: 8px; font-size: 12px; border: 1px solid var(--border-light); background: var(--bg-card); border-radius: 6px; padding: 0 10px; height: 42px; box-sizing: border-box; flex-wrap: nowrap;">
+                <label
+                  style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600; text-transform: none; margin: 0; cursor: pointer; user-select: none; white-space: nowrap;"
+                  title="Preview or export catalog items with a custom profit margin % applied strictly on non-emerald cost (Emeralds excluded, matching Add Piece formula)">
+                  <input type="checkbox" id="catalog-apply-custom-profit" style="width: auto; margin: 0; accent-color: var(--text-gold-dark);">
+                  <span>Custom Profit % <span style="font-size: 11px; color: var(--text-gold-dark); font-weight: 700;">(Excl. Emeralds)</span></span>
+                </label>
+                <div id="catalog-custom-profit-input-wrap" style="display: none; align-items: center; gap: 5px;">
+                  <input type="number" id="catalog-custom-profit-input" step="0.1" min="0" inputmode="decimal"
+                    value="40.0" placeholder="40.0"
+                    style="width: 72px; height: 30px; padding: 2px 6px; font-size: 12px; font-weight: 700; text-align: right; border: 1px solid var(--text-gold-dark); border-radius: 4px; background: var(--bg-base); color: var(--text-main);">
+                  <span style="font-size: 11px; font-weight: 700; color: var(--text-gold-dark);">%</span>
+                </div>
+                <span id="catalog-custom-profit-pill"
+                  style="display: none; font-size: 10px; padding: 2px 7px; border-radius: 4px; background: rgba(212,175,55,0.14); color: var(--text-gold-dark); border: 1px solid rgba(212,175,55,0.35); font-weight: 700; white-space: nowrap;">
+                  Emeralds 0% markup
+                </span>
+              </div>
+
               <div class="view-toggle-group">
                 <button type="button" id="btn-view-grid" class="btn-view-toggle active" title="Grid View">
                   <svg viewBox="0 0 24 24" width="16" height="16">
@@ -2745,6 +2765,36 @@
                   Price</span>
                 <span id="detail-jewelry-selling-price"
                   style="font-size: 20px; font-weight: 800; color: var(--text-gold);"></span>
+              </div>
+            </div>
+
+            <!-- Custom Profit Margin Preview (Excluding Emeralds) -->
+            <div id="detail-jewelry-custom-profit-bar" class="cost-price-data" data-client-hide
+              style="background-color: var(--bg-base); padding: 12px 16px; border-radius: 8px; border: 1px solid rgba(212, 175, 55, 0.35); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+              <div style="display: flex; flex-direction: column; gap: 2px;">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                  <span style="font-size: 12px; font-weight: 700; color: var(--text-main);">Custom Profit Margin % <span style="color: var(--text-gold-dark);">(Excluding Emeralds)</span></span>
+                  <span id="detail-jewelry-saved-profit-badge"
+                    style="font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; background: rgba(212, 175, 55, 0.12); color: var(--text-gold-dark); border: 1px solid rgba(212, 175, 55, 0.3);">
+                    Saved: 40.0%
+                  </span>
+                </div>
+                <span id="detail-jewelry-custom-profit-note" style="font-size: 11px; color: var(--text-muted);">
+                  Applies profit % strictly on non-emerald cost (Emeralds added at 1.0x without markup). Preview only — saved item is unchanged.
+                </span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="display: inline-flex; align-items: center; gap: 5px;">
+                  <input type="number" id="detail-jewelry-custom-profit-pct" step="0.1" min="0" inputmode="decimal"
+                    placeholder="40.0" value="40.0"
+                    style="width: 82px; height: 34px; padding: 4px 8px; font-size: 13px; font-weight: 700; text-align: right; border: 1px solid var(--text-gold-dark); border-radius: 4px; background: var(--bg-card); color: var(--text-main);">
+                  <span style="font-size: 12px; font-weight: 700; color: var(--text-gold-dark);">%</span>
+                </div>
+                <button type="button" id="btn-detail-reset-profit-pct" class="btn btn-secondary btn-small"
+                  style="display: none; height: 34px; padding: 0 10px; font-size: 11px; white-space: nowrap;"
+                  title="Reset to this item's saved profit margin %">
+                  ↺ Reset
+                </button>
               </div>
             </div>
 
@@ -4832,8 +4882,32 @@
         </div>
 
         <div class="jewelry-export-multiplier-container"
-          style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 6px; padding: 10px 12px; margin-bottom: 12px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+          style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 10px;">
+          <!-- 1. Custom Profit Margin % (Excluding Emeralds) -->
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-bottom: 10px; border-bottom: 1px dashed var(--border-light);">
+            <label for="jewelry-export-apply-custom-profit"
+              style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0; text-transform: none; font-weight: normal;">
+              <input type="checkbox" id="jewelry-export-apply-custom-profit"
+                style="width: 15px; height: 15px; margin: 0; accent-color: var(--text-gold-dark);">
+              <div>
+                <div style="font-weight: 600; font-size: 12px; color: var(--text-main);">
+                  Custom Profit Margin % <span style="color: var(--text-gold); font-weight: 700;">(Excluding Emeralds)</span>
+                </div>
+                <div style="font-size: 11px; color: var(--text-muted);">
+                  Applies custom profit % on non-emerald market cost (Emeralds added at 1.0x, matching Add Piece formula)
+                </div>
+              </div>
+            </label>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <input type="number" id="jewelry-export-custom-profit-pct" step="0.1" min="0" inputmode="decimal"
+                value="40.0" placeholder="40.0" disabled
+                style="width: 84px; height: 34px; padding: 4px 8px; font-size: 12px; font-weight: 700; text-align: right; border: 1px solid var(--border-light); border-radius: 4px; background: var(--bg-base); color: var(--text-main); opacity: 0.6;">
+              <span style="font-size: 12px; font-weight: 700; color: var(--text-gold);">%</span>
+            </div>
+          </div>
+
+          <!-- 2. Selling Price Multiplier -->
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-bottom: 10px; border-bottom: 1px dashed var(--border-light);">
             <div style="display: flex; align-items: center; gap: 8px;">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
                 style="color: var(--text-gold);">
@@ -4869,8 +4943,45 @@
                 style="display: none; width: 80px; height: 34px; padding: 4px 8px; font-size: 12px; border: 1px solid var(--border-light); border-radius: 4px; background: var(--bg-base); color: var(--text-main);">
             </div>
           </div>
+
+          <!-- 3. Excel Price Coding (Divide Visible Prices By Any Number) -->
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+                style="color: var(--text-gold);">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <circle cx="12" cy="6" r="1.5" fill="currentColor"></circle>
+                <circle cx="12" cy="18" r="1.5" fill="currentColor"></circle>
+              </svg>
+              <div>
+                <div style="font-weight: 600; font-size: 12px; color: var(--text-main);">
+                  Code Excel Prices — Divide Visible Prices By
+                </div>
+                <div style="font-size: 11px; color: var(--text-muted);">
+                  Divides all visible prices in exported Excel by any number (1 = actual uncoded prices; divisor stays hidden)
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <span id="jewelry-export-divisor-preview"
+                style="font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 4px; background: var(--bg-base); border: 1px solid var(--border-light); color: var(--text-muted); white-space: nowrap;">
+                1 (Actual Prices)
+              </span>
+              <div style="display: inline-flex; align-items: center; gap: 5px;">
+                <span style="font-size: 13px; font-weight: 700; color: var(--text-gold);">÷</span>
+                <input type="number" id="jewelry-export-price-divisor" step="any" min="0.0001" inputmode="decimal"
+                  value="1" placeholder="e.g. 5 or 100"
+                  style="width: 92px; height: 34px; padding: 4px 8px; font-size: 12px; font-weight: 700; text-align: right; border: 1px solid var(--border-light); border-radius: 4px; background: var(--bg-base); color: var(--text-main);">
+              </div>
+              <button type="button" id="btn-reset-jewelry-export-divisor" class="btn-text"
+                style="display: none; font-size: 11px; color: var(--text-gold);" title="Reset divisor to 1 (uncoded)">
+                ↺ 1x
+              </button>
+            </div>
+          </div>
+
           <div id="jewelry-export-multiplier-applied-info"
-            style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; padding: 6px 10px; background: rgba(212, 175, 55, 0.08); border-radius: 4px; border: 1px solid rgba(212, 175, 55, 0.25); color: var(--text-main); margin-top: 8px; flex-wrap: wrap; gap: 6px;">
+            style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; padding: 6px 10px; background: rgba(212, 175, 55, 0.08); border-radius: 4px; border: 1px solid rgba(212, 175, 55, 0.25); color: var(--text-main); flex-wrap: wrap; gap: 6px;">
             <span style="display: flex; align-items: center; gap: 5px;">
               <strong style="color: var(--text-gold);">Multiplier Applied On:</strong>
               <span id="jewelry-export-multiplier-target-text" style="font-weight: 600;">Base Selling Price (Standard unmodified price)</span>
@@ -5133,9 +5244,23 @@
               <label for="presentation-price-mode">Pricing Display Mode</label>
               <select id="presentation-price-mode" class="filter-select">
                 <option value="selling">Selling Price (Standard)</option>
+                <option value="custom_profit">Custom Profit % (Excl. Emeralds)</option>
                 <option value="custom">Multiplier on Market Cost Price</option>
                 <option value="hide">Hide All Prices (Photos & Specs Only)</option>
               </select>
+            </div>
+          </div>
+          <div class="form-col-6" id="group-presentation-custom-profit" style="display: none;">
+            <div class="input-group">
+              <label for="presentation-custom-profit-pct">
+                Custom Profit % (Excluding Emeralds)
+              </label>
+              <input type="number" id="presentation-custom-profit-pct" step="0.1" min="0" value="40.0"
+                placeholder="e.g. 35.0" />
+              <div id="presentation-custom-profit-help" class="form-helper-text"
+                style="font-size: 11px; color: var(--text-gold-dark); margin-top: 4px; font-weight: 600;">
+                Profit % applied strictly on non-emerald cost • Emeralds added at 1.0x without markup
+              </div>
             </div>
           </div>
           <div class="form-col-6" id="group-presentation-multiplier" style="display: none;">

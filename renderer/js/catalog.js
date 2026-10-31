@@ -116,6 +116,30 @@ const Catalog = {
       btnAddJewelryPieceMain.addEventListener('click', openAddModal);
     }
 
+    // Custom Profit Margin % (Excluding Emeralds) toolbar controls
+    const customProfitCheckbox = document.getElementById('catalog-apply-custom-profit');
+    const customProfitInput = document.getElementById('catalog-custom-profit-input');
+    if (customProfitCheckbox) {
+      customProfitCheckbox.addEventListener('change', () => {
+        this.updateCatalogCustomProfitUI();
+        if (customProfitCheckbox.checked && customProfitInput) {
+          customProfitInput.focus();
+          customProfitInput.select();
+        }
+        this.renderCatalogGrid(true);
+      });
+    }
+    if (customProfitInput) {
+      customProfitInput.addEventListener('input', UI.debounce(() => {
+        this.updateCatalogCustomProfitUI();
+        this.renderCatalogGrid(true);
+      }, 150));
+      customProfitInput.addEventListener('change', () => {
+        this.updateCatalogCustomProfitUI();
+        this.renderCatalogGrid(true);
+      });
+    }
+
     // View toggle listeners
     this.viewType = localStorage.getItem('catalogViewType') || 'grid';
     this.updateViewToggleUI();
@@ -215,6 +239,12 @@ const Catalog = {
     const sortEl = document.getElementById('sort-items');
     if (sortEl) sortEl.value = 'sno-asc';
 
+    const customProfitCb = document.getElementById('catalog-apply-custom-profit');
+    if (customProfitCb) customProfitCb.checked = false;
+    const customProfitInp = document.getElementById('catalog-custom-profit-input');
+    if (customProfitInp) customProfitInp.value = '40.0';
+    this.updateCatalogCustomProfitUI();
+
     // Reset mobile chips: reactivate the "Active" status chip, deactivate others
     const chips = document.querySelectorAll('#mobile-catalog-chips .mobile-chip');
     chips.forEach(c => c.classList.remove('active'));
@@ -234,6 +264,43 @@ const Catalog = {
     localStorage.setItem('catalogViewType', type);
     this.updateViewToggleUI();
     this.renderCatalogGrid();
+  },
+
+  /**
+   * Returns active custom profit margin % (excluding emeralds) from the Catalog screen toolbar,
+   * or null if custom profit override is turned off.
+   */
+  getActiveCustomProfitMargin() {
+    const cb = document.getElementById('catalog-apply-custom-profit');
+    const inp = document.getElementById('catalog-custom-profit-input');
+    if (!cb || !cb.checked || !inp) return null;
+    const raw = String(inp.value ?? '').trim();
+    if (raw === '') return null;
+    const val = Number(raw);
+    if (!Number.isFinite(val) || val < 0) return null;
+    return val;
+  },
+
+  updateCatalogCustomProfitUI() {
+    const cb = document.getElementById('catalog-apply-custom-profit');
+    const wrap = document.getElementById('catalog-custom-profit-input-wrap');
+    const pill = document.getElementById('catalog-custom-profit-pill');
+    const toolbar = document.getElementById('catalog-custom-profit-toolbar');
+    const isChecked = Boolean(cb && cb.checked);
+
+    if (wrap) wrap.style.display = isChecked ? 'inline-flex' : 'none';
+    if (pill) {
+      const activeMargin = this.getActiveCustomProfitMargin();
+      pill.style.display = isChecked ? 'inline-block' : 'none';
+      if (isChecked) {
+        pill.textContent = activeMargin !== null
+          ? `${activeMargin}% (Emeralds 0% markup)`
+          : 'Enter valid %';
+      }
+    }
+    if (toolbar) {
+      toolbar.style.borderColor = isChecked ? 'var(--text-gold-dark)' : 'var(--border-light)';
+    }
   },
 
   updateViewToggleUI() {
@@ -1132,8 +1199,10 @@ const Catalog = {
     });
 
     // Evaluate valuation before sorting so we can sort dynamically by calculated values!
+    const customProfitPct = this.getActiveCustomProfitMargin();
+    const evalOptions = customProfitPct !== null ? { profitPercentage: customProfitPct } : undefined;
     filtered = filtered.map(item => {
-      const evaluation = Calc.evaluateItem(item, goldRate);
+      const evaluation = Calc.evaluateItem(item, goldRate, undefined, evalOptions);
       return {
         ...item,
         calculatedTotal: evaluation.marketCostPrice,
@@ -1161,8 +1230,8 @@ const Catalog = {
     }
 
     // Fingerprint check to prevent redundant DOM destruction and screen flickering
-    const fingerprint = `${query}|${filterCat}|${statusFilter}|${filterKarat}|${sortVal}|${this.viewType}|${goldRate}|${this.selectedItemIds ? this.selectedItemIds.size : 0}|${filtered.length}|` +
-      filtered.map(i => `${i.id}_${i.updatedAt || ''}_${i.status}_${itemSnoMap.get(i.id) || i.sno}_${Math.round(i.calculatedTotal || 0)}_${(this.selectedItemIds && this.selectedItemIds.has(i.id)) ? 1 : 0}_${(i.images && i.images.length) || 0}`).join(';');
+    const fingerprint = `${query}|${filterCat}|${statusFilter}|${filterKarat}|${sortVal}|${this.viewType}|${goldRate}|${customProfitPct !== null ? customProfitPct : 'default'}|${this.selectedItemIds ? this.selectedItemIds.size : 0}|${filtered.length}|` +
+      filtered.map(i => `${i.id}_${i.updatedAt || ''}_${i.status}_${itemSnoMap.get(i.id) || i.sno}_${Math.round(i.calculatedTotal || 0)}_${Math.round(i.evaluation?.sellingPrice || 0)}_${(this.selectedItemIds && this.selectedItemIds.has(i.id)) ? 1 : 0}_${(i.images && i.images.length) || 0}`).join(';');
 
     if (!force && this._lastGridFingerprint === fingerprint && gridContainer.children.length > 0) {
       this.updateBulkSelectionUI(filtered);
@@ -1410,7 +1479,7 @@ const Catalog = {
             ${commHtml}
             <div class="specs-line specs-market-cost cost-price-data"><strong>Market Cost:</strong> ₹${item.evaluation.marketCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
             ${homeCostHtml ? `<div class="specs-line specs-home-cost cost-price-data"><strong>Home Cost:</strong> ₹${item.evaluation.homeCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>` : ''}
-            <div class="specs-line specs-selling-price price-selling-highlight"><strong>Selling Price:</strong> ₹${item.evaluation.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+            <div class="specs-line specs-selling-price price-selling-highlight"><strong>Selling Price:</strong> ₹${item.evaluation.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}${this.getActiveCustomProfitMargin() !== null ? `<span class="margin-data" data-client-hide style="font-size: 10px; font-weight: 700; color: var(--text-gold-dark); margin-left: 5px;">(${this.getActiveCustomProfitMargin()}% excl. Em)</span>` : ''}</div>
             <div class="specs-line specs-pl margin-data" style="margin-bottom:0;"><strong>P/L:</strong> ${plFormatted}</div>
           </div>
           <div class="product-actions" data-client-hide>
@@ -1436,7 +1505,8 @@ const Catalog = {
 
     card.querySelector('.btn-edit').addEventListener('click', () => {
       document.getElementById('jewelry-modal-title').textContent = "Edit Jewelry Piece";
-      UI.loadItemIntoForm(item);
+      const canonicalItem = (DBManager.getItems() || []).find(i => i.id === item.id) || item;
+      UI.loadItemIntoForm(canonicalItem);
       UI.openModal('modal-jewelry-item');
     });
 
@@ -1873,25 +1943,126 @@ const Catalog = {
         this.populatePrintItemsChecklist();
       });
     }
+
+    const customProfitCb = document.getElementById('jewelry-export-apply-custom-profit');
+    const customProfitInp = document.getElementById('jewelry-export-custom-profit-pct');
+    if (customProfitCb && customProfitInp) {
+      const syncExportProfitState = () => {
+        const enabled = customProfitCb.checked;
+        customProfitInp.disabled = !enabled;
+        customProfitInp.style.opacity = enabled ? '1' : '0.6';
+        customProfitInp.style.borderColor = enabled ? 'var(--text-gold-dark)' : 'var(--border-light)';
+        this.updatePrintMultiplierInfo();
+        this.populatePrintItemsChecklist();
+      };
+      customProfitCb.addEventListener('change', () => {
+        syncExportProfitState();
+        if (customProfitCb.checked) {
+          customProfitInp.focus();
+          customProfitInp.select();
+        }
+      });
+      customProfitInp.addEventListener('input', () => {
+        this.updatePrintMultiplierInfo();
+        this.populatePrintItemsChecklist();
+      });
+      customProfitInp.addEventListener('change', () => {
+        this.updatePrintMultiplierInfo();
+        this.populatePrintItemsChecklist();
+      });
+    }
+
+    const divisorInput = document.getElementById('jewelry-export-price-divisor');
+    const divisorResetBtn = document.getElementById('btn-reset-jewelry-export-divisor');
+    if (divisorInput) {
+      divisorInput.addEventListener('input', () => this.updatePrintMultiplierInfo());
+      divisorInput.addEventListener('change', () => this.updatePrintMultiplierInfo());
+    }
+    if (divisorResetBtn && divisorInput) {
+      divisorResetBtn.addEventListener('click', () => {
+        divisorInput.value = '1';
+        this.updatePrintMultiplierInfo();
+      });
+    }
+  },
+
+  getPrintCustomProfitMargin() {
+    const cb = document.getElementById('jewelry-export-apply-custom-profit');
+    const inp = document.getElementById('jewelry-export-custom-profit-pct');
+    if (!cb || !cb.checked || !inp) return null;
+    const raw = String(inp.value ?? '').trim();
+    if (raw === '') return null;
+    const val = Number(raw);
+    if (!Number.isFinite(val) || val < 0) return null;
+    return val;
+  },
+
+  getPrintPriceDivisor({ validate = false } = {}) {
+    const inp = document.getElementById('jewelry-export-price-divisor');
+    if (!inp) return 1;
+    const raw = String(inp.value ?? '').trim();
+    if (raw === '') return 1;
+    const val = Number(raw);
+    if (!Number.isFinite(val) || val <= 0) {
+      return validate ? null : 1;
+    }
+    return val;
   },
 
   updatePrintMultiplierInfo() {
     const multiplier = this.getPrintMultiplier();
+    const customProfitPct = this.getPrintCustomProfitMargin();
+    const divisorInput = document.getElementById('jewelry-export-price-divisor');
+    const divisorPreview = document.getElementById('jewelry-export-divisor-preview');
+    const divisorResetBtn = document.getElementById('btn-reset-jewelry-export-divisor');
+
+    if (divisorPreview && divisorInput) {
+      const rawDiv = String(divisorInput.value ?? '').trim();
+      const parsedDiv = rawDiv === '' ? 1 : Number(rawDiv);
+      if (!Number.isFinite(parsedDiv) || parsedDiv <= 0) {
+        divisorPreview.textContent = 'Invalid divisor (must be > 0)';
+        divisorPreview.style.color = '#ef4444';
+        divisorPreview.style.borderColor = '#ef4444';
+        if (divisorResetBtn) divisorResetBtn.style.display = 'inline-block';
+      } else if (parsedDiv === 1) {
+        divisorPreview.textContent = '1 (Actual Prices)';
+        divisorPreview.style.color = 'var(--text-muted)';
+        divisorPreview.style.borderColor = 'var(--border-light)';
+        if (divisorResetBtn) divisorResetBtn.style.display = 'none';
+      } else {
+        const sampleCoded = Number((150000 / parsedDiv).toFixed(2));
+        divisorPreview.textContent = `÷ ${parsedDiv} (e.g. ₹1,50,000 → ${sampleCoded.toLocaleString('en-IN')})`;
+        divisorPreview.style.color = 'var(--text-gold)';
+        divisorPreview.style.borderColor = 'rgba(212, 175, 55, 0.45)';
+        if (divisorResetBtn) divisorResetBtn.style.display = 'inline-block';
+      }
+    }
+
     const targetEl = document.getElementById('jewelry-export-multiplier-target-text');
     const effectEl = document.getElementById('jewelry-export-multiplier-effect-text');
     if (!targetEl) return;
 
+    const profitSuffix = customProfitPct !== null
+      ? ` • Custom ${customProfitPct}% Profit (Excl. Emeralds)`
+      : '';
+    const divisorVal = this.getPrintPriceDivisor();
+    const divisorSuffix = divisorVal !== 1 ? ` • Excel Coded ÷ ${divisorVal}` : '';
+
     if (multiplier === 1.0) {
-      targetEl.textContent = 'Base Selling Price (1.0x — Standard unmodified price)';
-      if (effectEl) effectEl.textContent = 'Cost prices (Mfg & Market Cost) remain strictly unaffected';
+      targetEl.textContent = `Base Selling Price (1.0x)${profitSuffix}${divisorSuffix}`;
+      if (effectEl) {
+        effectEl.textContent = customProfitPct !== null
+          ? 'Emeralds kept at 1.0x without profit markup; database items remain strictly unchanged'
+          : 'Cost prices (Mfg & Market Cost) remain strictly unaffected';
+      }
     } else if (multiplier > 1.0) {
       const markupPct = Math.round((multiplier - 1.0) * 100);
-      targetEl.textContent = `Base Selling Price (${multiplier.toFixed(2)}x = +${markupPct}% markup)`;
-      if (effectEl) effectEl.textContent = 'Multiplies Base Selling Price only; Cost prices remain strictly unaffected';
+      targetEl.textContent = `Applied on Base SP: ${multiplier.toFixed(2)}x (+${markupPct}% markup)${profitSuffix}${divisorSuffix}`;
+      if (effectEl) effectEl.textContent = 'Multiplies Selling Price only; Cost prices remain strictly unaffected';
     } else {
       const discountPct = Math.round((1.0 - multiplier) * 100);
-      targetEl.textContent = `Base Selling Price (${multiplier.toFixed(2)}x = -${discountPct}% discount)`;
-      if (effectEl) effectEl.textContent = 'Discounts Base Selling Price only; Cost prices remain strictly unaffected';
+      targetEl.textContent = `Applied on Base SP: ${multiplier.toFixed(2)}x (-${discountPct}% discount)${profitSuffix}${divisorSuffix}`;
+      if (effectEl) effectEl.textContent = 'Discounts Selling Price only; Cost prices remain strictly unaffected';
     }
   },
 
@@ -1910,22 +2081,36 @@ const Catalog = {
     return multiplier;
   },
 
-  applyMultiplierToItems(items, goldRate, multiplier = 1.0) {
+  applyMultiplierToItems(items, goldRate, multiplier = 1.0, customProfitPct = null) {
     const rate = Number(goldRate || 0);
+    const hasCustomProfit = customProfitPct !== null &&
+      customProfitPct !== undefined &&
+      customProfitPct !== '' &&
+      Number.isFinite(Number(customProfitPct)) &&
+      Number(customProfitPct) >= 0;
+    const evalOptions = hasCustomProfit ? { profitPercentage: Number(customProfitPct) } : undefined;
+
     return items.map(item => {
       // Evaluate item with authentic unmultiplied gold rate and real component costs
-      const evaluation = Calc.evaluateItem(item, rate);
-      const baseSellingPrice = Number(item.sellingPrice || evaluation.sellingPrice || evaluation.marketCostPrice || 0);
+      const evaluation = Calc.evaluateItem(item, rate, undefined, evalOptions);
+      const defaultEvaluation = hasCustomProfit ? Calc.evaluateItem(item, rate) : evaluation;
+      const standardSellingPrice = Number(item.sellingPrice || defaultEvaluation.sellingPrice || defaultEvaluation.marketCostPrice || 0);
+      const baseSellingPrice = hasCustomProfit
+        ? Number(evaluation.sellingPrice || 0)
+        : standardSellingPrice;
       const multipliedSellingPrice = Number((baseSellingPrice * multiplier).toFixed(2));
 
       return {
         ...item,
         evaluation: {
           ...evaluation,
+          standardSellingPrice: standardSellingPrice,
           baseSellingPrice: baseSellingPrice,
           multipliedSellingPrice: multipliedSellingPrice,
           sellingPrice: multipliedSellingPrice,
           unitSellingPrice: multipliedSellingPrice,
+          customProfitApplied: hasCustomProfit,
+          effectiveProfitPercentage: evaluation.profitPercentage,
           // Cost prices remain strictly original and unmultiplied
           marketCostPrice: evaluation.marketCostPrice,
           homeCostPrice: evaluation.homeCostPrice
@@ -1992,6 +2177,23 @@ const Catalog = {
       multCustom.style.display = 'none';
       multCustom.value = '1.0';
     }
+
+    // Inherit active Catalog screen Custom Profit % (Excl. Emeralds) if enabled, otherwise default off
+    const activeCatalogProfit = this.getActiveCustomProfitMargin();
+    const exportProfitCb = document.getElementById('jewelry-export-apply-custom-profit');
+    const exportProfitInp = document.getElementById('jewelry-export-custom-profit-pct');
+    if (exportProfitCb && exportProfitInp) {
+      const shouldEnable = activeCatalogProfit !== null;
+      exportProfitCb.checked = shouldEnable;
+      exportProfitInp.value = shouldEnable ? Number(activeCatalogProfit).toFixed(1) : '40.0';
+      exportProfitInp.disabled = !shouldEnable;
+      exportProfitInp.style.opacity = shouldEnable ? '1' : '0.6';
+      exportProfitInp.style.borderColor = shouldEnable ? 'var(--text-gold-dark)' : 'var(--border-light)';
+    }
+
+    const divisorInput = document.getElementById('jewelry-export-price-divisor');
+    if (divisorInput) divisorInput.value = '1';
+
     this.updatePrintMultiplierInfo();
 
     // Initialize persistent printSelectedItemIds
@@ -2085,6 +2287,7 @@ const Catalog = {
 
     const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
     const multiplier = this.getPrintMultiplier();
+    const customProfitPct = this.getPrintCustomProfitMargin();
     const allItems = this.getAllCatalogItems();
 
     const filtered = allItems.filter(item => {
@@ -2121,7 +2324,7 @@ const Catalog = {
 
     filtered.forEach((item) => {
       const serialNumber = item.sno || this.getItemSno(item, allItems);
-      const evaluatedItem = this.applyMultiplierToItems([item], goldRate, multiplier)[0];
+      const evaluatedItem = this.applyMultiplierToItems([item], goldRate, multiplier, customProfitPct)[0];
       const evaluation = evaluatedItem.evaluation;
 
       const status = item.status || 'In Stock';
@@ -2144,7 +2347,25 @@ const Catalog = {
       const finalPrice = Math.round(evaluation.sellingPrice || (baseSellingPrice * multiplier));
 
       let priceHtml = '';
-      if (multiplier !== 1.0) {
+      if (customProfitPct !== null && multiplier !== 1.0) {
+        priceHtml = `
+          <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
+            <span class="jewelry-print-val-tag" style="color: var(--text-gold); font-weight: 700;" title="Custom Profit + Multiplied Selling Price">₹${finalPrice.toLocaleString('en-IN')}</span>
+            <span style="font-size: 10px; color: var(--text-muted); white-space: nowrap;">
+              Custom ${customProfitPct}% SP (₹${Math.round(baseSellingPrice).toLocaleString('en-IN')}) × ${multiplier.toFixed(2)}x
+            </span>
+          </div>
+        `;
+      } else if (customProfitPct !== null) {
+        priceHtml = `
+          <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
+            <span class="jewelry-print-val-tag" style="color: var(--text-gold); font-weight: 700;" title="Custom Profit Selling Price (Emeralds Excluded)">₹${finalPrice.toLocaleString('en-IN')}</span>
+            <span style="font-size: 10px; color: var(--text-muted); white-space: nowrap;">
+              Custom ${customProfitPct}% Profit (Excl. Emeralds)
+            </span>
+          </div>
+        `;
+      } else if (multiplier !== 1.0) {
         priceHtml = `
           <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
             <span class="jewelry-print-val-tag" style="color: var(--text-gold); font-weight: 700;" title="Multiplied Selling Price">₹${finalPrice.toLocaleString('en-IN')}</span>
@@ -2251,6 +2472,7 @@ const Catalog = {
     }
 
     const multiplier = this.getPrintMultiplier();
+    const customProfitPct = this.getPrintCustomProfitMargin();
     const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
     const allItems = this.getAllCatalogItems();
     const selectedItems = allItems.filter(item => this.printSelectedItemIds.has(item.id));
@@ -2260,7 +2482,7 @@ const Catalog = {
       return;
     }
 
-    const filtered = this.applyMultiplierToItems(selectedItems, goldRate, multiplier);
+    const filtered = this.applyMultiplierToItems(selectedItems, goldRate, multiplier, customProfitPct);
 
     UI.showToast("Generating PDF catalog report...", false);
     const doc = await this.generatePDF(filtered, goldRate, multiplier);
@@ -2776,7 +2998,14 @@ const Catalog = {
       return;
     }
 
+    const priceDivisor = this.getPrintPriceDivisor({ validate: true });
+    if (priceDivisor === null) {
+      UI.showToast("Price coding divisor must be a valid number greater than 0.", true);
+      return;
+    }
+
     const multiplier = this.getPrintMultiplier();
+    const customProfitPct = this.getPrintCustomProfitMargin();
     const goldRate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0;
     const allItems = this.getAllCatalogItems();
     const selectedItems = allItems.filter(item => this.printSelectedItemIds.has(item.id));
@@ -2786,13 +3015,16 @@ const Catalog = {
       return;
     }
 
-    const filtered = this.applyMultiplierToItems(selectedItems, goldRate, multiplier);
+    const filtered = this.applyMultiplierToItems(selectedItems, goldRate, multiplier, customProfitPct);
 
     UI.closeModal('modal-print-jewelry-catalog');
     UI.showToast("Generating Excel file with photos…");
 
     try {
-      const xlsxBase64 = await this.generateExcel(filtered, goldRate, multiplier);
+      const xlsxBase64 = await this.generateExcel(filtered, goldRate, multiplier, {
+        customProfitPct,
+        priceDivisor
+      });
       const today = new Date();
       const dd = String(today.getDate()).padStart(2, '0');
       const mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -2811,13 +3043,38 @@ const Catalog = {
   /**
    * Generate a "Latest Price" format Excel workbook matching the user's Jewelry structure,
    * including embedded jewelry photos in Column Q merged across the item rows.
+   * Supports optional { customProfitPct, priceDivisor } for custom profit margins (excluding emeralds)
+   * and coding all visible prices by dividing by any custom number.
    * Returns a base64 string of the .xlsx binary.
    */
-  async generateExcel(filteredItems, goldRate, multiplier = 1.0) {
+  async generateExcel(filteredItems, goldRate, multiplier = 1.0, options = {}) {
     const ExcelJS = window.ExcelJS || (typeof require !== 'undefined' ? require('./exceljs.min.js') : null);
     if (!ExcelJS) {
       throw new Error("ExcelJS library not loaded. Please restart the app.");
     }
+
+    const hasCustomProfit = options &&
+      options.customProfitPct !== null &&
+      options.customProfitPct !== undefined &&
+      options.customProfitPct !== '' &&
+      Number.isFinite(Number(options.customProfitPct)) &&
+      Number(options.customProfitPct) >= 0;
+    const customProfitPct = hasCustomProfit ? Number(options.customProfitPct) : null;
+
+    const rawDivisor = (options && options.priceDivisor !== undefined && options.priceDivisor !== null && options.priceDivisor !== '')
+      ? Number(options.priceDivisor)
+      : 1;
+    if (!Number.isFinite(rawDivisor) || rawDivisor <= 0) {
+      throw new Error("Price coding divisor must be greater than 0.");
+    }
+    const priceDivisor = rawDivisor;
+    const isCoded = priceDivisor !== 1;
+    const divRate = (val) => isCoded
+      ? Number((Number(val || 0) / priceDivisor).toFixed(6))
+      : Number(Number(val || 0).toFixed(2));
+    const divMoney = (val) => Number((Number(val || 0) / priceDivisor).toFixed(2));
+
+    const itemsToExport = this.applyMultiplierToItems(filteredItems || [], goldRate, multiplier, customProfitPct);
 
     const wb = new ExcelJS.Workbook();
     wb.creator = 'MAVA GEMS';
@@ -2881,10 +3138,11 @@ const Catalog = {
       { key: 'R', width: 24 }  // Photo (fixed for image)
     ];
 
-    const GLOBAL_WASTAGE = (filteredItems[0] ? Number(filteredItems[0].wastage || 15) : 15);
+    const GLOBAL_WASTAGE = (itemsToExport[0] ? Number(itemsToExport[0].wastage || 15) : 15);
     const WASTAGE_FACTOR = 1 + GLOBAL_WASTAGE / 100;
     const EFFECTIVE_GOLD_RATE = Number(goldRate || 0);
     const GOLD_RATE_PER_10G = EFFECTIVE_GOLD_RATE * 10;
+    const CODED_GOLD_RATE_PER_10G = isCoded ? divRate(GOLD_RATE_PER_10G) : GOLD_RATE_PER_10G;
     const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' });
     const goldDate = DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.effectiveDate : today;
     const goldDateFmt = goldDate ? new Date(goldDate).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' }) : today;
@@ -2911,7 +3169,7 @@ const Catalog = {
     ws.getCell('A2').value = 'MTL 24K (10g)';
     ws.getCell('A2').font = { bold: true, size: 10, name: 'Calibri' };
     ws.getCell('A2').border = BORDER_ALL;
-    ws.getCell('B2').value = GOLD_RATE_PER_10G;
+    ws.getCell('B2').value = CODED_GOLD_RATE_PER_10G;
     ws.getCell('B2').font = { size: 10, name: 'Calibri' };
     ws.getCell('B2').numFmt = '#,##0.00';
     ws.getCell('B2').alignment = ALIGN_CENTER;
@@ -2975,7 +3233,7 @@ const Catalog = {
     let sNo = 1;
     const itemMtlRows = [];
 
-    filteredItems.forEach((item) => {
+    itemsToExport.forEach((item) => {
       const mainKarat = Number(item.karat || (item.metals && item.metals[0] ? item.metals[0].karat : 18));
       const totalGrossWt = Number(item.grossWeight || (item.metals && item.metals[0] ? item.metals[0].weight : 0));
       const labour = Number(item.labourCost || 0);
@@ -3064,7 +3322,8 @@ const Catalog = {
 
       const baseMfgRate24kt = Number(item.mfgGoldRate24kt || item.goldRateAtAddition || (goldRate ? goldRate : 0) || (GOLD_RATE_PER_10G / 10));
       const itemMfgRate24kt = baseMfgRate24kt * (multiplier || 1.0);
-      const mfgKaratRate = Number(((itemMfgRate24kt / 24) * mainKarat).toFixed(2));
+      const rawMfgKaratRate = (itemMfgRate24kt / 24) * mainKarat;
+      const mfgKaratRate = divRate(rawMfgKaratRate);
 
       const cellK = ws.getCell(mtlR, C.K);
       cellK.value = mfgKaratRate;
@@ -3088,7 +3347,8 @@ const Catalog = {
           (m.totalValue !== undefined && m.totalValue !== null && m.totalValue !== '');
         const directValNum = hasDirectVal ? Number(m.directValue || m.totalValue || 0) : 0;
         const mWastage = 1 + Number(m.wastage !== undefined && m.wastage !== null && m.wastage !== '' ? m.wastage : GLOBAL_WASTAGE) / 100;
-        const mfgPartKaratRate = Number(((itemMfgRate24kt / 24) * mKarat).toFixed(2));
+        const rawMfgPartKaratRate = (itemMfgRate24kt / 24) * mKarat;
+        const mfgPartKaratRate = divRate(rawMfgPartKaratRate);
 
         ['A', 'B', 'C', 'M', 'N', 'O', 'P', 'R'].forEach(k => {
           const c = ws.getCell(aR, C[k]);
@@ -3145,7 +3405,7 @@ const Catalog = {
 
         const cL = ws.getCell(aR, C.L);
         if (hasDirectVal) {
-          cL.value = Number(directValNum.toFixed(2));
+          cL.value = divMoney(directValNum);
           cL.numFmt = '#,##0.00';
           cL.alignment = ALIGN_CENTER;
           cL.border = BORDER_ALL;
@@ -3185,8 +3445,10 @@ const Catalog = {
         ws.getRow(cR).height = 22;
         const isEm = (comp.type || '').toLowerCase() === 'emerald';
         const cts = Number(Number(comp.weight || 0).toFixed(2));
-        const rate = Number(Number(comp.ratePerCarat || 0).toFixed(2));
-        const tv = Number(Number(comp.totalValue || cts * rate || 0).toFixed(2));
+        const rawRate = Number(comp.ratePerCarat || (cts > 0 && comp.totalValue ? Number(comp.totalValue) / cts : 0));
+        const rawTv = Number(comp.totalValue || (cts * rawRate) || 0);
+        const rate = divRate(rawRate);
+        const tv = divMoney(rawTv);
 
         ['A', 'B', 'C', 'M', 'N', 'O', 'P', 'R'].forEach(k => {
           const c = ws.getCell(cR, C[k]);
@@ -3233,10 +3495,14 @@ const Catalog = {
         cK.border = BORDER_ALL;
 
         const cL = ws.getCell(cR, C.L);
-        cL.value = {
-          formula: `ROUND(${colLetter(C.J)}${cR}*${colLetter(C.K)}${cR}, 2)`,
-          result: tv
-        };
+        if (cts > 0) {
+          cL.value = {
+            formula: `ROUND(${colLetter(C.J)}${cR}*${colLetter(C.K)}${cR}, 2)`,
+            result: tv
+          };
+        } else {
+          cL.value = tv;
+        }
         cL.numFmt = '#,##0.00';
         cL.alignment = ALIGN_CENTER;
         cL.border = BORDER_ALL;
@@ -3260,7 +3526,7 @@ const Catalog = {
       labE.border = BORDER_ALL;
 
       const labF = ws.getCell(labR, C.F);
-      labF.value = Number(labour.toFixed(2));
+      labF.value = divMoney(labour);
       labF.numFmt = '#,##0.00';
       labF.alignment = ALIGN_CENTER;
       labF.border = BORDER_ALL;
@@ -3298,7 +3564,7 @@ const Catalog = {
       }
 
       const commF = ws.getCell(commR, C.F);
-      commF.value = Number(Number(commVal || 0).toFixed(2));
+      commF.value = divMoney(commVal || 0);
       commF.numFmt = '#,##0.00';
       commF.alignment = ALIGN_CENTER;
       commF.border = BORDER_ALL;
@@ -3384,7 +3650,7 @@ const Catalog = {
       const cellM = ws.getCell(mtlR, C.M);
       cellM.value = {
         formula: marketCPFormula,
-        result: Number(item.evaluation.marketCostPrice.toFixed(2))
+        result: divMoney(item.evaluation.marketCostPrice)
       };
       cellM.numFmt = '#,##0.00';
       cellM.alignment = ALIGN_CENTER;
@@ -3398,7 +3664,7 @@ const Catalog = {
       const mfgCostVal = (item.evaluation.mfgGrandTotal || (item.evaluation.mfgSubtotal + (item.evaluation.commissionValue || 0)) || item.evaluation.homeCostPrice);
       cellN.value = {
         formula: mfgCostFormula,
-        result: Number(mfgCostVal.toFixed(2))
+        result: divMoney(mfgCostVal)
       };
       cellN.numFmt = '#,##0.00';
       cellN.alignment = ALIGN_CENTER;
@@ -3413,12 +3679,12 @@ const Catalog = {
         const emSum = emeraldLRefs.join('+');
         cellO.value = {
           formula: `ROUND(${colLetter(C.M)}${mtlR}-(${emSum})*${emDiscountFactor.toFixed(4)}, 2)`,
-          result: Number(item.evaluation.homeCostPrice.toFixed(2))
+          result: divMoney(item.evaluation.homeCostPrice)
         };
       } else {
         cellO.value = {
           formula: `ROUND(${colLetter(C.M)}${mtlR}, 2)`,
-          result: Number(item.evaluation.homeCostPrice.toFixed(2))
+          result: divMoney(item.evaluation.homeCostPrice)
         };
       }
       cellO.numFmt = '#,##0.00';
@@ -3426,22 +3692,26 @@ const Catalog = {
       cellO.border = BORDER_ALL;
 
       // =========================================================
-      //  Column P: SP for Market (1.4x markup on Market CP non-emeralds + Emeralds)
+      //  Column P: SP for Market (Profit % markup on Market CP non-emeralds + Emeralds)
       // =========================================================
       const cellP = ws.getCell(mtlR, C.P);
-      const effectiveMarkup = Number((1.4 * multiplier).toFixed(4));
+      const itemProfitPct = hasCustomProfit
+        ? customProfitPct
+        : Number(item.profitPercentage !== undefined ? item.profitPercentage : 40);
+      const baseProfitFactor = Number((1 + (itemProfitPct / 100)).toFixed(4));
+      const effectiveMarkup = Number((baseProfitFactor * multiplier).toFixed(4));
       if (emeraldLRefs.length > 0) {
         const emSum = emeraldLRefs.join('+');
         cellP.value = {
           formula: multiplier === 1.0
-            ? `ROUND((((${colLetter(C.M)}${mtlR}-(${emSum}))*1.4)+(${emSum})), 2)`
-            : `ROUND((((${colLetter(C.M)}${mtlR}-(${emSum}))*${effectiveMarkup})+(${emSum}*${Number(multiplier.toFixed(4))})), 2)`,
-          result: Number((item.evaluation.sellingPrice).toFixed(2))
+            ? `ROUND((((${colLetter(C.M)}${mtlR}-(${emSum}))*${baseProfitFactor})+(${emSum})), 2)`
+            : `ROUND((((${colLetter(C.M)}${mtlR}-(${emSum}))*${effectiveMarkup})+((${emSum})*${Number(multiplier.toFixed(4))})), 2)`,
+          result: divMoney(item.evaluation.sellingPrice)
         };
       } else {
         cellP.value = {
           formula: `ROUND(${colLetter(C.M)}${mtlR}*${effectiveMarkup}, 2)`,
-          result: Number((item.evaluation.sellingPrice).toFixed(2))
+          result: divMoney(item.evaluation.sellingPrice)
         };
       }
       cellP.numFmt = '#,##0.00';
@@ -3509,10 +3779,10 @@ const Catalog = {
     const firstItemRow = 8;
     const lastItemRow = Math.max(firstItemRow, grandRow - 1);
 
-    const totalMarketCP = filteredItems.reduce((acc, i) => acc + (i.evaluation ? i.evaluation.marketCostPrice : 0), 0);
-    const totalMfgCost = filteredItems.reduce((acc, i) => acc + (i.evaluation ? (i.evaluation.mfgGrandTotal || (i.evaluation.mfgSubtotal + (i.evaluation.commissionValue || 0)) || i.evaluation.homeCostPrice) : 0), 0);
-    const totalHomeCP = filteredItems.reduce((acc, i) => acc + (i.evaluation ? i.evaluation.homeCostPrice : 0), 0);
-    const totalSellingPrice = filteredItems.reduce((acc, i) => acc + (i.evaluation ? i.evaluation.sellingPrice : 0), 0);
+    const totalMarketCP = itemsToExport.reduce((acc, i) => acc + (i.evaluation ? i.evaluation.marketCostPrice : 0), 0);
+    const totalMfgCost = itemsToExport.reduce((acc, i) => acc + (i.evaluation ? (i.evaluation.mfgGrandTotal || (i.evaluation.mfgSubtotal + (i.evaluation.commissionValue || 0)) || i.evaluation.homeCostPrice) : 0), 0);
+    const totalHomeCP = itemsToExport.reduce((acc, i) => acc + (i.evaluation ? i.evaluation.homeCostPrice : 0), 0);
+    const totalSellingPrice = itemsToExport.reduce((acc, i) => acc + (i.evaluation ? i.evaluation.sellingPrice : 0), 0);
 
     const gtA = ws.getCell(grandRow, C.A);
     gtA.value = 'GRAND TOTAL';
@@ -3520,7 +3790,7 @@ const Catalog = {
     gtA.border = BORDER_ALL;
 
     const gtB = ws.getCell(grandRow, C.B);
-    gtB.value = filteredItems.length;
+    gtB.value = itemsToExport.length;
     gtB.font = { bold: true, name: 'Calibri' };
     gtB.border = BORDER_ALL;
 
@@ -3538,7 +3808,7 @@ const Catalog = {
       formula: itemMtlRows.length > 0
         ? `ROUND(${itemMtlRows.map(r => `${colLetter(C.M)}${r}`).join('+')}, 2)`
         : `ROUND(SUM(${colLetter(C.M)}${firstItemRow}:${colLetter(C.M)}${lastItemRow}), 2)`,
-      result: Number(totalMarketCP.toFixed(2))
+      result: divMoney(totalMarketCP)
     };
     gtM.font = { bold: true, name: 'Calibri' };
     gtM.numFmt = '#,##0.00';
@@ -3549,7 +3819,7 @@ const Catalog = {
       formula: itemMtlRows.length > 0
         ? `ROUND(${itemMtlRows.map(r => `${colLetter(C.N)}${r}`).join('+')}, 2)`
         : `ROUND(SUM(${colLetter(C.N)}${firstItemRow}:${colLetter(C.N)}${lastItemRow}), 2)`,
-      result: Number(totalMfgCost.toFixed(2))
+      result: divMoney(totalMfgCost)
     };
     gtN.font = { bold: true, name: 'Calibri' };
     gtN.numFmt = '#,##0.00';
@@ -3560,7 +3830,7 @@ const Catalog = {
       formula: itemMtlRows.length > 0
         ? `ROUND(${itemMtlRows.map(r => `${colLetter(C.O)}${r}`).join('+')}, 2)`
         : `ROUND(SUM(${colLetter(C.O)}${firstItemRow}:${colLetter(C.O)}${lastItemRow}), 2)`,
-      result: Number(totalHomeCP.toFixed(2))
+      result: divMoney(totalHomeCP)
     };
     gtO.font = { bold: true, name: 'Calibri' };
     gtO.numFmt = '#,##0.00';
@@ -3573,7 +3843,7 @@ const Catalog = {
             ? `ROUND(${colLetter(C.P)}${itemMtlRows[0]}, 2)`
             : `ROUND(SUM(${colLetter(C.P)}${itemMtlRows[0]}:${colLetter(C.P)}${itemMtlRows[itemMtlRows.length - 1]}), 2)`)
         : `ROUND(SUM(${colLetter(C.P)}${firstItemRow}:${colLetter(C.P)}${lastItemRow}), 2)`,
-      result: Number(totalSellingPrice.toFixed(2))
+      result: divMoney(totalSellingPrice)
     };
     gtP.font = { bold: true, name: 'Calibri' };
     gtP.numFmt = '#,##0.00';
@@ -3658,8 +3928,9 @@ const Catalog = {
 
     let s2Row = 9; // data starts at row 9
     let s2SNo = 1;
+    let s2CodedTotalSP = 0;
 
-    filteredItems.forEach((item) => {
+    itemsToExport.forEach((item) => {
       const s2Karat = Number(item.karat || (item.metals && item.metals[0] ? item.metals[0].karat : 18));
       const s2GrossWt = Number(item.grossWeight || (item.metals && item.metals[0] ? item.metals[0].weight : 0));
       const s2Stones = [...(item.stones || []), ...(item.diamondsPolki || [])];
@@ -3731,9 +4002,13 @@ const Catalog = {
       ws2.getCell(s2Row, 8).border = S2_BORDER_ALL;
 
       // Col I: Selling Price (merged vertically across entire item block)
-      const s2SellingPrice = item.evaluation ? Number(item.evaluation.sellingPrice.toFixed(0)) : 0;
+      const rawS2SellingPrice = item.evaluation ? Number(item.evaluation.sellingPrice || 0) : 0;
+      const s2SellingPrice = isCoded
+        ? Number((rawS2SellingPrice / priceDivisor).toFixed(2))
+        : Number(rawS2SellingPrice.toFixed(0));
+      s2CodedTotalSP += s2SellingPrice;
       ws2.getCell(s2Row, 9).value = s2SellingPrice;
-      ws2.getCell(s2Row, 9).numFmt = '#,##0';
+      ws2.getCell(s2Row, 9).numFmt = (!isCoded || Number.isInteger(s2SellingPrice)) ? '#,##0' : '#,##0.00';
       ws2.getCell(s2Row, 9).font = { bold: true, name: 'Calibri' };
       ws2.getCell(s2Row, 9).alignment = S2_ALIGN_CTR;
       ws2.getCell(s2Row, 9).border = S2_BORDER_ALL;
@@ -3829,18 +4104,21 @@ const Catalog = {
 
     // Grand Total row for sheet 2
     ws2.getRow(s2Row).height = 24;
-    const s2TotalSP = filteredItems.reduce((acc, i) => acc + (i.evaluation ? i.evaluation.sellingPrice : 0), 0);
+    const s2TotalSP = itemsToExport.reduce((acc, i) => acc + (i.evaluation ? i.evaluation.sellingPrice : 0), 0);
+    const s2DisplayTotal = isCoded
+      ? Number(s2CodedTotalSP.toFixed(2))
+      : Number(s2TotalSP.toFixed(0));
     ws2.getCell(s2Row, 1).value = 'TOTAL';
     ws2.getCell(s2Row, 1).font = { bold: true, name: 'Calibri' };
     ws2.getCell(s2Row, 1).border = S2_BORDER_ALL;
-    ws2.getCell(s2Row, 2).value = filteredItems.length;
+    ws2.getCell(s2Row, 2).value = itemsToExport.length;
     ws2.getCell(s2Row, 2).font = { bold: true, name: 'Calibri' };
     ws2.getCell(s2Row, 2).border = S2_BORDER_ALL;
     ws2.getCell(s2Row, 3).value = 'pieces';
     ws2.getCell(s2Row, 3).font = { bold: true, name: 'Calibri' };
     ws2.getCell(s2Row, 3).border = S2_BORDER_ALL;
-    ws2.getCell(s2Row, 9).value = Number(s2TotalSP.toFixed(0));
-    ws2.getCell(s2Row, 9).numFmt = '#,##0';
+    ws2.getCell(s2Row, 9).value = s2DisplayTotal;
+    ws2.getCell(s2Row, 9).numFmt = (!isCoded || Number.isInteger(s2DisplayTotal)) ? '#,##0' : '#,##0.00';
     ws2.getCell(s2Row, 9).font = { bold: true, name: 'Calibri' };
     ws2.getCell(s2Row, 9).border = S2_BORDER_ALL;
 
@@ -3968,8 +4246,10 @@ const Catalog = {
       }
     };
 
+    const activeCustomProfit = this.getActiveCustomProfitMargin();
+    const memoEvalOptions = activeCustomProfit !== null ? { profitPercentage: activeCustomProfit } : undefined;
     items.forEach(item => {
-      const evalItem = Calc.evaluateItem(item, goldRate);
+      const evalItem = Calc.evaluateItem(item, goldRate, undefined, memoEvalOptions);
       const stockPrice = Math.round(evalItem ? evalItem.sellingPrice : 0);
 
       const tr = document.createElement('tr');
@@ -5096,7 +5376,70 @@ const Catalog = {
     title: '',
     priceMode: 'selling',
     multiplier: 1.0,
+    customProfitPct: 40.0,
     theme: 'gold'
+  },
+
+  presentationPreviewItems: [],
+
+  getPresentationItemPrice(item, goldRate, priceMode = 'selling', multiplier = 1.0, customProfitPct = 40.0) {
+    if (priceMode === 'hide') return null;
+    if (priceMode === 'custom_profit') {
+      const pct = (Number.isFinite(Number(customProfitPct)) && Number(customProfitPct) >= 0)
+        ? Number(customProfitPct)
+        : 40.0;
+      const customEval = Calc.evaluateItem(item, goldRate, undefined, { profitPercentage: pct });
+      return Math.round(customEval ? (customEval.sellingPrice || 0) : 0);
+    }
+    const stdEval = item.evaluation || Calc.evaluateItem(item, goldRate);
+    if (priceMode === 'custom') {
+      const baseMarketCost = stdEval ? (stdEval.marketCostPrice || stdEval.grandTotal || 0) : 0;
+      const mult = (Number.isFinite(Number(multiplier)) && Number(multiplier) > 0) ? Number(multiplier) : 1.0;
+      return Math.round(baseMarketCost * mult);
+    }
+    return Math.round(stdEval ? (stdEval.sellingPrice || 0) : 0);
+  },
+
+  renderPresentationItemsList() {
+    const container = document.getElementById('presentation-items-list-container');
+    if (!container) return;
+
+    const selectedItems = this.presentationPreviewItems || [];
+    const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
+    const priceMode = document.getElementById('presentation-price-mode')?.value || 'selling';
+    const multiplier = parseFloat(document.getElementById('presentation-price-multiplier')?.value || '1.0');
+    const customProfitRaw = String(document.getElementById('presentation-custom-profit-pct')?.value ?? '').trim();
+    const customProfitParsed = customProfitRaw === '' ? NaN : Number(customProfitRaw);
+    const customProfitPct = (Number.isFinite(customProfitParsed) && customProfitParsed >= 0) ? customProfitParsed : 40.0;
+
+    container.replaceChildren();
+    selectedItems.forEach((item) => {
+      const serialNumber = item.sno || this.getItemSno(item);
+      const row = document.createElement('div');
+      row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 4px; font-size: 12px;';
+
+      const thumbHtml = item.image
+        ? `<img src="${item.image}" style="width: 32px; height: 32px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-light);">`
+        : `<div style="width: 32px; height: 32px; background: var(--bg-base); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 9px; color: var(--text-muted);">No Pic</div>`;
+
+      const displayPrice = this.getPresentationItemPrice(item, goldRate, priceMode, multiplier, customProfitPct);
+      const priceText = displayPrice === null
+        ? 'Price Hidden'
+        : `₹${displayPrice.toLocaleString('en-IN')}`;
+
+      row.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+          <span style="font-weight: 800; font-size: 11px; color: var(--text-gold-dark); background: var(--bg-base); border: 1px solid var(--border-light); padding: 2px 6px; border-radius: 4px; flex-shrink: 0;">S.No: ${serialNumber}</span>
+          ${thumbHtml}
+          <div style="min-width: 0; flex: 1;">
+            <div style="font-weight: 700; color: var(--text-gold-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${UI.escapeHtml(item.sku || '')} — <span style="color: var(--text-main); font-weight: 600;">${UI.escapeHtml(item.name || '')}</span></div>
+            <div style="font-size: 10px; color: var(--text-muted);">${item.category || ''} | Gross: ${(item.grossWt || item.grossWeight || item.metals?.[0]?.weight || 0).toFixed(3)}g</div>
+          </div>
+        </div>
+        <div style="font-weight: 700; color: ${displayPrice === null ? 'var(--text-muted)' : 'var(--text-gold-dark)'}; flex-shrink: 0; margin-left: 10px;">${priceText}</div>
+      `;
+      container.appendChild(row);
+    });
   },
 
   initPresentation() {
@@ -5113,6 +5456,7 @@ const Catalog = {
     const priceModeSel = document.getElementById('presentation-price-mode');
     const multInput = document.getElementById('presentation-price-multiplier');
     const multLabel = document.getElementById('presentation-multiplier-label');
+    const customProfitInput = document.getElementById('presentation-custom-profit-pct');
 
     const updateMultHelper = () => {
       const helper = document.getElementById('presentation-multiplier-help');
@@ -5132,20 +5476,55 @@ const Catalog = {
       helper.textContent = `Applied on: Market Cost Price • Multiplier ${val.toFixed(2)}x = ${sign} margin on Market Cost Price`;
     };
 
+    const updateCustomProfitHelper = () => {
+      const helper = document.getElementById('presentation-custom-profit-help');
+      if (!helper || !customProfitInput) return;
+      const raw = String(customProfitInput.value ?? '').trim();
+      const val = raw === '' ? NaN : Number(raw);
+      if (!Number.isFinite(val) || val < 0) {
+        helper.textContent = "Please enter a valid profit margin % (0 or higher)";
+        return;
+      }
+      helper.textContent = `Profit ${val.toFixed(1)}% applied strictly on non-emerald cost • Emeralds added at 1.0x without markup`;
+    };
+
     if (priceModeSel) {
       priceModeSel.addEventListener('change', (e) => {
         const multGroup = document.getElementById('group-presentation-multiplier');
-        const isCustom = e.target.value === 'custom';
+        const customProfitGroup = document.getElementById('group-presentation-custom-profit');
+        const mode = e.target.value;
         if (multGroup) {
-          multGroup.style.display = isCustom ? 'block' : 'none';
+          multGroup.style.display = mode === 'custom' ? 'block' : 'none';
+        }
+        if (customProfitGroup) {
+          customProfitGroup.style.display = mode === 'custom_profit' ? 'block' : 'none';
         }
         updateMultHelper();
+        updateCustomProfitHelper();
+        this.renderPresentationItemsList();
       });
     }
 
     if (multInput) {
-      multInput.addEventListener('input', updateMultHelper);
-      multInput.addEventListener('change', updateMultHelper);
+      multInput.addEventListener('input', () => {
+        updateMultHelper();
+        this.renderPresentationItemsList();
+      });
+      multInput.addEventListener('change', () => {
+        updateMultHelper();
+        this.renderPresentationItemsList();
+      });
+    }
+
+    if (customProfitInput) {
+      customProfitInput.addEventListener('input', () => {
+        updateCustomProfitHelper();
+        this.renderPresentationItemsList();
+      });
+      customProfitInput.addEventListener('change', () => {
+        updateCustomProfitHelper();
+        this.renderPresentationItemsList();
+      });
     }
 
     const btnStartSlideshow = document.getElementById('btn-start-slideshow');
@@ -5212,41 +5591,37 @@ const Catalog = {
       item.evaluation = Calc.evaluateItem(item, goldRate);
     });
 
+    this.presentationPreviewItems = selectedItems;
+    this.slideshowState.items = [];
+
+    // Inherit active Catalog Custom Profit % (Excluding Emeralds) if turned on
+    const activeCatalogProfit = this.getActiveCustomProfitMargin();
+    const priceModeSel = document.getElementById('presentation-price-mode');
+    const customProfitInput = document.getElementById('presentation-custom-profit-pct');
+    const customProfitGroup = document.getElementById('group-presentation-custom-profit');
+    const multGroup = document.getElementById('group-presentation-multiplier');
+
+    if (activeCatalogProfit !== null && priceModeSel && customProfitInput) {
+      priceModeSel.value = 'custom_profit';
+      customProfitInput.value = Number(activeCatalogProfit).toFixed(1);
+    }
+
+    const activeMode = priceModeSel ? priceModeSel.value : 'selling';
+    if (customProfitGroup) {
+      customProfitGroup.style.display = activeMode === 'custom_profit' ? 'block' : 'none';
+    }
+    if (multGroup) {
+      multGroup.style.display = activeMode === 'custom' ? 'block' : 'none';
+    }
+
     const countInput = document.getElementById('presentation-item-count');
     if (countInput) countInput.value = `${selectedItems.length} item(s) selected`;
 
     const summaryCount = document.getElementById('presentation-items-summary-count');
     if (summaryCount) summaryCount.textContent = `${selectedItems.length} item(s)`;
 
-    // Populate item list container
-    const container = document.getElementById('presentation-items-list-container');
-    if (container) {
-      container.replaceChildren();
-      selectedItems.forEach((item, index) => {
-        const serialNumber = item.sno || this.getItemSno(item);
-        const row = document.createElement('div');
-        row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 4px; font-size: 12px;';
-
-        const thumbHtml = item.image
-          ? `<img src="${item.image}" style="width: 32px; height: 32px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-light);">`
-          : `<div style="width: 32px; height: 32px; background: var(--bg-base); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 9px; color: var(--text-muted);">No Pic</div>`;
-
-        const sp = Math.round(item.evaluation ? item.evaluation.sellingPrice : 0);
-
-        row.innerHTML = `
-          <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
-            <span style="font-weight: 800; font-size: 11px; color: var(--text-gold-dark); background: var(--bg-base); border: 1px solid var(--border-light); padding: 2px 6px; border-radius: 4px; flex-shrink: 0;">S.No: ${serialNumber}</span>
-            ${thumbHtml}
-            <div style="min-width: 0; flex: 1;">
-              <div style="font-weight: 700; color: var(--text-gold-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${UI.escapeHtml(item.sku || '')} — <span style="color: var(--text-main); font-weight: 600;">${UI.escapeHtml(item.name || '')}</span></div>
-              <div style="font-size: 10px; color: var(--text-muted);">${item.category || ''} | Gross: ${(item.grossWt || item.metals?.[0]?.weight || 0).toFixed(3)}g</div>
-            </div>
-          </div>
-          <div style="font-weight: 700; color: var(--text-gold-dark); flex-shrink: 0; margin-left: 10px;">₹${sp.toLocaleString('en-IN')}</div>
-        `;
-        container.appendChild(row);
-      });
-    }
+    // Populate item list container dynamically according to current pricing mode
+    this.renderPresentationItemsList();
 
     UI.openModal('modal-jewelry-presentation');
   },
@@ -5263,7 +5638,15 @@ const Catalog = {
 
     const title = document.getElementById('presentation-title').value.trim() || 'Jewelry Showcase';
     const priceMode = document.getElementById('presentation-price-mode').value;
-    const multiplier = parseFloat(document.getElementById('presentation-price-multiplier').value || 1.0);
+    const multiplier = parseFloat(document.getElementById('presentation-price-multiplier').value || 1.0) || 1.0;
+    const customProfitEl = document.getElementById('presentation-custom-profit-pct');
+    const rawProfit = customProfitEl ? String(customProfitEl.value ?? '').trim() : '';
+    const parsedProfit = rawProfit === '' ? NaN : Number(rawProfit);
+    if (priceMode === 'custom_profit' && (!Number.isFinite(parsedProfit) || parsedProfit < 0)) {
+      UI.showToast("Please enter a valid custom profit percentage (0 or higher).", true);
+      return;
+    }
+    const customProfitPct = (Number.isFinite(parsedProfit) && parsedProfit >= 0) ? parsedProfit : 40.0;
     const theme = document.getElementById('presentation-theme').value;
 
     selectedItems.forEach(item => {
@@ -5276,6 +5659,7 @@ const Catalog = {
       title,
       priceMode,
       multiplier,
+      customProfitPct,
       theme
     };
 
@@ -5285,7 +5669,7 @@ const Catalog = {
   },
 
   renderCurrentSlide() {
-    const { items, currentIndex, title, priceMode, multiplier, theme } = this.slideshowState;
+    const { items, currentIndex, title, priceMode, multiplier, customProfitPct, theme } = this.slideshowState;
     if (!items || items.length === 0) return;
 
     const item = items[currentIndex];
@@ -5320,14 +5704,18 @@ const Catalog = {
     if (container) container.style.background = bgGradient;
 
     // Calculate display price
+    const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
     let displayPriceHtml = '';
     if (priceMode === 'selling') {
-      const sp = Math.round(item.evaluation ? item.evaluation.sellingPrice : 0);
+      const sp = this.getPresentationItemPrice(item, goldRate, 'selling', multiplier, customProfitPct);
+      displayPriceHtml = `<div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: ${textMutedColor}; letter-spacing: 0.1em; margin-bottom: 4px;">Selling Price</div>
+                          <div style="font-size: 32px; font-weight: 700; font-family: var(--font-serif); color: ${accentColor};">₹${sp.toLocaleString('en-IN')}</div>`;
+    } else if (priceMode === 'custom_profit') {
+      const sp = this.getPresentationItemPrice(item, goldRate, 'custom_profit', multiplier, customProfitPct);
       displayPriceHtml = `<div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: ${textMutedColor}; letter-spacing: 0.1em; margin-bottom: 4px;">Selling Price</div>
                           <div style="font-size: 32px; font-weight: 700; font-family: var(--font-serif); color: ${accentColor};">₹${sp.toLocaleString('en-IN')}</div>`;
     } else if (priceMode === 'custom') {
-      const baseMarketCost = item.evaluation ? (item.evaluation.marketCostPrice || item.evaluation.grandTotal || 0) : 0;
-      const sp = Math.round(baseMarketCost * (multiplier || 1.0));
+      const sp = this.getPresentationItemPrice(item, goldRate, 'custom', multiplier, customProfitPct);
       displayPriceHtml = `<div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: ${textMutedColor}; letter-spacing: 0.1em; margin-bottom: 4px;">Price (${multiplier.toFixed(2)}x on Market Cost Price)</div>
                           <div style="font-size: 32px; font-weight: 700; font-family: var(--font-serif); color: ${accentColor};">₹${sp.toLocaleString('en-IN')}</div>`;
     }
@@ -5504,15 +5892,39 @@ const Catalog = {
 
   async exportPresentationPdf() {
     // 1. Gather configuration parameters (prefer active modal inputs, fallback to slideshow state)
+    const slideshowModal = document.getElementById('modal-jewelry-slideshow');
+    const isSlideshowOpen = Boolean(slideshowModal && !slideshowModal.classList.contains('hidden'));
+
     const titleInput = document.getElementById('presentation-title');
     const priceModeInput = document.getElementById('presentation-price-mode');
     const multiplierInput = document.getElementById('presentation-price-multiplier');
+    const customProfitInput = document.getElementById('presentation-custom-profit-pct');
     const themeInput = document.getElementById('presentation-theme');
 
-    const title = (titleInput?.value || '').trim() || this.slideshowState?.title || 'Jewelry Collection Showcase';
-    const priceMode = priceModeInput?.value || this.slideshowState?.priceMode || 'selling';
-    const multiplier = parseFloat(multiplierInput?.value || this.slideshowState?.multiplier || 1.0) || 1.0;
-    const theme = themeInput?.value || this.slideshowState?.theme || 'gold';
+    const title = isSlideshowOpen
+      ? (this.slideshowState?.title || (titleInput?.value || '').trim() || 'Jewelry Collection Showcase')
+      : ((titleInput?.value || '').trim() || this.slideshowState?.title || 'Jewelry Collection Showcase');
+    const priceMode = isSlideshowOpen
+      ? (this.slideshowState?.priceMode || priceModeInput?.value || 'selling')
+      : (priceModeInput?.value || this.slideshowState?.priceMode || 'selling');
+    const multiplier = isSlideshowOpen
+      ? (parseFloat(this.slideshowState?.multiplier || multiplierInput?.value || 1.0) || 1.0)
+      : (parseFloat(multiplierInput?.value || this.slideshowState?.multiplier || 1.0) || 1.0);
+    const theme = isSlideshowOpen
+      ? (this.slideshowState?.theme || themeInput?.value || 'gold')
+      : (themeInput?.value || this.slideshowState?.theme || 'gold');
+
+    const rawProfitStr = customProfitInput ? String(customProfitInput.value ?? '').trim() : '';
+    const parsedModalProfit = rawProfitStr === '' ? NaN : Number(rawProfitStr);
+    const stateProfit = Number(this.slideshowState?.customProfitPct);
+    const customProfitPct = isSlideshowOpen
+      ? (Number.isFinite(stateProfit) && stateProfit >= 0 ? stateProfit : (Number.isFinite(parsedModalProfit) && parsedModalProfit >= 0 ? parsedModalProfit : 40.0))
+      : (Number.isFinite(parsedModalProfit) && parsedModalProfit >= 0 ? parsedModalProfit : (Number.isFinite(stateProfit) && stateProfit >= 0 ? stateProfit : 40.0));
+
+    if (!isSlideshowOpen && priceMode === 'custom_profit' && customProfitInput && (!Number.isFinite(parsedModalProfit) || parsedModalProfit < 0)) {
+      UI.showToast("Please enter a valid custom profit percentage (0 or higher).", true);
+      return;
+    }
 
     // 2. Identify and prepare items
     const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
@@ -5874,10 +6286,8 @@ const Catalog = {
           const priceBoxH = 21;
           const priceBoxY = rowY + (rowH - priceBoxH) / 2;
 
-          if (priceMode === 'selling' || priceMode === 'custom') {
-            const finalPrice = priceMode === 'custom'
-              ? Math.round((evalRes.marketCostPrice || evalRes.grandTotal || 0) * multiplier)
-              : Math.round(evalRes.sellingPrice || 0);
+          if (priceMode === 'selling' || priceMode === 'custom' || priceMode === 'custom_profit') {
+            const finalPrice = this.getPresentationItemPrice(item, goldRate, priceMode, multiplier, customProfitPct);
 
             doc.setFillColor(...pal.priceBg);
             doc.setDrawColor(...pal.priceBorder);

@@ -1294,20 +1294,28 @@ const App = {
     }
 
     // 8. Valuations
+    const canonicalItem = (DBManager.getItems() || []).find(i => i.id === item.id) || item;
+    const savedProfitPct = Number(canonicalItem.profitPercentage !== undefined ? canonicalItem.profitPercentage : 40);
+    const catalogCustomProfit = (window.Catalog && typeof Catalog.getActiveCustomProfitMargin === 'function')
+      ? Catalog.getActiveCustomProfitMargin()
+      : null;
+    const initialProfitPct = catalogCustomProfit !== null ? catalogCustomProfit : savedProfitPct;
+
     const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
-    const evaluation = Calc.evaluateItem(item, goldRate);
+    const baseEvaluation = Calc.evaluateItem(canonicalItem, goldRate);
+    const initialEvaluation = Calc.evaluateItem(canonicalItem, goldRate, undefined, { profitPercentage: initialProfitPct });
     
-    document.getElementById('detail-jewelry-market-price').textContent = `₹${evaluation.marketCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    document.getElementById('detail-jewelry-market-price').textContent = `₹${baseEvaluation.marketCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
     
     const mfgPriceEl = document.getElementById('detail-jewelry-mfg-price');
     if (mfgPriceEl) {
-      mfgPriceEl.textContent = `₹${evaluation.mfgGrandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+      mfgPriceEl.textContent = `₹${baseEvaluation.mfgGrandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
     }
     
     const homeCostWrapper = document.getElementById('detail-jewelry-home-cost-wrapper');
-    if (evaluation.hasEmerald) {
+    if (baseEvaluation.hasEmerald) {
       if (homeCostWrapper) homeCostWrapper.style.display = 'block';
-      document.getElementById('detail-jewelry-home-price').textContent = `₹${evaluation.homeCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+      document.getElementById('detail-jewelry-home-price').textContent = `₹${baseEvaluation.homeCostPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
     } else {
       if (homeCostWrapper) homeCostWrapper.style.display = 'none';
     }
@@ -1317,7 +1325,62 @@ const App = {
       detailCommEl.textContent = `₹${commVal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
     }
     
-    document.getElementById('detail-jewelry-selling-price').textContent = `₹${evaluation.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    document.getElementById('detail-jewelry-selling-price').textContent = `₹${initialEvaluation.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+
+    // 8b. Interactive Custom Profit Margin % (Excluding Emeralds) Preview in Detail View
+    const savedBadgeEl = document.getElementById('detail-jewelry-saved-profit-badge');
+    if (savedBadgeEl) {
+      savedBadgeEl.textContent = `Saved: ${savedProfitPct.toFixed(1)}%`;
+    }
+
+    const updateDetailCustomProfitView = (rawVal) => {
+      const sellingPriceEl = document.getElementById('detail-jewelry-selling-price');
+      const noteEl = document.getElementById('detail-jewelry-custom-profit-note');
+      const resetBtnEl = document.getElementById('btn-detail-reset-profit-pct');
+      const parsed = (rawVal !== '' && rawVal !== null && rawVal !== undefined) ? Number(rawVal) : NaN;
+      const effectivePct = (Number.isFinite(parsed) && parsed >= 0) ? parsed : savedProfitPct;
+      const customEval = Calc.evaluateItem(canonicalItem, goldRate, undefined, { profitPercentage: effectivePct });
+
+      if (sellingPriceEl) {
+        sellingPriceEl.textContent = `₹${customEval.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+      }
+
+      const isOverridden = Number.isFinite(parsed) && parsed >= 0 && Math.abs(parsed - savedProfitPct) > 0.0001;
+      if (resetBtnEl) {
+        resetBtnEl.style.display = isOverridden ? 'inline-flex' : 'none';
+      }
+      if (noteEl) {
+        if (isOverridden) {
+          noteEl.textContent = `Custom ${effectivePct.toFixed(1)}% applied (Emeralds excluded) • Saved (${savedProfitPct.toFixed(1)}%) SP: ₹${baseEvaluation.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+          noteEl.style.color = 'var(--text-gold-dark)';
+        } else {
+          noteEl.textContent = 'Applies profit % strictly on non-emerald cost (Emeralds added at 1.0x without markup). Preview only — saved item is unchanged.';
+          noteEl.style.color = 'var(--text-muted)';
+        }
+      }
+    };
+
+    const profitInputEl = document.getElementById('detail-jewelry-custom-profit-pct');
+    if (profitInputEl) {
+      const freshInput = profitInputEl.cloneNode(true);
+      freshInput.value = Number(initialProfitPct).toFixed(1);
+      profitInputEl.parentNode.replaceChild(freshInput, profitInputEl);
+      freshInput.addEventListener('input', () => updateDetailCustomProfitView(freshInput.value));
+      freshInput.addEventListener('change', () => updateDetailCustomProfitView(freshInput.value));
+    }
+
+    const resetProfitBtn = document.getElementById('btn-detail-reset-profit-pct');
+    if (resetProfitBtn) {
+      const freshResetBtn = resetProfitBtn.cloneNode(true);
+      resetProfitBtn.parentNode.replaceChild(freshResetBtn, resetProfitBtn);
+      freshResetBtn.addEventListener('click', () => {
+        const inp = document.getElementById('detail-jewelry-custom-profit-pct');
+        if (inp) inp.value = savedProfitPct.toFixed(1);
+        updateDetailCustomProfitView(savedProfitPct);
+      });
+    }
+
+    updateDetailCustomProfitView(initialProfitPct);
 
     // 9. Edit & Sell button wire up
     const btnEdit = document.getElementById('btn-detail-edit-item');
@@ -1327,7 +1390,7 @@ const App = {
       newBtn.addEventListener('click', () => {
         UI.closeModal('modal-jewelry-detail');
         document.getElementById('jewelry-modal-title').textContent = "Edit Jewelry Piece";
-        UI.loadItemIntoForm(item);
+        UI.loadItemIntoForm(canonicalItem);
         UI.openModal('modal-jewelry-item');
       });
     }
@@ -2226,7 +2289,15 @@ const App = {
     document.getElementById('lightbox-item-sku').textContent = item.sku || '';
 
     const goldRate = Number(DBManager.getSettings().goldRate24kt ? DBManager.getSettings().goldRate24kt.ratePerGram : 0);
-    const evaluation = Calc.evaluateItem(item, goldRate);
+    const activeCustomProfit = (window.Catalog && typeof Catalog.getActiveCustomProfitMargin === 'function')
+      ? Catalog.getActiveCustomProfitMargin()
+      : null;
+    const evaluation = Calc.evaluateItem(
+      item,
+      goldRate,
+      undefined,
+      activeCustomProfit !== null ? { profitPercentage: activeCustomProfit } : undefined
+    );
     item.evaluation = evaluation;
 
     const netMetals = Calc.getNetMetals(item);
